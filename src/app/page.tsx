@@ -21,7 +21,7 @@ function DashboardContent() {
   }
 }
 
-export default function Home() {
+export default function HomePage() {
   return (
     <AppProvider>
       <MainLayout>
