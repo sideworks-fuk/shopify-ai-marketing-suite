@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAppContext } from "@/contexts/AppContext"
+import { useAppContext } from "../../contexts/AppContext"
 import {
   BarChart,
   Bar,
@@ -106,12 +106,152 @@ const combinationAnalysisData = [
   },
 ]
 
-const categoryDistributionData = [
-  { category: "エレクトロニクス", value: 35, color: "#3B82F6" },
-  { category: "ファッション", value: 28, color: "#10B981" },
-  { category: "ホーム&ガーデン", value: 20, color: "#F59E0B" },
-  { category: "スポーツ", value: 12, color: "#EF4444" },
-  { category: "その他", value: 5, color: "#6B7280" },
+// 月別売上詳細データ
+const monthlyDetailedSalesData = [
+  {
+    month: "2024年1月",
+    productA: { quantity: 100, amount: 50000 },
+    productB: { quantity: 80, amount: 40000 },
+    productC: { quantity: 65, amount: 32500 },
+    productD: { quantity: 45, amount: 22500 },
+    productE: { quantity: 35, amount: 17500 },
+    productF: { quantity: 25, amount: 12500 },
+    productG: { quantity: 20, amount: 10000 },
+    productH: { quantity: 15, amount: 7500 },
+    total: { quantity: 385, amount: 192500 },
+  },
+  {
+    month: "2024年2月",
+    productA: { quantity: 110, amount: 55000 },
+    productB: { quantity: 85, amount: 42500 },
+    productC: { quantity: 70, amount: 35000 },
+    productD: { quantity: 50, amount: 25000 },
+    productE: { quantity: 40, amount: 20000 },
+    productF: { quantity: 30, amount: 15000 },
+    productG: { quantity: 25, amount: 12500 },
+    productH: { quantity: 20, amount: 10000 },
+    total: { quantity: 430, amount: 215000 },
+  },
+  {
+    month: "2024年3月",
+    productA: { quantity: 125, amount: 62500 },
+    productB: { quantity: 95, amount: 47500 },
+    productC: { quantity: 80, amount: 40000 },
+    productD: { quantity: 60, amount: 30000 },
+    productE: { quantity: 45, amount: 22500 },
+    productF: { quantity: 35, amount: 17500 },
+    productG: { quantity: 30, amount: 15000 },
+    productH: { quantity: 25, amount: 12500 },
+    total: { quantity: 495, amount: 247500 },
+  },
+  {
+    month: "2024年4月",
+    productA: { quantity: 115, amount: 57500 },
+    productB: { quantity: 90, amount: 45000 },
+    productC: { quantity: 75, amount: 37500 },
+    productD: { quantity: 55, amount: 27500 },
+    productE: { quantity: 42, amount: 21000 },
+    productF: { quantity: 32, amount: 16000 },
+    productG: { quantity: 28, amount: 14000 },
+    productH: { quantity: 23, amount: 11500 },
+    total: { quantity: 460, amount: 230000 },
+  },
+  {
+    month: "2024年5月",
+    productA: { quantity: 135, amount: 67500 },
+    productB: { quantity: 105, amount: 52500 },
+    productC: { quantity: 85, amount: 42500 },
+    productD: { quantity: 65, amount: 32500 },
+    productE: { quantity: 50, amount: 25000 },
+    productF: { quantity: 40, amount: 20000 },
+    productG: { quantity: 35, amount: 17500 },
+    productH: { quantity: 30, amount: 15000 },
+    total: { quantity: 545, amount: 272500 },
+  },
+  {
+    month: "2024年6月",
+    productA: { quantity: 145, amount: 72500 },
+    productB: { quantity: 115, amount: 57500 },
+    productC: { quantity: 95, amount: 47500 },
+    productD: { quantity: 75, amount: 37500 },
+    productE: { quantity: 55, amount: 27500 },
+    productF: { quantity: 45, amount: 22500 },
+    productG: { quantity: 40, amount: 20000 },
+    productH: { quantity: 35, amount: 17500 },
+    total: { quantity: 605, amount: 302500 },
+  },
+  {
+    month: "2024年7月",
+    productA: { quantity: 160, amount: 80000 },
+    productB: { quantity: 125, amount: 62500 },
+    productC: { quantity: 105, amount: 52500 },
+    productD: { quantity: 85, amount: 42500 },
+    productE: { quantity: 65, amount: 32500 },
+    productF: { quantity: 50, amount: 25000 },
+    productG: { quantity: 45, amount: 22500 },
+    productH: { quantity: 40, amount: 20000 },
+    total: { quantity: 675, amount: 337500 },
+  },
+  {
+    month: "2024年8月",
+    productA: { quantity: 170, amount: 85000 },
+    productB: { quantity: 135, amount: 67500 },
+    productC: { quantity: 115, amount: 57500 },
+    productD: { quantity: 95, amount: 47500 },
+    productE: { quantity: 75, amount: 37500 },
+    productF: { quantity: 55, amount: 27500 },
+    productG: { quantity: 50, amount: 25000 },
+    productH: { quantity: 45, amount: 22500 },
+    total: { quantity: 740, amount: 370000 },
+  },
+  {
+    month: "2024年9月",
+    productA: { quantity: 180, amount: 90000 },
+    productB: { quantity: 145, amount: 72500 },
+    productC: { quantity: 125, amount: 62500 },
+    productD: { quantity: 105, amount: 52500 },
+    productE: { quantity: 85, amount: 42500 },
+    productF: { quantity: 65, amount: 32500 },
+    productG: { quantity: 55, amount: 27500 },
+    productH: { quantity: 50, amount: 25000 },
+    total: { quantity: 810, amount: 405000 },
+  },
+  {
+    month: "2024年10月",
+    productA: { quantity: 195, amount: 97500 },
+    productB: { quantity: 155, amount: 77500 },
+    productC: { quantity: 135, amount: 67500 },
+    productD: { quantity: 115, amount: 57500 },
+    productE: { quantity: 95, amount: 47500 },
+    productF: { quantity: 75, amount: 37500 },
+    productG: { quantity: 65, amount: 32500 },
+    productH: { quantity: 55, amount: 27500 },
+    total: { quantity: 890, amount: 445000 },
+  },
+  {
+    month: "2024年11月",
+    productA: { quantity: 210, amount: 105000 },
+    productB: { quantity: 165, amount: 82500 },
+    productC: { quantity: 145, amount: 72500 },
+    productD: { quantity: 125, amount: 62500 },
+    productE: { quantity: 105, amount: 52500 },
+    productF: { quantity: 85, amount: 42500 },
+    productG: { quantity: 75, amount: 37500 },
+    productH: { quantity: 65, amount: 32500 },
+    total: { quantity: 975, amount: 487500 },
+  },
+  {
+    month: "2024年12月",
+    productA: { quantity: 230, amount: 115000 },
+    productB: { quantity: 180, amount: 90000 },
+    productC: { quantity: 160, amount: 80000 },
+    productD: { quantity: 140, amount: 70000 },
+    productE: { quantity: 120, amount: 60000 },
+    productF: { quantity: 100, amount: 50000 },
+    productG: { quantity: 85, amount: 42500 },
+    productH: { quantity: 75, amount: 37500 },
+    total: { quantity: 1090, amount: 545000 },
+  },
 ]
 
 const SalesDashboard = () => {
@@ -397,6 +537,206 @@ const SalesDashboard = () => {
                   <p className="text-2xl font-bold text-purple-900">{formatCurrency(2650000)}</p>
                   <p className="text-sm text-purple-700">来月の予測売上</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 月別売上詳細テーブル */}
+          <Card className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-gray-900">月別売上詳細</CardTitle>
+              <CardDescription>商品別の月次売上数量・金額詳細</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-200">
+                      <th
+                        rowSpan={2}
+                        className="text-left py-4 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-50 min-w-[120px]"
+                      >
+                        月
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品A
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品B
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品C
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品D
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品E
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品F
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品G
+                      </th>
+                      <th
+                        colSpan={2}
+                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                      >
+                        商品H
+                      </th>
+                      <th colSpan={2} className="text-center py-2 px-3 font-medium text-gray-900 bg-green-50">
+                        合計
+                      </th>
+                    </tr>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                        金額
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-green-25">
+                        数量
+                      </th>
+                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 bg-green-25">金額</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyDetailedSalesData.map((row, index) => (
+                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-25">
+                          {row.month}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productA.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productA.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productB.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productB.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productC.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productC.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productD.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productD.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productE.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productE.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productF.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productF.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productG.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productG.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                          {formatNumber(row.productH.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                          {formatCurrency(row.productH.amount)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono font-semibold border-r border-gray-100 bg-green-25">
+                          {formatNumber(row.total.quantity)}
+                        </td>
+                        <td className="py-3 px-2 text-center text-sm font-mono font-semibold bg-green-25">
+                          {formatCurrency(row.total.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <Package className="h-4 w-4 inline-block mr-1" />
+                  <span className="font-semibold">年間合計: </span>
+                  数量 {formatNumber(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.quantity, 0))}個、
+                  金額 {formatCurrency(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.amount, 0))}
+                </p>
               </div>
             </CardContent>
           </Card>

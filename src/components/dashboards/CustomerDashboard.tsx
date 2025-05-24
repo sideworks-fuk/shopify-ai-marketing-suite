@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAppContext } from "@/contexts/AppContext"
+import { useAppContext } from "../../contexts/AppContext"
 import {
   BarChart,
   Bar,
@@ -14,6 +14,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from "recharts"
 import {
   Users,
@@ -28,6 +30,10 @@ import {
   ChevronUp,
   Eye,
   MoreHorizontal,
+  Repeat,
+  Crown,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
@@ -45,13 +51,37 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge } from "../ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 
-// サンプルデータ
-const customerStatusData = {
-  active: { count: 2456, change: 5.2 },
-  atRisk: { count: 389, change: 12.1 },
-  vip: { count: 127, change: 8.9 },
-  dormant: { count: 234, change: -3.4 },
-}
+// 顧客分析用のサンプルデータ
+const customerSegmentData = [
+  { name: "新規顧客", value: 35, color: "#3b82f6" },
+  { name: "リピーター", value: 45, color: "#10b981" },
+  { name: "VIP顧客", value: 15, color: "#f59e0b" },
+  { name: "休眠顧客", value: 5, color: "#ef4444" },
+]
+
+const customerAcquisitionData = [
+  { month: "1月", newCustomers: 120, cost: 45000 },
+  { month: "2月", newCustomers: 135, cost: 52000 },
+  { month: "3月", newCustomers: 158, cost: 48000 },
+  { month: "4月", newCustomers: 142, cost: 51000 },
+  { month: "5月", newCustomers: 167, cost: 49000 },
+  { month: "6月", newCustomers: 189, cost: 53000 },
+]
+
+const customerLifetimeValueData = [
+  { segment: "新規", ltv: 15000, orders: 1.2 },
+  { segment: "リピーター", ltv: 45000, orders: 3.8 },
+  { segment: "VIP", ltv: 120000, orders: 8.5 },
+  { segment: "休眠", ltv: 8000, orders: 0.8 },
+]
+
+const topCustomers = [
+  { id: "C001", name: "田中 太郎", totalSpent: 450000, orders: 12, lastOrder: "2024-03-15", segment: "VIP" },
+  { id: "C002", name: "佐藤 花子", totalSpent: 380000, orders: 9, lastOrder: "2024-03-18", segment: "VIP" },
+  { id: "C003", name: "鈴木 一郎", totalSpent: 320000, orders: 8, lastOrder: "2024-03-20", segment: "リピーター" },
+  { id: "C004", name: "高橋 美咲", totalSpent: 280000, orders: 7, lastOrder: "2024-03-12", segment: "リピーター" },
+  { id: "C005", name: "伊藤 健太", totalSpent: 250000, orders: 6, lastOrder: "2024-03-22", segment: "リピーター" },
+]
 
 const purchaseFrequencyData = [
   { frequency: "1回", current: 1500, previous: 1200 },
@@ -79,13 +109,6 @@ const fLayerTrendData = [
   { month: "10月", F1: 165, F2: 98, F3: 59, F4: 36, F5: 23 },
   { month: "11月", F1: 155, F2: 92, F3: 56, F4: 34, F5: 21 },
   { month: "12月", F1: 145, F2: 87, F3: 53, F4: 33, F5: 20 },
-]
-
-const customerSegmentData = [
-  { segment: "新規", count: 1250, color: "#3B82F6" },
-  { segment: "リピーター", count: 1890, color: "#10B981" },
-  { segment: "VIP", count: 127, color: "#F59E0B" },
-  { segment: "休眠", count: 234, color: "#EF4444" },
 ]
 
 const dormantCustomersData = [
@@ -370,7 +393,7 @@ export default function CustomerDashboard() {
     }
   }
 
-  const totalCustomers = customerSegmentData.reduce((sum, segment) => sum + segment.count, 0)
+  const totalCustomers = customerSegmentData.reduce((sum, segment) => sum + segment.value, 0)
 
   return (
     <div className="space-y-6">
@@ -397,10 +420,10 @@ export default function CustomerDashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="全顧客">全顧客</SelectItem>
-                <SelectItem value="新規">新規</SelectItem>
+                <SelectItem value="新規">新規顧客</SelectItem>
                 <SelectItem value="リピーター">リピーター</SelectItem>
-                <SelectItem value="VIP">VIP</SelectItem>
-                <SelectItem value="休眠">休眠</SelectItem>
+                <SelectItem value="VIP">VIP顧客</SelectItem>
+                <SelectItem value="休眠">休眠顧客</SelectItem>
               </SelectContent>
             </Select>
 
@@ -430,36 +453,135 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
+      {/* KPIカード */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">総顧客数</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2,847</div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-green-600 flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                +12.5%
+              </span>
+              前月比
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">新規顧客数</CardTitle>
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">189</div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-green-600 flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                +8.2%
+              </span>
+              前月比
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">リピート率</CardTitle>
+            <Repeat className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">68.5%</div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-red-600 flex items-center">
+                <TrendingDown className="h-3 w-3 mr-1" />
+                -2.1%
+              </span>
+              前月比
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">平均LTV</CardTitle>
+            <Crown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">¥42,500</div>
+            <p className="text-xs text-muted-foreground">
+              <span className="text-green-600 flex items-center">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                +5.8%
+              </span>
+              前月比
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* 顧客ステータス概要 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatusCard
-          title="アクティブ顧客"
-          count={customerStatusData.active.count}
-          change={customerStatusData.active.change}
-          icon={Users}
-          color={colors.active}
-        />
-        <StatusCard
-          title="休眠リスク"
-          count={customerStatusData.atRisk.count}
-          change={customerStatusData.atRisk.change}
-          icon={AlertTriangle}
-          color={colors.atRisk}
-        />
-        <StatusCard
-          title="高価値顧客"
-          count={customerStatusData.vip.count}
-          change={customerStatusData.vip.change}
-          icon={Diamond}
-          color={colors.vip}
-        />
-        <StatusCard
-          title="休眠顧客"
-          count={customerStatusData.dormant.count}
-          change={customerStatusData.dormant.change}
-          icon={Moon}
-          color={colors.dormant}
-        />
+        <StatusCard title="アクティブ顧客" count={1200} change={5.2} icon={Users} color={colors.active} />
+        <StatusCard title="休眠リスク" count={300} change={12.1} icon={AlertTriangle} color={colors.atRisk} />
+        <StatusCard title="高価値顧客" count={200} change={8.9} icon={Diamond} color={colors.vip} />
+        <StatusCard title="休眠顧客" count={100} change={-3.4} icon={Moon} color={colors.dormant} />
+      </div>
+
+      {/* グラフエリア */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 顧客セグメント分布 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>顧客セグメント分布</CardTitle>
+            <CardDescription>顧客の分類別構成比</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={customerSegmentData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}%`}
+                >
+                  {customerSegmentData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* 新規顧客獲得推移 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>新規顧客獲得推移</CardTitle>
+            <CardDescription>月別新規顧客数と獲得コスト</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={customerAcquisitionData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip />
+                <Bar yAxisId="left" dataKey="newCustomers" fill="#3b82f6" name="新規顧客数" />
+                <Line yAxisId="right" type="monotone" dataKey="cost" stroke="#ef4444" name="獲得コスト" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
 
       {/* 購入パターン分析 */}
@@ -590,99 +712,67 @@ export default function CustomerDashboard() {
         </Card>
       </div>
 
-      {/* 顧客詳細分析 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 顧客セグメント分布 */}
-        <Card className="bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">顧客セグメント分布</CardTitle>
-            <CardDescription>顧客タイプ別の割合</CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <div className="w-64 h-64 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={customerSegmentData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    innerRadius={40}
-                    fill="#8884d8"
-                    dataKey="count"
-                    nameKey="segment"
-                  >
-                    {customerSegmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [`${formatNumber(Number(value))}人`, "顧客数"]}
-                    labelFormatter={(label) => `セグメント: ${label}`}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-sm text-gray-600">総顧客数</p>
-                <p className="text-2xl font-bold">{formatNumber(totalCustomers)}</p>
-              </div>
-            </div>
-            <div className="ml-4 flex flex-col justify-center">
-              {customerSegmentData.map((segment, index) => (
-                <div key={index} className="flex items-center mb-2">
-                  <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: segment.color }}></div>
-                  <span className="text-sm">
-                    {segment.segment}: {formatNumber(segment.count)}人 (
-                    {((segment.count / totalCustomers) * 100).toFixed(1)}%)
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* LTV分析 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>顧客生涯価値（LTV）分析</CardTitle>
+          <CardDescription>セグメント別の平均LTVと注文回数</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={customerLifetimeValueData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="segment" />
+              <YAxis yAxisId="left" />
+              <YAxis yAxisId="right" orientation="right" />
+              <Tooltip />
+              <Bar yAxisId="left" dataKey="ltv" fill="#10b981" name="平均LTV (円)" />
+              <Bar yAxisId="right" dataKey="orders" fill="#f59e0b" name="平均注文回数" />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-        {/* 休眠顧客管理 */}
-        <Card className="bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-gray-900">休眠顧客管理</CardTitle>
-            <CardDescription>休眠期間別の顧客数とアクション推奨</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">休眠期間</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">顧客数</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">推奨アクション</th>
-                  <th className="text-right py-3 px-4 font-medium text-gray-900">実行</th>
+      {/* 休眠顧客管理 */}
+      <Card className="bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-900">休眠顧客管理</CardTitle>
+          <CardDescription>休眠期間別の顧客数とアクション推奨</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-medium text-gray-900">休眠期間</th>
+                <th className="text-center py-3 px-4 font-medium text-gray-900">顧客数</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900">推奨アクション</th>
+                <th className="text-right py-3 px-4 font-medium text-gray-900">実行</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dormantCustomersData.map((item, index) => (
+                <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="py-3 px-4 font-medium text-gray-900">{item.period}</td>
+                  <td className="py-3 px-4 text-center font-mono">{formatNumber(item.count)}</td>
+                  <td className="py-3 px-4 text-green-600">{item.action}</td>
+                  <td className="py-3 px-4 text-right">
+                    <Button variant="outline" size="sm">
+                      実行
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {dormantCustomersData.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-medium text-gray-900">{item.period}</td>
-                    <td className="py-3 px-4 text-center font-mono">{formatNumber(item.count)}</td>
-                    <td className="py-3 px-4 text-green-600">{item.action}</td>
-                    <td className="py-3 px-4 text-right">
-                      <Button variant="outline" size="sm">
-                        実行
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-4 p-4 bg-amber-50 rounded-lg">
-              <p className="text-sm text-amber-800">
-                <AlertTriangle className="h-4 w-4 inline-block mr-1" />
-                <span className="font-semibold">注意: </span>
-                休眠顧客は前月比で12.1%増加しています。早急なリテンション施策が推奨されます。
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-4 p-4 bg-amber-50 rounded-lg">
+            <p className="text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4 inline-block mr-1" />
+              <span className="font-semibold">注意: </span>
+              休眠顧客は前月比で12.1%増加しています。早急なリテンション施策が推奨されます。
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 顧客詳細リスト */}
       <Card className="bg-white shadow-sm">
@@ -811,6 +901,48 @@ export default function CustomerDashboard() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 上位顧客リスト */}
+      <Card>
+        <CardHeader>
+          <CardTitle>上位顧客リスト</CardTitle>
+          <CardDescription>購入金額上位の顧客一覧</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>顧客ID</TableHead>
+                <TableHead>顧客名</TableHead>
+                <TableHead>累計購入金額</TableHead>
+                <TableHead>注文回数</TableHead>
+                <TableHead>最終注文日</TableHead>
+                <TableHead>セグメント</TableHead>
+                <TableHead>アクション</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topCustomers.map((customer) => (
+                <TableRow key={customer.id}>
+                  <TableCell className="font-medium">{customer.id}</TableCell>
+                  <TableCell>{customer.name}</TableCell>
+                  <TableCell>¥{customer.totalSpent.toLocaleString()}</TableCell>
+                  <TableCell>{customer.orders}回</TableCell>
+                  <TableCell>{customer.lastOrder}</TableCell>
+                  <TableCell>
+                    <Badge variant={customer.segment === "VIP" ? "default" : "secondary"}>{customer.segment}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm">
+                      詳細
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
