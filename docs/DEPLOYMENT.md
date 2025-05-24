@@ -17,7 +17,7 @@
 
 ### 1. 本番環境用ブランチの準備
 
-```powershell
+\`\`\`powershell
 # developブランチの最新変更を取得
 git checkout develop
 git pull origin develop
@@ -30,11 +30,11 @@ git merge develop
 # コンフリクトがあれば解決後、コミット
 git add .
 git commit -m "Merge develop into main for deployment"
-```
+\`\`\`
 
 ### 2. ビルドテスト
 
-```powershell
+\`\`\`powershell
 # 依存関係の更新
 npm ci
 
@@ -43,13 +43,13 @@ npm run build
 
 # テストの実行
 npm test
-```
+\`\`\`
 
 ### 3. 環境変数の準備
 
 本番環境用の環境変数を`.env.production`ファイルに準備します：
 
-```powershell
+\`\`\`powershell
 @"
 # Shopify API
 SHOPIFY_API_KEY=your_production_shopify_api_key
@@ -65,7 +65,7 @@ AZURE_OPENAI_DEPLOYMENT_NAME=your_production_deployment_name
 NEXTAUTH_SECRET=your_production_nextauth_secret
 NEXTAUTH_URL=https://your-production-domain.com
 "@ | Out-File -FilePath .env.production -Encoding utf8
-```
+\`\`\`
 
 ## Vercelへのデプロイ
 
@@ -77,13 +77,13 @@ NEXTAUTH_URL=https://your-production-domain.com
 
 ### 2. Vercel CLIのインストール（オプション）
 
-```powershell
+\`\`\`powershell
 # Vercel CLIのインストール
 npm install -g vercel
 
 # ログイン
 vercel login
-```
+\`\`\`
 
 ### 3. GitHubリポジトリからのデプロイ
 
@@ -99,10 +99,10 @@ vercel login
 
 #### B. Vercel CLIからデプロイ
 
-```powershell
+\`\`\`powershell
 # プロジェクトディレクトリで実行
 vercel --prod
-```
+\`\`\`
 
 ### 4. カスタムドメインの設定（オプション）
 
@@ -191,7 +191,7 @@ vercel --prod
 
 ### 1. 機能テスト
 
-```powershell
+\`\`\`powershell
 # テスト用のPowerShellスクリプト
 $baseUrl = "https://your-production-domain.com"
 
@@ -205,7 +205,7 @@ Write-Host "Auth check: $($auth.status)"
 
 # その他の機能テスト
 # ...
-```
+\`\`\`
 
 ### 2. パフォーマンステスト
 
@@ -225,7 +225,7 @@ Write-Host "Auth check: $($auth.status)"
 
 `.github/workflows/deploy.yml`ファイルを作成：
 
-```yaml
+\`\`\`yaml
 name: Deploy to Production
 
 on:
@@ -257,7 +257,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
-```
+\`\`\`
 
 ### 2. Vercelとの連携設定
 
@@ -277,7 +277,7 @@ jobs:
 
 ### 2. 手動ロールバック
 
-```powershell
+\`\`\`powershell
 # 以前のコミットに戻る
 git checkout main
 git reset --hard <previous-stable-commit-hash>
@@ -287,7 +287,7 @@ git push -f origin main
 git checkout tags/v1.0.0
 git checkout -b rollback-branch
 git push origin rollback-branch:main -f
-```
+\`\`\`
 
 ## トラブルシューティング
 
@@ -302,10 +302,10 @@ git push origin rollback-branch:main -f
 3. 環境変数が正しく設定されているか確認
 
 
-```powershell
+\`\`\`powershell
 # ローカルでビルドテスト
 npm run build
-```
+\`\`\`
 
 ### 2. API接続エラー
 
@@ -318,7 +318,7 @@ npm run build
 3. スコープが適切に設定されているか確認
 
 
-```powershell
+\`\`\`powershell
 # APIエンドポイントのテスト
 $response = Invoke-RestMethod -Uri "https://your-production-domain.com/api/shopify/test" -ErrorAction SilentlyContinue
 if ($response) {
@@ -326,7 +326,7 @@ if ($response) {
 } else {
     Write-Host "API connection failed"
 }
-```
+\`\`\`
 
 ### 3. パフォーマンス問題
 
@@ -351,16 +351,16 @@ if ($response) {
 3. 必要に応じて再デプロイ
 
 
-```powershell
+\`\`\`powershell
 # Vercel CLIで環境変数を確認
 vercel env ls
-```
+\`\`\`
 
 ## 定期的なメンテナンス
 
 ### 1. 依存関係の更新
 
-```powershell
+\`\`\`powershell
 # 依存関係の更新確認
 npm outdated
 
@@ -369,17 +369,17 @@ npm update
 
 # または特定のパッケージを更新
 npm update next react react-dom
-```
+\`\`\`
 
 ### 2. セキュリティスキャン
 
-```powershell
+\`\`\`powershell
 # npm監査
 npm audit
 
 # 脆弱性の修正
 npm audit fix
-```
+\`\`\`
 
 ### 3. パフォーマンスモニタリング
 
@@ -399,5 +399,3 @@ npm audit fix
 - パフォーマンステストが完了している
 - ロールバック計画が準備されている
 - 監視とアラートが設定されている
-
-

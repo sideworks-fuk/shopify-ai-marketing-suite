@@ -1,4 +1,3 @@
-
 # セットアップ手順 (Windows/PowerShell)
 
 ## 開発環境のセットアップ
@@ -14,23 +13,23 @@
 
 1. **リポジトリのクローン**
 
-```powershell
+\`\`\`powershell
    git clone https://github.com/sideworks-fuk/shopify-ai-marketing-suite.git
    cd shopify-ai-marketing-suite
-```
+\`\`\`
 
 2. **依存関係のインストール**
 
-```powershell
+\`\`\`powershell
 npm install
-```
+\`\`\`
 
 
 3. **環境変数の設定**
 
 PowerShellで`.env.local`ファイルを作成します：
 
-```powershell
+\`\`\`powershell
 @"
 # Shopify API
 SHOPIFY_API_KEY=your_shopify_api_key
@@ -46,16 +45,16 @@ AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name
 NEXTAUTH_SECRET=your_nextauth_secret
 NEXTAUTH_URL=http://localhost:3000
 "@ | Out-File -FilePath .env.local -Encoding utf8
-```
+\`\`\`
 
 または、メモ帳などのテキストエディタで`.env.local`ファイルを作成し、上記の内容をコピー＆ペーストすることもできます。
 
 
 4. **開発サーバーの起動**
 
-```powershell
+\`\`\`powershell
 npm run dev
-```
+\`\`\`
 
 
 5. **ブラウザでアクセス**
@@ -143,37 +142,37 @@ npm run dev
 2. 接続情報を取得し、環境変数に設定
 
 
-```powershell
+\`\`\`powershell
 # PowerShellで環境変数を追加
 $env:DATABASE_URL = "your_database_connection_string"
 
 # または.env.localファイルに追加
 Add-Content -Path .env.local -Value "DATABASE_URL=your_database_connection_string"
-```
+\`\`\`
 
 ### Prismaの設定（オプション）
 
 1. Prismaスキーマを初期化
 
 
-```powershell
+\`\`\`powershell
 npx prisma init
-```
+\`\`\`
 
 2. `prisma/schema.prisma`ファイルを編集してデータモデルを定義
 3. データベースマイグレーションを実行
 
 
-```powershell
+\`\`\`powershell
 npx prisma migrate dev --name init
-```
+\`\`\`
 
 4. Prismaクライアントを生成
 
 
-```powershell
+\`\`\`powershell
 npx prisma generate
-```
+\`\`\`
 
 ## 認証の設定
 
@@ -182,19 +181,19 @@ npx prisma generate
 1. 環境変数に`NEXTAUTH_SECRET`と`NEXTAUTH_URL`を設定
 
 
-```powershell
+\`\`\`powershell
 # PowerShellで環境変数を追加
 $env:NEXTAUTH_SECRET = "your_random_secret_key"
 $env:NEXTAUTH_URL = "http://localhost:3000"
 
 # または.env.localファイルに追加
 Add-Content -Path .env.local -Value "NEXTAUTH_SECRET=your_random_secret_key`nNEXTAUTH_URL=http://localhost:3000"
-```
+\`\`\`
 
 2. 認証プロバイダーの設定（例: Shopify）
 
 
-```typescript
+\`\`\`typescript
 // src/app/api/auth/[...nextauth]/route.ts
 import NextAuth from 'next-auth';
 import ShopifyProvider from 'next-auth/providers/shopify';
@@ -224,7 +223,7 @@ const handler = NextAuth({
 });
 
 export { handler as GET, handler as POST };
-```
+\`\`\`
 
 ## テスト環境の設定
 
@@ -233,14 +232,14 @@ export { handler as GET, handler as POST };
 1. Jestをインストール
 
 
-```powershell
+\`\`\`powershell
 npm install --save-dev jest @testing-library/react @testing-library/jest-dom jest-environment-jsdom
-```
+\`\`\`
 
 2. `jest.config.js`ファイルを作成
 
 
-```javascript
+\`\`\`javascript
 const nextJest = require('next/jest');
 
 const createJestConfig = nextJest({
@@ -253,26 +252,26 @@ const customJestConfig = {
 };
 
 module.exports = createJestConfig(customJestConfig);
-```
+\`\`\`
 
 3. `jest.setup.js`ファイルを作成
 
 
-```javascript
+\`\`\`javascript
 import '@testing-library/jest-dom';
-```
+\`\`\`
 
 4. `package.json`にテストスクリプトを追加
 
 
-```json
+\`\`\`json
 {
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch"
   }
 }
-```
+\`\`\`
 
 ## トラブルシューティング
 
@@ -282,30 +281,30 @@ import '@testing-library/jest-dom';
 
 Windowsではパスの長さに制限があります。この問題を解決するには：
 
-```powershell
+\`\`\`powershell
 # PowerShellを管理者として実行し、以下のコマンドを実行
 Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1
-```
+\`\`\`
 
 
 2. **ENOENT エラー**
 
 ファイルパスに関するエラーが発生した場合は、バックスラッシュではなくフォワードスラッシュを使用してみてください：
 
-```javascript
+\`\`\`javascript
 // 悪い例
 const path = 'src\\components\\example.tsx';
 
 // 良い例
 const path = 'src/components/example.tsx';
-```
+\`\`\`
 
 
 3. **環境変数の問題**
 
 PowerShellでは環境変数の設定方法が異なります：
 
-```powershell
+\`\`\`powershell
 # 一時的な環境変数の設定
 $env:VARIABLE_NAME = "value"
 
@@ -314,14 +313,14 @@ $env:VARIABLE_NAME = "value"
 
 # 永続的な環境変数の設定（システムレベル、管理者権限が必要）
 [Environment]::SetEnvironmentVariable("VARIABLE_NAME", "value", "Machine")
-```
+\`\`\`
 
 
 4. **ポート競合**
 
 ポート3000が既に使用されている場合：
 
-```powershell
+\`\`\`powershell
 # 使用中のポートを確認
 netstat -ano | findstr :3000
 
@@ -331,4 +330,4 @@ taskkill /F /PID <PID>
 # または別のポートで起動
 $env:PORT = 3001
 npm run dev
-```
+\`\`\`

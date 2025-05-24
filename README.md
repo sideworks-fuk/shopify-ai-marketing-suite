@@ -35,7 +35,7 @@ Shopifyの注文・売上データをもとに、AIが最適な商品やター�
 
 ### インストール
 
-```powershell
+\`\`\`powershell
 # リポジトリのクローン
 git clone https://github.com/sideworks-fuk/shopify-ai-marketing-suite.git
 cd shopify-ai-marketing-suite
@@ -47,13 +47,13 @@ npm update --legacy-peer-deps
 
 # 開発サーバーの起動
 npm run dev
-```
+\`\`\`
 
 ### 環境変数の設定
 
 `.env.local`ファイルを作成し、以下の環境変数を設定してください：
 
-```powershell
+\`\`\`powershell
 # PowerShellで.env.localファイルを作成する例
 @"
 # Shopify API
@@ -70,13 +70,13 @@ AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name
 NEXTAUTH_SECRET=your_nextauth_secret
 NEXTAUTH_URL=http://localhost:3000
 "@ | Out-File -FilePath .env.local -Encoding utf8
-```
+\`\`\`
 
 ## 開発ガイド
 
 ### プロジェクト構造
 
-```plaintext
+\`\`\`plaintext
 src/
 ├── app/                  # Next.js App Router
 │   ├── api/              # API Routes
@@ -90,7 +90,7 @@ src/
 ├── contexts/             # Reactコンテキスト
 ├── lib/                  # ユーティリティ関数
 └── types/                # TypeScript型定義
-```
+\`\`\`
 
 ### コーディング規約
 
@@ -123,7 +123,7 @@ src/
 
 本番環境では、以下の環境変数を設定してください：
 
-```plaintext
+\`\`\`plaintext
 # Shopify API
 SHOPIFY_API_KEY=your_production_shopify_api_key
 SHOPIFY_API_SECRET=your_production_shopify_api_secret
@@ -137,7 +137,7 @@ AZURE_OPENAI_DEPLOYMENT_NAME=your_production_deployment_name
 # NextAuth.js
 NEXTAUTH_SECRET=your_production_nextauth_secret
 NEXTAUTH_URL=https://your-production-domain.com
-```
+\`\`\`
 
 ## トラブルシューティング
 
@@ -173,6 +173,3 @@ NEXTAUTH_URL=https://your-production-domain.com
 ## 連絡先
 
 質問や提案がある場合は、[Issues](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/issues)にてお問い合わせください。
-
-
-
