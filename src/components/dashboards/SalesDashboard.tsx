@@ -7,10 +7,25 @@ import { TrendingUp, ShoppingCart, Package, DollarSign, ArrowUpRight, ArrowDownR
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
-import YearOverYearProductAnalysis from "./YearOverYearProductAnalysis"
-import ProductPurchaseFrequencyAnalysis from "./ProductPurchaseFrequencyAnalysis"
 import { Badge } from "@/components/ui/badge"
-import PurchaseFrequencyDetailAnalysis from "./PurchaseFrequencyDetailAnalysis"
+
+// 他のコンポーネントを動的インポートに変更
+import dynamic from "next/dynamic"
+
+const YearOverYearProductAnalysis = dynamic(() => import("./YearOverYearProductAnalysis"), {
+  ssr: false,
+  loading: () => <div className="p-4">読み込み中...</div>,
+})
+
+const ProductPurchaseFrequencyAnalysis = dynamic(() => import("./ProductPurchaseFrequencyAnalysis"), {
+  ssr: false,
+  loading: () => <div className="p-4">読み込み中...</div>,
+})
+
+const PurchaseFrequencyDetailAnalysis = dynamic(() => import("./PurchaseFrequencyDetailAnalysis"), {
+  ssr: false,
+  loading: () => <div className="p-4">読み込み中...</div>,
+})
 
 // サンプルデータ
 const kpiData = {
@@ -48,9 +63,7 @@ const productRankingData = [
 
 const SalesDashboard = () => {
   const { selectedPeriod } = useAppContext()
-  const [selectedTab, setSelectedTab] = useState<
-    "sales-dashboard" | "product-frequency" | "year-over-year" | "purchase-detail"
-  >("sales-dashboard")
+  const [selectedTab, setSelectedTab] = useState("sales-dashboard")
   const [selectedPeriodState, setSelectedPeriodState] = useState("thisMonth")
 
   const periodOptions = [

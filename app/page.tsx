@@ -1,7 +1,7 @@
 "use client"
 
-import PurchaseFrequencyAnalysis from "../src/components/purchase-frequency-analysis"
+import AIInsightsDashboard from "../src/components/dashboards/AIInsightsDashboard"
 
 export default function SyntheticV0PageForDeployment() {
-  return <PurchaseFrequencyAnalysis />
+  return <AIInsightsDashboard />
 }
