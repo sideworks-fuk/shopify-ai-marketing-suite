@@ -135,7 +135,7 @@ const defaultTooltipFormatter = (value: any, name: string) => [
  * 汎用チャートラッパーコンポーネント
  * Rechartsの共通化とエラーハンドリングを提供
  */
-export const ChartWrapper: React.FC<ChartWrapperProps> = ({
+export const ChartWrapper = ({
   title,
   description,
   config,
@@ -146,7 +146,7 @@ export const ChartWrapper: React.FC<ChartWrapperProps> = ({
   error = null,
   emptyMessage = "データがありません",
   className = ""
-}) => {
+}: ChartWrapperProps) => {
   // ローディング状態の表示
   if (loading) {
     return (

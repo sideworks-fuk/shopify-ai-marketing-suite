@@ -45,10 +45,10 @@ const statusConfigs: Record<CustomerStatus, StatusConfig> = {
   }
 } as const;
 
-export const CustomerStatusBadge: React.FC<CustomerStatusBadgeProps> = ({ 
+export const CustomerStatusBadge = ({ 
   status, 
   size = "sm" 
-}) => {
+}: CustomerStatusBadgeProps) => {
   const config = statusConfigs[status];
   const Icon = config.icon;
   

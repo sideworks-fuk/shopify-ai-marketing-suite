@@ -16,14 +16,14 @@ const formatNumber = (value: number): string => {
   return new Intl.NumberFormat("ja-JP").format(value);
 };
 
-export const StatusCard: React.FC<StatusCardProps> = ({
+export const StatusCard = ({
   title,
   count,
   change,
   icon: Icon,
   color,
   variant = "default"
-}) => {
+}: StatusCardProps) => {
   const getChangeIcon = () => {
     switch (title) {
       case "休眠リスク":
