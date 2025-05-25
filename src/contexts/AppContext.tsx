@@ -29,7 +29,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = useCallback(() => {
     setIsLoading(true)
-    // シミュレートされたデータ更新
     setTimeout(() => {
       setIsLoading(false)
     }, 1000)
@@ -37,7 +36,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const exportData = useCallback(() => {
     setIsExporting(true)
-    // シミュレートされたエクスポート処理
     setTimeout(() => {
       setIsExporting(false)
     }, 2000)
