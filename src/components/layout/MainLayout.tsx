@@ -30,7 +30,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const mainTabs = [
     { id: "sales", label: "📊 売上分析", icon: "📊" },
     { id: "customers", label: "👥 顧客分析", icon: "👥" },
-    { id: "ai", label: "🤖 AI分析", icon: "🤖" },
+ // { id: "ai", label: "🤖 AI分析", icon: "🤖" },
   ]
 
   return (
