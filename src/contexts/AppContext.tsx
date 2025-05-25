@@ -1,88 +1,46 @@
 "use client"
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useCallback } from "react"
 
-// 型定義
 export type TabType = "sales" | "customers" | "ai"
 export type PeriodType = "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
-export type CustomerSegmentType = "all" | "new" | "returning" | "vip"
-export type ProductCategoryType = "all" | "electronics" | "clothing" | "books" | "home"
 
 interface AppContextType {
-  // タブ管理
   activeTab: TabType
   setActiveTab: (tab: TabType) => void
-
-  // 期間選択
   selectedPeriod: PeriodType
   setSelectedPeriod: (period: PeriodType) => void
-
-  // 顧客セグメント
-  selectedCustomerSegment: CustomerSegmentType
-  setSelectedCustomerSegment: (segment: CustomerSegmentType) => void
-
-  // 商品カテゴリ
-  selectedProductCategory: ProductCategoryType
-  setSelectedProductCategory: (category: ProductCategoryType) => void
-
-  // データ操作
-  refreshData: () => Promise<void>
-  exportData: () => Promise<void>
-
-  // ローディング状態
   isLoading: boolean
+  setIsLoading: (loading: boolean) => void
   isExporting: boolean
+  setIsExporting: (exporting: boolean) => void
+  refreshData: () => void
+  exportData: () => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  // 状態管理
-  const [activeTab, setActiveTabState] = useState<TabType>(() => {
-    if (typeof window !== "undefined") {
-      return (sessionStorage.getItem("activeTab") as TabType) || "sales"
-    }
-    return "sales"
-  })
-
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [activeTab, setActiveTab] = useState<TabType>("sales")
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("thisMonth")
-  const [selectedCustomerSegment, setSelectedCustomerSegment] = useState<CustomerSegmentType>("all")
-  const [selectedProductCategory, setSelectedProductCategory] = useState<ProductCategoryType>("all")
   const [isLoading, setIsLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
-  // タブ切り替え関数
-  const setActiveTab = useCallback((tab: TabType) => {
-    setActiveTabState(tab)
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("activeTab", tab)
-    }
-  }, [])
-
-  // データ更新関数
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(() => {
     setIsLoading(true)
-    try {
-      // データ更新ロジック（実装予定）
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    } catch (error) {
-      console.error("データ更新エラー:", error)
-    } finally {
+    // シミュレートされたデータ更新
+    setTimeout(() => {
       setIsLoading(false)
-    }
+    }, 1000)
   }, [])
 
-  // データエクスポート関数
-  const exportData = useCallback(async () => {
+  const exportData = useCallback(() => {
     setIsExporting(true)
-    try {
-      // エクスポートロジック（実装予定）
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-    } catch (error) {
-      console.error("エクスポートエラー:", error)
-    } finally {
+    // シミュレートされたエクスポート処理
+    setTimeout(() => {
       setIsExporting(false)
-    }
+    }, 2000)
   }, [])
 
   const value: AppContextType = {
@@ -90,14 +48,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActiveTab,
     selectedPeriod,
     setSelectedPeriod,
-    selectedCustomerSegment,
-    setSelectedCustomerSegment,
-    selectedProductCategory,
-    setSelectedProductCategory,
+    isLoading,
+    setIsLoading,
+    isExporting,
+    setIsExporting,
     refreshData,
     exportData,
-    isLoading,
-    isExporting,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

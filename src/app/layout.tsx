@@ -1,14 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { AppProvider } from "../contexts/AppContext"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Shopify ECマーケティング分析",
-  description: "Shopifyストア運営者向けAI分析ダッシュボード",
+  description: "Shopify ECストア向けの包括的なマーケティング分析ダッシュボード",
 }
 
 export default function RootLayout({
@@ -18,9 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
-        <AppProvider>{children}</AppProvider>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }
