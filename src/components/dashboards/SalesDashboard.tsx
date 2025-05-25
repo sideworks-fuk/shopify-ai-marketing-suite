@@ -18,6 +18,7 @@ import { TrendingUp, ShoppingCart, Package, DollarSign, ArrowUpRight, ArrowDownR
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import PurchaseFrequencyAnalysis from "../purchase-frequency-analysis"
+import YearOverYearProductAnalysis from "./YearOverYearProductAnalysis"
 
 // サンプルデータ
 const kpiData = {
@@ -256,7 +257,7 @@ const monthlyDetailedSalesData = [
 
 const SalesDashboard = () => {
   const { selectedPeriod } = useAppContext()
-  const [activeTab, setActiveTab] = useState<"dashboard" | "frequency">("dashboard")
+  const [activeTab, setActiveTab] = useState<"dashboard" | "frequency" | "yearOverYear">("dashboard")
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -363,6 +364,16 @@ const SalesDashboard = () => {
               }`}
             >
               🔄 購入頻度分析
+            </button>
+            <button
+              onClick={() => setActiveTab("yearOverYear")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                activeTab === "yearOverYear"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              📈 前年同月比【商品】
             </button>
           </nav>
         </div>
@@ -789,8 +800,10 @@ const SalesDashboard = () => {
             </CardContent>
           </Card>
         </>
-      ) : (
+      ) : activeTab === "frequency" ? (
         <PurchaseFrequencyAnalysis />
+      ) : (
+        <YearOverYearProductAnalysis />
       )}
     </div>
   )
