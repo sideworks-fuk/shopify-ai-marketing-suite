@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import YearOverYearProductAnalysis from "./YearOverYearProductAnalysis"
 import ProductPurchaseFrequencyAnalysis from "./ProductPurchaseFrequencyAnalysis"
 import { Badge } from "@/components/ui/badge"
+import PurchaseFrequencyDetailAnalysis from "./PurchaseFrequencyDetailAnalysis"
 
 // サンプルデータ
 const kpiData = {
@@ -269,9 +270,9 @@ const monthlyDetailedSalesData = [
 
 const SalesDashboard = () => {
   const { selectedPeriod } = useAppContext()
-  const [selectedTab, setSelectedTab] = useState<"sales-dashboard" | "product-frequency" | "year-over-year">(
-    "sales-dashboard",
-  )
+  const [selectedTab, setSelectedTab] = useState<
+    "sales-dashboard" | "product-frequency" | "year-over-year" | "purchase-detail"
+  >("sales-dashboard")
   const [selectedPeriodState, setSelectedPeriodState] = useState("thisMonth")
 
   const periodOptions = [
@@ -780,7 +781,7 @@ const SalesDashboard = () => {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-sm">
-                期間: {periodOptions.find((p) => p.value === selectedPeriodState)?.label || selectedPeriodState}
+                期間: {periodOptions.find((p) => p.value === selectedPeriodState)?.label || "今月"}
               </Badge>
               <Select value={selectedPeriodState} onValueChange={setSelectedPeriodState}>
                 <SelectTrigger className="w-[150px]">
@@ -801,7 +802,7 @@ const SalesDashboard = () => {
 
       {/* サブタブ分割コンテンツ */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full max-w-3xl grid-cols-3">
+        <TabsList className="grid w-full max-w-4xl grid-cols-4">
           <TabsTrigger value="sales-dashboard" className="flex items-center text-sm">
             <BarChart3 className="h-4 w-4 mr-2" />📊 売上ダッシュボード
           </TabsTrigger>
@@ -811,6 +812,9 @@ const SalesDashboard = () => {
           </TabsTrigger>
           <TabsTrigger value="year-over-year" className="flex items-center text-sm">
             <TrendingUp className="h-4 w-4 mr-2" />📈 前年同月比【商品】
+          </TabsTrigger>
+          <TabsTrigger value="purchase-detail" className="flex items-center text-sm">
+            <Package className="h-4 w-4 mr-2" />📋 購入回数詳細分析
           </TabsTrigger>
         </TabsList>
         <div className="mt-6">
@@ -822,6 +826,9 @@ const SalesDashboard = () => {
           </TabsContent>
           <TabsContent value="year-over-year" className="space-y-6">
             <YearOverYearProductAnalysis />
+          </TabsContent>
+          <TabsContent value="purchase-detail" className="space-y-6">
+            <PurchaseFrequencyDetailAnalysis />
           </TabsContent>
         </div>
       </Tabs>

@@ -87,6 +87,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [scrolled, setScrolled] = useState(false)
   const [isPeriodOpen, setIsPeriodOpen] = useState(false)
 
+  // 期間オプションの定義
+  const periodOptions = [
+    { value: "thisMonth", label: "今月" },
+    { value: "lastMonth", label: "前月" },
+    { value: "thisQuarter", label: "今四半期" },
+    { value: "custom", label: "カスタム" },
+  ]
+
+  // 期間値を日本語ラベルに変換する関数
+  const getPeriodLabel = (periodValue: string) => {
+    const option = periodOptions.find((opt) => opt.value === periodValue)
+    return option ? option.label : "今月"
+  }
+
   // スクロール検出
   useEffect(() => {
     const handleScroll = () => {
@@ -148,35 +162,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 onClick={() => setIsPeriodOpen(!isPeriodOpen)}
               >
                 <Calendar className="h-4 w-4 mr-2" />
-                <span>{selectedPeriod}</span>
+                <span>{getPeriodLabel(selectedPeriod)}</span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </button>
               {isPeriodOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    onClick={() => handlePeriodSelect("今月")}
-                  >
-                    今月
-                  </button>
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    onClick={() => handlePeriodSelect("前月")}
-                  >
-                    前月
-                  </button>
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    onClick={() => handlePeriodSelect("今四半期")}
-                  >
-                    今四半期
-                  </button>
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-                    onClick={() => handlePeriodSelect("カスタム")}
-                  >
-                    カスタム
-                  </button>
+                  {periodOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                      onClick={() => handlePeriodSelect(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
