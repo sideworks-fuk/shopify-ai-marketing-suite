@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { Button } from "./ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { RefreshCw, AlertCircle } from "lucide-react"
 import { DataService } from "@/lib/data-service"
 
@@ -19,23 +19,22 @@ interface PurchaseFrequencyData {
 }
 
 // ヒートマップの色計算
-const getHeatmapColor = (percentage: number): string => {
-  if (percentage === 0) return "bg-gray-50"
-  if (percentage < 10) return "bg-green-100"
-  if (percentage < 20) return "bg-green-200"
-  if (percentage < 30) return "bg-green-300"
-  if (percentage < 40) return "bg-green-400"
-  if (percentage < 50) return "bg-green-500"
-  if (percentage < 60) return "bg-green-600"
-  return "bg-green-700"
+const getHeatmapColor = (customers: number, maxCustomers: number): string => {
+  if (customers === 0) return "bg-gray-50"
+  const intensity = customers / maxCustomers
+  if (intensity < 0.2) return "bg-green-100"
+  if (intensity < 0.4) return "bg-green-200"
+  if (intensity < 0.6) return "bg-green-300"
+  if (intensity < 0.8) return "bg-green-400"
+  return "bg-green-500"
 }
 
-// サンプルデータ（フォールバック用）
+// より本番に近いサンプルデータ
 const getSamplePurchaseFrequencyData = (): PurchaseFrequencyData[] => {
   return [
     {
-      productName: "商品A",
-      productId: "prod_a",
+      productName: "【シフォン】カラートレー 10号H50 ホワイト",
+      productId: "prod_color_tray_10_white",
       totalCustomers: 200,
       frequencies: [
         { count: 1, customers: 120, percentage: 60 },
@@ -51,8 +50,8 @@ const getSamplePurchaseFrequencyData = (): PurchaseFrequencyData[] => {
       ],
     },
     {
-      productName: "商品B",
-      productId: "prod_b",
+      productName: "【シフォン】エコクラフト箱4号H80",
+      productId: "prod_eco_craft_box_4_h80",
       totalCustomers: 198,
       frequencies: [
         { count: 1, customers: 89, percentage: 45 },
@@ -68,8 +67,8 @@ const getSamplePurchaseFrequencyData = (): PurchaseFrequencyData[] => {
       ],
     },
     {
-      productName: "商品C",
-      productId: "prod_c",
+      productName: "【シフォン】ライトフラワー 5号H65",
+      productId: "prod_light_flower_5_h65",
       totalCustomers: 222,
       frequencies: [
         { count: 1, customers: 156, percentage: 70 },
@@ -93,7 +92,7 @@ interface PurchaseFrequencyAnalysisProps {
   useSampleData?: boolean
 }
 
-export default function PurchaseFrequencyAnalysis({
+export default function ProductPurchaseFrequencyAnalysis({
   shopDomain,
   accessToken,
   useSampleData = true,
@@ -151,6 +150,10 @@ export default function PurchaseFrequencyAnalysis({
     )
   }
 
+  const maxCustomers = Math.max(
+    ...purchaseFrequencyData.flatMap((product) => product.frequencies.map((freq) => freq.customers)),
+  )
+
   return (
     <Card>
       <CardHeader>
@@ -185,36 +188,38 @@ export default function PurchaseFrequencyAnalysis({
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+          <div className="min-w-[1200px]">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-medium text-gray-900">商品名</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">1回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">2回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">3回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">4回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">5回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">6回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">7回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">8回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">9回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900">10回+</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-900 min-w-[300px]">商品名</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">1回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">2回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">3回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">4回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">5回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">6回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">7回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">8回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">9回</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">10回+</th>
                 </tr>
               </thead>
               <tbody>
                 {purchaseFrequencyData.map((product) => (
                   <tr key={product.productId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{product.productName}</td>
-                    {product.frequencies.map((freq, index) => (
-                      <td
-                        key={index}
-                        className={`px-4 py-3 text-center border-l border-gray-100 ${getHeatmapColor(freq.percentage)}`}
-                      >
-                        <div className="font-medium text-gray-900">{freq.customers}</div>
-                        <div className="text-xs text-gray-600">({freq.percentage}%)</div>
-                      </td>
-                    ))}
+                    <td className="px-4 py-3 font-medium text-gray-900 text-sm">{product.productName}</td>
+                    {product.frequencies.map((freq, index) => {
+                      return (
+                        <td
+                          key={index}
+                          className={`px-3 py-2 text-center ${getHeatmapColor(freq.customers, maxCustomers)}`}
+                        >
+                          <div className="font-bold text-gray-900">{freq.customers}</div>
+                          <div className="text-xs text-gray-600">({freq.percentage}%)</div>
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -236,8 +241,6 @@ export default function PurchaseFrequencyAnalysis({
               <div className="w-4 h-4 bg-green-300"></div>
               <div className="w-4 h-4 bg-green-400"></div>
               <div className="w-4 h-4 bg-green-500"></div>
-              <div className="w-4 h-4 bg-green-600"></div>
-              <div className="w-4 h-4 bg-green-700"></div>
             </div>
             <span>高</span>
           </div>
@@ -269,14 +272,16 @@ export default function PurchaseFrequencyAnalysis({
               <span className="font-medium text-blue-800">最高リピート商品:</span>
               <span className="ml-2 text-blue-900">
                 {purchaseFrequencyData.length > 0
-                  ? purchaseFrequencyData.reduce((max, product) => {
-                      const repeatRate =
-                        (product.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / product.totalCustomers) *
-                        100
-                      const maxRate =
-                        (max.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / max.totalCustomers) * 100
-                      return repeatRate > maxRate ? product : max
-                    }).productName
+                  ? purchaseFrequencyData
+                      .reduce((max, product) => {
+                        const repeatRate =
+                          (product.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / product.totalCustomers) *
+                          100
+                        const maxRate =
+                          (max.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / max.totalCustomers) * 100
+                        return repeatRate > maxRate ? product : max
+                      })
+                      .productName.split("】")[1] || purchaseFrequencyData[0].productName
                   : "-"}
               </span>
             </div>

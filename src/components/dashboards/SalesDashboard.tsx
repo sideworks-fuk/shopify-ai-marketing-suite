@@ -14,11 +14,23 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts"
-import { TrendingUp, ShoppingCart, Package, DollarSign, ArrowUpRight, ArrowDownRight, Award } from "lucide-react"
+import {
+  TrendingUp,
+  ShoppingCart,
+  Package,
+  DollarSign,
+  ArrowUpRight,
+  ArrowDownRight,
+  Award,
+  BarChart3,
+} from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
-import PurchaseFrequencyAnalysis from "../purchase-frequency-analysis"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import YearOverYearProductAnalysis from "./YearOverYearProductAnalysis"
+import ProductPurchaseFrequencyAnalysis from "./ProductPurchaseFrequencyAnalysis"
+import { Badge } from "@/components/ui/badge"
 
 // サンプルデータ
 const kpiData = {
@@ -257,7 +269,20 @@ const monthlyDetailedSalesData = [
 
 const SalesDashboard = () => {
   const { selectedPeriod } = useAppContext()
-  const [activeTab, setActiveTab] = useState<"dashboard" | "frequency" | "yearOverYear">("dashboard")
+  const [selectedTab, setSelectedTab] = useState<"sales-dashboard" | "product-frequency" | "year-over-year">(
+    "sales-dashboard",
+  )
+  const [selectedPeriodState, setSelectedPeriodState] = useState("thisMonth")
+
+  const periodOptions = [
+    { value: "thisMonth", label: "今月" },
+    { value: "lastMonth", label: "先月" },
+    { value: "last3Months", label: "過去3ヶ月" },
+    { value: "thisQuarter", label: "今四半期" },
+    { value: "lastQuarter", label: "前四半期" },
+    { value: "thisYear", label: "今年" },
+    { value: "lastYear", label: "昨年" },
+  ]
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -331,179 +356,56 @@ const SalesDashboard = () => {
     )
   }
 
-  return (
-    <div className="space-y-6">
-      {/* タブナビゲーション */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">📊 売上分析</h1>
-          <div className="text-sm text-gray-500">
-            期間: <span className="font-medium text-gray-900">{selectedPeriod}</span>
-          </div>
+  const SalesDashboardContent = () => {
+    return (
+      <div className="space-y-6">
+        {/* KPI カード */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <KPICard
+            title="今月売上"
+            current={kpiData.totalSales.current}
+            previous={kpiData.totalSales.previous}
+            change={kpiData.totalSales.change}
+            icon={DollarSign}
+            color="#3B82F6"
+          />
+          <KPICard
+            title="注文数"
+            current={kpiData.totalOrders.current}
+            previous={kpiData.totalOrders.previous}
+            change={kpiData.totalOrders.change}
+            icon={ShoppingCart}
+            color="#10B981"
+          />
+          <KPICard
+            title="平均注文額"
+            current={kpiData.averageOrderValue.current}
+            previous={kpiData.averageOrderValue.previous}
+            change={kpiData.averageOrderValue.change}
+            icon={TrendingUp}
+            color="#F59E0B"
+          />
+          <KPICard
+            title="売上商品数"
+            current={kpiData.totalProducts.current}
+            previous={kpiData.totalProducts.previous}
+            change={kpiData.totalProducts.change}
+            icon={Package}
+            color="#8B5CF6"
+          />
         </div>
 
-        {/* タブ切り替え */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === "dashboard"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              📊 売上ダッシュボード
-            </button>
-            <button
-              onClick={() => setActiveTab("frequency")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === "frequency"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              🔄 購入頻度分析
-            </button>
-            <button
-              onClick={() => setActiveTab("yearOverYear")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === "yearOverYear"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              📈 前年同月比【商品】
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* タブコンテンツ */}
-      {activeTab === "dashboard" ? (
-        <>
-          {/* KPIカード */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <KPICard
-              title="今月売上"
-              current={kpiData.totalSales.current}
-              previous={kpiData.totalSales.previous}
-              change={kpiData.totalSales.change}
-              icon={DollarSign}
-              color="#3B82F6"
-            />
-            <KPICard
-              title="注文数"
-              current={kpiData.totalOrders.current}
-              previous={kpiData.totalOrders.previous}
-              change={kpiData.totalOrders.change}
-              icon={ShoppingCart}
-              color="#10B981"
-            />
-            <KPICard
-              title="平均注文額"
-              current={kpiData.averageOrderValue.current}
-              previous={kpiData.averageOrderValue.previous}
-              change={kpiData.averageOrderValue.change}
-              icon={TrendingUp}
-              color="#F59E0B"
-            />
-            <KPICard
-              title="売上商品数"
-              current={kpiData.totalProducts.current}
-              previous={kpiData.totalProducts.previous}
-              change={kpiData.totalProducts.change}
-              icon={Package}
-              color="#8B5CF6"
-            />
-          </div>
-
-          {/* 前年同月比グラフと商品売上ランキング */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 前年同月比グラフ */}
-            <Card className="bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">前年同月比</CardTitle>
-                <CardDescription>月別売上の前年比較</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value) => [formatCurrency(Number(value)), ""]}
-                      labelFormatter={(label) => `${label}`}
-                    />
-                    <Legend />
-                    <Bar dataKey="current" fill="#3B82F6" name="今年" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="previous" fill="#93C5FD" name="前年" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <TrendingUp className="h-4 w-4 inline-block mr-1" />
-                    <span className="font-semibold">前年同月比: +12.4%</span> - 特に第4四半期の成長が顕著です。
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 商品売上ランキング */}
-            <Card className="bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">商品売上ランキング</CardTitle>
-                <CardDescription>売上上位8商品</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {productRankingData.map((product, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors"
-                    >
-                      <div className="flex items-center">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3 ${
-                            index === 0
-                              ? "bg-yellow-500"
-                              : index === 1
-                                ? "bg-gray-400"
-                                : index === 2
-                                  ? "bg-amber-600"
-                                  : "bg-blue-500"
-                          }`}
-                        >
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{product.name}</p>
-                          <p className="text-sm text-gray-500">{product.orders}件の注文</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(product.sales)}</p>
-                        <p className="text-sm text-green-600 flex items-center">
-                          <ArrowUpRight className="h-3 w-3 mr-1" />+{product.growth}%
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* 月別売上推移グラフ */}
+        {/* 前年同月比グラフと商品売上ランキング */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 前年同月比グラフ */}
           <Card className="bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">月別売上推移</CardTitle>
-              <CardDescription>売上実績と目標の比較</CardDescription>
+              <CardTitle className="text-lg font-semibold text-gray-900">前年同月比</CardTitle>
+              <CardDescription>月別売上の前年比較</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={monthlySalesTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
@@ -512,299 +414,417 @@ const SalesDashboard = () => {
                     labelFormatter={(label) => `${label}`}
                   />
                   <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="#3B82F6"
-                    strokeWidth={3}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                    name="売上実績"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="target"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={{ r: 3 }}
-                    name="売上目標"
-                  />
-                </LineChart>
+                  <Bar dataKey="current" fill="#3B82F6" name="今年" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="previous" fill="#93C5FD" name="前年" radius={[2, 2, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-blue-900 mb-1">目標達成率</h4>
-                  <p className="text-2xl font-bold text-blue-900">140%</p>
-                  <p className="text-sm text-blue-700">年間目標を大幅に上回っています</p>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <h4 className="font-semibold text-green-900 mb-1">成長率</h4>
-                  <p className="text-2xl font-bold text-green-900">+96%</p>
-                  <p className="text-sm text-green-700">前年同期比で大幅な成長</p>
-                </div>
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <h4 className="font-semibold text-purple-900 mb-1">予測売上</h4>
-                  <p className="text-2xl font-bold text-purple-900">{formatCurrency(2650000)}</p>
-                  <p className="text-sm text-purple-700">来月の予測売上</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 月別売上詳細テーブル */}
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">月別売上詳細</CardTitle>
-              <CardDescription>商品別の月次売上数量・金額詳細</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-gray-200">
-                      <th
-                        rowSpan={2}
-                        className="text-left py-4 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-50 min-w-[120px]"
-                      >
-                        月
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品A
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品B
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品C
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品D
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品E
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品F
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品G
-                      </th>
-                      <th
-                        colSpan={2}
-                        className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                      >
-                        商品H
-                      </th>
-                      <th colSpan={2} className="text-center py-2 px-3 font-medium text-gray-900 bg-green-50">
-                        合計
-                      </th>
-                    </tr>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
-                        金額
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-green-25">
-                        数量
-                      </th>
-                      <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 bg-green-25">金額</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monthlyDetailedSalesData.map((row, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-25">
-                          {row.month}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productA.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productA.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productB.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productB.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productC.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productC.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productD.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productD.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productE.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productE.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productF.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productF.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productG.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productG.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
-                          {formatNumber(row.productH.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
-                          {formatCurrency(row.productH.amount)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono font-semibold border-r border-gray-100 bg-green-25">
-                          {formatNumber(row.total.quantity)}
-                        </td>
-                        <td className="py-3 px-2 text-center text-sm font-mono font-semibold bg-green-25">
-                          {formatCurrency(row.total.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <Package className="h-4 w-4 inline-block mr-1" />
-                  <span className="font-semibold">年間合計: </span>
-                  数量 {formatNumber(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.quantity, 0))}個、
-                  金額 {formatCurrency(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.amount, 0))}
+                  <TrendingUp className="h-4 w-4 inline-block mr-1" />
+                  <span className="font-semibold">前年同月比: +12.4%</span> - 特に第4四半期の成長が顕著です。
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* 組み合わせ商品分析テーブル */}
+          {/* 商品売上ランキング */}
           <Card className="bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">組み合わせ商品分析</CardTitle>
-              <CardDescription>よく一緒に購入される商品の組み合わせ</CardDescription>
+              <CardTitle className="text-lg font-semibold text-gray-900">商品売上ランキング</CardTitle>
+              <CardDescription>売上上位8商品</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-900">商品組み合わせ</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-900">購入頻度</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-900">売上</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-900">コンバージョン率</th>
-                      <th className="text-center py-3 px-4 font-medium text-gray-900">推奨度</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-900">アクション</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {combinationAnalysisData.map((item, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 font-medium text-gray-900">{item.combination}</td>
-                        <td className="py-3 px-4 text-center font-mono">{item.frequency}回</td>
-                        <td className="py-3 px-4 text-right font-mono">{formatCurrency(item.revenue)}</td>
-                        <td className="py-3 px-4 text-center font-mono">{item.conversionRate}%</td>
-                        <td className="py-3 px-4 text-center">{getRecommendationBadge(item.recommendation)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <Button variant="outline" size="sm">
-                            詳細
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-green-800">
-                  <Award className="h-4 w-4 inline-block mr-1" />
-                  <span className="font-semibold">推奨: </span>
-                  「商品A + 商品B」の組み合わせは高いコンバージョン率を示しています。
-                  バンドル商品として販売することを検討してください。
-                </p>
+              <div className="space-y-3">
+                {productRankingData.map((product, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3 ${
+                          index === 0
+                            ? "bg-yellow-500"
+                            : index === 1
+                              ? "bg-gray-400"
+                              : index === 2
+                                ? "bg-amber-600"
+                                : "bg-blue-500"
+                        }`}
+                      >
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{product.name}</p>
+                        <p className="text-sm text-gray-500">{product.orders}件の注文</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">{formatCurrency(product.sales)}</p>
+                      <p className="text-sm text-green-600 flex items-center">
+                        <ArrowUpRight className="h-3 w-3 mr-1" />+{product.growth}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        </>
-      ) : activeTab === "frequency" ? (
-        <PurchaseFrequencyAnalysis />
-      ) : (
-        <YearOverYearProductAnalysis />
-      )}
+        </div>
+
+        {/* 月別売上推移グラフ */}
+        <Card className="bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">月別売上推移</CardTitle>
+            <CardDescription>売上実績と目標の比較</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={monthlySalesTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value) => [formatCurrency(Number(value)), ""]}
+                  labelFormatter={(label) => `${label}`}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#3B82F6"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="売上実績"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="target"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ r: 3 }}
+                  name="売上目標"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-blue-900 mb-1">目標達成率</h4>
+                <p className="text-2xl font-bold text-blue-900">140%</p>
+                <p className="text-sm text-blue-700">年間目標を大幅に上回っています</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <h4 className="font-semibold text-green-900 mb-1">成長率</h4>
+                <p className="text-2xl font-bold text-green-900">+96%</p>
+                <p className="text-sm text-green-700">前年同期比で大幅な成長</p>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <h4 className="font-semibold text-purple-900 mb-1">予測売上</h4>
+                <p className="text-2xl font-bold text-purple-900">{formatCurrency(2650000)}</p>
+                <p className="text-sm text-purple-700">来月の予測売上</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 月別売上詳細テーブル */}
+        <Card className="bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">月別売上詳細</CardTitle>
+            <CardDescription>商品別の月次売上数量・金額詳細</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th
+                      rowSpan={2}
+                      className="text-left py-4 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-50 min-w-[120px]"
+                    >
+                      月
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品A
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品B
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品C
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品D
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品E
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品F
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品G
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="text-center py-2 px-3 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
+                    >
+                      商品H
+                    </th>
+                    <th colSpan={2} className="text-center py-2 px-3 font-medium text-gray-900 bg-green-50">
+                      合計
+                    </th>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-200 bg-blue-25">
+                      金額
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 border-r border-gray-100 bg-blue-25">
+                      数量
+                    </th>
+                    <th className="text-center py-2 px-2 text-xs font-medium text-gray-700 bg-green-25">金額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyDetailedSalesData.map((row, index) => (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-3 font-medium text-gray-900 border-r border-gray-200 bg-gray-25">
+                        {row.month}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productA.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productA.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productB.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productB.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productC.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productC.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productD.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productD.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productE.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productE.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productF.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productF.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productG.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productG.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-100">
+                        {formatNumber(row.productH.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono border-r border-gray-200">
+                        {formatCurrency(row.productH.amount)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono font-semibold border-r border-gray-100 bg-green-25">
+                        {formatNumber(row.total.quantity)}
+                      </td>
+                      <td className="py-3 px-2 text-center text-sm font-mono font-semibold bg-green-25">
+                        {formatCurrency(row.total.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <Package className="h-4 w-4 inline-block mr-1" />
+                <span className="font-semibold">年間合計: </span>
+                数量 {formatNumber(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.quantity, 0))}個、 金額{" "}
+                {formatCurrency(monthlyDetailedSalesData.reduce((sum, row) => sum + row.total.amount, 0))}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 組み合わせ商品分析テーブル */}
+        <Card className="bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-900">組み合わせ商品分析</CardTitle>
+            <CardDescription>よく一緒に購入される商品の組み合わせ</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-900">商品組み合わせ</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-900">購入頻度</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-900">売上</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-900">コンバージョン率</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-900">推奨度</th>
+                    <th className="text-right py-3 px-4 font-medium text-gray-900">アクション</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {combinationAnalysisData.map((item, index) => (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 font-medium text-gray-900">{item.combination}</td>
+                      <td className="py-3 px-4 text-center font-mono">{item.frequency}回</td>
+                      <td className="py-3 px-4 text-right font-mono">{formatCurrency(item.revenue)}</td>
+                      <td className="py-3 px-4 text-center font-mono">{item.conversionRate}%</td>
+                      <td className="py-3 px-4 text-center">{getRecommendationBadge(item.recommendation)}</td>
+                      <td className="py-3 px-4 text-right">
+                        <Button variant="outline" size="sm">
+                          詳細
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+              <p className="text-sm text-green-800">
+                <Award className="h-4 w-4 inline-block mr-1" />
+                <span className="font-semibold">推奨: </span>
+                「商品A + 商品B」の組み合わせは高いコンバージョン率を示しています。
+                バンドル商品として販売することを検討してください。
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 売上分析ヘッダー */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl font-bold">📊 売上分析</CardTitle>
+              <CardDescription>商品戦略と顧客戦略の統合分析プラットフォーム</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-sm">
+                期間: {periodOptions.find((p) => p.value === selectedPeriodState)?.label || selectedPeriodState}
+              </Badge>
+              <Select value={selectedPeriodState} onValueChange={setSelectedPeriodState}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* サブタブ分割コンテンツ */}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList className="grid w-full max-w-3xl grid-cols-3">
+          <TabsTrigger value="sales-dashboard" className="flex items-center text-sm">
+            <BarChart3 className="h-4 w-4 mr-2" />📊 売上ダッシュボード
+          </TabsTrigger>
+          <TabsTrigger value="product-frequency" className="flex items-center text-sm">
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            🛍️ 商品別購入頻度分析
+          </TabsTrigger>
+          <TabsTrigger value="year-over-year" className="flex items-center text-sm">
+            <TrendingUp className="h-4 w-4 mr-2" />📈 前年同月比【商品】
+          </TabsTrigger>
+        </TabsList>
+        <div className="mt-6">
+          <TabsContent value="sales-dashboard" className="space-y-6">
+            <SalesDashboardContent />
+          </TabsContent>
+          <TabsContent value="product-frequency" className="space-y-6">
+            <ProductPurchaseFrequencyAnalysis />
+          </TabsContent>
+          <TabsContent value="year-over-year" className="space-y-6">
+            <YearOverYearProductAnalysis />
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   )
 }

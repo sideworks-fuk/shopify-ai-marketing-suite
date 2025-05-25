@@ -68,73 +68,6 @@ const Button = ({
   )
 }
 
-// Simple Select component
-const Select = ({
-  value,
-  onValueChange,
-  children,
-}: {
-  value: string
-  onValueChange: (value: string) => void
-  children: React.ReactNode
-}) => {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return <div className="relative">{children}</div>
-}
-
-const SelectTrigger = ({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode
-  className?: string
-}) => {
-  return (
-    <button
-      className={cn(
-        "flex items-center justify-between w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500",
-        className,
-      )}
-    >
-      {children}
-      <ChevronDown className="h-4 w-4 opacity-50" />
-    </button>
-  )
-}
-
-const SelectValue = ({ placeholder }: { placeholder?: string }) => {
-  const { selectedPeriod } = useAppContext()
-  return <span>{selectedPeriod || placeholder}</span>
-}
-
-const SelectContent = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-      {children}
-    </div>
-  )
-}
-
-const SelectItem = ({
-  value,
-  children,
-  onSelect,
-}: {
-  value: string
-  children: React.ReactNode
-  onSelect?: (value: string) => void
-}) => {
-  return (
-    <button
-      className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-      onClick={() => onSelect?.(value)}
-    >
-      {children}
-    </button>
-  )
-}
-
 interface MainLayoutProps {
   children: React.ReactNode
 }
@@ -328,8 +261,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Main Content */}
       <main className="flex-1">
         <div className="container mx-auto px-4 py-6">
-          {/* Tabs */}
-          <div className="mb-6 hidden md:block">
+          {/* Main Navigation Tabs */}
+          <div className="mb-6">
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
               <button
                 onClick={() => setActiveTab("sales")}

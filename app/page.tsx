@@ -1,7 +1,7 @@
 "use client"
 
-import HomePage from "../src/app/page"
+import PurchaseFrequencyAnalysis from "../src/components/purchase-frequency-analysis"
 
 export default function SyntheticV0PageForDeployment() {
-  return <HomePage />
+  return <PurchaseFrequencyAnalysis />
 }
