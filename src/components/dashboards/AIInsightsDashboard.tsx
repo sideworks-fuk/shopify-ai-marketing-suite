@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useAppContext } from "@/contexts/AppContext"
 import {
   LineChart,
   Line,
@@ -165,7 +164,7 @@ const colors = {
 }
 
 export default function AIInsightsDashboard() {
-  const { selectedPeriod, setSelectedPeriod } = useAppContext()
+  const [selectedPeriod, setSelectedPeriod] = useState("今月")
   const [selectedInsightTab, setSelectedInsightTab] = useState("trends")
 
   const formatCurrency = (value: number | null) => {
