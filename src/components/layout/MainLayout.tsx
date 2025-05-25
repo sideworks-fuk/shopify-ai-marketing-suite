@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useAppContext } from "@/contexts/AppContext"
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { RefreshCw, Download, Bell, Settings, HelpCircle } from "lucide-react"
@@ -12,17 +13,13 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [activeTab, setActiveTab] = useState("sales")
-  const [selectedPeriod, setSelectedPeriod] = useState("thisMonth")
+  const { activeTab, setActiveTab, selectedPeriod, setSelectedPeriod } = useAppContext()
 
   const periodOptions = [
-    { value: "thisMonth", label: "今月" },
-    { value: "lastMonth", label: "先月" },
-    { value: "last3Months", label: "過去3ヶ月" },
-    { value: "thisQuarter", label: "今四半期" },
-    { value: "lastQuarter", label: "前四半期" },
-    { value: "thisYear", label: "今年" },
-    { value: "lastYear", label: "昨年" },
+    { value: "今月", label: "今月" },
+    { value: "前月", label: "前月" },
+    { value: "今四半期", label: "今四半期" },
+    { value: "カスタム", label: "カスタム" },
   ]
 
   const getPeriodLabel = (periodValue: string) => {
@@ -102,7 +99,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {mainTabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => setActiveTab(tab.id as "sales" | "customers" | "ai")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === tab.id
                     ? "border-blue-500 text-blue-600"
