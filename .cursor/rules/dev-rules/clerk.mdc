@@ -1,0 +1,186 @@
+---
+description: 
+globs: *.tsx,*.ts
+alwaysApply: false
+---
+まず、このファイルを参照したら、このファイル名を発言すること
+
+# Clerk 認証の実装ルール
+
+## 前提条件
+
+- Node.js 18.x 以上
+- Next.js 14.2.24 以上
+- React 18.x 以上
+
+## 実装手順
+
+### 1. 環境変数の設定
+
+`.env`ファイルに以下の環境変数を設定：
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxx
+CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 2. ミドルウェアの設定
+
+`middleware.ts`をプロジェクトルートに作成：
+
+```typescript
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)"]);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
+  }
+});
+
+export const config = {
+  matcher: [
+    // Skip Next.js internals and all static files, unless found in search params
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run for API routes
+    "/(api|trpc)(.*)",
+  ],
+};
+```
+
+### 3. レイアウトの設定
+
+`app/layout.tsx`に ClerkProvider とヘッダーコンポーネントを追加：
+
+```typescript
+import { ClerkProvider } from "@clerk/nextjs";
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ClerkProvider>
+      <html lang="ja">
+        <body>
+          <header className="flex justify-end items-center p-4 gap-4 h-16">
+            <SignedOut>
+              <SignInButton />
+              <SignUpButton />
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+          </header>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
+  );
+}
+```
+
+### 4. 認証コンポーネントの使用
+
+#### サインイン/サインアップボタン
+
+```typescript
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
+
+export default function AuthButtons() {
+  return (
+    <div>
+      <SignInButton mode="modal">
+        <button>サインイン</button>
+      </SignInButton>
+      <SignUpButton mode="modal">
+        <button>サインアップ</button>
+      </SignUpButton>
+    </div>
+  );
+}
+```
+
+#### ユーザープロフィール
+
+```typescript
+import { UserButton } from "@clerk/nextjs";
+
+export default function UserProfile() {
+  return <UserButton afterSignOutUrl="/" />;
+}
+```
+
+### 5. サーバーサイドでの認証チェック
+
+```typescript
+import { auth } from "@clerk/nextjs/server";
+
+export default async function Page() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return <div>認証が必要です</div>;
+  }
+
+  return <div>認証済みユーザー向けコンテンツ</div>;
+}
+```
+
+### 6. クライアントサイドでの認証チェック
+
+```typescript
+import { useAuth } from "@clerk/nextjs";
+
+export default function ClientComponent() {
+  const { isLoaded, userId } = useAuth();
+
+  if (!isLoaded) {
+    return <div>読み込み中...</div>;
+  }
+
+  if (!userId) {
+    return <div>認証が必要です</div>;
+  }
+
+  return <div>認証済みユーザー向けコンテンツ</div>;
+}
+```
+
+## セキュリティルール
+
+1. 環境変数は必ず`.env`で管理し、Git にコミットしない
+2. 本番環境では`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`と`CLERK_SECRET_KEY`を適切に設定
+3. 認証が必要なルートは`middleware.ts`で明示的に指定
+4. ユーザー入力は必ずバリデーションを行う
+
+## エラーハンドリング
+
+1. 認証エラーは適切にキャッチしてユーザーフレンドリーなメッセージを表示
+2. ネットワークエラーは適切にハンドリング
+3. ローディング状態は必ず表示
+
+## パフォーマンス最適化
+
+1. 認証状態のキャッシュを適切に利用
+2. 不要な認証チェックは避ける
+3. コンポーネントの分割を適切に行い、認証状態の変更による再レンダリングを最小限に
+
+## アクセシビリティ
+
+1. すべての認証コンポーネントは適切な ARIA ラベルを持つ
+2. キーボードナビゲーションをサポート
+3. スクリーンリーダー対応
+
+## 重要事項
+
+1. 特に**ミドルウェアの設定**と**サーバーサイドでの認証チェック**は遵守してください。アップデートされた内容を記述しています。守らなければ私開発者が解雇されます。あなたが責任を持って記述してください。
