@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useCallback } from "react"
 
 export type TabType = "sales" | "customers" | "ai" | "purchase"
 export type PeriodType = "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
+export type CustomerSegmentType = "全顧客" | "新規" | "リピーター" | "VIP" | "休眠"
 
 export interface MenuItem {
   id: string
@@ -127,6 +128,8 @@ interface AppContextType {
   setActiveTab: (tab: TabType) => void
   selectedPeriod: PeriodType
   setSelectedPeriod: (period: PeriodType) => void
+  selectedCustomerSegment: CustomerSegmentType
+  setSelectedCustomerSegment: (segment: CustomerSegmentType) => void
   isLoading: boolean
   setIsLoading: (loading: boolean) => void
   isExporting: boolean
@@ -143,6 +146,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<TabType>("sales")
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("thisMonth")
+  const [selectedCustomerSegment, setSelectedCustomerSegment] = useState<CustomerSegmentType>("全顧客")
   const [isLoading, setIsLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -165,6 +169,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveTab,
     selectedPeriod,
     setSelectedPeriod,
+    selectedCustomerSegment,
+    setSelectedCustomerSegment,
     isLoading,
     setIsLoading,
     isExporting,
