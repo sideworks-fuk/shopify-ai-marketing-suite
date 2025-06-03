@@ -167,10 +167,29 @@ export class DataService {
         }
       })
 
+      const productName = productNames.get(productId) || `Product ${productId}`
+      
+      // 商品名からカテゴリーを推定
+      const inferCategory = (name: string): string => {
+        const lowerName = name.toLowerCase()
+        if (lowerName.includes('デコ缶') || lowerName.includes('カット') || lowerName.includes('ケーキ')) {
+          return 'cake'
+        } else if (lowerName.includes('パウンド')) {
+          return 'pound_cake'
+        } else if (lowerName.includes('プロテーン') || lowerName.includes('サプリ')) {
+          return 'supplement'
+        } else if (lowerName.includes('ギフト') || lowerName.includes('ボックス')) {
+          return 'gift'
+        } else if (lowerName.includes('クラフト') || lowerName.includes('イーグラップ')) {
+          return 'craft'
+        }
+        return 'other'
+      }
+
       return {
-        productName: productNames.get(productId) || `Product ${productId}`,
+        productName,
         productId,
-        category: 'other', // デフォルトカテゴリー（実際のShopifyからはカテゴリー情報を取得）
+        category: inferCategory(productName),
         totalCustomers,
         frequencies: frequencyArray,
       }

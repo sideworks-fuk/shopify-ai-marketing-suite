@@ -397,18 +397,18 @@ const AdvancedFilters = ({
 
 // サンプルデータ生成（既存のコードを使用）
 const generateSampleData = (): ProductYearData[] => {
-  // 商品数を削減（22個 → 10個）
+  // 実際のShopify商品名を使用
   const products = [
-    { id: "1", name: "【サンプル】カラートレースリム 150 ホワイト", category: "食品包装容器" },
-    { id: "2", name: "【サンプル】カラートレー 165 ブラウン", category: "食品包装容器" },
-    { id: "3", name: "【サンプル】IKトレースリム 150 黒", category: "食品包装容器" },
-    { id: "4", name: "【サンプル】nwクリスマスデコ箱4号H130", category: "ギフトボックス" },
-    { id: "5", name: "【サンプル】Criollo-Bitter-デコ箱4号H130", category: "ギフトボックス" },
-    { id: "6", name: "パピエール #47 アメリカンレッド", category: "食品包装容器" },
-    { id: "7", name: "カラーココット 65角(レッド)", category: "食品包装容器" },
-    { id: "8", name: "【サンプル】エコクラフトロールケーキ箱", category: "エコ包装材" },
-    { id: "9", name: "ペーパーココットシート 160角(茶).1500入", category: "ベーキング用品" },
-    { id: "10", name: "【サンプル】ペーパーココット 75角(ホワイト)", category: "ベーキング用品" },
+    { id: "1", name: "ナチュラルグレーデコ缶5号H150", category: "ケーキ・デコ缶" },
+    { id: "2", name: "エコクラフトデコ缶4号H130", category: "ケーキ・デコ缶" },
+    { id: "3", name: "UNIエコクラフトカットケーキ1号SS", category: "ケーキ・デコ缶" },
+    { id: "4", name: "UNIエコクラフトカットケーキ2号S", category: "ケーキ・デコ缶" },
+    { id: "5", name: "パウンドケーキ(チョコレート)", category: "パウンドケーキ" },
+    { id: "6", name: "パウンドケーキS(ニュートラルグレー)", category: "パウンドケーキ" },
+    { id: "7", name: "プロテーン4号サイズ(ホワイト)", category: "プロテーン・サプリ" },
+    { id: "8", name: "ギフトボックスM(ナチュラルグレー)", category: "ギフトボックス" },
+    { id: "9", name: "イーグラップ S クラフト", category: "クラフト・容器" },
+    { id: "10", name: "保冷バッグ M", category: "その他・付属品" },
   ]
 
   return products.map((product) => {
@@ -420,29 +420,34 @@ const generateSampleData = (): ProductYearData[] => {
       if (productName.includes("クリスマス")) {
         return month === 12 ? 3.0 : month === 11 ? 2.0 : month === 1 ? 1.5 : 0.8
       }
-      if (productName.includes("ケーキ箱") || productName.includes("デコ箱")) {
+      if (productName.includes("デコ缶") || productName.includes("ケーキ")) {
         return month === 3 || month === 4 || month === 10 || month === 11
           ? 1.8
           : month === 12 || month === 2
             ? 1.5
             : 1.0
       }
-      if (productName.includes("ココット")) {
-        return month >= 6 && month <= 8 ? 1.6 : 1.0
+      if (productName.includes("パウンドケーキ")) {
+        return month >= 10 && month <= 12 ? 1.6 : month >= 2 && month <= 4 ? 1.4 : 1.0
       }
-      if (productName.includes("エコ")) {
+      if (productName.includes("ギフトボックス")) {
+        return month === 12 || month === 2 ? 2.0 : month === 3 || month === 5 ? 1.5 : 1.0
+      }
+      if (productName.includes("エコ") || productName.includes("クラフト")) {
         return 1.0 + Math.sin(((month - 1) * Math.PI) / 6) * 0.2
       }
       return 1.0
     }
 
     const getProductPriceRange = (productName: string) => {
-      if (productName.includes("1500入")) return { min: 15000, max: 25000 }
-      if (productName.includes("デコ箱")) return { min: 200, max: 500 }
-      if (productName.includes("ケーキ箱")) return { min: 150, max: 400 }
-      if (productName.includes("ココット")) return { min: 50, max: 150 }
-      if (productName.includes("トレー")) return { min: 80, max: 200 }
-      return { min: 100, max: 300 }
+      if (productName.includes("プロテーン")) return { min: 3000, max: 5000 }
+      if (productName.includes("デコ缶")) return { min: 2000, max: 4000 }
+      if (productName.includes("パウンドケーキ")) return { min: 1800, max: 3000 }
+      if (productName.includes("ギフトボックス")) return { min: 1500, max: 2500 }
+      if (productName.includes("カットケーキ")) return { min: 1000, max: 2000 }
+      if (productName.includes("クラフト") || productName.includes("イーグラップ")) return { min: 500, max: 1000 }
+      if (productName.includes("保冷")) return { min: 300, max: 1500 }
+      return { min: 800, max: 2000 }
     }
 
     const priceRange = getProductPriceRange(product.name)
@@ -463,14 +468,18 @@ const generateSampleData = (): ProductYearData[] => {
       }
 
       let growthRate: number
-      if (product.category === "エコ包装材") {
-        growthRate = 0.1 + Math.random() * 0.3
+      if (product.category === "ケーキ・デコ缶") {
+        growthRate = 0.05 + Math.random() * 0.3
+      } else if (product.category === "パウンドケーキ") {
+        growthRate = 0.1 + Math.random() * 0.25
+      } else if (product.category === "プロテーン・サプリ") {
+        growthRate = 0.15 + Math.random() * 0.35
       } else if (product.category === "ギフトボックス") {
-        growthRate = -0.1 + Math.random() * 0.4
-      } else if (product.category === "ベーキング用品") {
+        growthRate = -0.05 + Math.random() * 0.4
+      } else if (product.category === "クラフト・容器") {
         growthRate = 0.05 + Math.random() * 0.25
       } else {
-        growthRate = -0.2 + Math.random() * 0.5
+        growthRate = -0.1 + Math.random() * 0.4
       }
 
       if (product.name.includes("クリスマス") && month === 12) {

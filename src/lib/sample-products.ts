@@ -7,36 +7,57 @@ export interface SampleProduct {
   price?: number
 }
 
-// 統一商品データ
+// 統一商品データ（実際のShopify商品名を使用）
 export const SAMPLE_PRODUCTS: SampleProduct[] = [
-  { id: '1', name: '【サプリ】カフェトレーヌ180 ホワイト', category: 'supplement', price: 2800 },
-  { id: '2', name: '【サプリ】カフェトレーヌ165 ブラウン', category: 'supplement', price: 2600 },
-  { id: '3', name: '【サプリ】光トレースリム150黒', category: 'supplement', price: 2400 },
-  { id: '4', name: '【サプリ】rwクリスマスデコ箱付けH100', category: 'supplement', price: 3200 },
-  { id: '5', name: '【サプリ】Oriole-Bitter デコ箱付けH100', category: 'supplement', price: 3000 },
-  { id: '6', name: '【食品】（幸せ商品）', category: 'food', price: 1800 },
-  { id: '7', name: '商品G', category: 'other', price: 1500 },
-  { id: '8', name: '商品H', category: 'other', price: 1200 },
-  { id: '9', name: '商品I（個）', category: 'other', price: 800 },
-  { id: '10', name: '商品J（スプーン）', category: 'other', price: 600 },
-  { id: '11', name: '商品K（メンチ用品）', category: 'other', price: 900 },
-  { id: '12', name: '商品L（保冷剤）', category: 'other', price: 400 },
-  { id: '13', name: '【ギフト】クリスマスセットA', category: 'gift', price: 4500 },
-  { id: '14', name: '【ギフト】バレンタインセットB', category: 'gift', price: 3800 },
-  { id: '15', name: '【食品】プロテインパウダー', category: 'food', price: 5200 },
-  { id: '16', name: '【食品】ビタミンC錠剤', category: 'food', price: 1600 },
-  { id: '17', name: '【食品】青汁粉末', category: 'food', price: 2200 },
-  { id: '18', name: '【食品】コラーゲンドリンク', category: 'food', price: 3600 },
-  { id: '19', name: '【食品】マルチビタミン', category: 'food', price: 2800 },
-  { id: '20', name: '【その他】アクセサリー小物', category: 'other', price: 1200 },
+  // ケーキ・デコレーション系
+  { id: '1', name: 'ナチュラルグレーデコ缶5号H150', category: 'cake', price: 2800 },
+  { id: '2', name: 'エコクラフトデコ缶4号H130', category: 'cake', price: 2600 },
+  { id: '3', name: 'UNIエコクラフトカットケーキ1号SS', category: 'cake', price: 1200 },
+  { id: '4', name: 'UNIエコクラフトカットケーキ2号S', category: 'cake', price: 1600 },
+  { id: '5', name: 'nwカットケーキ1号SS', category: 'cake', price: 1000 },
+  { id: '6', name: 'nwカットケーキ2号S', category: 'cake', price: 1400 },
+  { id: '7', name: 'エコクラフトデコ缶5号H150', category: 'cake', price: 3000 },
+  { id: '8', name: 'Criollo-Bitter-デコ缶4号H130', category: 'cake', price: 2800 },
+  
+  // パウンドケーキ系
+  { id: '9', name: 'パウンドケーキ(チョコレート)', category: 'pound_cake', price: 2200 },
+  { id: '10', name: 'パウンドケーキS(ニュートラルグレー)', category: 'pound_cake', price: 2000 },
+  { id: '11', name: 'パウンドケーキ(クラフト)', category: 'pound_cake', price: 2100 },
+  { id: '12', name: 'パウンドケーキ(ライトプルーフ)', category: 'pound_cake', price: 2300 },
+  { id: '13', name: 'パウンドケーキ(ミストグレー)', category: 'pound_cake', price: 2200 },
+  { id: '14', name: 'nwパウンドケーキ(ホワイト)', category: 'pound_cake', price: 2400 },
+  
+  // プロテーン・サプリメント系
+  { id: '15', name: 'プロテーン4号サイズ(ホワイト)', category: 'supplement', price: 3200 },
+  { id: '16', name: 'プロテーン5号サイズ(ホワイト)', category: 'supplement', price: 3600 },
+  { id: '17', name: 'プロテーン6号サイズ(ホワイト)', category: 'supplement', price: 4000 },
+  { id: '18', name: 'nwプロテーン5号(ホワイト)', category: 'supplement', price: 3500 },
+  
+  // ギフトボックス系
+  { id: '19', name: 'ギフトボックスM(ナチュラルグレー)', category: 'gift', price: 1800 },
+  { id: '20', name: 'ギフトボックスL(ダークグレー)', category: 'gift', price: 2200 },
+  { id: '21', name: 'ギフトボックス(ミストグレー)', category: 'gift', price: 2000 },
+  { id: '22', name: 'ギフトボックス(ライトプルーフ)', category: 'gift', price: 2100 },
+  { id: '23', name: 'nwギフトボックス(ホワイト)', category: 'gift', price: 1900 },
+  
+  // クラフト・その他
+  { id: '24', name: '丸型 クラフト(パウンド・ロール用)No.1', category: 'craft', price: 800 },
+  { id: '25', name: '丸型 ホワイト(パウンド・ロール用)No.1', category: 'craft', price: 800 },
+  { id: '26', name: 'イーグラップ S クラフト', category: 'craft', price: 600 },
+  { id: '27', name: 'イーグラップ M クラフト', category: 'craft', price: 800 },
+  { id: '28', name: '保冷剤30g', category: 'other', price: 300 },
+  { id: '29', name: '保冷バッグ M', category: 'other', price: 1200 },
+  { id: '30', name: '保冷バッグ L', category: 'other', price: 1500 },
 ]
 
-// カテゴリー定義
+// カテゴリー定義（実際の商品カテゴリーに合わせて更新）
 export const PRODUCT_CATEGORIES = [
-  { id: 'supplement', name: '【サプリ】', color: 'blue', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
-  { id: 'food', name: '【食品】', color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-800' },
-  { id: 'gift', name: '【ギフト】', color: 'purple', bgColor: 'bg-purple-100', textColor: 'text-purple-800' },
-  { id: 'other', name: 'その他', color: 'gray', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
+  { id: 'cake', name: 'ケーキ・デコ缶', color: 'pink', bgColor: 'bg-pink-100', textColor: 'text-pink-800' },
+  { id: 'pound_cake', name: 'パウンドケーキ', color: 'orange', bgColor: 'bg-orange-100', textColor: 'text-orange-800' },
+  { id: 'supplement', name: 'プロテーン・サプリ', color: 'blue', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
+  { id: 'gift', name: 'ギフトボックス', color: 'purple', bgColor: 'bg-purple-100', textColor: 'text-purple-800' },
+  { id: 'craft', name: 'クラフト・容器', color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+  { id: 'other', name: 'その他・付属品', color: 'gray', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
 ]
 
 // カテゴリー色の取得
@@ -53,7 +74,7 @@ export const getCategoryStyle = (categoryId: string) => {
   }
 }
 
-// 売上上位商品の取得（実際のデータがある場合は売上順、ここではランダム）
+// 売上上位商品の取得（実際のデータがある場合は売上順、ここでは価格順）
 export const getTopProducts = (count: number = 10): SampleProduct[] => {
   return SAMPLE_PRODUCTS
     .sort((a, b) => (b.price || 0) - (a.price || 0))
