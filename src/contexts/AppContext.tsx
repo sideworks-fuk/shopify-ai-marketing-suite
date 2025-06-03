@@ -61,7 +61,7 @@ export const menuStructure: MenuItem[] = [
     icon: "📅",
     href: "/sales/monthly-stats",
     category: "sales",
-    isImplemented: false,
+    isImplemented: true,
     description: "商品別×月別の売上推移を数量・金額で把握"
   },
   {
