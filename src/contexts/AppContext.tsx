@@ -2,6 +2,8 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react"
+import { FilterProvider } from "./FilterContext"
+import { ZustandProvider } from "@/components/providers/ZustandProvider"
 
 export type TabType = "sales" | "customers" | "ai" | "purchase"
 export type PeriodType = "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
@@ -130,10 +132,13 @@ export const getMenuByCategory = (category: string) => {
 interface AppContextType {
   activeTab: TabType
   setActiveTab: (tab: TabType) => void
+  
+  // 🔄 Legacy: 段階的移行のため一時的に維持（FilterContextへ移行予定）
   selectedPeriod: PeriodType
   setSelectedPeriod: (period: PeriodType) => void
   selectedCustomerSegment: CustomerSegmentType
   setSelectedCustomerSegment: (segment: CustomerSegmentType) => void
+  
   isLoading: boolean
   setIsLoading: (loading: boolean) => void
   isExporting: boolean
@@ -185,7 +190,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getMenuByCategory,
   }
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+  return (
+    <AppContext.Provider value={value}>
+      <ZustandProvider>
+        <FilterProvider>
+          {children}
+        </FilterProvider>
+      </ZustandProvider>
+    </AppContext.Provider>
+  )
 }
 
 export function useAppContext() {
@@ -194,4 +207,31 @@ export function useAppContext() {
     throw new Error("useAppContext must be used within an AppProvider")
   }
   return context
+}
+
+// =============================================================================
+// Migration Helper - 段階的移行サポート
+// =============================================================================
+
+/**
+ * AppContextとFilterContextの互換性を提供する移行用フック
+ * 既存コンポーネントの段階的移行をサポート
+ */
+export function useLegacyFilters() {
+  const appContext = useAppContext()
+  
+  // TODO: FilterContextとの同期が必要な場合はここに実装
+  // import { useCustomerFilters } from "./FilterContext"
+  // const { filters, setSegment, setPeriod } = useCustomerFilters()
+  
+  return {
+    // AppContextから取得（Legacy）
+    selectedPeriod: appContext.selectedPeriod,
+    setSelectedPeriod: appContext.setSelectedPeriod,
+    selectedCustomerSegment: appContext.selectedCustomerSegment,
+    setSelectedCustomerSegment: appContext.setSelectedCustomerSegment,
+    
+    // Migration Notice
+    _migrationNote: "この関数は非推奨です。useCustomerFilters() または useDormantFilters() への移行を推奨します。"
+  }
 }

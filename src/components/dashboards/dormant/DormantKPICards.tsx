@@ -10,13 +10,81 @@ import {
   DollarSign,
   TrendingUp
 } from "lucide-react"
-import { dormantKPIData, type DormantKPI } from "@/data/mock/customerData"
+import { dataService } from "@/services/dataService"
+import { useState, useEffect } from "react"
+import type { DormantKPI } from "@/data/mock/customerData"
 
 interface DormantKPICardsProps {
   kpiData?: DormantKPI;
 }
 
-export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsProps) {
+export function DormantKPICards({ kpiData }: DormantKPICardsProps) {
+  const [internalKpiData, setInternalKpiData] = useState<DormantKPI | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // kpiDataが渡されていない場合はDataServiceから取得
+  useEffect(() => {
+    if (!kpiData) {
+      const fetchKpiData = async () => {
+        try {
+          setIsLoading(true)
+          setError(null)
+          const response = await dataService.getDormantKPIs()
+          setInternalKpiData(response.data)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'KPIデータの取得に失敗しました')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+
+      fetchKpiData()
+    }
+  }, [kpiData])
+
+  // 使用するデータを決定
+  const activeKpiData = kpiData || internalKpiData
+
+  // ローディング状態
+  if (!kpiData && isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Card key={index} className="border-slate-200">
+            <CardHeader className="space-y-0 pb-2">
+              <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 bg-gray-200 rounded animate-pulse mb-2"></div>
+              <div className="h-3 bg-gray-100 rounded animate-pulse"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  // エラー状態
+  if (!kpiData && error) {
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        <Card className="border-red-200">
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              <p className="font-medium">KPIデータの読み込みに失敗しました</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // データが存在しない場合
+  if (!activeKpiData) {
+    return null
+  }
   const formatCurrency = (amount: number) => {
     return `¥${(amount / 1000).toFixed(0)}K`
   }
@@ -31,7 +99,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
     return { variant: "destructive" as const, label: "高リスク", color: "text-red-600" }
   }
 
-  const riskInfo = getRiskBadge(kpiData.dormancyRate)
+  const riskInfo = getRiskBadge(activeKpiData.dormancyRate)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -45,7 +113,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-slate-900">
-            {formatNumber(kpiData.totalDormantCustomers)}名
+            {formatNumber(activeKpiData.totalDormantCustomers)}名
           </div>
           <p className="text-xs text-slate-500 mt-1">
             アクティブ顧客の対象外
@@ -64,7 +132,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         <CardContent>
           <div className="flex items-center gap-2">
             <div className="text-2xl font-bold text-slate-900">
-              {kpiData.dormancyRate.toFixed(1)}%
+              {activeKpiData.dormancyRate.toFixed(1)}%
             </div>
             <Badge variant={riskInfo.variant} className="text-xs">
               {riskInfo.label}
@@ -86,10 +154,10 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-slate-900">
-            {Math.floor(kpiData.averageDormancyPeriod / 30)}ヶ月
+            {Math.floor(activeKpiData.averageDormancyPeriod / 30)}ヶ月
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            {kpiData.averageDormancyPeriod}日 / 最終購入から
+            {activeKpiData.averageDormancyPeriod}日 / 最終購入から
           </p>
         </CardContent>
       </Card>
@@ -105,7 +173,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         <CardContent>
           <div className="flex items-center gap-2">
             <div className="text-2xl font-bold text-green-600">
-              {kpiData.reactivationRate.toFixed(1)}%
+              {activeKpiData.reactivationRate.toFixed(1)}%
             </div>
             <TrendingUp className="h-3 w-3 text-green-500" />
           </div>
@@ -125,7 +193,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(kpiData.estimatedLoss)}
+            {formatCurrency(activeKpiData.estimatedLoss)}
           </div>
           <p className="text-xs text-slate-500 mt-1">
             月間機会損失
@@ -143,7 +211,7 @@ export function DormantKPICards({ kpiData = dormantKPIData }: DormantKPICardsPro
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
-            {formatCurrency(kpiData.recoveredRevenue)}
+            {formatCurrency(activeKpiData.recoveredRevenue)}
           </div>
           <p className="text-xs text-slate-500 mt-1">
             復帰施策による回復

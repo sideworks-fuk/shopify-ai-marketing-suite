@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
+import { useAppStore } from "../../stores/appStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -40,28 +41,58 @@ export default function ProductPurchaseFrequencyAnalysis({
   accessToken,
   useSampleData = true,
 }: PurchaseFrequencyAnalysisProps) {
-  const { selectedPeriod } = useAppContext()
+  // ✅ Zustand移行: 商品分析フィルター使用
+  const { 
+    filters,
+    setMaxFrequency,
+    setCustomMaxFrequency,
+    setDisplayMode,
+    updateDateRange,
+    updateProductFilters,
+    toggleHeatmap,
+    resetFilters
+  } = useProductAnalysisFilters()
+  
+  const setLoading = useAppStore((state) => state.setLoading)
+  const showToast = useAppStore((state) => state.showToast)
+  
+  // ✅ データ管理用の必要最小限ローカル状態
   const [purchaseFrequencyData, setPurchaseFrequencyData] = useState<PurchaseFrequencyData[]>([])
   const [filteredData, setFilteredData] = useState<PurchaseFrequencyData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // 抽出条件設定
-  const [startDate, setStartDate] = useState<string>("2024-01-01")
-  const [endDate, setEndDate] = useState<string>("2024-12-31")
-  const [maxFrequency, setMaxFrequency] = useState<number | 'custom'>(12)
-  const [customMaxFrequency, setCustomMaxFrequency] = useState<string>("12")
-  const [displayMode, setDisplayMode] = useState<'count' | 'percentage'>('count')
-  
-  // 商品絞り込み
-  const [productFilter, setProductFilter] = useState<'all' | 'top10' | 'category' | 'custom'>('all')
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  // ✅ 一時的なローカル状態（段階的移行）
   const [showProductSelector, setShowProductSelector] = useState(false)
-  
-  // UI制御
   const [showConditions, setShowConditions] = useState(true)
-  const [showHeatmap, setShowHeatmap] = useState(true)
+  
+  // ✅ 商品選択用のローカル状態（Zustand移行対応）
+  const setSelectedProducts = (products: string[]) => {
+    updateProductFilters({ selectedProductIds: products })
+  }
+  
+  const setProductFilter = (filter: string) => {
+    updateProductFilters({ productFilter: filter as any })
+  }
+  
+  const setSelectedCategory = (category: string) => {
+    updateProductFilters({ category })
+  }
+  
+  const setShowHeatmap = (show: boolean) => {
+    toggleHeatmap()
+  }
+  
+  // ✅ Zustandから状態を取得
+  const startDate = filters.dateRange.startDate
+  const endDate = filters.dateRange.endDate
+  const maxFrequency = filters.maxFrequency
+  const customMaxFrequency = filters.customMaxFrequency
+  const displayMode = filters.displayMode
+  const productFilter = filters.productFilters.productFilter
+  const selectedCategory = filters.productFilters.category
+  const selectedProducts = filters.productFilters.selectedProductIds
+  const showHeatmap = filters.showHeatmap
 
   // 成長率の計算と色分けのためのヘルパー関数
   const renderGrowthCell = (currentValue: number, previousValue: number) => {
@@ -200,7 +231,7 @@ export default function ProductPurchaseFrequencyAnalysis({
 
   useEffect(() => {
     loadData()
-  }, [selectedPeriod, useSampleData])
+  }, [useSampleData]) // ✅ selectedPeriod削除: Zustand管理に移行
 
   // 条件変更時のデータ更新
   useEffect(() => {
@@ -226,14 +257,7 @@ export default function ProductPurchaseFrequencyAnalysis({
 
   // 条件リセット
   const handleReset = () => {
-    setStartDate("2024-01-01")
-    setEndDate("2024-12-31")
-    setMaxFrequency(12)
-    setCustomMaxFrequency("12")
-    setDisplayMode('count')
-    setProductFilter('all')
-    setSelectedCategory('')
-    setSelectedProducts([])
+    resetFilters() // ✅ Zustand統一リセット機能を使用
   }
 
   // 分析実行
@@ -368,7 +392,7 @@ export default function ProductPurchaseFrequencyAnalysis({
                     id="start-date"
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => updateDateRange({ startDate: e.target.value })}
                   />
                 </div>
                 <div>
@@ -377,7 +401,7 @@ export default function ProductPurchaseFrequencyAnalysis({
                     id="end-date"
                     type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(e) => updateDateRange({ endDate: e.target.value })}
                   />
                 </div>
                 

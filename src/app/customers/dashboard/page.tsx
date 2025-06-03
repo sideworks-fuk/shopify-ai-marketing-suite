@@ -13,29 +13,29 @@ export default function CustomerDashboardPage() {
       title: "総顧客数",
       value: "2,847",
       change: { value: 12.5, type: "increase" as const },
-      icon: <Users className="h-4 w-4" />,
-      color: "default"
+      icon: Users,
+      variant: "default"
     },
     {
       title: "新規顧客",
       value: "189",
       change: { value: 8.2, type: "increase" as const },
-      icon: <UserPlus className="h-4 w-4" />,
-      color: "success"
+      icon: UserPlus,
+      variant: "success"
     },
     {
       title: "リピート率",
       value: "68.5%",
       change: { value: 2.1, type: "decrease" as const },
-      icon: <Repeat className="h-4 w-4" />,
-      color: "warning"
+      icon: Repeat,
+      variant: "warning"
     },
     {
       title: "平均LTV",
       value: "¥42,500",
       change: { value: 5.8, type: "increase" as const },
-      icon: <Crown className="h-4 w-4" />,
-      color: "default"
+      icon: Crown,
+      variant: "default"
     }
   ]
 

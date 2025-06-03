@@ -3,6 +3,8 @@
 import React from "react"
 
 import { useState, useMemo, useCallback } from "react"
+import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
+import { useAppStore } from "../../stores/appStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -515,16 +517,33 @@ const generateSampleData = (): ProductYearData[] => {
 }
 
 const YearOverYearProductAnalysis = () => {
+  // ✅ Zustand移行: 商品分析フィルター使用
+  const { 
+    filters,
+    setViewMode,
+    setDisplayMode,
+    updateProductFilters,
+    resetFilters
+  } = useProductAnalysisFilters()
+  
+  const setLoading = useAppStore((state) => state.setLoading)
+  const showToast = useAppStore((state) => state.showToast)
+  
+  // ✅ データとビューモード状態をZustandから取得
   const [data] = useState<ProductYearData[]>(generateSampleData())
-  const [viewMode, setViewMode] = useState<"sales" | "quantity" | "orders">("sales")
+  const viewMode = filters.viewMode === "sales" ? "sales" : filters.viewMode === "quantity" ? "quantity" : "orders"
+  
+  // ✅ ローカル状態を一時的に維持（段階的移行）
   const [comparisonMode, setComparisonMode] = useState<"sideBySide" | "growth">("sideBySide")
   const [sortBy, setSortBy] = useState<"name" | "growth" | "total">("growth")
-  const [appliedFilters, setAppliedFilters] = useState({
-    growthRate: "all",
+  
+  // ✅ フィルター状態をZustandから取得
+  const appliedFilters = {
+    growthRate: "all", // TODO: filters.appliedFiltersから取得予定
     salesRange: "all",
-    category: "all",
-    searchTerm: "",
-  })
+    category: filters.productFilters.category,
+    searchTerm: filters.productFilters.searchTerm,
+  }
 
   // フィルタリングとソート
   const filteredAndSortedData = useMemo(() => {
@@ -730,7 +749,15 @@ const YearOverYearProductAnalysis = () => {
       </Card>
 
       {/* 改善5: 詳細フィルタリング */}
-      <AdvancedFilters onFilterChange={setAppliedFilters} categories={categories} />
+      <AdvancedFilters 
+        onFilterChange={(filters) => {
+          updateProductFilters({
+            searchTerm: filters.searchTerm,
+            category: filters.category
+          })
+        }} 
+        categories={categories} 
+      />
 
       {/* サマリーカード */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">

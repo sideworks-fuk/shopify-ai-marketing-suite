@@ -35,8 +35,8 @@ export default function SalesDashboardPage() {
         value: kpiData.totalSales.change,
         type: "increase"
       },
-      icon: <DollarSign className="w-5 h-5" />,
-      color: "default"
+      icon: DollarSign,
+      variant: "default"
     },
     {
       title: "注文数",
@@ -46,8 +46,8 @@ export default function SalesDashboardPage() {
         value: kpiData.totalOrders.change,
         type: "increase"
       },
-      icon: <ShoppingCart className="w-5 h-5" />,
-      color: "success"
+      icon: ShoppingCart,
+      variant: "success"
     },
     {
       title: "平均注文額",
@@ -60,8 +60,8 @@ export default function SalesDashboardPage() {
         value: kpiData.averageOrderValue.change,
         type: "increase"
       },
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: "warning"
+      icon: TrendingUp,
+      variant: "warning"
     },
     {
       title: "売上商品数",
@@ -71,8 +71,8 @@ export default function SalesDashboardPage() {
         value: kpiData.totalProducts.change,
         type: "increase"
       },
-      icon: <Package className="w-5 h-5" />,
-      color: "default"
+      icon: Package,
+      variant: "default"
     },
   ]
 

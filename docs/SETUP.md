@@ -331,3 +331,14 @@ taskkill /F /PID <PID>
 $env:PORT = 3001
 npm run dev
 \`\`\`
+
+## モックデータ・データ層の注意点
+
+- モックデータは `src/data/mock/customerData.ts` に集約されています。
+- DataService/ShopifyAPIで開発/本番切替が可能です。
+  - 開発時はモックデータ、環境変数設定で本番APIに自動切替。
+- UI部品は `src/components/ui/` に集約されています。
+- サブディレクトリ分割（`dashboards/customers/`等）で大規模コンポーネントが整理されています。
+
+*最終更新: 2025年5月25日（src構成・データ層・モックデータ現状反映）*
+*作成者: AI Assistant*

@@ -1,24 +1,24 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
 import { dormantSegments, type DormantSegment } from "@/data/mock/customerData"
+import { useDormantFilters } from "@/contexts/FilterContext"
 
 interface DormantPeriodFilterProps {
-  onSegmentSelect?: (segment: DormantSegment | null) => void;
-  selectedSegment?: DormantSegment | null;
+  // Props Drilling解消により、これらのpropsは不要になった
+  // onSegmentSelect?: (segment: DormantSegment | null) => void;
+  // selectedSegment?: DormantSegment | null;
 }
 
-export function DormantPeriodFilter({ 
-  onSegmentSelect, 
-  selectedSegment 
-}: DormantPeriodFilterProps) {
+export function DormantPeriodFilter({}: DormantPeriodFilterProps) {
+  const { filters, setSelectedSegment } = useDormantFilters()
+  
   const handleSegmentClick = (segment: DormantSegment) => {
-    const newSelection = selectedSegment?.id === segment.id ? null : segment
-    onSegmentSelect?.(newSelection)
+    const newSelection = filters.selectedSegment?.id === segment.id ? null : segment
+    setSelectedSegment(newSelection)
   }
 
   const periodSegments = dormantSegments.slice().sort((a, b) => a.range[0] - b.range[0])
@@ -37,10 +37,10 @@ export function DormantPeriodFilter({
             {periodSegments.map((segment) => (
               <Button
                 key={segment.id}
-                variant={selectedSegment?.id === segment.id ? "default" : "outline"}
+                variant={filters.selectedSegment?.id === segment.id ? "default" : "outline"}
                 onClick={() => handleSegmentClick(segment)}
                 className={`h-auto flex-col p-4 ${
-                  selectedSegment?.id === segment.id ? 'ring-2 ring-blue-500' : ''
+                  filters.selectedSegment?.id === segment.id ? 'ring-2 ring-blue-500' : ''
                 }`}
               >
                 <div className="text-sm font-semibold mb-1">
@@ -58,7 +58,7 @@ export function DormantPeriodFilter({
         </div>
 
         {/* 選択状態の表示 */}
-        {selectedSegment && (
+        {filters.selectedSegment && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -66,13 +66,13 @@ export function DormantPeriodFilter({
                   選択中
                 </Badge>
                 <span className="text-sm font-medium">
-                  {selectedSegment.label}（{selectedSegment.count}名）
+                  {filters.selectedSegment.label}（{filters.selectedSegment.count}名）
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onSegmentSelect?.(null)}
+                onClick={() => setSelectedSegment(null)}
                 className="text-blue-600 hover:text-blue-800"
               >
                 クリア

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useState, useMemo, useCallback } from "react"
+import { useAppStore } from "../../stores/appStore"
+import { useCustomerAnalysisFilters } from "../../stores/analysisFiltersStore"
 import {
   BarChart,
   Bar,
@@ -126,26 +127,41 @@ export default function CustomerPurchaseAnalysis({
   accessToken,
   useSampleData = true,
 }: CustomerPurchaseAnalysisProps) {
-  const { selectedPeriod, setSelectedPeriod, selectedCustomerSegment, setSelectedCustomerSegment } = useAppContext()
+  // ✅ Zustand移行: AppStore & AnalysisFiltersStore使用（個別セレクター）
+  const selectedCustomerId = useAppStore((state) => state.selectionState.selectedCustomerId)
+  const selectCustomer = useAppStore((state) => state.selectCustomer)
+  const setLoading = useAppStore((state) => state.setLoading)
+  const showToast = useAppStore((state) => state.showToast)
+  
+  const { 
+    filters, 
+    setLtvFilter,
+    setPurchaseCountFilter,
+    setLastPurchaseDays,
+    setPurchaseCountRange,
+    setLastPurchaseDateRange,
+    setPagination,
+    setSort,
+    resetFilters
+  } = useCustomerAnalysisFilters()
+  
+  // ✅ 必要最小限のローカル状態のみ保持
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [ltvFilter, setLtvFilter] = useState("all")
-  const [purchaseCountFilter, setPurchaseCountFilter] = useState("all")
-  const [lastPurchaseDays, setLastPurchaseDays] = useState("all")
   
-  // Phase 1: 範囲フィルター用の新しいstate
-  const [purchaseCountMin, setPurchaseCountMin] = useState("")
-  const [purchaseCountMax, setPurchaseCountMax] = useState("")
-  const [lastPurchaseStartDate, setLastPurchaseStartDate] = useState("")
-  const [lastPurchaseEndDate, setLastPurchaseEndDate] = useState("")
+  // ✅ 期間フィルター管理（簡易版）
+  const [selectedPeriod, setSelectedPeriod] = useState<"thisMonth" | "lastMonth" | "thisQuarter" | "custom">("thisMonth")
+  
+  // ✅ セグメントフィルター管理（簡易版）
+  const [selectedCustomerSegment, setSelectedCustomerSegment] = useState<string>("全顧客")
 
-  // フィルタリング済みデータ
+  // ✅ フィルタリング済みデータ（Zustand移行）
   const filteredMockData = useMemo(() => {
     let filtered = mockCustomerData
 
     // LTVフィルター
-    if (ltvFilter !== "all") {
-      const range = ltvRanges.find(r => r.value === ltvFilter)
+    if (filters.ltvFilter !== "all") {
+      const range = ltvRanges.find(r => r.value === filters.ltvFilter)
       if (range) {
         filtered = filtered.filter(customer => 
           customer.totalAmount >= range.min && customer.totalAmount < range.max
@@ -154,8 +170,8 @@ export default function CustomerPurchaseAnalysis({
     }
 
     // 購入回数フィルター
-    if (purchaseCountFilter !== "all") {
-      const range = purchaseCountRanges.find(r => r.value === purchaseCountFilter)
+    if (filters.purchaseCountFilter !== "all") {
+      const range = purchaseCountRanges.find(r => r.value === filters.purchaseCountFilter)
       if (range) {
         filtered = filtered.filter(customer => 
           customer.purchaseCount >= range.min && customer.purchaseCount <= range.max
@@ -164,8 +180,8 @@ export default function CustomerPurchaseAnalysis({
     }
 
     // 最終購入日フィルター
-    if (lastPurchaseDays !== "all") {
-      const days = parseInt(lastPurchaseDays)
+    if (filters.lastPurchaseDays !== "all") {
+      const days = parseInt(filters.lastPurchaseDays)
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)
       
@@ -175,20 +191,20 @@ export default function CustomerPurchaseAnalysis({
       })
     }
 
-    // Phase 1: 購入回数範囲フィルター
-    if (purchaseCountMin !== "" || purchaseCountMax !== "") {
-      const minCount = purchaseCountMin === "" ? 0 : parseInt(purchaseCountMin)
-      const maxCount = purchaseCountMax === "" ? Infinity : parseInt(purchaseCountMax)
+    // ✅ 購入回数範囲フィルター（Zustand）
+    if (filters.purchaseCountMin !== "" || filters.purchaseCountMax !== "") {
+      const minCount = filters.purchaseCountMin === "" ? 0 : parseInt(filters.purchaseCountMin)
+      const maxCount = filters.purchaseCountMax === "" ? Infinity : parseInt(filters.purchaseCountMax)
       
       filtered = filtered.filter(customer => 
         customer.purchaseCount >= minCount && customer.purchaseCount <= maxCount
       )
     }
 
-    // Phase 1: 最終購入日範囲フィルター
-    if (lastPurchaseStartDate !== "" || lastPurchaseEndDate !== "") {
-      const startDate = lastPurchaseStartDate === "" ? new Date("1900-01-01") : new Date(lastPurchaseStartDate)
-      const endDate = lastPurchaseEndDate === "" ? new Date() : new Date(lastPurchaseEndDate)
+    // ✅ 最終購入日範囲フィルター（Zustand）
+    if (filters.lastPurchaseStartDate !== "" || filters.lastPurchaseEndDate !== "") {
+      const startDate = filters.lastPurchaseStartDate === "" ? new Date("1900-01-01") : new Date(filters.lastPurchaseStartDate)
+      const endDate = filters.lastPurchaseEndDate === "" ? new Date() : new Date(filters.lastPurchaseEndDate)
       
       filtered = filtered.filter(customer => {
         const lastPurchase = new Date(customer.lastOrderDate)
@@ -197,9 +213,9 @@ export default function CustomerPurchaseAnalysis({
     }
 
     return filtered
-  }, [ltvFilter, purchaseCountFilter, lastPurchaseDays, purchaseCountMin, purchaseCountMax, lastPurchaseStartDate, lastPurchaseEndDate])
+  }, [filters])
 
-  // useCustomerTableフックで統一管理
+  // ✅ useCustomerTableフックで統一管理（Zustand移行）
   const {
     searchQuery,
     filteredCustomers,
@@ -213,10 +229,10 @@ export default function CustomerPurchaseAnalysis({
     handlePageChange,
   } = useCustomerTable({
     data: filteredMockData,
-    itemsPerPage: 10,
-    selectedSegment: selectedCustomerSegment,
-    initialSortColumn: "totalAmount",
-    initialSortDirection: "desc"
+    itemsPerPage: filters.itemsPerPage,
+    selectedSegment: "全顧客", // TODO: AppContext依存削除後に適切なセグメント値を設定
+    initialSortColumn: filters.sortColumn,
+    initialSortDirection: filters.sortDirection
   })
 
   const kpiSummary = calculateKPISummary()
@@ -519,7 +535,7 @@ export default function CustomerPurchaseAnalysis({
             </Select>
 
             {/* LTV範囲フィルター */}
-            <Select value={ltvFilter} onValueChange={setLtvFilter}>
+            <Select value={filters.ltvFilter} onValueChange={setLtvFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="LTV範囲" />
               </SelectTrigger>
@@ -533,7 +549,7 @@ export default function CustomerPurchaseAnalysis({
             </Select>
 
             {/* 購入回数フィルター */}
-            <Select value={purchaseCountFilter} onValueChange={setPurchaseCountFilter}>
+            <Select value={filters.purchaseCountFilter} onValueChange={setPurchaseCountFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="購入回数" />
               </SelectTrigger>
@@ -560,8 +576,8 @@ export default function CustomerPurchaseAnalysis({
                   <Input
                     type="number"
                     placeholder="最小"
-                    value={purchaseCountMin}
-                    onChange={(e) => setPurchaseCountMin(e.target.value)}
+                    value={filters.purchaseCountMin}
+                    onChange={(e) => setPurchaseCountRange(e.target.value, filters.purchaseCountMax)}
                     className="w-20"
                     min="0"
                   />
@@ -569,8 +585,8 @@ export default function CustomerPurchaseAnalysis({
                   <Input
                     type="number"
                     placeholder="最大"
-                    value={purchaseCountMax}
-                    onChange={(e) => setPurchaseCountMax(e.target.value)}
+                    value={filters.purchaseCountMax}
+                    onChange={(e) => setPurchaseCountRange(filters.purchaseCountMin, e.target.value)}
                     className="w-20"
                     min="0"
                   />
@@ -587,15 +603,15 @@ export default function CustomerPurchaseAnalysis({
                 <div className="flex items-center gap-2">
                   <Input
                     type="date"
-                    value={lastPurchaseStartDate}
-                    onChange={(e) => setLastPurchaseStartDate(e.target.value)}
+                    value={filters.lastPurchaseStartDate}
+                    onChange={(e) => setLastPurchaseDateRange(e.target.value, filters.lastPurchaseEndDate)}
                     className="w-36"
                   />
                   <span className="text-sm text-gray-500">〜</span>
                   <Input
                     type="date"
-                    value={lastPurchaseEndDate}
-                    onChange={(e) => setLastPurchaseEndDate(e.target.value)}
+                    value={filters.lastPurchaseEndDate}
+                    onChange={(e) => setLastPurchaseDateRange(filters.lastPurchaseStartDate, e.target.value)}
                     className="w-36"
                   />
                 </div>
@@ -606,7 +622,7 @@ export default function CustomerPurchaseAnalysis({
                 <label className="text-sm font-medium text-gray-700">
                   最終購入日（簡易選択）
                 </label>
-                <Select value={lastPurchaseDays} onValueChange={setLastPurchaseDays}>
+                <Select value={filters.lastPurchaseDays} onValueChange={setLastPurchaseDays}>
                   <SelectTrigger>
                     <SelectValue placeholder="最終購入日" />
                   </SelectTrigger>
@@ -627,13 +643,7 @@ export default function CustomerPurchaseAnalysis({
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  setPurchaseCountMin("")
-                  setPurchaseCountMax("")
-                  setLastPurchaseStartDate("")
-                  setLastPurchaseEndDate("")
-                  setLastPurchaseDays("all")
-                  setLtvFilter("all")
-                  setPurchaseCountFilter("all")
+                  resetFilters()
                   setSelectedCustomerSegment("全顧客")
                 }}
                 className="flex items-center gap-1"
@@ -642,7 +652,7 @@ export default function CustomerPurchaseAnalysis({
                 フィルターリセット
               </Button>
               <div className="text-xs text-gray-500">
-                {(purchaseCountMin !== "" || purchaseCountMax !== "" || lastPurchaseStartDate !== "" || lastPurchaseEndDate !== "") && 
+                {(filters.purchaseCountMin !== "" || filters.purchaseCountMax !== "" || filters.lastPurchaseStartDate !== "" || filters.lastPurchaseEndDate !== "") && 
                   "※ 範囲指定フィルターが適用中"}
               </div>
             </div>
