@@ -106,7 +106,7 @@ export const menuStructure: MenuItem[] = [
     icon: "😴",
     href: "/customers/dormant",
     category: "customers",
-    isImplemented: false,
+    isImplemented: true,
     description: "最終購入からの経過期間別に顧客を分類・管理"
   },
   // 一時的に非表示

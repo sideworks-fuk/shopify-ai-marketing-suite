@@ -114,24 +114,24 @@ export default function HomePage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h4 className="font-semibold text-green-700 mb-2">✅ 実装済み (6機能)</h4>
+                <h4 className="font-semibold text-green-700 mb-2">✅ 実装済み (10機能)</h4>
                 <ul className="text-sm space-y-1 text-gray-600">
                   <li>• 売上ダッシュボード</li>
                   <li>• 前年同月比【商品】</li>
                   <li>• 購入頻度【商品】</li>
+                  <li>• 組み合わせ商品【商品】</li>
+                  <li>• 月別売上統計【購買】</li>
                   <li>• 購入回数【購買】</li>
+                  <li>• F階層傾向【購買】</li>
                   <li>• 顧客ダッシュボード</li>
-                  <li>• AIインサイト</li>
+                  <li>• 顧客購買【顧客】</li>
+                  <li>• 休眠顧客【顧客】</li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-orange-700 mb-2">🚧 実装予定 (5機能)</h4>
+                <h4 className="font-semibold text-orange-700 mb-2">🚧 実装予定 (1機能)</h4>
                 <ul className="text-sm space-y-1 text-gray-600">
-                  <li>• 組み合わせ商品【商品】</li>
-                  <li>• 月別売上統計【購買】</li>
-                  <li>• F階層傾向【購買】</li>
-                  <li>• 顧客購買【顧客】</li>
-                  <li>• 休眠顧客【顧客】</li>
+                  <li>• AIインサイト</li>
                 </ul>
               </div>
             </div>
