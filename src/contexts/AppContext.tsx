@@ -50,7 +50,7 @@ export const menuStructure: MenuItem[] = [
     icon: "🛒",
     href: "/sales/market-basket",
     category: "sales",
-    isImplemented: false,
+    isImplemented: true,
     description: "一緒に購入される商品の組み合わせ分析"
   },
   {
