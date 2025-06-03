@@ -97,7 +97,7 @@ export const menuStructure: MenuItem[] = [
     icon: "👤",
     href: "/customers/profile",
     category: "customers",
-    isImplemented: false,
+    isImplemented: true,
     description: "顧客別の詳細な購買プロファイル分析"
   },
   {

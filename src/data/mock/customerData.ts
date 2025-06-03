@@ -47,6 +47,15 @@ export interface DormantCustomer {
   action: string;
 }
 
+// Phase 2: 商品情報のインターフェース
+export interface ProductInfo {
+  name: string;
+  count: number;
+  percentage: number;
+  category: string;
+  isRepeat: boolean;
+}
+
 export interface CustomerDetail {
   id: string;
   name: string;
@@ -57,6 +66,10 @@ export interface CustomerDetail {
   topProduct: string;
   status: "VIP" | "リピーター" | "新規" | "休眠";
   lastOrderDate: string;
+  // Phase 2: 商品情報を追加
+  topProducts: ProductInfo[];
+  productCategories: string[];
+  repeatProducts: number;
 }
 
 // モックデータ
@@ -137,6 +150,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品A",
     status: "VIP",
     lastOrderDate: "2024-05-20",
+    topProducts: [
+      { name: "カプセルサプリA", count: 8, percentage: 53, category: "健康食品", isRepeat: true },
+      { name: "ビタミンB", count: 4, percentage: 27, category: "サプリメント", isRepeat: true },
+      { name: "プロテイン", count: 3, percentage: 20, category: "健康食品", isRepeat: false }
+    ],
+    productCategories: ["健康食品", "サプリメント"],
+    repeatProducts: 2,
   },
   {
     id: "12346",
@@ -148,6 +168,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品B",
     status: "リピーター",
     lastOrderDate: "2024-04-15",
+    topProducts: [
+      { name: "スキンケアセット", count: 2, percentage: 67, category: "美容", isRepeat: true },
+      { name: "アロマオイル", count: 1, percentage: 33, category: "リラクゼーション", isRepeat: false }
+    ],
+    productCategories: ["美容", "リラクゼーション"],
+    repeatProducts: 1,
   },
   {
     id: "12347",
@@ -159,6 +185,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品C",
     status: "新規",
     lastOrderDate: "2024-05-10",
+    topProducts: [
+      { name: "フィットネス用品", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
+    ],
+    productCategories: ["スポーツ"],
+    repeatProducts: 0,
   },
   {
     id: "12348",
@@ -170,6 +201,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品D",
     status: "リピーター",
     lastOrderDate: "2024-05-18",
+    topProducts: [
+      { name: "オーガニック食品", count: 5, percentage: 63, category: "食品", isRepeat: true },
+      { name: "エコグッズ", count: 2, percentage: 25, category: "生活雑貨", isRepeat: true },
+      { name: "ハーブティー", count: 1, percentage: 12, category: "飲料", isRepeat: false }
+    ],
+    productCategories: ["食品", "生活雑貨", "飲料"],
+    repeatProducts: 2,
   },
   {
     id: "12349",
@@ -181,6 +219,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品E",
     status: "リピーター",
     lastOrderDate: "2024-03-25",
+    topProducts: [
+      { name: "PC周辺機器", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false },
+      { name: "ガジェット", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false }
+    ],
+    productCategories: ["テクノロジー"],
+    repeatProducts: 0,
   },
   {
     id: "12350",
@@ -192,6 +236,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品F",
     status: "休眠",
     lastOrderDate: "2023-12-05",
+    topProducts: [
+      { name: "アクセサリー", count: 1, percentage: 100, category: "ファッション", isRepeat: false }
+    ],
+    productCategories: ["ファッション"],
+    repeatProducts: 0,
   },
   {
     id: "12351",
@@ -203,6 +252,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品G",
     status: "VIP",
     lastOrderDate: "2024-05-22",
+    topProducts: [
+      { name: "プレミアムサプリ", count: 12, percentage: 55, category: "健康食品", isRepeat: true },
+      { name: "ビタミンD", count: 6, percentage: 27, category: "サプリメント", isRepeat: true },
+      { name: "プロテインバー", count: 4, percentage: 18, category: "健康食品", isRepeat: true }
+    ],
+    productCategories: ["健康食品", "サプリメント"],
+    repeatProducts: 3,
   },
   {
     id: "12352",
@@ -214,6 +270,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品H",
     status: "リピーター",
     lastOrderDate: "2024-04-30",
+    topProducts: [
+      { name: "オーガニック化粧品", count: 3, percentage: 60, category: "美容", isRepeat: true },
+      { name: "ナチュラルシャンプー", count: 2, percentage: 40, category: "美容", isRepeat: false }
+    ],
+    productCategories: ["美容"],
+    repeatProducts: 1,
   },
   {
     id: "12353",
@@ -225,6 +287,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品I",
     status: "休眠",
     lastOrderDate: "2024-01-15",
+    topProducts: [
+      { name: "ワークアウトギア", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
+    ],
+    productCategories: ["スポーツ"],
+    repeatProducts: 0,
   },
   {
     id: "12354",
@@ -236,6 +303,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品J",
     status: "VIP",
     lastOrderDate: "2024-05-15",
+    topProducts: [
+      { name: "プレミアム美容液", count: 7, percentage: 58, category: "美容", isRepeat: true },
+      { name: "アンチエイジングクリーム", count: 3, percentage: 25, category: "美容", isRepeat: true },
+      { name: "フェイスマスク", count: 2, percentage: 17, category: "美容", isRepeat: false }
+    ],
+    productCategories: ["美容"],
+    repeatProducts: 2,
   },
 ];
 

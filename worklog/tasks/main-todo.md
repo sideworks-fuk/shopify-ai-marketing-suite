@@ -198,6 +198,22 @@
     - レスポンシブ対応と直感的UI設計
   - 分析価値: 顧客ロイヤリティ推移、リテンション効果測定、階層別施策立案支援
   - 所要時間: 30分
+
+- [x] **②-1 顧客購買【顧客】画面実装（Phase 2完了）** 👤顧客分析 ⭐NEW
+  - 実施内容: 顧客別詳細購買プロファイル分析画面の段階的実装
+  - 成果: 
+    - **Phase 1**: KPIサマリー、検索・フィルタリング、顧客一覧テーブル、詳細モーダル、範囲フィルター機能
+    - **Phase 2**: 商品情報表示機能完全実装（テーブルカラム追加、商品バッジ表示、VIP顧客商品分析パネル）
+  - 技術実装: 
+    - ProductInfo型・CustomerDetail型拡張による商品データ統合
+    - ProductBadges/CategoryBadges コンポーネントによるリピート商品可視化
+    - VIP顧客商品分析（人気商品・リピート商品・カテゴリ分析）の動的集計機能
+    - 商品詳細モーダル強化（2カラムレイアウト、商品分析サマリー）
+    - CSVエクスポート拡張（商品情報・カテゴリ・リピート数追加）
+  - 分析価値: VIP顧客商品嗜好把握、パーソナライゼーション戦略立案、個別フォローアップ支援
+  - 所要時間: Phase 1: 1.5時間、Phase 2: 1.25時間（計2.75時間）
+  - **実装場所**: `src/components/dashboards/CustomerPurchaseAnalysis.tsx`（1,120行）
+  - **データ**: `src/data/mock/customerData.ts`（10顧客詳細商品情報）
   - **実装場所**: 
     - `src/components/dashboards/FTierTrendAnalysis.tsx` (574行の高機能コンポーネント)
     - `src/app/purchase/f-tier-trend/page.tsx` (スタブ→完全実装更新)
