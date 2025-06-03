@@ -65,11 +65,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       label: "👥 顧客分析", 
       description: "顧客セグメント分析"
     },
-    {
-      id: "ai-insights",
-      label: "🤖 AIインサイト",
-      description: "AI予測・提案"
-    }
+    // 一時的に非表示
+    // {
+    //   id: "ai-insights",
+    //   label: "🤖 AIインサイト",
+    //   description: "AI予測・提案"
+    // }
   ]
 
   const handleMenuClick = (item: MenuItem) => {

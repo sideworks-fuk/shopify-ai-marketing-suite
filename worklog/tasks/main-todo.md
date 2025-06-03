@@ -660,4 +660,60 @@ const useApiData = process.env.NODE_ENV === 'production' ||
                    process.env.NEXT_PUBLIC_USE_API === 'true';
 ```
 
+---
+
+### 📝 **サイドメニューAIインサイト一時非表示対応（完了）** 🟢NEW - 2024年12月22日
+- [x] **AIインサイトメニューの一時的な非表示化**
+  - 問題: AIインサイト機能の一時的な非表示が必要
+  - 対応: AppContext.tsxとMainLayout.tsxでメニュー項目をコメントアウト
+  - 結果: サイドメニューからAIインサイトが非表示になり、他の機能は正常動作
+  - 所要時間: 5分
+  - **学習価値**: メニュー構造の理解、一時的な機能無効化の手法
+  - **実装体感**: 
+    - `src/contexts/AppContext.tsx` (メニュー定義コメントアウト)
+    - `src/components/layout/MainLayout.tsx` (カテゴリ定義コメントアウト)
+  - **学習価値**: コメントアウトによる安全な一時無効化、再有効化の容易性
+
+### 🐛 **購入頻度画面サイドメニュー消失問題修正（完了）** 🟢NEW - 2024年12月22日
+- [x] **ProductPurchaseFrequencyAnalysisコンポーネントでのサイドメニュー消失問題修正**
+  - 問題: 購入頻度【商品】メニューでのみサイドメニューが消える
+  - 原因: `useAppContext` importが欠落していた
+  - 対応: AppContextの適切なimportと初期化を追加
+  - 結果: サイドメニューが正常表示されるようになった
+  - 所要時間: 10分
+  - **学習価値**: Context missingによるUI破綻パターンの理解
+  - **実装体感**:
+    - `src/components/dashboards/ProductPurchaseFrequencyAnalysis.tsx`
+    - `import { useAppContext } from "@/contexts/AppContext"` 追加
+    - `const { selectedPeriod } = useAppContext()` 初期化追加
+  - **学習価値**: Reactコンポーネント間でのContext依存関係の重要性
+
+### 🔬 **購入頻度コンポーネント最小化テスト（完了）** 🟢NEW - 2024年12月22日
+- [x] **ProductPurchaseFrequencyAnalysisコンポーネント最小化によるサイドメニュー問題検証**
+  - 問題: 段階的修正でもサイドメニュー消失問題が解決せず
+  - 対応: コンポーネントを最小限の構造に置き換えてテスト
+  - **結果**: ✅ サイドメニューが正常表示される（問題箇所特定完了）
+  - **確定**: 元のコンポーネント構造に根本的な問題があることが判明
+  - **実装体感**:
+    - 全ての複雑な処理を削除（useState、useEffect、データ取得、CSV機能等）
+    - 最小限のCardコンポーネントのみ残存
+    - import文も最小限に削減
+  - **学習価値**: コンポーネント問題の段階的切り分け手法
+
+### ✅ **購入頻度分析コンポーネント再構築（完了）** 🟢NEW - 2024年12月22日
+- [x] **正常動作するコンポーネントを参考にした一から再構築**
+  - 方針: SalesDashboard.tsxと同じ構造で段階的に機能追加
+  - **成果**: サイドメニュー表示を維持しながら元の機能を完全復元
+  - 参考コンポーネント: `src/components/dashboards/SalesDashboard.tsx`
+  - 実装完了: 基本構造→データ表示→CSV機能→エラーハンドリング
+  - 所要時間: 45分
+  - **学習価値**: 正しいコンポーネント設計パターンの習得
+  - **品質達成**: ✅ サイドメニュー維持、✅ TypeScriptエラー解決、✅ 機能完全復元
+  - **実装機能**:
+    - AppContext適切な初期化
+    - サンプルデータ表示（プロテインパウダー、ビタミンサプリ）
+    - CSV出力機能（ヘッダー、リピート率計算含む）
+    - ローディング状態管理、エラーハンドリング
+    - レスポンシブデザイン対応
+
 --- 

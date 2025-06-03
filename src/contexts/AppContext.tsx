@@ -109,15 +109,16 @@ export const menuStructure: MenuItem[] = [
     isImplemented: false,
     description: "最終購入からの経過期間別に顧客を分類・管理"
   },
-  {
-    id: "ai-insights",
-    label: "AIインサイト",
-    icon: "🤖",
-    href: "/ai-insights",
-    category: "ai-insights",
-    isImplemented: true,
-    description: "AIによる予測分析と自動インサイト生成"
-  }
+  // 一時的に非表示
+  // {
+  //   id: "ai-insights",
+  //   label: "AIインサイト",
+  //   icon: "🤖",
+  //   href: "/ai-insights",
+  //   category: "ai-insights",
+  //   isImplemented: true,
+  //   description: "AIによる予測分析と自動インサイト生成"
+  // }
 ]
 
 export const getMenuByCategory = (category: string) => {
