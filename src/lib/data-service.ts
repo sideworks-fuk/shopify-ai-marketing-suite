@@ -114,6 +114,7 @@ export class DataService {
     Array<{
       productName: string
       productId: string
+      category: string
       totalCustomers: number
       frequencies: Array<{
         count: number
@@ -169,6 +170,7 @@ export class DataService {
       return {
         productName: productNames.get(productId) || `Product ${productId}`,
         productId,
+        category: 'other', // デフォルトカテゴリー（実際のShopifyからはカテゴリー情報を取得）
         totalCustomers,
         frequencies: frequencyArray,
       }
