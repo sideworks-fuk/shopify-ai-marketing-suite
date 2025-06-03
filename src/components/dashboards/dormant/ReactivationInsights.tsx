@@ -22,50 +22,68 @@ import {
   AlertTriangle,
   ArrowUp
 } from "lucide-react"
-import { reactivationCampaigns, reactivationInsights, type DormantCustomer } from "@/data/mock/customerData"
+import { 
+  reactivationInsights,
+  reactivationCampaigns,
+  type DormantCustomerDetail
+} from "@/data/mock/customerData"
 
 interface ReactivationInsightsProps {
-  selectedCustomers?: DormantCustomer[];
+  selectedCustomers?: DormantCustomerDetail[];
 }
 
 export function ReactivationInsights({ selectedCustomers = [] }: ReactivationInsightsProps) {
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null)
 
-  // 復帰可能性スコアに基づく推奨アクション
-  const getRecommendedActions = (customers: DormantCustomer[]) => {
-    if (customers.length === 0) return reactivationInsights.recommendations
+  // selectedCustomersが渡された場合、それに基づいて推奨アクションを生成
+  // そうでなければデフォルトの推奨アクションを使用
+  const getRecommendedActions = (customers: DormantCustomerDetail[]) => {
+    // 顧客が選択されていない場合はデフォルトアクション
+    if (customers.length === 0) {
+      return [
+        {
+          action: "おかえりなさいメール",
+          description: "パーソナライズされたメールで復帰を促進",
+          priority: "high",
+          targetCount: 45,
+          estimatedCost: 15000,
+          estimatedRevenue: 180000,
+          timeline: "即座に実行"
+        },
+        {
+          action: "復帰クーポン配布",
+          description: "15%割引クーポンで購買意欲を刺激",
+          priority: "medium",
+          targetCount: 32,
+          estimatedCost: 48000,
+          estimatedRevenue: 240000,
+          timeline: "1週間以内"
+        },
+        {
+          action: "商品レコメンデーション",
+          description: "過去の購入履歴に基づくパーソナライズド提案",
+          priority: "high",
+          targetCount: 28,
+          estimatedCost: 12000,
+          estimatedRevenue: 168000,
+          timeline: "2週間以内"
+        }
+      ]
+    }
 
-    const highProbability = customers.filter(c => c.reactivationProbability >= 60)
-    const mediumProbability = customers.filter(c => c.reactivationProbability >= 30 && c.reactivationProbability < 60)
-    const lowProbability = customers.filter(c => c.reactivationProbability < 30)
+    // 選択された顧客に基づく動的なアクション生成
+    const totalCustomers = customers.length
+    const avgProbability = customers.reduce((sum, c) => sum + c.reactivation.probability, 0) / totalCustomers
 
     return [
       {
-        priority: 'high' as const,
-        action: 'パーソナライズドオファー',
-        description: `高確率復帰見込み（${highProbability.length}名）に対する限定クーポン＋お気に入り商品レコメンド`,
-        estimatedCost: 2500 * highProbability.length,
-        estimatedRevenue: 8700 * highProbability.length,
-        targetCount: highProbability.length,
-        timeline: '即時実行'
-      },
-      {
-        priority: 'medium' as const,
-        action: '段階的リエンゲージメント',
-        description: `中確率見込み（${mediumProbability.length}名）に対する3段階メールシーケンス`,
-        estimatedCost: 800 * mediumProbability.length,
-        estimatedRevenue: 4200 * mediumProbability.length,
-        targetCount: mediumProbability.length,
-        timeline: '2週間'
-      },
-      {
-        priority: 'low' as const,
-        action: 'ブランド再認知キャンペーン',
-        description: `低確率見込み（${lowProbability.length}名）に対する価値提供コンテンツ配信`,
-        estimatedCost: 300 * lowProbability.length,
-        estimatedRevenue: 1800 * lowProbability.length,
-        targetCount: lowProbability.length,
-        timeline: '1ヶ月'
+        action: "カスタマイズドアプローチ",
+        description: `選択された${totalCustomers}名への個別化されたアプローチ`,
+        priority: avgProbability > 50 ? "high" : "medium",
+        targetCount: totalCustomers,
+        estimatedCost: totalCustomers * 500,
+        estimatedRevenue: customers.reduce((sum, c) => sum + c.reactivation.estimatedValue, 0),
+        timeline: "即座に実行"
       }
     ]
   }
@@ -212,33 +230,31 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
 
             <TabsContent value="email" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {reactivationCampaigns.emailTemplates.map((template, index) => (
-                  <div key={index} className="border rounded-lg p-4">
+                {reactivationCampaigns.filter(c => c.channels.includes("メール")).map((campaign, index) => (
+                  <div key={campaign.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold">{template.name}</h4>
-                      <Badge variant="outline">{template.type}</Badge>
+                      <h4 className="font-semibold">{campaign.name}</h4>
+                      <Badge variant="outline">{campaign.offer.type}</Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">{template.description}</p>
-                    
+                    <p className="text-sm text-slate-600 mb-3">{campaign.description}</p>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex justify-between">
                         <span>開封率:</span>
-                        <span className="font-medium">{template.openRate}%</span>
+                        <span className="font-medium">{campaign.expectedResults.openRate}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span>クリック率:</span>
-                        <span className="font-medium">{template.clickRate}%</span>
+                        <span className="font-medium">{campaign.expectedResults.clickRate}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span>コンバージョン:</span>
-                        <span className="font-medium">{template.conversionRate}%</span>
+                        <span className="font-medium">{campaign.expectedResults.conversionRate}%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>復帰率:</span>
-                        <span className="font-medium text-green-600">{template.reactivationRate}%</span>
+                        <span>平均注文額:</span>
+                        <span className="font-medium text-green-600">¥{campaign.expectedResults.averageOrderValue.toLocaleString()}</span>
                       </div>
                     </div>
-
                     <Button size="sm" className="w-full mt-3" variant="outline">
                       テンプレートを使用
                     </Button>
@@ -249,33 +265,27 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
 
             <TabsContent value="coupon" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {reactivationCampaigns.couponOffers.map((offer, index) => (
-                  <div key={index} className="border rounded-lg p-4">
+                {reactivationCampaigns.filter(c => c.offer.type.includes("クーポン") || c.offer.type.includes("特典")).map((campaign, index) => (
+                  <div key={campaign.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold">{offer.name}</h4>
-                      <Badge className="bg-green-100 text-green-800">{offer.discount}</Badge>
+                      <h4 className="font-semibold">{campaign.name}</h4>
+                      <Badge className="bg-green-100 text-green-800">{campaign.offer.value}</Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">{offer.description}</p>
-                    
+                    <p className="text-sm text-slate-600 mb-3">{campaign.description}</p>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
-                        <span>利用期限:</span>
-                        <span className="font-medium">{offer.validPeriod}</span>
+                        <span>利用条件:</span>
+                        <span className="font-medium">{campaign.offer.conditions}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>最低注文額:</span>
-                        <span className="font-medium">¥{offer.minimumOrder.toLocaleString()}</span>
+                        <span>有効期間:</span>
+                        <span className="font-medium">{campaign.timing.duration}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>対象商品:</span>
-                        <span className="font-medium">{offer.applicableProducts}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>予想利用率:</span>
-                        <span className="font-medium text-blue-600">{offer.expectedUsageRate}%</span>
+                        <span>対象:</span>
+                        <span className="font-medium">{campaign.targetSegment}</span>
                       </div>
                     </div>
-
                     <Button size="sm" className="w-full mt-3" variant="outline">
                       クーポン発行
                     </Button>
@@ -286,29 +296,23 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
 
             <TabsContent value="content" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {reactivationCampaigns.contentStrategies.map((strategy, index) => (
-                  <div key={index} className="border rounded-lg p-4">
+                {reactivationCampaigns.filter(c => c.channels.some(ch => ["LINE", "DM", "プッシュ通知", "電話"].includes(ch))).map((campaign, index) => (
+                  <div key={campaign.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold">{strategy.name}</h4>
-                      <Badge variant="outline">{strategy.type}</Badge>
+                      <h4 className="font-semibold">{campaign.name}</h4>
+                      <Badge variant="outline">{campaign.offer.type}</Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">{strategy.description}</p>
-                    
+                    <p className="text-sm text-slate-600 mb-3">{campaign.description}</p>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
-                        <span>配信頻度:</span>
-                        <span className="font-medium">{strategy.frequency}</span>
+                        <span>配信チャネル:</span>
+                        <span className="font-medium">{campaign.channels.join(", ")}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>配信期間:</span>
-                        <span className="font-medium">{strategy.duration}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>予想エンゲージメント:</span>
-                        <span className="font-medium text-purple-600">{strategy.expectedEngagement}%</span>
+                        <span>期間:</span>
+                        <span className="font-medium">{campaign.timing.duration}</span>
                       </div>
                     </div>
-
                     <Button size="sm" className="w-full mt-3" variant="outline">
                       戦略を適用
                     </Button>
@@ -321,6 +325,7 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
       </Card>
 
       {/* 成功事例 */}
+      {/*
       <Card className="border-slate-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
@@ -337,7 +342,6 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
                   <div className="flex-1">
                     <h4 className="font-semibold text-green-800 mb-2">{story.campaign}</h4>
                     <p className="text-sm text-slate-700 mb-3">{story.description}</p>
-                    
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center p-2 bg-white rounded">
                         <div className="text-lg font-bold text-green-600">
@@ -362,6 +366,7 @@ export function ReactivationInsights({ selectedCustomers = [] }: ReactivationIns
           </div>
         </CardContent>
       </Card>
+      */}
     </div>
   )
 } 
