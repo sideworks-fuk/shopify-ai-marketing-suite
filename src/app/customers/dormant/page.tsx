@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,21 +11,22 @@ import { DormantPeriodFilter } from "@/components/dashboards/dormant/DormantPeri
 import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCustomerList"
 
 import { dormantCustomerDetails, type DormantSegment } from "@/data/mock/customerData"
+import { useDormantFilters } from "@/contexts/FilterContext"
 
 export default function DormantCustomersPage() {
-  const [selectedSegment, setSelectedSegment] = useState<DormantSegment | null>(null)
+  // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
+  const { filters } = useDormantFilters()
 
-  const handleSegmentSelect = (segment: DormantSegment | null) => {
-    setSelectedSegment(segment)
-  }
-
-  // フィルタリングされた顧客データ（表示用）
-  const filteredCustomers = selectedSegment 
-    ? dormantCustomerDetails.filter(customer => {
-        const daysSince = customer.dormancy.daysSincePurchase
-        return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
-      })
-    : dormantCustomerDetails
+  // フィルタリングされた顧客データ（表示用）- useMemoで最適化
+  const filteredCustomers = useMemo(() => {
+    const selectedSegment = filters.selectedSegment
+    return selectedSegment 
+      ? dormantCustomerDetails.filter(customer => {
+          const daysSince = customer.dormancy.daysSincePurchase
+          return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
+        })
+      : dormantCustomerDetails
+  }, [filters.selectedSegment])
 
   return (
     <div className="space-y-6">
@@ -67,23 +68,20 @@ export default function DormantCustomersPage() {
       {/* 期間別フィルター */}
       <div>
         <h2 className="text-xl font-semibold mb-4">期間別セグメント</h2>
-        <DormantPeriodFilter 
-          onSegmentSelect={handleSegmentSelect}
-          selectedSegment={selectedSegment}
-        />
+        <DormantPeriodFilter />
       </div>
 
       {/* 顧客リスト */}
       <div>
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           休眠顧客一覧
-          {selectedSegment && (
+          {filters.selectedSegment && (
             <Badge variant="outline" className="ml-2">
-              {selectedSegment.label}フィルター適用中
+              {filters.selectedSegment.label}フィルター適用中
             </Badge>
           )}
         </h2>
-        <DormantCustomerList selectedSegment={selectedSegment} />
+        <DormantCustomerList selectedSegment={filters.selectedSegment} />
       </div>
 
       {/* フッター情報 */}
