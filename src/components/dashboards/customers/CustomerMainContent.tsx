@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   BarChart,
   Bar,
@@ -38,7 +38,8 @@ import { Input } from "../../ui/input"
 import { StatusCard } from "../../ui/status-card"
 import { CustomerStatusBadge } from "../../ui/customer-status-badge"
 import { useCustomerTable } from "../../../hooks/useCustomerTable"
-import { customerDetailData as mockCustomerData } from "../../../data/mock/customerData"
+import { dataService } from "../../../services/dataService"
+import type { CustomerDetail } from "../../../data/mock/customerData"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +115,27 @@ export function CustomerMainContent() {
   const { selectedCustomerSegment } = useAppContext()
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [customerData, setCustomerData] = useState<CustomerDetail[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // DataServiceからデータを取得
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const response = await dataService.getCustomers()
+        setCustomerData(response.data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'データの取得に失敗しました')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCustomers()
+  }, [])
 
   // useCustomerTableフックで統一管理
   const {
@@ -128,7 +150,7 @@ export function CustomerMainContent() {
     handleSort,
     handlePageChange,
   } = useCustomerTable({
-    data: mockCustomerData,
+    data: customerData,
     itemsPerPage: 5,
     selectedSegment: selectedCustomerSegment,
     initialSortColumn: "purchaseCount",
@@ -150,6 +172,41 @@ export function CustomerMainContent() {
   const handleCustomerClick = (customer: any) => {
     setSelectedCustomer(customer)
     setIsDetailModalOpen(true)
+  }
+
+  // ローディング状態の表示
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">顧客データを読み込んでいます...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // エラー状態の表示
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">データの読み込みに失敗しました</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              variant="outline"
+            >
+              再読み込み
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

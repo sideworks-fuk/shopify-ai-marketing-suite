@@ -40,23 +40,30 @@ shopify-ai-marketing-suite/
 │   │   ├── page.tsx                # ホームページ
 │   │   └── globals.css             # グローバルスタイル
 │   ├── 📁 components/              # Reactコンポーネント
-│   │   ├── 📁 dashboards/          # ダッシュボードコンポーネント
-│   │   ├── 📁 layout/              # レイアウトコンポーネント
-│   │   └── 📁 ui/                  # UIコンポーネント（部分的）
-│   ├── 📁 contexts/                # Reactコンテキスト
-│   └── 📁 lib/                     # ユーティリティライブラリ
-├── 📁 components/                   # UIコンポーネント（メイン）
-│   ├── 📁 ui/                      # shadcn/ui コンポーネント
-│   └── theme-provider.tsx          # テーマプロバイダー
-├── 📁 hooks/                       # カスタムReactフック
-├── 📁 docs/                        # プロジェクトドキュメント
-├── 📁 worklog/                     # 作業ログ・タスク管理
-│   ├── 📁 tasks/                   # タスクファイル
-│   │   ├── main-todo.md            # メインタスク管理
-│   │   └── task-*.md               # 個別タスクファイル
-│   └── 📁 daily/                   # 日次ログ
-├── 📁 public/                      # 静的アセット
-└── 📁 styles/                      # スタイルファイル
+│   │   ├── 📁 dashboards/          # ダッシュボード機能
+│   │   │   ├── 📁 customers/       # 顧客分析サブコンポーネント
+│   │   │   ├── 📁 sales/           # 売上分析サブコンポーネント
+│   │   │   ├── 📁 dormant/         # 休眠顧客分析サブコンポーネント
+│   │   │   └── ...                 # その他分析
+│   │   ├── 📁 ui/                  # shadcn/uiベースUI部品
+│   │   ├── 📁 layout/              # レイアウト関連
+│   │   ├── 📁 common/              # 共通部品
+│   │   └── ErrorBoundary.tsx       # エラーバウンダリ
+│   ├── 📁 lib/                     # ユーティリティ・API・データ層
+│   │   ├── shopify.ts              # ShopifyAPIクラス・型定義
+│   │   ├── data-service.ts         # DataServiceクラス
+│   │   ├── formatters.ts           # フォーマッタ
+│   │   ├── utils.ts                # 汎用関数
+│   │   ├── sample-products.ts      # サンプル商品データ
+│   │   └── data-access/            # 型・API拡張
+│   ├── 📁 contexts/                # グローバル状態管理
+│   │   └── AppContext.tsx
+│   ├── 📁 hooks/                   # カスタムフック
+│   │   └── useCustomerTable.ts
+│   ├── 📁 data/                    # データ・モック
+│   │   └── mock/
+│   │       └── customerData.ts     # 顧客・休眠・分析用モックデータ
+├── ...
 ```
 
 ---
@@ -68,7 +75,7 @@ shopify-ai-marketing-suite/
 - **React**: 19
 - **TypeScript**: 5
 - **Tailwind CSS**: 3.4.17
-- **shadcn/ui**: UIコンポーネントライブラリ
+- **shadcn/ui**: UIコンポーネントライブラリ（`src/components/ui/`に集約）
 - **Radix UI**: ヘッドレスUIコンポーネント
 - **Lucide React**: アイコンライブラリ
 - **Recharts**: チャートライブラリ
@@ -80,7 +87,8 @@ shopify-ai-marketing-suite/
 
 ### Shopify統合
 - **Shopify API**: 2023-10バージョン
-- **カスタムAPIクライアント**: TypeScript実装
+- **ShopifyAPIクラス**: `src/lib/shopify.ts`で実装
+- **DataServiceクラス**: `src/lib/data-service.ts`でAPIラッパー・集計
 
 ### 状態管理
 - **React Context API**: グローバル状態管理
@@ -98,24 +106,38 @@ shopify-ai-marketing-suite/
 | **購入頻度分析** | `src/components/dashboards/ProductPurchaseFrequencyAnalysis.tsx` | 商品別購入頻度 |
 | **詳細分析** | `src/components/dashboards/PurchaseFrequencyDetailAnalysis.tsx` | 購入回数詳細分析 |
 | **統合分析ページ** | `src/components/dashboards/IntegratedPurchaseAnalysisPage.tsx` | 統合購入分析 |
+| **サブコンポーネント** | `src/components/dashboards/sales/` | 分割されたUI・ロジック |
 
 ### 顧客分析機能
 | 機能 | ファイルパス | 責任 |
 |------|-------------|------|
 | **顧客ダッシュボード** | `src/components/dashboards/CustomerDashboard.tsx` | 顧客セグメント、RFM分析 |
 | **セグメント分析** | `src/components/dashboards/CustomerSegmentAnalysis.tsx` | 顧客セグメント詳細分析 |
+| **サブコンポーネント** | `src/components/dashboards/customers/` | 分割されたUI・ロジック |
 
 ### AI分析機能
 | 機能 | ファイルパス | 責任 |
 |------|-------------|------|
 | **AIインサイト** | `src/components/dashboards/AIInsightsDashboard.tsx` | AI分析結果表示 |
 
+### 休眠顧客分析機能
+| 機能 | ファイルパス | 責任 |
+|------|-------------|------|
+| **休眠顧客リスト** | `src/components/dashboards/dormant/DormantCustomerList.tsx` | 休眠顧客一覧・管理 |
+| **復帰インサイト** | `src/components/dashboards/dormant/ReactivationInsights.tsx` | 復帰施策・インサイト |
+
 ### データ層
 | 機能 | ファイルパス | 責任 |
 |------|-------------|------|
-| **Shopify API** | `src/lib/shopify.ts` | Shopify APIクライアント |
-| **データサービス** | `src/lib/data-service.ts` | データ処理・集計 |
+| **Shopify API** | `src/lib/shopify.ts` | Shopify APIクライアント・型定義 |
+| **データサービス** | `src/lib/data-service.ts` | データ取得・集計・分析APIラッパー |
 | **ユーティリティ** | `src/lib/utils.ts` | 共通ユーティリティ |
+| **サンプル商品データ** | `src/lib/sample-products.ts` | 商品モックデータ |
+
+### モックデータ
+| 機能 | ファイルパス | 内容 |
+|------|-------------|------|
+| **顧客・休眠・分析用** | `src/data/mock/customerData.ts` | 顧客・休眠・分析用サンプルデータ（型定義含む） |
 
 ### APIエンドポイント
 | エンドポイント | ファイルパス | 責任 |
@@ -128,8 +150,9 @@ shopify-ai-marketing-suite/
 | 機能 | ファイルパス | 責任 |
 |------|-------------|------|
 | **メインレイアウト** | `src/components/layout/MainLayout.tsx` | アプリ全体レイアウト |
-| **アプリコンテキスト** | `src/contexts/AppContext.tsx` | グローバル状態管理 |
-| **UIコンポーネント** | `components/ui/` | shadcn/ui基盤コンポーネント |
+| **アナリティクスレイアウト** | `src/components/layout/AnalyticsPageLayout.tsx` | 分析ページ用レイアウト |
+| **UIコンポーネント** | `src/components/ui/` | shadcn/ui基盤コンポーネント |
+| **共通部品** | `src/components/common/` | 汎用部品（KPICard等） |
 
 ---
 
@@ -175,181 +198,47 @@ export class DataService {
 }
 ```
 
+### モックデータ設計
+- `src/data/mock/customerData.ts` にて、顧客・休眠・分析用の型定義とサンプルデータを一元管理。
+- 実データと同等の型安全性を担保。
+- 開発/本番でDataProvider等で切替可能。
+
 ---
 
 ## ⚠️ 技術的負債と改善点
 
 ### 🔴 重複ファイル問題（高優先度）
-#### 問題
-UIコンポーネントとフックが重複配置されている：
-- `components/ui/button.tsx` ⚠️ `src/components/ui/button.tsx`
-- `hooks/use-toast.ts` ⚠️ `components/ui/use-toast.ts`
-- その他多数のshadcn/uiコンポーネント
-
-#### 影響
-- コードの不整合性
-- メンテナンス困難
-- バンドルサイズ増大
-- 開発者の混乱
-
-#### 推奨解決策
-1. **単一ソース原則**の採用：`components/ui/`を唯一の場所とする
-2. `src/components/ui/`ディレクトリの削除
-3. インポートパスの統一（`@/components/ui/`）
+- UI部品は `src/components/ui/` に集約。重複/分散は解消済み。
+- インポートパスは `@/components/ui/` で統一。
 
 ### 🟡 大規模コンポーネント問題（中優先度）
-#### 問題
-一部のコンポーネントが巨大化：
-- `CustomerDashboard.tsx`: 1,075行
-- `YearOverYearProductAnalysis.tsx`: 975行
-- `AIInsightsDashboard.tsx`: 616行
-
-#### 影響
-- 可読性の低下
-- テストの困難さ
-- 再利用性の欠如
-
-#### 推奨解決策
-1. **コンポーネント分割**：機能単位で細分化
-2. **カスタムフック**の抽出：ロジック分離
-3. **デザインパターン**の適用：Composite/Strategyパターン
+- `dashboards/` 配下でサブディレクトリ分割・サブコンポーネント化を推進。
+- 1000行超の大規模ファイルは段階的に分割中。
 
 ### 🟡 ハードコードデータ問題（中優先度）
-#### 問題
-サンプルデータが多数ハードコード：
-```typescript
-const kpiData = {
-  totalSales: { current: 2450000, previous: 2180000, change: 12.4 },
-  // ...
-}
-```
-
-#### 影響
-- 実データとの乖離
-- テスト環境での混乱
-
-#### 推奨解決策
-1. **モックデータ管理**：専用ディレクトリで管理
-2. **環境変数制御**：本番/開発でデータソース切替
-3. **型安全なモック**：実データと同じ型保証
+- モックデータは `src/data/mock/` に集約。
+- DataService等で開発/本番切替を実装。
 
 ### 🟢 パフォーマンス最適化（低優先度）
-#### 改善点
-- 動的インポートをより積極的に活用
-- Reachtコンポーネントのメモ化
-- 大規模データセットの仮想化
+- 動的インポート・React.memo等を積極活用。
 
 ---
 
 ## 🔄 今後のリファクタリング計画
 
-### フェーズ1: 基盤整理（2-3週間）
-1. **重複ファイル解消**
-   - [ ] UIコンポーネントの統一
-   - [ ] インポートパス修正
-   - [ ] 未使用ファイル削除
-
-2. **プロジェクト構造最適化**
-   - [ ] ディレクトリ構造の統一
-   - [ ] ファイル命名規則の確立
-
-### フェーズ2: コンポーネント分割（3-4週間）
-1. **大規模コンポーネントの分割**
-   - [ ] CustomerDashboardの分割
-   - [ ] YearOverYearProductAnalysisの分割
-   - [ ] AIInsightsDashboardの分割
-
-2. **共通コンポーネントの抽出**
-   - [ ] KPICard コンポーネント
-   - [ ] ChartWrapper コンポーネント
-   - [ ] DataTable コンポーネント
-
-### フェーズ3: データ層強化（2-3週間）
-1. **データ管理の改善**
-   - [ ] モックデータの分離
-   - [ ] キャッシュ機能の追加
-   - [ ] エラーハンドリング強化
-
-2. **型安全性の向上**
-   - [ ] Zodスキーマの拡充
-   - [ ] APIレスポンス型の厳密化
-
-### フェーズ4: パフォーマンス最適化（1-2週間）
-1. **レンダリング最適化**
-   - [ ] React.memoの適用
-   - [ ] useMemo/useCallbackの活用
-   - [ ] 大規模リストの仮想化
-
-2. **バンドル最適化**
-   - [ ] Tree-shakingの改善
-   - [ ] コード分割の最適化
+- サブディレクトリ分割・型定義の厳密化・API/データ層の整理を継続
+- 画面設計書の追加・各画面単位での設計情報の明文化
 
 ---
 
 ## 🎯 開発者向けガイドライン
 
-### 新機能開発時の確認ポイント
-1. **既存コンポーネントの再利用**を優先検討
-2. **components/ui/**の基盤コンポーネントを活用
-3. **大規模コンポーネント**（300行超）は分割を検討
-4. **TypeScript**型定義を必ず作成
-5. **モックデータ**は専用ファイルで管理
-
-### コードレビュー時のチェック項目
-- [ ] 重複コンポーネントの使用がないか
-- [ ] ハードコードデータの使用がないか
-- [ ] 適切な型定義がされているか
-- [ ] コンポーネントサイズが適切か
-- [ ] パフォーマンスに配慮されているか
-
-### 推奨開発パターン
-```typescript
-// ✅ 良い例：小さく、型安全、再利用可能
-interface KPICardProps {
-  title: string
-  value: number
-  change: number
-  icon: IconType
-}
-
-export const KPICard: React.FC<KPICardProps> = ({ title, value, change, icon }) => {
-  // 実装
-}
-
-// ❌ 悪い例：巨大、型なし、再利用困難
-export const HugeDashboard = () => {
-  // 1000行の実装...
-}
-```
+- 既存コンポーネント・UI部品の再利用を徹底
+- サブディレクトリ分割・型安全性・モックデータ管理を厳守
+- コードレビュー時は重複・ハードコード・粒度・パフォーマンスを重点確認
 
 ---
 
-## 📈 メトリクス・KPI
-
-### コード品質指標
-- **コンポーネント平均行数**: 目標 < 200行
-- **型カバレッジ**: 目標 > 95%
-- **重複コード率**: 目標 < 5%
-- **テストカバレッジ**: 目標 > 80%
-
-### パフォーマンス指標
-- **初期ロード時間**: 目標 < 3秒
-- **ページ遷移時間**: 目標 < 1秒
-- **バンドルサイズ**: 目標 < 1MB
-
----
-
-## 🔗 関連ドキュメント
-
-- [README.md](../README.md) - プロジェクト概要・セットアップ
-- [SETUP.md](./SETUP.md) - 詳細セットアップガイド
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - デプロイメントガイド
-- [タスク管理ファイル](../worklog/tasks/main-todo.md) - プロジェクトタスク管理
-- [技術スタック文書](../.cursor/rules/dev-rules/techstack.mdc) - 使用技術詳細
-- [コーディング規約](../.cursor/rules/dev-rules/coding-rules.mdc) - 開発ルール
-
----
-
-*最終更新: 2025年5月25日*
+*最終更新: 2025年5月25日（src構成・API/データ層・モックデータ現状反映）*
 *作成者: AI Assistant*
-*バージョン: 1.0.0* 
+*バージョン: 1.1.0* 
