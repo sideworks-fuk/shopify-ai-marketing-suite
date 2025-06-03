@@ -13,28 +13,22 @@ import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCust
 import { DormantAnalysisChart } from "@/components/dashboards/dormant/DormantAnalysisChart"
 import { ReactivationInsights } from "@/components/dashboards/dormant/ReactivationInsights"
 
-import { dormantCustomersData, type DormantSegment, type DormantCustomer } from "@/data/mock/customerData"
+import { dormantCustomerDetails, type DormantSegment } from "@/data/mock/customerData"
 
 export default function DormantCustomersPage() {
   const [selectedSegment, setSelectedSegment] = useState<DormantSegment | null>(null)
-  const [selectedCustomers, setSelectedCustomers] = useState<DormantCustomer[]>([])
 
   const handleSegmentSelect = (segment: DormantSegment | null) => {
     setSelectedSegment(segment)
-    setSelectedCustomers([]) // セグメント変更時に選択をリセット
   }
 
-  const handleCustomerSelect = (customers: DormantCustomer[]) => {
-    setSelectedCustomers(customers)
-  }
-
-  // フィルタリングされた顧客データ
+  // フィルタリングされた顧客データ（表示用）
   const filteredCustomers = selectedSegment 
-    ? dormantCustomersData.filter(customer => {
-        const daysSince = customer.daysSinceLastPurchase
+    ? dormantCustomerDetails.filter(customer => {
+        const daysSince = customer.dormancy.daysSincePurchase
         return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
       })
-    : dormantCustomersData
+    : dormantCustomerDetails
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -98,11 +92,7 @@ export default function DormantCustomersPage() {
             </Badge>
           )}
         </h2>
-        <DormantCustomerList 
-          customersData={filteredCustomers}
-          onCustomerSelect={handleCustomerSelect}
-          selectedCustomers={selectedCustomers}
-        />
+        <DormantCustomerList selectedSegment={selectedSegment} />
       </div>
 
       {/* 分析チャート */}
@@ -114,7 +104,7 @@ export default function DormantCustomersPage() {
       {/* 復帰施策インサイト */}
       <div>
         <h2 className="text-xl font-semibold mb-4">復帰施策・インサイト</h2>
-        <ReactivationInsights selectedCustomers={selectedCustomers} />
+        <ReactivationInsights />
       </div>
 
       {/* フッター情報 */}
