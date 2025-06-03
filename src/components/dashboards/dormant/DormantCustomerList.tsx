@@ -15,6 +15,17 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { 
   Mail, 
   Download, 
@@ -25,7 +36,14 @@ import {
   DollarSign,
   TrendingUp,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Filter,
+  SlidersHorizontal,
+  X,
+  ChevronUp,
+  ChevronDown as ChevronDownIcon,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -47,10 +65,21 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
   const [reasonFilter, setReasonFilter] = useState<DormancyReason | "all">("all")
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [visibleColumns, setVisibleColumns] = useState({
+    customerInfo: true,
+    dormancyStatus: true,
+    risk: true,
+    reactivation: true,
+    actions: true
+  })
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
-    return dormantCustomerDetails.filter((customer) => {
+    let result = dormantCustomerDetails.filter((customer) => {
       // 検索条件
       const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           customer.id.includes(searchTerm)
@@ -69,7 +98,50 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
 
       return matchesSearch && matchesSegment && matchesRisk && matchesReason
     })
-  }, [dormantCustomerDetails, searchTerm, selectedSegment, riskFilter, reasonFilter])
+
+    // ソート処理
+    if (sortConfig) {
+      result.sort((a, b) => {
+        if (sortConfig.key === 'name') {
+          return sortConfig.direction === 'asc' 
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name)
+        }
+        if (sortConfig.key === 'daysSincePurchase') {
+          return sortConfig.direction === 'asc'
+            ? a.dormancy.daysSincePurchase - b.dormancy.daysSincePurchase
+            : b.dormancy.daysSincePurchase - a.dormancy.daysSincePurchase
+        }
+        if (sortConfig.key === 'ltv') {
+          return sortConfig.direction === 'asc'
+            ? a.analytics.ltv - b.analytics.ltv
+            : b.analytics.ltv - a.analytics.ltv
+        }
+        return 0
+      })
+    }
+
+    return result
+  }, [dormantCustomerDetails, searchTerm, selectedSegment, riskFilter, reasonFilter, sortConfig])
+
+  // ページネーション
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const getSortIcon = (key: string) => {
+    if (sortConfig?.key !== key) return null
+    return sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />
+  }
 
   const getRiskBadge = (riskLevel: RiskLevel) => {
     const configs = {
@@ -154,6 +226,32 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
             </Badge>
           </div>
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" />
+                  表示設定
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setVisibleColumns(prev => ({ ...prev, customerInfo: !prev.customerInfo }))}>
+                  {visibleColumns.customerInfo ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  顧客情報
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVisibleColumns(prev => ({ ...prev, dormancyStatus: !prev.dormancyStatus }))}>
+                  {visibleColumns.dormancyStatus ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  休眠状況
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVisibleColumns(prev => ({ ...prev, risk: !prev.risk }))}>
+                  {visibleColumns.risk ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  リスク
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setVisibleColumns(prev => ({ ...prev, reactivation: !prev.reactivation }))}>
+                  {visibleColumns.reactivation ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  復帰予測
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               size="sm"
@@ -186,45 +284,120 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
       </CardHeader>
       <CardContent>
         {/* フィルター */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="顧客名・IDで検索..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <div className="flex items-center justify-between mb-4">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                フィルター
+                {isFilterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <div className="flex items-center gap-2">
+              {(searchTerm || riskFilter !== "all" || reasonFilter !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setRiskFilter("all")
+                    setReasonFilter("all")
+                  }}
+                  className="flex items-center gap-2 text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                  フィルターをクリア
+                </Button>
+              )}
             </div>
           </div>
-          <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="リスクレベル" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全てのリスク</SelectItem>
-              <SelectItem value="low">低リスク</SelectItem>
-              <SelectItem value="medium">中リスク</SelectItem>
-              <SelectItem value="high">高リスク</SelectItem>
-              <SelectItem value="critical">緊急</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={reasonFilter} onValueChange={(value) => setReasonFilter(value as DormancyReason | "all")}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="休眠理由" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全ての理由</SelectItem>
-              <SelectItem value="price_sensitivity">価格感度</SelectItem>
-              <SelectItem value="product_dissatisfaction">商品不満</SelectItem>
-              <SelectItem value="competitor_switch">競合流出</SelectItem>
-              <SelectItem value="natural_churn">自然離脱</SelectItem>
-              <SelectItem value="seasonal">季節要因</SelectItem>
-              <SelectItem value="unknown">不明</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <CollapsibleContent>
+            <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="顧客名・IDで検索..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="リスクレベル" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全てのリスク</SelectItem>
+                  <SelectItem value="low">低リスク</SelectItem>
+                  <SelectItem value="medium">中リスク</SelectItem>
+                  <SelectItem value="high">高リスク</SelectItem>
+                  <SelectItem value="critical">緊急</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={reasonFilter} onValueChange={(value) => setReasonFilter(value as DormancyReason | "all")}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="休眠理由" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての理由</SelectItem>
+                  <SelectItem value="price_sensitivity">価格感度</SelectItem>
+                  <SelectItem value="product_dissatisfaction">商品不満</SelectItem>
+                  <SelectItem value="competitor_switch">競合流出</SelectItem>
+                  <SelectItem value="natural_churn">自然離脱</SelectItem>
+                  <SelectItem value="seasonal">季節要因</SelectItem>
+                  <SelectItem value="unknown">不明</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* アクティブなフィルター表示 */}
+        {(searchTerm || riskFilter !== "all" || reasonFilter !== "all") && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {searchTerm && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                検索: {searchTerm}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </Badge>
+            )}
+            {riskFilter !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                リスク: {getRiskBadge(riskFilter).label}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                  onClick={() => setRiskFilter("all")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </Badge>
+            )}
+            {reasonFilter !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                理由: {getReasonLabel(reasonFilter)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                  onClick={() => setReasonFilter("all")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* テーブル */}
         <div className="border rounded-lg overflow-hidden">
@@ -240,192 +413,157 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
                     aria-label="全ての顧客を選択"
                   />
                 </TableHead>
-                <TableHead>顧客情報</TableHead>
-                <TableHead>休眠状況</TableHead>
-                <TableHead>リスク</TableHead>
-                <TableHead>復帰予測</TableHead>
-                <TableHead>アクション</TableHead>
+                {visibleColumns.customerInfo && (
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => handleSort('name')}
+                    >
+                      顧客情報
+                      {getSortIcon('name')}
+                    </Button>
+                  </TableHead>
+                )}
+                {visibleColumns.dormancyStatus && (
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => handleSort('daysSincePurchase')}
+                    >
+                      休眠状況
+                      {getSortIcon('daysSincePurchase')}
+                    </Button>
+                  </TableHead>
+                )}
+                {visibleColumns.risk && <TableHead>リスク</TableHead>}
+                {visibleColumns.reactivation && (
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => handleSort('ltv')}
+                    >
+                      復帰予測
+                      {getSortIcon('ltv')}
+                    </Button>
+                  </TableHead>
+                )}
+                {visibleColumns.actions && <TableHead>アクション</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.map((customer) => {
-                const riskConfig = getRiskBadge(customer.dormancy.riskLevel)
-                const isSelected = selectedCustomers.includes(customer.id)
-
-                return (
-                  <TableRow key={customer.id} className={isSelected ? "bg-blue-50" : ""}>
+              {paginatedCustomers.map((customer) => (
+                <TableRow key={customer.id}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomers.includes(customer.id)}
+                      onChange={() => handleCustomerSelect(customer.id)}
+                      className="rounded"
+                      aria-label={`${customer.name}を選択`}
+                    />
+                  </TableCell>
+                  {visibleColumns.customerInfo && (
                     <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleCustomerSelect(customer.id)}
-                        className="rounded"
-                        aria-label={`${customer.name}を選択`}
-                      />
+                      <div>
+                        <div className="font-medium">{customer.name}</div>
+                        <div className="text-sm text-slate-500">{customer.id}</div>
+                      </div>
                     </TableCell>
-
-                    {/* 顧客情報 */}
+                  )}
+                  {visibleColumns.dormancyStatus && (
                     <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-slate-900">{customer.name}</div>
-                        <div className="text-xs text-slate-500">ID: {customer.id}</div>
-                        <div className="text-xs text-slate-600">
-                          LTV: {formatCurrency(customer.analytics.ltv)}
+                      <div>
+                        <div className="text-sm">
+                          {format(customer.dormancy.lastPurchaseDate, 'yyyy/MM/dd', { locale: ja })}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          {customer.dormancy.daysSincePurchase}日
                         </div>
                       </div>
                     </TableCell>
-
-                    {/* 休眠状況 */}
+                  )}
+                  {visibleColumns.risk && (
                     <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3 w-3 text-slate-400" />
-                          <span className="text-sm text-slate-600">
-                            {format(customer.dormancy.lastPurchaseDate, 'MM/dd', { locale: ja })}
-                          </span>
+                      <Badge
+                        variant={getRiskBadge(customer.dormancy.riskLevel).variant}
+                        className={getRiskBadge(customer.dormancy.riskLevel).className}
+                      >
+                        {getRiskBadge(customer.dormancy.riskLevel).label}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  {visibleColumns.reactivation && (
+                    <TableCell>
+                      <div>
+                        <div className="text-sm font-medium">
+                          {formatCurrency(customer.reactivation.estimatedValue)}
                         </div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {customer.dormancy.daysSincePurchase}日前
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {getReasonLabel(customer.dormancy.estimatedReason)}
+                        <div className="text-sm text-slate-500">
+                          {customer.reactivation.probability}%
                         </div>
                       </div>
                     </TableCell>
-
-                    {/* リスク */}
+                  )}
+                  {visibleColumns.actions && (
                     <TableCell>
-                      <div className="space-y-2">
-                        <Badge variant={riskConfig.variant} className={riskConfig.className}>
-                          {riskConfig.label}リスク
-                        </Badge>
-                        <div className="text-xs text-slate-500">
-                          購入減少: {customer.analytics.purchaseDecline}%
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm">
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Gift className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
-
-                    {/* 復帰予測 */}
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="h-3 w-3 text-green-500" />
-                          <span className="text-sm font-medium text-green-600">
-                            {customer.reactivation.probability}%
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          推定売上: {formatCurrency(customer.reactivation.estimatedValue)}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          最適タイミング: {format(customer.reactivation.optimalTiming, 'MM/dd', { locale: ja })}
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    {/* アクション */}
-                    <TableCell>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="flex items-center gap-2">
-                            <RotateCcw className="h-3 w-3" />
-                            詳細
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                              <RotateCcw className="h-5 w-5" />
-                              {customer.name}の復帰施策
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-6">
-                            {/* 顧客分析サマリー */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm">休眠分析</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span>休眠期間:</span>
-                                    <span className="font-medium">{customer.dormancy.daysSincePurchase}日</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span>休眠理由:</span>
-                                    <span className="font-medium">{getReasonLabel(customer.dormancy.estimatedReason)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span>購入減少率:</span>
-                                    <span className="font-medium text-red-600">{customer.analytics.purchaseDecline}%</span>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm">復帰予測</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span>復帰可能性:</span>
-                                    <span className="font-medium text-green-600">{customer.reactivation.probability}%</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span>推定売上:</span>
-                                    <span className="font-medium">{formatCurrency(customer.reactivation.estimatedValue)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span>最適タイミング:</span>
-                                    <span className="font-medium">{format(customer.reactivation.optimalTiming, 'MM/dd', { locale: ja })}</span>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            </div>
-
-                            {/* 推奨アクション */}
-                            <div>
-                              <h4 className="text-sm font-semibold mb-3">推奨アクション</h4>
-                              <div className="space-y-3">
-                                {customer.reactivation.recommendedActions.map((action, index) => (
-                                  <div key={action.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="text-xs">
-                                          優先度 {action.priority}
-                                        </Badge>
-                                        <span className="font-medium">{action.name}</span>
-                                      </div>
-                                      <p className="text-sm text-slate-600 mt-1">{action.description}</p>
-                                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                                        <span>コスト: {formatCurrency(action.estimatedCost)}</span>
-                                        <span>期待効果: {formatCurrency(action.expectedReturn)}</span>
-                                        <span className="text-green-600">
-                                          ROI: {((action.expectedReturn - action.estimatedCost) / action.estimatedCost * 100).toFixed(0)}%
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <Button size="sm" className="ml-4">
-                                      実行
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                  )}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
 
-        {filteredCustomers.length === 0 && (
-          <div className="text-center py-12 text-slate-500">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-            <p>条件に一致する休眠顧客が見つかりませんでした</p>
+        {/* ページネーション */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-slate-500">
+              {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredCustomers.length)} / {filteredCustomers.length}件
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                前へ
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                次へ
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

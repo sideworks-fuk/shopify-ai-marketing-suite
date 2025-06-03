@@ -7,11 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Users, Clock, TrendingDown, AlertTriangle } from "lucide-react"
 
 // 休眠顧客コンポーネントのインポート
-import { DormantKPICards } from "@/components/dashboards/dormant/DormantKPICards"
 import { DormantPeriodFilter } from "@/components/dashboards/dormant/DormantPeriodFilter"
 import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCustomerList"
-import { DormantAnalysisChart } from "@/components/dashboards/dormant/DormantAnalysisChart"
-import { ReactivationInsights } from "@/components/dashboards/dormant/ReactivationInsights"
 
 import { dormantCustomerDetails, type DormantSegment } from "@/data/mock/customerData"
 
@@ -31,13 +28,13 @@ export default function DormantCustomersPage() {
     : dormantCustomerDetails
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <div className="space-y-6">
       {/* ページヘッダー */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">休眠顧客【顧客】</h1>
-            <p className="text-slate-600 mt-2">
+            <h1 className="text-2xl font-bold text-gray-900">休眠顧客【顧客】</h1>
+            <p className="text-gray-600 mt-2">
               最終購入からの経過期間別に顧客を分析し、復帰施策を検討します
             </p>
           </div>
@@ -67,12 +64,6 @@ export default function DormantCustomersPage() {
         </Card>
       </div>
 
-      {/* KPIサマリー */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">KPIサマリー</h2>
-        <DormantKPICards />
-      </div>
-
       {/* 期間別フィルター */}
       <div>
         <h2 className="text-xl font-semibold mb-4">期間別セグメント</h2>
@@ -93,18 +84,6 @@ export default function DormantCustomersPage() {
           )}
         </h2>
         <DormantCustomerList selectedSegment={selectedSegment} />
-      </div>
-
-      {/* 分析チャート */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">分析・トレンド</h2>
-        <DormantAnalysisChart selectedSegment={selectedSegment} />
-      </div>
-
-      {/* 復帰施策インサイト */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">復帰施策・インサイト</h2>
-        <ReactivationInsights />
       </div>
 
       {/* フッター情報 */}

@@ -19,15 +19,16 @@ export interface MenuItem {
 }
 
 export const menuStructure: MenuItem[] = [
-  {
-    id: "sales-dashboard",
-    label: "売上ダッシュボード",
-    icon: "📊",
-    href: "/sales/dashboard",
-    category: "sales",
-    isImplemented: true,
-    description: "売上の全体像と主要KPIを確認"
-  },
+  // 一時的に非表示
+  // {
+  //   id: "sales-dashboard",
+  //   label: "売上ダッシュボード",
+  //   icon: "📊",
+  //   href: "/sales/dashboard",
+  //   category: "sales",
+  //   isImplemented: true,
+  //   description: "売上の全体像と主要KPIを確認"
+  // },
   {
     id: "year-over-year",
     label: "前年同月比【商品】",
@@ -82,15 +83,16 @@ export const menuStructure: MenuItem[] = [
     isImplemented: true,
     description: "購入頻度による顧客階層の時系列変化分析"
   },
-  {
-    id: "customer-dashboard",
-    label: "顧客ダッシュボード",
-    icon: "👥",
-    href: "/customers/dashboard",
-    category: "customers",
-    isImplemented: true,
-    description: "顧客の全体像と主要セグメント"
-  },
+  // 一時的に非表示
+  // {
+  //   id: "customer-dashboard",
+  //   label: "顧客ダッシュボード",
+  //   icon: "👥",
+  //   href: "/customers/dashboard",
+  //   category: "customers",
+  //   isImplemented: true,
+  //   description: "顧客の全体像と主要セグメント"
+  // },
   {
     id: "customer-profile",
     label: "顧客購買【顧客】",
