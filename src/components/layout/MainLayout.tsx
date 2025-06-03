@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAppContext, getMenuByCategory, type MenuItem } from "@/contexts/AppContext"
+import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Badge } from "../ui/badge"
@@ -247,7 +248,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
         {/* メインコンテンツ */}
         <main className="flex-1 p-6 overflow-y-auto">
-          {children}
+          <ErrorBoundaryWrapper
+            fallbackTitle="ページの読み込みでエラーが発生しました"
+            fallbackDescription="現在のページでエラーが発生しましたが、サイドメニューから他のページに移動できます。"
+          >
+            {children}
+          </ErrorBoundaryWrapper>
         </main>
       </div>
     </div>

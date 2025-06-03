@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, AlertCircle } from "lucide-react"
+import { RefreshCw, AlertCircle, Download } from "lucide-react"
 import { DataService } from "@/lib/data-service"
 
 // 購入頻度データの型定義
@@ -123,6 +123,71 @@ export default function ProductPurchaseFrequencyAnalysis({
     }
   }
 
+  // CSVエクスポート機能
+  const exportToCsv = () => {
+    if (!purchaseFrequencyData || purchaseFrequencyData.length === 0) {
+      alert("エクスポートするデータがありません。")
+      return
+    }
+
+    // CSVヘッダーの作成
+    const headers = [
+      "商品名",
+      "1回",
+      "2回", 
+      "3回",
+      "4回",
+      "5回",
+      "6回",
+      "7回",
+      "8回",
+      "9回",
+      "10回+",
+      "総顧客数",
+      "リピート率(%)"
+    ]
+
+    // CSVデータの作成
+    const csvData = purchaseFrequencyData.map(product => {
+      const repeatCustomers = product.frequencies.slice(1).reduce((sum, freq) => sum + freq.customers, 0)
+      const repeatRate = product.totalCustomers > 0 ? 
+        Math.round((repeatCustomers / product.totalCustomers) * 100) : 0
+
+      return [
+        `"${product.productName}"`, // 商品名をクォートで囲む
+        ...product.frequencies.map(freq => `${freq.customers} (${freq.percentage}%)`),
+        product.totalCustomers,
+        repeatRate
+      ]
+    })
+
+    // CSVファイルの生成
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => row.join(","))
+    ].join("\n")
+
+    // BOMを追加してExcelでの文字化けを防ぐ
+    const bom = "\uFEFF"
+    const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" })
+    
+    // ダウンロードリンクの作成
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    
+    // ファイル名に現在の日付を含める
+    const now = new Date()
+    const timestamp = now.toISOString().slice(0, 10).replace(/-/g, "")
+    link.setAttribute("download", `購入頻度分析_${timestamp}.csv`)
+    
+    // ダウンロード実行
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   useEffect(() => {
     fetchData()
   }, [shopDomain, accessToken, useSampleData])
@@ -162,16 +227,28 @@ export default function ProductPurchaseFrequencyAnalysis({
             <CardTitle>商品別購入頻度分析</CardTitle>
             <CardDescription>各商品の購入回数分布を分析し、リピート購入パターンを把握します</CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchData}
-            disabled={isLoading}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            更新
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToCsv}
+              disabled={isLoading || !purchaseFrequencyData || purchaseFrequencyData.length === 0}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              CSV出力
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              更新
+            </Button>
+          </div>
         </div>
         {error && (
           <div className="flex items-center gap-2 text-amber-600 text-sm mt-2">

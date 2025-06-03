@@ -2,6 +2,7 @@
 
 import React, { Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 
 // 修正版前年同月比分析コンポーネント
 const YearOverYearProductAnalysisDetailedFixed = React.lazy(() => import("@/components/dashboards/YearOverYearProductAnalysisDetailedFixed"))
@@ -44,9 +45,14 @@ export default function YearOverYearPage() {
 
 
       {/* 修正版コンポーネント */}
-      <Suspense fallback={<LoadingComponent />}>
-        <YearOverYearProductAnalysisDetailedFixed />
-      </Suspense>
+      <ErrorBoundaryWrapper
+        fallbackTitle="前年同月比分析でエラーが発生しました"
+        fallbackDescription="前年同月比分析の読み込み中にエラーが発生しました。サイドメニューは正常に動作しています。"
+      >
+        <Suspense fallback={<LoadingComponent />}>
+          <YearOverYearProductAnalysisDetailedFixed />
+        </Suspense>
+      </ErrorBoundaryWrapper>
     </div>
   )
 } 
