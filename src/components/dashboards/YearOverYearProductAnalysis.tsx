@@ -397,29 +397,18 @@ const AdvancedFilters = ({
 
 // サンプルデータ生成（既存のコードを使用）
 const generateSampleData = (): ProductYearData[] => {
+  // 商品数を削減（22個 → 10個）
   const products = [
     { id: "1", name: "【サンプル】カラートレースリム 150 ホワイト", category: "食品包装容器" },
     { id: "2", name: "【サンプル】カラートレー 165 ブラウン", category: "食品包装容器" },
     { id: "3", name: "【サンプル】IKトレースリム 150 黒", category: "食品包装容器" },
-    { id: "4", name: "【サンプル】IKトレー 165 浅黄", category: "食品包装容器" },
-    { id: "5", name: "【サンプル】nwクリスマスデコ箱4号H130(窓冷凍スペース付)", category: "ギフトボックス" },
-    { id: "6", name: "【サンプル】nwクレープ箱4号H130(窓冷凍スペース付)", category: "ギフトボックス" },
-    { id: "7", name: "【サンプル】Criollo-Bitter-デコ箱4号H130", category: "ギフトボックス" },
-    { id: "8", name: "【サンプル】Criollo-Bitter-デコ箱5号H150", category: "ギフトボックス" },
-    { id: "9", name: "【サンプル】Criollo-Bitter-デコ箱6号H150", category: "ギフトボックス" },
-    { id: "10", name: "パピエール #47 アメリカンレッド", category: "食品包装容器" },
-    { id: "11", name: "カラーココット 65角(レッド)", category: "食品包装容器" },
-    { id: "12", name: "カラーココット 65角(ウォルナット)", category: "食品包装容器" },
-    { id: "13", name: "【サンプル】UNIエコクラフトロールケーキ箱", category: "エコ包装材" },
-    { id: "14", name: "【サンプル】エコクラフトロールケーキ箱H150", category: "エコ包装材" },
-    { id: "15", name: "【サンプル】エコクラフトデコ箱5号H130", category: "エコ包装材" },
-    { id: "16", name: "【サンプル】エコクラフトデコ箱5号H113", category: "エコ包装材" },
-    { id: "17", name: "【サンプル】エコクラフトデコ箱6号H150", category: "エコ包装材" },
-    { id: "18", name: "ペーパーココットシート 160角(茶).1500入", category: "ベーキング用品" },
-    { id: "19", name: "ペーパーココットシート 150角(ブレンチ茶).1500入", category: "ベーキング用品" },
-    { id: "20", name: "ペーパーココットシート 140角(茶).1500入", category: "ベーキング用品" },
-    { id: "21", name: "【サンプル】ペーパーココット 75角(ホワイト)", category: "ベーキング用品" },
-    { id: "22", name: "【サンプル】ペーパーココット 63角(ジェントルサンタ)", category: "ベーキング用品" },
+    { id: "4", name: "【サンプル】nwクリスマスデコ箱4号H130", category: "ギフトボックス" },
+    { id: "5", name: "【サンプル】Criollo-Bitter-デコ箱4号H130", category: "ギフトボックス" },
+    { id: "6", name: "パピエール #47 アメリカンレッド", category: "食品包装容器" },
+    { id: "7", name: "カラーココット 65角(レッド)", category: "食品包装容器" },
+    { id: "8", name: "【サンプル】エコクラフトロールケーキ箱", category: "エコ包装材" },
+    { id: "9", name: "ペーパーココットシート 160角(茶).1500入", category: "ベーキング用品" },
+    { id: "10", name: "【サンプル】ペーパーココット 75角(ホワイト)", category: "ベーキング用品" },
   ]
 
   return products.map((product) => {
