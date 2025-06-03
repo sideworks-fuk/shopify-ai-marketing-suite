@@ -79,7 +79,7 @@ export const menuStructure: MenuItem[] = [
     icon: "📊",
     href: "/purchase/f-tier-trend",
     category: "purchase",
-    isImplemented: false,
+    isImplemented: true,
     description: "購入頻度による顧客階層の時系列変化分析"
   },
   {
