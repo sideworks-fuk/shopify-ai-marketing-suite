@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 import { DataService } from "@/lib/data-service"
 import { DatePicker } from "@/components/ui/date-picker"
 import { SAMPLE_PRODUCTS, PRODUCT_CATEGORIES, getCategoryStyle, getTopProducts, getProductsByCategory, type SampleProduct } from '@/lib/sample-products'
@@ -61,6 +62,53 @@ export default function ProductPurchaseFrequencyAnalysis({
   // UI制御
   const [showConditions, setShowConditions] = useState(true)
   const [showHeatmap, setShowHeatmap] = useState(true)
+
+  // 成長率の計算と色分けのためのヘルパー関数
+  const renderGrowthCell = (currentValue: number, previousValue: number) => {
+    const growthRate = previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0
+    const colorClass = growthRate > 0 ? 'text-green-600' : growthRate < 0 ? 'text-red-600' : 'text-gray-600'
+    
+    return (
+      <div className="text-center">
+        <div>{currentValue.toLocaleString()}</div>
+        <div className={`text-xs ${colorClass}`}>
+          {growthRate > 0 ? '+' : ''}{growthRate.toFixed(1)}%
+        </div>
+      </div>
+    )
+  }
+
+  // 転換率計算
+  const calculateConversionRates = (data: PurchaseFrequencyData[]) => {
+    if (!data.length) return { conversion1to2: 0, conversion2to3: 0 }
+    
+    // 全体の転換率を計算（平均）
+    let total1to2 = 0
+    let total2to3 = 0
+    let validProducts1to2 = 0
+    let validProducts2to3 = 0
+    
+    data.forEach(product => {
+      const freq1 = product.frequencies.find(f => f.count === 1)
+      const freq2 = product.frequencies.find(f => f.count === 2)
+      const freq3 = product.frequencies.find(f => f.count === 3)
+      
+      if (freq1 && freq2 && freq1.customers > 0) {
+        total1to2 += (freq2.customers / freq1.customers) * 100
+        validProducts1to2++
+      }
+      
+      if (freq2 && freq3 && freq2.customers > 0) {
+        total2to3 += (freq3.customers / freq2.customers) * 100
+        validProducts2to3++
+      }
+    })
+    
+    return {
+      conversion1to2: validProducts1to2 > 0 ? total1to2 / validProducts1to2 : 0,
+      conversion2to3: validProducts2to3 > 0 ? total2to3 / validProducts2to3 : 0
+    }
+  }
 
   // 動的サンプルデータ生成（統一商品リスト使用）
   const generateSampleData = (): PurchaseFrequencyData[] => {
@@ -282,9 +330,9 @@ export default function ProductPurchaseFrequencyAnalysis({
       {/* ヘッダー */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">購入頻度分析【商品】</h2>
+          <h2 className="text-2xl font-bold text-gray-900">購入回数詳細分析【商品】</h2>
           <p className="text-gray-600 mt-1">
-            商品別の顧客購入回数分布を分析し、リピート購入パターンを把握できます
+            商品別の顧客購入回数分布を分析し、リピート購入パターンと転換率を把握できます
           </p>
         </div>
         <div className="flex gap-2">
@@ -523,6 +571,13 @@ export default function ProductPurchaseFrequencyAnalysis({
                     {Array.from({ length: effectiveMaxFreq }, (_, i) => (
                       <th key={i + 1} className="p-3 text-center font-medium min-w-[60px]">
                         {i + 1}回
+                        {/* 重要な回数にバッジを追加 */}
+                        {i + 1 === 1 && (
+                          <Badge variant="outline" className="ml-1 text-xs">新規</Badge>
+                        )}
+                        {i + 1 >= 10 && (
+                          <Badge variant="outline" className="ml-1 text-xs text-green-600">優良</Badge>
+                        )}
                       </th>
                     ))}
                     <th className="p-3 text-center font-medium min-w-[80px]">
@@ -571,8 +626,13 @@ export default function ProductPurchaseFrequencyAnalysis({
                           const value = freq ? (displayMode === 'count' ? freq.customers : freq.percentage) : 0
                           const displayValue = displayMode === 'count' ? value : `${value}%`
                           
+                          // 重要指標のハイライト
+                          let cellClass = `p-3 text-center ${getHeatmapColor(value)}`
+                          if (i + 1 === 1) cellClass += ' bg-blue-50 border-l-2 border-blue-300'
+                          if (i + 1 >= 10) cellClass += ' bg-green-50 border-l-2 border-green-300'
+                          
                           return (
-                            <td key={i + 1} className={`p-3 text-center ${getHeatmapColor(value)}`}>
+                            <td key={i + 1} className={cellClass}>
                               {displayValue}
                             </td>
                           )
@@ -602,9 +662,50 @@ export default function ProductPurchaseFrequencyAnalysis({
               </table>
             </div>
             
+            {/* 転換率表示 */}
+            {(() => {
+              const conversionRates = calculateConversionRates(filteredData)
+              return (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-semibold mb-2">主要転換率</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">1回→2回:</span>
+                      <Badge variant="outline" className="font-medium">
+                        {conversionRates.conversion1to2.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">2回→3回:</span>
+                      <Badge variant="outline" className="font-medium">
+                        {conversionRates.conversion2to3.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">全体リピート率:</span>
+                      <Badge variant="default" className="font-medium">
+                        {(() => {
+                          const totalCustomers = filteredData.reduce((sum, p) => sum + p.totalCustomers, 0)
+                          const repeatCustomers = filteredData.reduce((sum, p) => 
+                            sum + p.frequencies.slice(1).reduce((pSum, f) => pSum + f.customers, 0), 0)
+                          return totalCustomers > 0 ? ((repeatCustomers / totalCustomers) * 100).toFixed(1) : '0.0'
+                        })()}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">分析商品数:</span>
+                      <Badge variant="secondary" className="font-medium">
+                        {filteredData.length}商品
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+            
             {/* ヒートマップ凡例 */}
             {showHeatmap && (
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">ヒートマップ凡例</h4>
                 <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1">
