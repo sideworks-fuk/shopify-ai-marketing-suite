@@ -65,7 +65,7 @@ export interface CustomerDetail {
   avgInterval: number;
   topProduct: string;
   status: "VIP" | "リピーター" | "新規" | "休眠";
-  lastOrderDate: string;
+  lastOrderDate: Date;
   // Phase 2: 商品情報を追加
   topProducts: ProductInfo[];
   productCategories: string[];
@@ -218,7 +218,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 14,
     topProduct: "商品A",
     status: "VIP",
-    lastOrderDate: "2024-05-20",
+    lastOrderDate: new Date("2024-05-20"),
     topProducts: [
       { name: "カプセルサプリA", count: 8, percentage: 53, category: "健康食品", isRepeat: true },
       { name: "ビタミンB", count: 4, percentage: 27, category: "サプリメント", isRepeat: true },
@@ -236,7 +236,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 45,
     topProduct: "商品B",
     status: "リピーター",
-    lastOrderDate: "2024-04-15",
+    lastOrderDate: new Date("2024-04-15"),
     topProducts: [
       { name: "スキンケアセット", count: 2, percentage: 67, category: "美容", isRepeat: true },
       { name: "アロマオイル", count: 1, percentage: 33, category: "リラクゼーション", isRepeat: false }
@@ -253,7 +253,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 0,
     topProduct: "商品C",
     status: "新規",
-    lastOrderDate: "2024-05-10",
+    lastOrderDate: new Date("2024-05-10"),
     topProducts: [
       { name: "フィットネス用品", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
     ],
@@ -269,7 +269,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 21,
     topProduct: "商品D",
     status: "リピーター",
-    lastOrderDate: "2024-05-18",
+    lastOrderDate: new Date("2024-05-18"),
     topProducts: [
       { name: "オーガニック食品", count: 5, percentage: 63, category: "食品", isRepeat: true },
       { name: "エコグッズ", count: 2, percentage: 25, category: "生活雑貨", isRepeat: true },
@@ -287,7 +287,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 60,
     topProduct: "商品E",
     status: "リピーター",
-    lastOrderDate: "2024-03-25",
+    lastOrderDate: new Date("2024-03-25"),
     topProducts: [
       { name: "PC周辺機器", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false },
       { name: "ガジェット", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false }
@@ -304,7 +304,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 180,
     topProduct: "商品F",
     status: "休眠",
-    lastOrderDate: "2023-12-05",
+    lastOrderDate: new Date("2023-12-05"),
     topProducts: [
       { name: "アクセサリー", count: 1, percentage: 100, category: "ファッション", isRepeat: false }
     ],
@@ -320,7 +320,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 10,
     topProduct: "商品G",
     status: "VIP",
-    lastOrderDate: "2024-05-22",
+    lastOrderDate: new Date("2024-05-22"),
     topProducts: [
       { name: "プレミアムサプリ", count: 12, percentage: 55, category: "健康食品", isRepeat: true },
       { name: "ビタミンD", count: 6, percentage: 27, category: "サプリメント", isRepeat: true },
@@ -338,7 +338,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 28,
     topProduct: "商品H",
     status: "リピーター",
-    lastOrderDate: "2024-04-30",
+    lastOrderDate: new Date("2024-04-30"),
     topProducts: [
       { name: "オーガニック化粧品", count: 3, percentage: 60, category: "美容", isRepeat: true },
       { name: "ナチュラルシャンプー", count: 2, percentage: 40, category: "美容", isRepeat: false }
@@ -355,7 +355,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 120,
     topProduct: "商品I",
     status: "休眠",
-    lastOrderDate: "2024-01-15",
+    lastOrderDate: new Date("2024-01-15"),
     topProducts: [
       { name: "ワークアウトギア", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
     ],
@@ -371,7 +371,7 @@ export const customerDetailData: CustomerDetail[] = [
     avgInterval: 16,
     topProduct: "商品J",
     status: "VIP",
-    lastOrderDate: "2024-05-15",
+    lastOrderDate: new Date("2024-05-15"),
     topProducts: [
       { name: "プレミアム美容液", count: 7, percentage: 58, category: "美容", isRepeat: true },
       { name: "アンチエイジングクリーム", count: 3, percentage: 25, category: "美容", isRepeat: true },
@@ -474,7 +474,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
   {
     ...customerDetailData[5], // 渡辺美咲
     dormancy: {
-      lastPurchaseDate: new Date('2023-12-05'),
+      lastPurchaseDate: customerDetailData[5].lastOrderDate,
       daysSincePurchase: 189,
       previousFrequency: 45, // 45日おき
       estimatedReason: 'product_dissatisfaction',
@@ -497,7 +497,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
   {
     ...customerDetailData[8], // 小林正人
     dormancy: {
-      lastPurchaseDate: new Date('2024-01-15'),
+      lastPurchaseDate: customerDetailData[8].lastOrderDate,
       daysSincePurchase: 127,
       previousFrequency: 30, // 30日おき
       estimatedReason: 'seasonal',
@@ -527,7 +527,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     avgInterval: 30,
     topProduct: "アロマグッズ",
     status: "休眠",
-    lastOrderDate: "2024-02-20",
+    lastOrderDate: new Date("2024-02-20"),
     topProducts: [
       { name: "アロマディフューザー", count: 3, percentage: 50, category: "リラクゼーション", isRepeat: true },
       { name: "エッセンシャルオイル", count: 2, percentage: 33, category: "リラクゼーション", isRepeat: true },
@@ -565,7 +565,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     avgInterval: 40,
     topProduct: "ビジネス用品",
     status: "休眠",
-    lastOrderDate: "2023-11-10",
+    lastOrderDate: new Date("2023-11-10"),
     topProducts: [
       { name: "革製品", count: 2, percentage: 50, category: "ファッション", isRepeat: true },
       { name: "ビジネスバッグ", count: 1, percentage: 25, category: "ファッション", isRepeat: false },
