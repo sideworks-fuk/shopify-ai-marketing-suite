@@ -72,7 +72,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   ]
 
   const handleMenuClick = (item: MenuItem) => {
-    if (item.isImplemented) {
+    if (item.isImplemented && item.href) {
       router.push(item.href)
     }
   }
@@ -85,7 +85,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
     )
   }
 
-  const isActiveRoute = (href: string) => {
+
+
+  const isActiveRoute = (href: string | undefined) => {
+    if (!href) return false
     return pathname === href
   }
 

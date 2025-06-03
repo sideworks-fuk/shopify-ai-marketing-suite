@@ -11,10 +11,11 @@ export interface MenuItem {
   id: string
   label: string
   icon: string
-  href: string
+  href?: string  // Optional for parent items
   category: "sales" | "purchase" | "customers" | "ai-insights"
   isImplemented: boolean
   description?: string
+  children?: MenuItem[]  // For submenu items
 }
 
 export const menuStructure: MenuItem[] = [
