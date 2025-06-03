@@ -603,4 +603,137 @@ export const dormancyReasonData = [
   { reason: '自然離脱', count: 52, percentage: 28.9, color: '#6B7280' },
   { reason: '季節要因', count: 15, percentage: 8.3, color: '#10B981' },
   { reason: '不明', count: 5, percentage: 2.8, color: '#D1D5DB' },
+];
+
+// 復帰インサイトデータ
+export const reactivationInsights = {
+  successRate: 42,
+  keyInsights: [
+    "購入パターン分析により、月末のアプローチが最も効果的です（復帰率62%向上）",
+    "過去購入商品のレコメンドを含むメールの開封率は一般的なメールの3.2倍です",
+    "限定オファーと組み合わせた場合、復帰率が85%向上することが判明しました"
+  ],
+  recommendations: [
+    {
+      priority: 'high' as const,
+      action: 'パーソナライズドオファー',
+      description: '高確率復帰見込み顧客に対する限定クーポン＋お気に入り商品レコメンド',
+      estimatedCost: 2500,
+      estimatedRevenue: 8700,
+      targetCount: 45,
+      timeline: '即時実行'
+    },
+    {
+      priority: 'medium' as const,
+      action: '段階的リエンゲージメント',
+      description: '中確率見込み顧客に対する3段階メールシーケンス',
+      estimatedCost: 800,
+      estimatedRevenue: 4200,
+      targetCount: 67,
+      timeline: '2週間'
+    },
+    {
+      priority: 'low' as const,
+      action: 'ブランド再認知キャンペーン',
+      description: '低確率見込み顧客に対する価値提供コンテンツ配信',
+      estimatedCost: 300,
+      estimatedRevenue: 1800,
+      targetCount: 68,
+      timeline: '1ヶ月'
+    }
+  ]
+};
+
+// 復帰キャンペーンテンプレート
+export const reactivationCampaigns = [
+  {
+    id: 'welcome_back_premium',
+    name: 'プレミアムお帰りなさいキャンペーン',
+    description: '3ヶ月以上の休眠顧客向け特別復帰プログラム',
+    targetSegment: '90日以上休眠',
+    channels: ['メール', 'SMS', 'プッシュ通知'],
+    offer: {
+      type: '割引クーポン',
+      value: '20%OFF',
+      conditions: '5,000円以上の購入',
+      validDays: 14
+    },
+    timing: {
+      bestDayOfWeek: '金曜日',
+      bestTimeOfDay: '19:00-21:00',
+      duration: '2週間'
+    },
+    expectedResults: {
+      openRate: 28,
+      clickRate: 12,
+      conversionRate: 8,
+      averageOrderValue: 15000
+    },
+    creativeElements: [
+      'パーソナライズド件名',
+      '過去購入商品のレコメンド',
+      '限定感を演出するカウントダウン',
+      'お客様専用クーポンコード'
+    ]
+  },
+  {
+    id: 'seasonal_return',
+    name: '季節限定復帰オファー',
+    description: '季節要因で休眠した顧客向けの特別提案',
+    targetSegment: '季節休眠顧客',
+    channels: ['メール', 'LINE'],
+    offer: {
+      type: '送料無料＋ギフト',
+      value: '送料無料＋サンプル3点セット',
+      conditions: '3,000円以上の購入',
+      validDays: 10
+    },
+    timing: {
+      bestDayOfWeek: '日曜日',
+      bestTimeOfDay: '10:00-12:00',
+      duration: '10日間'
+    },
+    expectedResults: {
+      openRate: 35,
+      clickRate: 18,
+      conversionRate: 12,
+      averageOrderValue: 8500
+    },
+    creativeElements: [
+      '季節感のあるビジュアル',
+      '新商品の先行紹介',
+      'お得感を強調したヘッダー',
+      'SNSシェア特典'
+    ]
+  },
+  {
+    id: 'loyalty_recovery',
+    name: 'ロイヤルティ復活プログラム',
+    description: '過去のVIP顧客向け特別待遇復帰施策',
+    targetSegment: '元VIP休眠顧客',
+    channels: ['メール', '電話', 'DM'],
+    offer: {
+      type: 'VIP特典復活',
+      value: 'VIPステータス即時復活＋30%OFF',
+      conditions: '10,000円以上の購入',
+      validDays: 21
+    },
+    timing: {
+      bestDayOfWeek: '水曜日',
+      bestTimeOfDay: '14:00-16:00',
+      duration: '3週間'
+    },
+    expectedResults: {
+      openRate: 45,
+      clickRate: 25,
+      conversionRate: 15,
+      averageOrderValue: 25000
+    },
+    creativeElements: [
+      'VIP専用デザイン',
+      '限定商品への先行アクセス',
+      '専用カスタマーサポート',
+      'パーソナルショッピングサービス'
+    ]
+  }
 ]; 
