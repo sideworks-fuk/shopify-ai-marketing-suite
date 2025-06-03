@@ -79,7 +79,7 @@ export const menuStructure: MenuItem[] = [
     icon: "📊",
     href: "/purchase/f-tier-trend",
     category: "purchase",
-    isImplemented: false,
+    isImplemented: true,
     description: "購入頻度による顧客階層の時系列変化分析"
   },
   {
@@ -97,7 +97,7 @@ export const menuStructure: MenuItem[] = [
     icon: "👤",
     href: "/customers/profile",
     category: "customers",
-    isImplemented: false,
+    isImplemented: true,
     description: "顧客別の詳細な購買プロファイル分析"
   },
   {
@@ -106,7 +106,7 @@ export const menuStructure: MenuItem[] = [
     icon: "😴",
     href: "/customers/dormant",
     category: "customers",
-    isImplemented: false,
+    isImplemented: true,
     description: "最終購入からの経過期間別に顧客を分類・管理"
   },
   // 一時的に非表示

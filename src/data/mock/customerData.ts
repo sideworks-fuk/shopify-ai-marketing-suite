@@ -47,6 +47,15 @@ export interface DormantCustomer {
   action: string;
 }
 
+// Phase 2: 商品情報のインターフェース
+export interface ProductInfo {
+  name: string;
+  count: number;
+  percentage: number;
+  category: string;
+  isRepeat: boolean;
+}
+
 export interface CustomerDetail {
   id: string;
   name: string;
@@ -57,6 +66,79 @@ export interface CustomerDetail {
   topProduct: string;
   status: "VIP" | "リピーター" | "新規" | "休眠";
   lastOrderDate: string;
+  // Phase 2: 商品情報を追加
+  topProducts: ProductInfo[];
+  productCategories: string[];
+  repeatProducts: number;
+}
+
+// 休眠顧客分析用の型定義
+export type DormancyReason = 
+  | 'price_sensitivity'
+  | 'product_dissatisfaction' 
+  | 'competitor_switch'
+  | 'natural_churn'
+  | 'seasonal'
+  | 'unknown';
+
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface DormantAction {
+  id: string;
+  name: string;
+  description: string;
+  priority: number;
+  estimatedCost: number;
+  expectedReturn: number;
+}
+
+export interface DormantCustomerDetail extends CustomerDetail {
+  dormancy: {
+    lastPurchaseDate: Date;
+    daysSincePurchase: number;
+    previousFrequency: number; // 休眠前の平均購入頻度（日数）
+    estimatedReason: DormancyReason;
+    riskLevel: RiskLevel;
+  };
+  analytics: {
+    ltv: number;
+    averageOrderValue: number;
+    favoriteCategories: string[];
+    seasonalPattern?: string;
+    purchaseDecline: number; // 購入頻度の減少率（%）
+  };
+  reactivation: {
+    probability: number; // 復帰可能性スコア（0-100）
+    recommendedActions: DormantAction[];
+    optimalTiming: Date;
+    estimatedValue: number; // 復帰時の推定売上
+  };
+}
+
+export interface DormantSegment {
+  id: string;
+  label: string;
+  range: [number, number]; // [最小日数, 最大日数]
+  count: number;
+  color: string;
+  urgency: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface DormantKPI {
+  totalDormantCustomers: number;
+  dormancyRate: number; // 全顧客に対する休眠率（%）
+  averageDormancyPeriod: number; // 平均休眠期間（日）
+  reactivationRate: number; // 復帰成功率（%）
+  estimatedLoss: number; // 休眠による推定損失額
+  recoveredRevenue: number; // 復帰による回復売上
+}
+
+export interface DormantTrend {
+  month: string;
+  newDormant: number; // 新規休眠顧客数
+  reactivated: number; // 復帰顧客数
+  netChange: number; // 純増減
+  totalDormant: number; // 累計休眠顧客数
 }
 
 // モックデータ
@@ -137,6 +219,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品A",
     status: "VIP",
     lastOrderDate: "2024-05-20",
+    topProducts: [
+      { name: "カプセルサプリA", count: 8, percentage: 53, category: "健康食品", isRepeat: true },
+      { name: "ビタミンB", count: 4, percentage: 27, category: "サプリメント", isRepeat: true },
+      { name: "プロテイン", count: 3, percentage: 20, category: "健康食品", isRepeat: false }
+    ],
+    productCategories: ["健康食品", "サプリメント"],
+    repeatProducts: 2,
   },
   {
     id: "12346",
@@ -148,6 +237,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品B",
     status: "リピーター",
     lastOrderDate: "2024-04-15",
+    topProducts: [
+      { name: "スキンケアセット", count: 2, percentage: 67, category: "美容", isRepeat: true },
+      { name: "アロマオイル", count: 1, percentage: 33, category: "リラクゼーション", isRepeat: false }
+    ],
+    productCategories: ["美容", "リラクゼーション"],
+    repeatProducts: 1,
   },
   {
     id: "12347",
@@ -159,6 +254,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品C",
     status: "新規",
     lastOrderDate: "2024-05-10",
+    topProducts: [
+      { name: "フィットネス用品", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
+    ],
+    productCategories: ["スポーツ"],
+    repeatProducts: 0,
   },
   {
     id: "12348",
@@ -170,6 +270,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品D",
     status: "リピーター",
     lastOrderDate: "2024-05-18",
+    topProducts: [
+      { name: "オーガニック食品", count: 5, percentage: 63, category: "食品", isRepeat: true },
+      { name: "エコグッズ", count: 2, percentage: 25, category: "生活雑貨", isRepeat: true },
+      { name: "ハーブティー", count: 1, percentage: 12, category: "飲料", isRepeat: false }
+    ],
+    productCategories: ["食品", "生活雑貨", "飲料"],
+    repeatProducts: 2,
   },
   {
     id: "12349",
@@ -181,6 +288,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品E",
     status: "リピーター",
     lastOrderDate: "2024-03-25",
+    topProducts: [
+      { name: "PC周辺機器", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false },
+      { name: "ガジェット", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false }
+    ],
+    productCategories: ["テクノロジー"],
+    repeatProducts: 0,
   },
   {
     id: "12350",
@@ -192,6 +305,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品F",
     status: "休眠",
     lastOrderDate: "2023-12-05",
+    topProducts: [
+      { name: "アクセサリー", count: 1, percentage: 100, category: "ファッション", isRepeat: false }
+    ],
+    productCategories: ["ファッション"],
+    repeatProducts: 0,
   },
   {
     id: "12351",
@@ -203,6 +321,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品G",
     status: "VIP",
     lastOrderDate: "2024-05-22",
+    topProducts: [
+      { name: "プレミアムサプリ", count: 12, percentage: 55, category: "健康食品", isRepeat: true },
+      { name: "ビタミンD", count: 6, percentage: 27, category: "サプリメント", isRepeat: true },
+      { name: "プロテインバー", count: 4, percentage: 18, category: "健康食品", isRepeat: true }
+    ],
+    productCategories: ["健康食品", "サプリメント"],
+    repeatProducts: 3,
   },
   {
     id: "12352",
@@ -214,6 +339,12 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品H",
     status: "リピーター",
     lastOrderDate: "2024-04-30",
+    topProducts: [
+      { name: "オーガニック化粧品", count: 3, percentage: 60, category: "美容", isRepeat: true },
+      { name: "ナチュラルシャンプー", count: 2, percentage: 40, category: "美容", isRepeat: false }
+    ],
+    productCategories: ["美容"],
+    repeatProducts: 1,
   },
   {
     id: "12353",
@@ -225,6 +356,11 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品I",
     status: "休眠",
     lastOrderDate: "2024-01-15",
+    topProducts: [
+      { name: "ワークアウトギア", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
+    ],
+    productCategories: ["スポーツ"],
+    repeatProducts: 0,
   },
   {
     id: "12354",
@@ -236,6 +372,13 @@ export const customerDetailData: CustomerDetail[] = [
     topProduct: "商品J",
     status: "VIP",
     lastOrderDate: "2024-05-15",
+    topProducts: [
+      { name: "プレミアム美容液", count: 7, percentage: 58, category: "美容", isRepeat: true },
+      { name: "アンチエイジングクリーム", count: 3, percentage: 25, category: "美容", isRepeat: true },
+      { name: "フェイスマスク", count: 2, percentage: 17, category: "美容", isRepeat: false }
+    ],
+    productCategories: ["美容"],
+    repeatProducts: 2,
   },
 ];
 
@@ -250,4 +393,214 @@ export const colors = {
   accent: "#8B5CF6", // アクセントカラー（紫系）
   danger: "#EF4444", // 危険色（赤系）
   heatmap: ["#DCFCE7", "#86EFAC", "#4ADE80", "#22C55E", "#16A34A"], // 緑系グラデーション
-} as const; 
+} as const;
+
+// 休眠顧客分析用のモックデータ
+
+export const dormantSegments: DormantSegment[] = [
+  { id: '3months', label: '3ヶ月', range: [90, 119], count: 45, color: '#FEF3C7', urgency: 'medium' },
+  { id: '4months', label: '4ヶ月', range: [120, 149], count: 38, color: '#FED7AA', urgency: 'medium' },
+  { id: '5months', label: '5ヶ月', range: [150, 179], count: 29, color: '#FECACA', urgency: 'high' },
+  { id: '6months', label: '6ヶ月', range: [180, 209], count: 22, color: '#FCA5A5', urgency: 'high' },
+  { id: '9months', label: '9ヶ月', range: [270, 329], count: 18, color: '#F87171', urgency: 'critical' },
+  { id: '12months', label: '12ヶ月', range: [360, 449], count: 15, color: '#EF4444', urgency: 'critical' },
+  { id: '18months', label: '18ヶ月', range: [540, 629], count: 8, color: '#DC2626', urgency: 'critical' },
+  { id: '24months', label: '24ヶ月+', range: [720, 9999], count: 5, color: '#B91C1C', urgency: 'critical' },
+];
+
+export const dormantKPIData: DormantKPI = {
+  totalDormantCustomers: 180,
+  dormancyRate: 12.5, // 全顧客の12.5%が休眠
+  averageDormancyPeriod: 156, // 平均5.2ヶ月
+  reactivationRate: 18.3, // 18.3%が復帰
+  estimatedLoss: 8450000, // 845万円の損失
+  recoveredRevenue: 2340000, // 234万円の回復売上
+};
+
+export const dormantTrendData: DormantTrend[] = [
+  { month: '1月', newDormant: 15, reactivated: 8, netChange: 7, totalDormant: 168 },
+  { month: '2月', newDormant: 18, reactivated: 12, netChange: 6, totalDormant: 174 },
+  { month: '3月', newDormant: 22, reactivated: 9, netChange: 13, totalDormant: 187 },
+  { month: '4月', newDormant: 19, reactivated: 15, netChange: 4, totalDormant: 191 },
+  { month: '5月', newDormant: 16, reactivated: 18, netChange: -2, totalDormant: 189 },
+  { month: '6月', newDormant: 14, reactivated: 23, netChange: -9, totalDormant: 180 },
+];
+
+export const reactivationActions: DormantAction[] = [
+  {
+    id: 'welcome_back_email',
+    name: 'おかえりなさいメール',
+    description: '個人化されたウェルカムバックメールを送信',
+    priority: 1,
+    estimatedCost: 500,
+    expectedReturn: 15000,
+  },
+  {
+    id: 'discount_coupon',
+    name: '復帰クーポン',
+    description: '10-20%割引クーポンを提供',
+    priority: 2,
+    estimatedCost: 2000,
+    expectedReturn: 25000,
+  },
+  {
+    id: 'product_recommendation',
+    name: '商品レコメンド',
+    description: '過去の購入履歴に基づく商品提案',
+    priority: 1,
+    estimatedCost: 300,
+    expectedReturn: 18000,
+  },
+  {
+    id: 'limited_offer',
+    name: '限定オファー',
+    description: '期間限定の特別オファー',
+    priority: 3,
+    estimatedCost: 3000,
+    expectedReturn: 35000,
+  },
+  {
+    id: 'loyalty_points',
+    name: 'ポイント付与',
+    description: 'ボーナスポイントの付与',
+    priority: 2,
+    estimatedCost: 1500,
+    expectedReturn: 20000,
+  },
+];
+
+// 詳細な休眠顧客データ（既存CustomerDetailDataを拡張）
+export const dormantCustomerDetails: DormantCustomerDetail[] = [
+  {
+    ...customerDetailData[5], // 渡辺美咲
+    dormancy: {
+      lastPurchaseDate: new Date('2023-12-05'),
+      daysSincePurchase: 189,
+      previousFrequency: 45, // 45日おき
+      estimatedReason: 'product_dissatisfaction',
+      riskLevel: 'high',
+    },
+    analytics: {
+      ltv: 35000,
+      averageOrderValue: 35000,
+      favoriteCategories: ['ファッション'],
+      seasonalPattern: 'winter',
+      purchaseDecline: 85, // 85%減少
+    },
+    reactivation: {
+      probability: 32,
+      recommendedActions: [reactivationActions[0], reactivationActions[1]],
+      optimalTiming: new Date('2024-06-15'),
+      estimatedValue: 42000,
+    },
+  },
+  {
+    ...customerDetailData[8], // 小林正人
+    dormancy: {
+      lastPurchaseDate: new Date('2024-01-15'),
+      daysSincePurchase: 127,
+      previousFrequency: 30, // 30日おき
+      estimatedReason: 'seasonal',
+      riskLevel: 'medium',
+    },
+    analytics: {
+      ltv: 28000,
+      averageOrderValue: 28000,
+      favoriteCategories: ['スポーツ'],
+      seasonalPattern: 'spring',
+      purchaseDecline: 70,
+    },
+    reactivation: {
+      probability: 48,
+      recommendedActions: [reactivationActions[2], reactivationActions[4]],
+      optimalTiming: new Date('2024-07-01'),
+      estimatedValue: 35000,
+    },
+  },
+  // 追加の休眠顧客データ
+  {
+    id: "12355",
+    name: "松本理恵",
+    purchaseCount: 6,
+    totalAmount: 180000,
+    frequency: 1.0,
+    avgInterval: 30,
+    topProduct: "アロマグッズ",
+    status: "休眠",
+    lastOrderDate: "2024-02-20",
+    topProducts: [
+      { name: "アロマディフューザー", count: 3, percentage: 50, category: "リラクゼーション", isRepeat: true },
+      { name: "エッセンシャルオイル", count: 2, percentage: 33, category: "リラクゼーション", isRepeat: true },
+      { name: "キャンドル", count: 1, percentage: 17, category: "インテリア", isRepeat: false }
+    ],
+    productCategories: ["リラクゼーション", "インテリア"],
+    repeatProducts: 2,
+    dormancy: {
+      lastPurchaseDate: new Date('2024-02-20'),
+      daysSincePurchase: 101,
+      previousFrequency: 30,
+      estimatedReason: 'price_sensitivity',
+      riskLevel: 'medium',
+    },
+    analytics: {
+      ltv: 180000,
+      averageOrderValue: 30000,
+      favoriteCategories: ['リラクゼーション', 'インテリア'],
+      seasonalPattern: 'summer',
+      purchaseDecline: 65,
+    },
+    reactivation: {
+      probability: 55,
+      recommendedActions: [reactivationActions[1], reactivationActions[2]],
+      optimalTiming: new Date('2024-06-20'),
+      estimatedValue: 38000,
+    },
+  },
+  {
+    id: "12356",
+    name: "岡田慎一",
+    purchaseCount: 4,
+    totalAmount: 95000,
+    frequency: 0.8,
+    avgInterval: 40,
+    topProduct: "ビジネス用品",
+    status: "休眠",
+    lastOrderDate: "2023-11-10",
+    topProducts: [
+      { name: "革製品", count: 2, percentage: 50, category: "ファッション", isRepeat: true },
+      { name: "ビジネスバッグ", count: 1, percentage: 25, category: "ファッション", isRepeat: false },
+      { name: "ステーショナリー", count: 1, percentage: 25, category: "オフィス用品", isRepeat: false }
+    ],
+    productCategories: ["ファッション", "オフィス用品"],
+    repeatProducts: 1,
+    dormancy: {
+      lastPurchaseDate: new Date('2023-11-10'),
+      daysSincePurchase: 218,
+      previousFrequency: 40,
+      estimatedReason: 'competitor_switch',
+      riskLevel: 'high',
+    },
+    analytics: {
+      ltv: 95000,
+      averageOrderValue: 23750,
+      favoriteCategories: ['ファッション', 'オフィス用品'],
+      purchaseDecline: 90,
+    },
+    reactivation: {
+      probability: 25,
+      recommendedActions: [reactivationActions[3], reactivationActions[0]],
+      optimalTiming: new Date('2024-07-10'),
+      estimatedValue: 28000,
+    },
+  }
+];
+
+// 休眠理由別の分布データ
+export const dormancyReasonData = [
+  { reason: '商品不満', count: 35, percentage: 19.4, color: '#EF4444' },
+  { reason: '価格感度', count: 45, percentage: 25.0, color: '#F59E0B' },
+  { reason: '競合流出', count: 28, percentage: 15.6, color: '#8B5CF6' },
+  { reason: '自然離脱', count: 52, percentage: 28.9, color: '#6B7280' },
+  { reason: '季節要因', count: 15, percentage: 8.3, color: '#10B981' },
+  { reason: '不明', count: 5, percentage: 2.8, color: '#D1D5DB' },
+]; 
