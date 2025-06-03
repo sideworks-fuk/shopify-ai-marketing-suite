@@ -1,89 +1,32 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { useAppContext } from "../../contexts/AppContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, AlertCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { RefreshCw, Download, AlertCircle, Search, Info, RotateCcw, Filter, Settings, ChevronDown, ChevronUp } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 import { DataService } from "@/lib/data-service"
+import { DatePicker } from "@/components/ui/date-picker"
+import { SAMPLE_PRODUCTS, PRODUCT_CATEGORIES, getCategoryStyle, getTopProducts, getProductsByCategory, type SampleProduct } from '@/lib/sample-products'
+import { ProductSelectorModal } from '@/components/ui/product-selector-modal'
 
-// 購入頻度データの型定義
 interface PurchaseFrequencyData {
-  productName: string
   productId: string
+  productName: string
+  category: string
   frequencies: {
-    count: number // 購入回数（1回、2回...）
-    customers: number // 該当する顧客数
-    percentage: number // 割合
+    count: number
+    customers: number
+    percentage: number
   }[]
-  totalCustomers: number // 商品を購入した総顧客数
-}
-
-// ヒートマップの色計算
-const getHeatmapColor = (customers: number, maxCustomers: number): string => {
-  if (customers === 0) return "bg-gray-50"
-  const intensity = customers / maxCustomers
-  if (intensity < 0.2) return "bg-green-100"
-  if (intensity < 0.4) return "bg-green-200"
-  if (intensity < 0.6) return "bg-green-300"
-  if (intensity < 0.8) return "bg-green-400"
-  return "bg-green-500"
-}
-
-// より本番に近いサンプルデータ
-const getSamplePurchaseFrequencyData = (): PurchaseFrequencyData[] => {
-  return [
-    {
-      productName: "【シフォン】カラートレー 10号H50 ホワイト",
-      productId: "prod_color_tray_10_white",
-      totalCustomers: 200,
-      frequencies: [
-        { count: 1, customers: 120, percentage: 60 },
-        { count: 2, customers: 50, percentage: 25 },
-        { count: 3, customers: 20, percentage: 10 },
-        { count: 4, customers: 8, percentage: 4 },
-        { count: 5, customers: 2, percentage: 1 },
-        { count: 6, customers: 0, percentage: 0 },
-        { count: 7, customers: 0, percentage: 0 },
-        { count: 8, customers: 0, percentage: 0 },
-        { count: 9, customers: 0, percentage: 0 },
-        { count: 10, customers: 0, percentage: 0 },
-      ],
-    },
-    {
-      productName: "【シフォン】エコクラフト箱4号H80",
-      productId: "prod_eco_craft_box_4_h80",
-      totalCustomers: 198,
-      frequencies: [
-        { count: 1, customers: 89, percentage: 45 },
-        { count: 2, customers: 65, percentage: 33 },
-        { count: 3, customers: 30, percentage: 15 },
-        { count: 4, customers: 10, percentage: 5 },
-        { count: 5, customers: 4, percentage: 2 },
-        { count: 6, customers: 0, percentage: 0 },
-        { count: 7, customers: 0, percentage: 0 },
-        { count: 8, customers: 0, percentage: 0 },
-        { count: 9, customers: 0, percentage: 0 },
-        { count: 10, customers: 0, percentage: 0 },
-      ],
-    },
-    {
-      productName: "【シフォン】ライトフラワー 5号H65",
-      productId: "prod_light_flower_5_h65",
-      totalCustomers: 222,
-      frequencies: [
-        { count: 1, customers: 156, percentage: 70 },
-        { count: 2, customers: 40, percentage: 18 },
-        { count: 3, customers: 15, percentage: 7 },
-        { count: 4, customers: 8, percentage: 4 },
-        { count: 5, customers: 3, percentage: 1 },
-        { count: 6, customers: 0, percentage: 0 },
-        { count: 7, customers: 0, percentage: 0 },
-        { count: 8, customers: 0, percentage: 0 },
-        { count: 9, customers: 0, percentage: 0 },
-        { count: 10, customers: 0, percentage: 0 },
-      ],
-    },
-  ]
+  totalCustomers: number
 }
 
 interface PurchaseFrequencyAnalysisProps {
@@ -97,197 +40,711 @@ export default function ProductPurchaseFrequencyAnalysis({
   accessToken,
   useSampleData = true,
 }: PurchaseFrequencyAnalysisProps) {
+  const { selectedPeriod } = useAppContext()
   const [purchaseFrequencyData, setPurchaseFrequencyData] = useState<PurchaseFrequencyData[]>([])
+  const [filteredData, setFilteredData] = useState<PurchaseFrequencyData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // 抽出条件設定
+  const [startDate, setStartDate] = useState<string>("2024-01-01")
+  const [endDate, setEndDate] = useState<string>("2024-12-31")
+  const [maxFrequency, setMaxFrequency] = useState<number | 'custom'>(12)
+  const [customMaxFrequency, setCustomMaxFrequency] = useState<string>("12")
+  const [displayMode, setDisplayMode] = useState<'count' | 'percentage'>('count')
+  
+  // 商品絞り込み
+  const [productFilter, setProductFilter] = useState<'all' | 'top10' | 'category' | 'custom'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [showProductSelector, setShowProductSelector] = useState(false)
+  
+  // UI制御
+  const [showConditions, setShowConditions] = useState(true)
+  const [showHeatmap, setShowHeatmap] = useState(true)
 
-  const fetchData = async () => {
-    if (useSampleData || !shopDomain || !accessToken) {
-      setPurchaseFrequencyData(getSamplePurchaseFrequencyData())
-      return
+  // 成長率の計算と色分けのためのヘルパー関数
+  const renderGrowthCell = (currentValue: number, previousValue: number) => {
+    const growthRate = previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0
+    const colorClass = growthRate > 0 ? 'text-green-600' : growthRate < 0 ? 'text-red-600' : 'text-gray-600'
+    
+    return (
+      <div className="text-center">
+        <div>{currentValue.toLocaleString()}</div>
+        <div className={`text-xs ${colorClass}`}>
+          {growthRate > 0 ? '+' : ''}{growthRate.toFixed(1)}%
+        </div>
+      </div>
+    )
+  }
+
+  // 転換率計算
+  const calculateConversionRates = (data: PurchaseFrequencyData[]) => {
+    if (!data.length) return { conversion1to2: 0, conversion2to3: 0 }
+    
+    // 全体の転換率を計算（平均）
+    let total1to2 = 0
+    let total2to3 = 0
+    let validProducts1to2 = 0
+    let validProducts2to3 = 0
+    
+    data.forEach(product => {
+      const freq1 = product.frequencies.find(f => f.count === 1)
+      const freq2 = product.frequencies.find(f => f.count === 2)
+      const freq3 = product.frequencies.find(f => f.count === 3)
+      
+      if (freq1 && freq2 && freq1.customers > 0) {
+        total1to2 += (freq2.customers / freq1.customers) * 100
+        validProducts1to2++
+      }
+      
+      if (freq2 && freq3 && freq2.customers > 0) {
+        total2to3 += (freq3.customers / freq2.customers) * 100
+        validProducts2to3++
+      }
+    })
+    
+    return {
+      conversion1to2: validProducts1to2 > 0 ? total1to2 / validProducts1to2 : 0,
+      conversion2to3: validProducts2to3 > 0 ? total2to3 / validProducts2to3 : 0
     }
+  }
 
+  // 動的サンプルデータ生成（統一商品リスト使用）
+  const generateSampleData = (): PurchaseFrequencyData[] => {
+    const productsToUse = getFilteredProducts()
+    
+    return productsToUse.map(product => {
+      const totalCustomers = 80 + Math.floor(Math.random() * 40) // 80-120人
+      const frequencies = []
+      let remainingCustomers = totalCustomers
+      
+      // 動的に頻度データを生成
+      const effectiveMaxFreq = maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency
+      
+      for (let i = 1; i <= effectiveMaxFreq; i++) {
+        let customers = 0
+        if (i === 1) {
+          // 1回購入は最も多く (40-60%)
+          customers = Math.floor(totalCustomers * (0.4 + Math.random() * 0.2))
+        } else if (i <= 5) {
+          // 2-5回は中程度の分布
+          customers = Math.floor(remainingCustomers * (0.1 + Math.random() * 0.3))
+        } else {
+          // 6回以上は少なく
+          customers = Math.floor(remainingCustomers * Math.random() * 0.1)
+        }
+        
+        customers = Math.min(customers, remainingCustomers)
+        remainingCustomers -= customers
+        
+        const percentage = Math.round((customers / totalCustomers) * 100)
+        frequencies.push({ count: i, customers, percentage })
+        
+        if (remainingCustomers <= 0) break
+      }
+      
+      return {
+        productId: product.id,
+        productName: product.name,
+        category: product.category,
+        frequencies,
+        totalCustomers
+      }
+    })
+  }
+
+  // フィルター対象商品の取得
+  const getFilteredProducts = (): SampleProduct[] => {
+    switch (productFilter) {
+      case 'top10':
+        return getTopProducts(10)
+      case 'category':
+        return selectedCategory ? getProductsByCategory(selectedCategory) : SAMPLE_PRODUCTS
+      case 'custom':
+        return SAMPLE_PRODUCTS.filter(p => selectedProducts.includes(p.id))
+      default:
+        return SAMPLE_PRODUCTS
+    }
+  }
+
+  const loadData = async () => {
     setIsLoading(true)
     setError(null)
-
+    
     try {
-      const dataService = new DataService(shopDomain, accessToken)
-      const data = await dataService.getPurchaseFrequencyAnalysis()
-      setPurchaseFrequencyData(data)
+      if (useSampleData) {
+        // サンプルデータを使用
+        await new Promise(resolve => setTimeout(resolve, 500)) // Loading simulation
+        const data = generateSampleData()
+        setPurchaseFrequencyData(data)
+        setFilteredData(data)
+      } else {
+        // 実際のAPI呼び出し
+        if (shopDomain && accessToken) {
+          const dataService = new DataService(shopDomain, accessToken)
+          const data = await dataService.getPurchaseFrequencyAnalysis()
+          setPurchaseFrequencyData(data)
+          setFilteredData(data)
+        } else {
+          throw new Error('shopDomain または accessToken が設定されていません')
+        }
+      }
     } catch (err) {
-      console.error("Failed to fetch purchase frequency data:", err)
-      setError("データの取得に失敗しました。サンプルデータを表示します。")
-      setPurchaseFrequencyData(getSamplePurchaseFrequencyData())
+      setError('データの読み込みに失敗しました')
+      console.error('Error loading purchase frequency data:', err)
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
-  }, [shopDomain, accessToken, useSampleData])
+    loadData()
+  }, [selectedPeriod, useSampleData])
 
-  if (!purchaseFrequencyData || purchaseFrequencyData.length === 0) {
+  // 条件変更時のデータ更新
+  useEffect(() => {
+    if (purchaseFrequencyData.length > 0) {
+      const filtered = purchaseFrequencyData.filter(item => {
+        const product = SAMPLE_PRODUCTS.find(p => p.id === item.productId)
+        if (!product) return false
+        
+        switch (productFilter) {
+          case 'top10':
+            return getTopProducts(10).some(p => p.id === product.id)
+          case 'category':
+            return selectedCategory ? product.category === selectedCategory : true
+          case 'custom':
+            return selectedProducts.includes(product.id)
+          default:
+            return true
+        }
+      })
+      setFilteredData(filtered)
+    }
+  }, [productFilter, selectedCategory, selectedProducts, purchaseFrequencyData])
+
+  // 条件リセット
+  const handleReset = () => {
+    setStartDate("2024-01-01")
+    setEndDate("2024-12-31")
+    setMaxFrequency(12)
+    setCustomMaxFrequency("12")
+    setDisplayMode('count')
+    setProductFilter('all')
+    setSelectedCategory('')
+    setSelectedProducts([])
+  }
+
+  // 分析実行
+  const handleAnalyze = () => {
+    loadData()
+  }
+
+  const exportToCsv = () => {
+    if (!filteredData || filteredData.length === 0) {
+      alert("エクスポートするデータがありません。")
+      return
+    }
+
+    const effectiveMaxFreq = maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency
+
+    // 動的CSVヘッダー
+    const headers = ["商品名", "カテゴリー"]
+    for (let i = 1; i <= effectiveMaxFreq; i++) {
+      headers.push(`${i}回`)
+    }
+    headers.push(`${effectiveMaxFreq + 1}回以上`, "総顧客数", "リピート率(%)")
+    
+    // 動的CSVデータ
+    const csvData = filteredData.map(product => {
+      const repeatCustomers = product.frequencies.slice(1).reduce((sum, freq) => sum + freq.customers, 0)
+      const repeatRate = product.totalCustomers > 0 ? Math.round((repeatCustomers / product.totalCustomers) * 100) : 0
+      const categoryStyle = getCategoryStyle(product.category)
+      
+      const row = [`"${product.productName}"`, `"${categoryStyle.name}"`]
+      
+      // 各頻度のデータ追加
+      for (let i = 1; i <= effectiveMaxFreq; i++) {
+        const freq = product.frequencies.find(f => f.count === i)
+        const value = freq ? 
+          (displayMode === 'count' ? freq.customers : freq.percentage) : 0
+        row.push(displayMode === 'count' ? value.toString() : `${value}%`)
+      }
+      
+      // maxFrequency+1回以上の計算
+      const overMaxCustomers = product.frequencies
+        .filter(f => f.count > effectiveMaxFreq)
+        .reduce((sum, freq) => sum + freq.customers, 0)
+      const overMaxPercentage = product.totalCustomers > 0 ? 
+        Math.round((overMaxCustomers / product.totalCustomers) * 100) : 0
+      
+      row.push(
+        displayMode === 'count' ? overMaxCustomers.toString() : `${overMaxPercentage}%`,
+        product.totalCustomers.toString(),
+        `${repeatRate}%`
+      )
+      
+      return row
+    })
+
+    // CSV文字列作成
+    const csvContent = [headers, ...csvData].map(row => row.join(",")).join("\n")
+    
+    // ダウンロード実行
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `purchase_frequency_analysis_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  if (error) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>商品別購入頻度分析</CardTitle>
-          <CardDescription>各商品の購入回数分布を分析し、リピート購入パターンを把握します</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                データを読み込み中...
-              </div>
-            ) : (
-              "データがありません"
-            )}
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center text-center">
+            <div>
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">エラーが発生しました</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={loadData} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                再試行
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  const maxCustomers = Math.max(
-    ...purchaseFrequencyData.flatMap((product) => product.frequencies.map((freq) => freq.customers)),
-  )
+  const effectiveMaxFreq = maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>商品別購入頻度分析</CardTitle>
-            <CardDescription>各商品の購入回数分布を分析し、リピート購入パターンを把握します</CardDescription>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchData}
-            disabled={isLoading}
-            className="flex items-center gap-2"
+    <div className="space-y-6">
+      {/* ヘッダー */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">購入回数詳細分析【商品】</h2>
+          <p className="text-gray-600 mt-1">
+            商品別の顧客購入回数分布を分析し、リピート購入パターンと転換率を把握できます
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowConditions(!showConditions)}
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            更新
+            <Settings className="h-4 w-4 mr-2" />
+            抽出条件
+            {showConditions ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+          </Button>
+          <Button onClick={exportToCsv} disabled={isLoading || filteredData.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            CSV出力
           </Button>
         </div>
-        {error && (
-          <div className="flex items-center gap-2 text-amber-600 text-sm mt-2">
-            <AlertCircle className="h-4 w-4" />
-            {error}
-          </div>
-        )}
-        {useSampleData && (
-          <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
-            <AlertCircle className="h-4 w-4" />
-            サンプルデータを表示しています
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <div className="min-w-[1200px]">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-medium text-gray-900 min-w-[300px]">商品名</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">1回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">2回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">3回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">4回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">5回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">6回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">7回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">8回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">9回</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-900 min-w-[80px]">10回+</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchaseFrequencyData.map((product) => (
-                  <tr key={product.productId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900 text-sm">{product.productName}</td>
-                    {product.frequencies.map((freq, index) => {
-                      return (
-                        <td
-                          key={index}
-                          className={`px-3 py-2 text-center ${getHeatmapColor(freq.customers, maxCustomers)}`}
-                        >
-                          <div className="font-bold text-gray-900">{freq.customers}</div>
-                          <div className="text-xs text-gray-600">({freq.percentage}%)</div>
-                        </td>
-                      )
-                    })}
+      </div>
+
+      {/* 抽出条件設定 */}
+      {showConditions && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">抽出条件設定</CardTitle>
+            <CardDescription>分析対象期間と商品を設定してください</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* 期間・商品選択 */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="start-date">期間開始</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end-date">期間終了</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+                
+                {/* 商品絞り込み */}
+                <div className="lg:col-span-2">
+                  <Label>商品選択</Label>
+                  <div className="flex gap-2">
+                    <Select value={productFilter} onValueChange={(value: any) => setProductFilter(value)}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="商品を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべての商品</SelectItem>
+                        <SelectItem value="top10">売上上位10商品</SelectItem>
+                        <SelectItem value="category">カテゴリー別</SelectItem>
+                        <SelectItem value="custom">個別選択</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {/* カテゴリー選択 */}
+                    {productFilter === 'category' && (
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="カテゴリー" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRODUCT_CATEGORIES.map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    
+                    {/* 個別選択ボタン */}
+                    {productFilter === 'custom' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowProductSelector(true)}
+                      >
+                        商品を選択 ({selectedProducts.length}件)
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 表示設定 */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 最大表示回数 */}
+                <div>
+                  <Label>最大表示回数</Label>
+                  <RadioGroup 
+                    value={maxFrequency.toString()} 
+                    onValueChange={(v) => setMaxFrequency(v === 'custom' ? 'custom' : Number(v))}
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="12" id="f12" />
+                      <Label htmlFor="f12">12回まで</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="20" id="f20" />
+                      <Label htmlFor="f20">20回まで</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="custom" id="fcustom" />
+                      <Label htmlFor="fcustom">カスタム</Label>
+                      {maxFrequency === 'custom' && (
+                        <Input 
+                          type="number" 
+                          value={customMaxFrequency} 
+                          onChange={(e) => setCustomMaxFrequency(e.target.value)}
+                          className="w-20"
+                          min="1"
+                          max="50"
+                        />
+                      )}
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* 表示モード */}
+                <div>
+                  <Label>表示モード</Label>
+                  <RadioGroup 
+                    value={displayMode} 
+                    onValueChange={(v: any) => setDisplayMode(v)}
+                    className="mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="count" id="mode-count" />
+                      <Label htmlFor="mode-count">購入人数</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="percentage" id="mode-percentage" />
+                      <Label htmlFor="mode-percentage">構成比率(%)</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* 表示オプション */}
+                <div>
+                  <Label>表示オプション</Label>
+                  <div className="mt-2 space-y-2">
+                                         <div className="flex items-center space-x-2">
+                       <Checkbox 
+                         checked={showHeatmap} 
+                         onCheckedChange={(checked) => setShowHeatmap(checked === true)}
+                         id="show-heatmap"
+                       />
+                       <Label htmlFor="show-heatmap">ヒートマップ表示</Label>
+                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ボタン */}
+              <div className="flex gap-2">
+                <Button onClick={handleAnalyze} disabled={isLoading}>
+                  {isLoading ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4 mr-2" />
+                  )}
+                  分析実行
+                </Button>
+                <Button variant="outline" onClick={handleReset}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  条件クリア
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 商品選択モーダル */}
+      <ProductSelectorModal
+        isOpen={showProductSelector}
+        onClose={() => setShowProductSelector(false)}
+        selectedProducts={selectedProducts}
+        onSelectionChange={setSelectedProducts}
+        title="分析対象商品の選択"
+        description="購入頻度を分析する商品を選択してください"
+      />
+
+      {/* 結果表示 */}
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <RefreshCw className="h-8 w-8 animate-spin text-gray-400 mr-2" />
+              <span className="text-gray-600">データを読み込み中...</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : filteredData.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>購入頻度分析結果</CardTitle>
+                <CardDescription>
+                  {filteredData.length}商品 | 
+                  期間: {startDate} ～ {endDate} | 
+                  表示: {displayMode === 'count' ? '購入人数' : '構成比率(%)'}
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="outline">
+                  <Filter className="h-3 w-3 mr-1" />
+                  {productFilter === 'all' ? 'すべて' : 
+                   productFilter === 'top10' ? '上位10商品' :
+                   productFilter === 'category' ? `${PRODUCT_CATEGORIES.find(c => c.id === selectedCategory)?.name || 'カテゴリー'}` :
+                   `${selectedProducts.length}商品選択`}
+                </Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="p-3 text-left font-medium sticky left-0 bg-gray-50 z-10 min-w-[200px]">
+                      商品名
+                    </th>
+                    <th className="p-3 text-center font-medium min-w-[80px]">カテゴリー</th>
+                    {Array.from({ length: effectiveMaxFreq }, (_, i) => (
+                      <th key={i + 1} className="p-3 text-center font-medium min-w-[60px]">
+                        {i + 1}回
+                        {/* 重要な回数にバッジを追加 */}
+                        {i + 1 === 1 && (
+                          <Badge variant="outline" className="ml-1 text-xs">新規</Badge>
+                        )}
+                        {i + 1 >= 10 && (
+                          <Badge variant="outline" className="ml-1 text-xs text-green-600">優良</Badge>
+                        )}
+                      </th>
+                    ))}
+                    <th className="p-3 text-center font-medium min-w-[80px]">
+                      {effectiveMaxFreq + 1}回以上
+                    </th>
+                    <th className="p-3 text-center font-medium min-w-[80px]">総顧客数</th>
+                    <th className="p-3 text-center font-medium min-w-[100px]">リピート率</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {filteredData.map((product, productIndex) => {
+                    const categoryStyle = getCategoryStyle(product.category)
+                    const repeatCustomers = product.frequencies.slice(1).reduce((sum, freq) => sum + freq.customers, 0)
+                    const repeatRate = product.totalCustomers > 0 ? Math.round((repeatCustomers / product.totalCustomers) * 100) : 0
+                    
+                    // ヒートマップ用の最大値計算
+                    const maxValue = Math.max(...product.frequencies.map(f => 
+                      displayMode === 'count' ? f.customers : f.percentage
+                    ))
+                    
+                    const getHeatmapColor = (value: number): string => {
+                      if (!showHeatmap || maxValue === 0) return ''
+                      const intensity = value / maxValue
+                      if (intensity > 0.8) return 'bg-red-100 text-red-900'
+                      if (intensity > 0.6) return 'bg-orange-100 text-orange-900'
+                      if (intensity > 0.4) return 'bg-yellow-100 text-yellow-900'
+                      if (intensity > 0.2) return 'bg-blue-100 text-blue-900'
+                      if (intensity > 0) return 'bg-gray-100 text-gray-700'
+                      return ''
+                    }
 
-        {/* 凡例 */}
-        <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
-          <div>
-            <span className="font-medium">ヒートマップ:</span> 濃い緑色ほど購入割合が高い
-          </div>
-          <div className="flex items-center space-x-2">
-            <span>低</span>
-            <div className="flex space-x-1">
-              <div className="w-4 h-4 bg-gray-50 border border-gray-200"></div>
-              <div className="w-4 h-4 bg-green-100"></div>
-              <div className="w-4 h-4 bg-green-200"></div>
-              <div className="w-4 h-4 bg-green-300"></div>
-              <div className="w-4 h-4 bg-green-400"></div>
-              <div className="w-4 h-4 bg-green-500"></div>
-            </div>
-            <span>高</span>
-          </div>
-        </div>
-
-        {/* 分析サマリー */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 className="font-semibold text-blue-900 mb-2">分析サマリー</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-blue-800">総商品数:</span>
-              <span className="ml-2 text-blue-900">{purchaseFrequencyData.length}商品</span>
-            </div>
-            <div>
-              <span className="font-medium text-blue-800">平均リピート率:</span>
-              <span className="ml-2 text-blue-900">
-                {purchaseFrequencyData.length > 0
-                  ? Math.round(
-                      purchaseFrequencyData.reduce((sum, product) => {
-                        const repeatCustomers = product.frequencies.slice(1).reduce((s, f) => s + f.customers, 0)
-                        return sum + (product.totalCustomers > 0 ? (repeatCustomers / product.totalCustomers) * 100 : 0)
-                      }, 0) / purchaseFrequencyData.length,
+                    return (
+                      <tr key={productIndex} className="border-b hover:bg-gray-50">
+                        <td className="p-3 font-medium sticky left-0 bg-white z-10 max-w-[200px]">
+                          <div className="truncate" title={product.productName}>
+                            {product.productName}
+                          </div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <Badge className={`${categoryStyle.bgColor} ${categoryStyle.textColor} border-0`}>
+                            {categoryStyle.name}
+                          </Badge>
+                        </td>
+                        {Array.from({ length: effectiveMaxFreq }, (_, i) => {
+                          const freq = product.frequencies.find(f => f.count === i + 1)
+                          const value = freq ? (displayMode === 'count' ? freq.customers : freq.percentage) : 0
+                          const displayValue = displayMode === 'count' ? value : `${value}%`
+                          
+                          // 重要指標のハイライト
+                          let cellClass = `p-3 text-center ${getHeatmapColor(value)}`
+                          if (i + 1 === 1) cellClass += ' bg-blue-50 border-l-2 border-blue-300'
+                          if (i + 1 >= 10) cellClass += ' bg-green-50 border-l-2 border-green-300'
+                          
+                          return (
+                            <td key={i + 1} className={cellClass}>
+                              {displayValue}
+                            </td>
+                          )
+                        })}
+                        <td className="p-3 text-center">
+                          {(() => {
+                            const overMaxCustomers = product.frequencies
+                              .filter(f => f.count > effectiveMaxFreq)
+                              .reduce((sum, freq) => sum + freq.customers, 0)
+                            const overMaxPercentage = product.totalCustomers > 0 ? 
+                              Math.round((overMaxCustomers / product.totalCustomers) * 100) : 0
+                            return displayMode === 'count' ? overMaxCustomers : `${overMaxPercentage}%`
+                          })()}
+                        </td>
+                        <td className="p-3 text-center font-medium">
+                          {product.totalCustomers}
+                        </td>
+                        <td className="p-3 text-center">
+                          <Badge variant={repeatRate >= 30 ? "default" : "secondary"}>
+                            {repeatRate}%
+                          </Badge>
+                        </td>
+                      </tr>
                     )
-                  : 0}
-                %
-              </span>
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div>
-              <span className="font-medium text-blue-800">最高リピート商品:</span>
-              <span className="ml-2 text-blue-900">
-                {purchaseFrequencyData.length > 0
-                  ? purchaseFrequencyData
-                      .reduce((max, product) => {
-                        const repeatRate =
-                          (product.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / product.totalCustomers) *
-                          100
-                        const maxRate =
-                          (max.frequencies.slice(1).reduce((s, f) => s + f.customers, 0) / max.totalCustomers) * 100
-                        return repeatRate > maxRate ? product : max
-                      })
-                      .productName.split("】")[1] || purchaseFrequencyData[0].productName
-                  : "-"}
-              </span>
+            
+            {/* 転換率表示 */}
+            {(() => {
+              const conversionRates = calculateConversionRates(filteredData)
+              return (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-semibold mb-2">主要転換率</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">1回→2回:</span>
+                      <Badge variant="outline" className="font-medium">
+                        {conversionRates.conversion1to2.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">2回→3回:</span>
+                      <Badge variant="outline" className="font-medium">
+                        {conversionRates.conversion2to3.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">全体リピート率:</span>
+                      <Badge variant="default" className="font-medium">
+                        {(() => {
+                          const totalCustomers = filteredData.reduce((sum, p) => sum + p.totalCustomers, 0)
+                          const repeatCustomers = filteredData.reduce((sum, p) => 
+                            sum + p.frequencies.slice(1).reduce((pSum, f) => pSum + f.customers, 0), 0)
+                          return totalCustomers > 0 ? ((repeatCustomers / totalCustomers) * 100).toFixed(1) : '0.0'
+                        })()}%
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">分析商品数:</span>
+                      <Badge variant="secondary" className="font-medium">
+                        {filteredData.length}商品
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+            
+            {/* ヒートマップ凡例 */}
+            {showHeatmap && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium mb-2">ヒートマップ凡例</h4>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-red-100 border rounded"></div>
+                    <span>最高値</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-orange-100 border rounded"></div>
+                    <span>高</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-yellow-100 border rounded"></div>
+                    <span>中</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-blue-100 border rounded"></div>
+                    <span>低</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-gray-100 border rounded"></div>
+                    <span>最低値</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-gray-500">
+              <Info className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-semibold mb-2">データがありません</h3>
+              <p>選択した条件に該当するデータが見つかりませんでした。</p>
+              <p className="text-sm mt-2">条件を変更して再度分析を実行してください。</p>
             </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

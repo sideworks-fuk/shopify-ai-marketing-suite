@@ -39,6 +39,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Input } from "../ui/input"
+import { StatusCard } from "../ui/status-card"
+import { CustomerStatusBadge } from "../ui/customer-status-badge"
+import { useCustomerTable } from "../../hooks/useCustomerTable"
+import { customerDetailData as mockCustomerData } from "../../data/mock/customerData"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,118 +122,7 @@ const dormantCustomersData = [
   { period: "24ヶ月+", count: 45, action: "最終アプローチ" },
 ]
 
-const customerDetailData = [
-  {
-    id: "12345",
-    name: "田中太郎",
-    purchaseCount: 15,
-    totalAmount: 450000,
-    frequency: 2.5,
-    avgInterval: 14,
-    topProduct: "商品A",
-    status: "VIP",
-    lastOrderDate: "2024-05-20",
-  },
-  {
-    id: "12346",
-    name: "佐藤花子",
-    purchaseCount: 3,
-    totalAmount: 89000,
-    frequency: 0.8,
-    avgInterval: 45,
-    topProduct: "商品B",
-    status: "リピーター",
-    lastOrderDate: "2024-04-15",
-  },
-  {
-    id: "12347",
-    name: "鈴木一郎",
-    purchaseCount: 1,
-    totalAmount: 25000,
-    frequency: 0.3,
-    avgInterval: 0,
-    topProduct: "商品C",
-    status: "新規",
-    lastOrderDate: "2024-05-10",
-  },
-  {
-    id: "12348",
-    name: "高橋雅子",
-    purchaseCount: 8,
-    totalAmount: 230000,
-    frequency: 1.5,
-    avgInterval: 21,
-    topProduct: "商品D",
-    status: "リピーター",
-    lastOrderDate: "2024-05-18",
-  },
-  {
-    id: "12349",
-    name: "伊藤健太",
-    purchaseCount: 2,
-    totalAmount: 45000,
-    frequency: 0.5,
-    avgInterval: 60,
-    topProduct: "商品E",
-    status: "リピーター",
-    lastOrderDate: "2024-03-25",
-  },
-  {
-    id: "12350",
-    name: "渡辺美咲",
-    purchaseCount: 0,
-    totalAmount: 35000,
-    frequency: 0,
-    avgInterval: 180,
-    topProduct: "商品F",
-    status: "休眠",
-    lastOrderDate: "2023-12-05",
-  },
-  {
-    id: "12351",
-    name: "山本大輔",
-    purchaseCount: 22,
-    totalAmount: 680000,
-    frequency: 3.2,
-    avgInterval: 10,
-    topProduct: "商品G",
-    status: "VIP",
-    lastOrderDate: "2024-05-22",
-  },
-  {
-    id: "12352",
-    name: "中村優子",
-    purchaseCount: 5,
-    totalAmount: 120000,
-    frequency: 1.2,
-    avgInterval: 28,
-    topProduct: "商品H",
-    status: "リピーター",
-    lastOrderDate: "2024-04-30",
-  },
-  {
-    id: "12353",
-    name: "小林正人",
-    purchaseCount: 0,
-    totalAmount: 28000,
-    frequency: 0,
-    avgInterval: 120,
-    topProduct: "商品I",
-    status: "休眠",
-    lastOrderDate: "2024-01-15",
-  },
-  {
-    id: "12354",
-    name: "加藤裕子",
-    purchaseCount: 12,
-    totalAmount: 320000,
-    frequency: 2.0,
-    avgInterval: 16,
-    topProduct: "商品J",
-    status: "VIP",
-    lastOrderDate: "2024-05-15",
-  },
-]
+
 
 // 色定義
 const colors = {
@@ -246,13 +139,28 @@ const colors = {
 
 export default function CustomerDashboard() {
   const { selectedPeriod, setSelectedPeriod, selectedCustomerSegment, setSelectedCustomerSegment } = useAppContext()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortColumn, setSortColumn] = useState("purchaseCount")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 5
+
+  // useCustomerTableフックで統一管理
+  const {
+    searchQuery,
+    filteredCustomers,
+    paginatedCustomers,
+    totalPages,
+    currentPage,
+    sortColumn,
+    sortDirection,
+    setSearchQuery,
+    handleSort,
+    handlePageChange,
+  } = useCustomerTable({
+    data: mockCustomerData,
+    itemsPerPage: 5,
+    selectedSegment: selectedCustomerSegment,
+    initialSortColumn: "purchaseCount",
+    initialSortDirection: "desc"
+  })
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("ja-JP", {
@@ -266,132 +174,16 @@ export default function CustomerDashboard() {
     return new Intl.NumberFormat("ja-JP").format(value)
   }
 
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
-    } else {
-      setSortColumn(column)
-      setSortDirection("desc")
-    }
-  }
 
-  const sortedCustomers = [...customerDetailData].sort((a, b) => {
-    const aValue = a[sortColumn as keyof typeof a]
-    const bValue = b[sortColumn as keyof typeof b]
-
-    if (typeof aValue === "number" && typeof bValue === "number") {
-      return sortDirection === "asc" ? aValue - bValue : bValue - aValue
-    }
-
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortDirection === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
-    }
-
-    return 0
-  })
-
-  const filteredCustomers = sortedCustomers.filter((customer) => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesSegment = selectedCustomerSegment === "全顧客" || customer.status === selectedCustomerSegment
-    return matchesSearch && matchesSegment
-  })
-
-  const paginatedCustomers = filteredCustomers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-  }
 
   const handleCustomerClick = (customer: any) => {
     setSelectedCustomer(customer)
     setIsDetailModalOpen(true)
   }
 
-  const StatusCard = ({
-    title,
-    count,
-    change,
-    icon: Icon,
-    color,
-  }: {
-    title: string
-    count: number
-    change: number
-    icon: any
-    color: string
-  }) => (
-    <Card className="bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 font-mono">{formatNumber(count)}</p>
-          </div>
-          <div
-            className="h-12 w-12 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${color}15` }}
-          >
-            <Icon className="h-6 w-6" style={{ color }} />
-          </div>
-        </div>
-        <div className="mt-4 flex items-center">
-          {title === "休眠リスク" ? (
-            <AlertTriangle className="h-4 w-4 text-amber-500 mr-1" />
-          ) : title === "休眠顧客" ? (
-            <Moon className="h-4 w-4 text-gray-500 mr-1" />
-          ) : title === "高価値顧客" ? (
-            <Diamond className="h-4 w-4 text-amber-500 mr-1" />
-          ) : change >= 0 ? (
-            <ChevronUp className="h-4 w-4 text-green-500 mr-1" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-red-500 mr-1" />
-          )}
-          <span className={`text-sm font-medium ${change >= 0 ? "text-green-600" : "text-red-600"}`}>
-            {change >= 0 ? "+" : ""}
-            {change}%
-          </span>
-          <span className="text-sm text-gray-500 ml-1">前月比</span>
-        </div>
-      </CardContent>
-    </Card>
-  )
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "VIP":
-        return (
-          <Badge className="bg-amber-500 hover:bg-amber-600">
-            <Diamond className="h-3 w-3 mr-1" />
-            VIP
-          </Badge>
-        )
-      case "リピーター":
-        return (
-          <Badge className="bg-green-500 hover:bg-green-600">
-            <Users className="h-3 w-3 mr-1" />
-            リピーター
-          </Badge>
-        )
-      case "新規":
-        return (
-          <Badge className="bg-blue-500 hover:bg-blue-600">
-            <UserPlus className="h-3 w-3 mr-1" />
-            新規
-          </Badge>
-        )
-      case "休眠":
-        return (
-          <Badge className="bg-gray-500 hover:bg-gray-600">
-            <Moon className="h-3 w-3 mr-1" />
-            休眠
-          </Badge>
-        )
-      default:
-        return <Badge>{status}</Badge>
-    }
-  }
+
+
 
   const totalCustomers = customerSegmentData.reduce((sum, segment) => sum + segment.value, 0)
 
@@ -834,7 +626,7 @@ export default function CustomerDashboard() {
                     <TableCell className="text-right font-mono">月{customer.frequency.toFixed(1)}回</TableCell>
                     <TableCell className="text-right font-mono">{customer.avgInterval}日</TableCell>
                     <TableCell>{customer.topProduct}</TableCell>
-                    <TableCell>{getStatusBadge(customer.status)}</TableCell>
+                    <TableCell><CustomerStatusBadge status={customer.status as any} /></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -869,8 +661,8 @@ export default function CustomerDashboard() {
           {/* ページネーション */}
           <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-gray-600">
-              全{filteredCustomers.length}件中 {(currentPage - 1) * itemsPerPage + 1}-
-              {Math.min(currentPage * itemsPerPage, filteredCustomers.length)}件を表示
+              全{filteredCustomers.length}件中 {(currentPage - 1) * 5 + 1}-
+              {Math.min(currentPage * 5, filteredCustomers.length)}件を表示
             </div>
             <div className="flex gap-1">
               <Button
@@ -960,7 +752,7 @@ export default function CustomerDashboard() {
                   <div className="bg-gray-100 p-6 rounded-lg">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold">{selectedCustomer.name}</h3>
-                      {getStatusBadge(selectedCustomer.status)}
+                      <CustomerStatusBadge status={selectedCustomer.status as any} />
                     </div>
                     <div className="space-y-3">
                       <div>
