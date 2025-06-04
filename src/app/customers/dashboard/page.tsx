@@ -4,7 +4,7 @@ import { Users, UserPlus, Repeat, Crown, TrendingUp } from "lucide-react"
 import { AnalyticsPageLayout } from "@/components/layout/AnalyticsPageLayout"
 import { KPICard, type KPICardProps } from "@/components/common/KPICard"
 import { CustomerFilterSection } from "@/components/dashboards/customers/CustomerFilterSection"
-import { CustomerMainContent } from "@/components/dashboards/customers/CustomerMainContent"
+import CustomerMainContent from "@/components/dashboards/customers/CustomerMainContent"
 
 export default function CustomerDashboardPage() {
   // 重要KPI（4つに統一）

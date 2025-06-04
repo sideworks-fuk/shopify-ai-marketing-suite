@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Download, TrendingUp, TrendingDown, BarChart, Users, ShoppingCart, Target, UserCheck, UserPlus, AlertTriangle, Activity } from "lucide-react"
-import { useAppContext } from "@/contexts/AppContext"
+import { useAppStore } from "@/stores/appStore"
 import { LineChart, Line, BarChart as RechartBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 
 // F階層傾向データの型定義
 interface FLayerTrendData {
@@ -66,7 +68,7 @@ export default function FTierTrendAnalysis({
   accessToken,
   useSampleData = true,
 }: FTierTrendAnalysisProps) {
-  const { selectedPeriod } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [viewMode, setViewMode] = useState<'heatmap' | 'chart' | 'both'>('both')
   const [chartType, setChartType] = useState<'line' | 'bar'>('line')
   const [selectedTier, setSelectedTier] = useState<string>('all')
