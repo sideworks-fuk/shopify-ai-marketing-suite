@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useAppStore } from "../../stores/appStore"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { TrendingUp, ShoppingCart, Package, DollarSign, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
@@ -62,7 +62,7 @@ const productRankingData = [
 ]
 
 const SalesDashboard = () => {
-  const { selectedPeriod } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [selectedTab, setSelectedTab] = useState("sales-dashboard")
   const [selectedPeriodState, setSelectedPeriodState] = useState("thisMonth")
 

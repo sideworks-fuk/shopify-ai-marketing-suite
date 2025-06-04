@@ -3,7 +3,8 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useAppContext, getMenuByCategory, type MenuItem } from "@/contexts/AppContext"
+import { getMenuByCategory, type MenuItem } from "@/lib/menuConfig"
+import { useAppStore } from "@/stores/appStore"
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -33,7 +34,10 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { selectedPeriod, setSelectedPeriod, refreshData, exportData } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
+  const setSelectedPeriod = useAppStore((state) => state.setSelectedPeriod)
+  const refreshData = useAppStore((state) => state.refreshData)
+  const exportData = useAppStore((state) => state.exportData)
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["sales", "purchase", "customers", "ai-insights"])
 
   const periodOptions = [
@@ -86,8 +90,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         : [...prev, categoryId]
     )
   }
-
-
 
   const isActiveRoute = (href: string | undefined) => {
     if (!href) return false

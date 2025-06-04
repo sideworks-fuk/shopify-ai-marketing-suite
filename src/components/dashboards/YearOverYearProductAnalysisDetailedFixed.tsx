@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useAppStore } from "../../stores/appStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -33,7 +33,7 @@ interface MonthlyYearOverYearData {
 }
 
 const YearOverYearProductAnalysisDetailedFixed = () => {
-  const { selectedPeriod } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [viewMode, setViewMode] = useState<"sales" | "quantity" | "orders">("sales")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<"all" | "growth" | "stable" | "decline">("all")

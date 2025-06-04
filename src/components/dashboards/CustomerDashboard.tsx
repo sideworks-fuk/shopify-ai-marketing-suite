@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useAppStore } from "../../stores/appStore"
 import {
   BarChart,
   Bar,
@@ -138,7 +138,10 @@ const colors = {
 }
 
 export default function CustomerDashboard() {
-  const { selectedPeriod, setSelectedPeriod, selectedCustomerSegment, setSelectedCustomerSegment } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
+  const setSelectedPeriod = useAppStore((state) => state.setSelectedPeriod)
+  const selectedCustomerSegment = useAppStore((state) => state.globalFilters.selectedCustomerSegment)
+  const setSelectedCustomerSegment = useAppStore((state) => state.setSelectedCustomerSegment)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 

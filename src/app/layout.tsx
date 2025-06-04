@@ -1,7 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { AppProvider } from "@/contexts/AppContext"
+import { ZustandProvider } from "@/components/providers/ZustandProvider"
+import { FilterProvider } from "@/contexts/FilterContext"
 import MainLayout from "@/components/layout/MainLayout"
 import "./globals.css"
 
@@ -20,11 +21,13 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <AppProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
-        </AppProvider>
+        <ZustandProvider>
+          <FilterProvider>
+            <MainLayout>
+              {children}
+            </MainLayout>
+          </FilterProvider>
+        </ZustandProvider>
       </body>
     </html>
   )

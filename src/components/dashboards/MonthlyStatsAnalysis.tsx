@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useAppContext } from "../../contexts/AppContext"
+import { useState, useMemo } from "react"
+import { useAppStore } from "../../stores/appStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -27,7 +27,7 @@ interface MonthlyStatsAnalysisProps {
 export default function MonthlyStatsAnalysis({
   useSampleData = true,
 }: MonthlyStatsAnalysisProps) {
-  const { selectedPeriod } = useAppContext()
+  const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [displayMode, setDisplayMode] = useState<'quantity' | 'amount' | 'both'>('amount')
   const [selectedYear, setSelectedYear] = useState<string>('2024')
 

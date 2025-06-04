@@ -51,7 +51,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table"
 import { Badge } from "../../ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs"
-import { useAppContext } from "../../../contexts/AppContext"
+import { useAppStore } from "../../../stores/appStore"
 
 // 顧客分析用のサンプルデータ
 const customerSegmentData = [
@@ -111,8 +111,8 @@ const colors = {
   heatmap: ["#DCFCE7", "#86EFAC", "#4ADE80", "#22C55E", "#16A34A"], // 緑系グラデーション
 }
 
-export function CustomerMainContent() {
-  const { selectedCustomerSegment } = useAppContext()
+export default function CustomerMainContent() {
+  const selectedCustomerSegment = useAppStore((state) => state.globalFilters.selectedCustomerSegment)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [customerData, setCustomerData] = useState<CustomerDetail[]>([])

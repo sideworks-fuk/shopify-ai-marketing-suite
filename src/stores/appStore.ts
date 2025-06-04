@@ -8,6 +8,8 @@ import { immer } from 'zustand/middleware/immer'
 
 export type TabType = "sales" | "customers" | "ai" | "purchase"
 export type ThemeType = 'light' | 'dark' | 'system'
+export type PeriodType = "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
+export type CustomerSegmentType = "全顧客" | "新規" | "リピーター" | "VIP" | "休眠"
 
 export interface RecentItem {
   id: string
@@ -43,6 +45,12 @@ export interface SelectionState {
   lastSelectedType: 'customer' | 'product' | 'order' | null
 }
 
+// グローバルフィルター状態（AppContextから移行）
+export interface GlobalFilters {
+  selectedPeriod: PeriodType
+  selectedCustomerSegment: CustomerSegmentType
+}
+
 // =============================================================================
 // AppStore Interface
 // =============================================================================
@@ -55,6 +63,9 @@ export interface AppState {
   
   // 選択状態
   selectionState: SelectionState
+  
+  // グローバルフィルター状態（AppContextから移行）
+  globalFilters: GlobalFilters
   
   // 共有データ
   recentItems: RecentItem[]
@@ -71,6 +82,13 @@ export interface AppState {
   setSidebarOpen: (open: boolean) => void
   showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void
   clearToast: () => void
+  
+  // =============================================================================
+  // グローバルフィルター操作（AppContextから移行）
+  // =============================================================================
+  
+  setSelectedPeriod: (period: PeriodType) => void
+  setSelectedCustomerSegment: (segment: CustomerSegmentType) => void
   
   // =============================================================================
   // 選択状態操作
@@ -151,6 +169,10 @@ export const useAppStore = create<AppState>()(
         userPreferences: defaultUserPreferences,
         uiState: defaultUIState,
         selectionState: defaultSelectionState,
+        globalFilters: {
+          selectedPeriod: "thisMonth",
+          selectedCustomerSegment: "全顧客"
+        },
         recentItems: [],
         favoriteReports: [],
         quickActions: [],
@@ -191,6 +213,20 @@ export const useAppStore = create<AppState>()(
         clearToast: () =>
           set((state) => {
             state.uiState.activeToast = null
+          }),
+        
+        // =============================================================================
+        // グローバルフィルター操作実装
+        // =============================================================================
+        
+        setSelectedPeriod: (period) =>
+          set((state) => {
+            state.globalFilters.selectedPeriod = period
+          }),
+          
+        setSelectedCustomerSegment: (segment) =>
+          set((state) => {
+            state.globalFilters.selectedCustomerSegment = segment
           }),
         
         // =============================================================================
@@ -385,6 +421,10 @@ export const useAppStore = create<AppState>()(
             state.userPreferences = defaultUserPreferences
             state.uiState = defaultUIState
             state.selectionState = defaultSelectionState
+            state.globalFilters = {
+              selectedPeriod: "thisMonth",
+              selectedCustomerSegment: "全顧客"
+            }
             state.recentItems = []
             state.favoriteReports = []
             state.quickActions = []
