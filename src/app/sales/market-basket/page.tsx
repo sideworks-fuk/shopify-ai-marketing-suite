@@ -6,10 +6,12 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Download, TrendingUp, Package, BarChart3 } from 'lucide-react'
 import { getRandomProducts, getProductsByCategory, SAMPLE_PRODUCTS } from '@/lib/sample-products'
+import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
 
 interface MarketBasketItem {
   productId: string
@@ -172,10 +174,130 @@ const generateMarketBasketData = (): MarketBasketItem[] => {
 const sampleMarketBasketData: MarketBasketItem[] = generateMarketBasketData()
 
 export default function MarketBasketAnalysisPage() {
-  const [startDate, setStartDate] = useState('2024-01-01')
-  const [endDate, setEndDate] = useState('2024-12-31')
+  const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth() + 1
+    
+    return {
+      startYear: currentYear,
+      startMonth: 1,
+      endYear: currentYear,
+      endMonth: currentMonth
+    }
+  })
+  
   const [sortBy, setSortBy] = useState('totalAmount')
   const [minSupport, setMinSupport] = useState('0.01')
+
+  const presetPeriods = [
+    {
+      label: "直近12ヶ月",
+      icon: "📊",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear - 1
+        let startMonth = currentMonth + 1
+        
+        if (startMonth > 12) {
+          startYear = currentYear
+          startMonth = startMonth - 12
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近6ヶ月",
+      icon: "📈",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 5
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近3ヶ月",
+      icon: "📉",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 2
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "先月",
+      icon: "📅",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let month = currentMonth - 1
+        let year = currentYear
+        
+        if (month <= 0) {
+          month = 12
+          year = currentYear - 1
+        }
+        
+        return {
+          startYear: year,
+          startMonth: month,
+          endYear: year,
+          endMonth: month
+        }
+      }
+    }
+  ]
+
+  const formatDateRange = (dateRange: DateRangePeriod) => {
+    const startDate = `${dateRange.startYear}-${String(dateRange.startMonth).padStart(2, '0')}-01`
+    const endYear = dateRange.endYear
+    const endMonth = dateRange.endMonth
+    const lastDay = new Date(endYear, endMonth, 0).getDate()
+    const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    
+    return { startDate, endDate }
+  }
 
   // サマリー統計の計算
   const summary = useMemo(() => {
@@ -195,8 +317,9 @@ export default function MarketBasketAnalysisPage() {
   }, [])
 
   const handleExport = () => {
+    const { startDate, endDate } = formatDateRange(dateRange)
     // エクスポート機能
-    alert('組み合わせ商品分析データをエクスポートします')
+    alert(`組み合わせ商品分析データをエクスポートします\n期間: ${dateRange.startYear}年${dateRange.startMonth}月〜${dateRange.endYear}年${dateRange.endMonth}月`)
   }
 
   return (
@@ -235,51 +358,56 @@ export default function MarketBasketAnalysisPage() {
 
       {/* フィルター・設定エリア */}
       <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">分析条件設定</CardTitle>
+          <CardDescription>期間と分析条件を設定してください</CardDescription>
+        </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">期間開始</label>
-              <Input 
-                type="date" 
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+          <div className="space-y-6">
+            {/* ✅ 期間選択（統一UI） */}
+            <div className="space-y-4">
+              <Label>分析期間</Label>
+              <PeriodSelector
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                title="組み合わせ商品分析期間"
+                description="商品の組み合わせを分析する期間を選択してください"
+                maxMonths={12}
+                minMonths={1}
+                presetPeriods={presetPeriods}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">期間終了</label>
-              <Input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">並び順</label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="並び順を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="totalAmount">売上総金額順</SelectItem>
-                  <SelectItem value="salesRatio">売上構成順</SelectItem>
-                  <SelectItem value="soloCount">件数順</SelectItem>
-                  <SelectItem value="combinations">組み合わせ数順</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">最小支持度</label>
-              <Select value={minSupport} onValueChange={setMinSupport}>
-                <SelectTrigger>
-                  <SelectValue placeholder="閾値を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.01">1%以上</SelectItem>
-                  <SelectItem value="0.05">5%以上</SelectItem>
-                  <SelectItem value="0.10">10%以上</SelectItem>
-                  <SelectItem value="0.20">20%以上</SelectItem>
-                </SelectContent>
-              </Select>
+            
+            {/* その他の設定 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">並び順</Label>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="並び順を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="totalAmount">売上総金額順</SelectItem>
+                    <SelectItem value="salesRatio">売上構成順</SelectItem>
+                    <SelectItem value="soloCount">件数順</SelectItem>
+                    <SelectItem value="combinations">組み合わせ数順</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">最小支持度</Label>
+                <Select value={minSupport} onValueChange={setMinSupport}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="閾値を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.01">1%以上</SelectItem>
+                    <SelectItem value="0.05">5%以上</SelectItem>
+                    <SelectItem value="0.10">10%以上</SelectItem>
+                    <SelectItem value="0.20">20%以上</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -357,6 +485,7 @@ export default function MarketBasketAnalysisPage() {
         <CardHeader>
           <CardTitle>一緒に購入される商品の組み合わせ分析（マーケットバスケット分析）</CardTitle>
           <CardDescription>
+            期間: {dateRange.startYear}年{dateRange.startMonth}月 ～ {dateRange.endYear}年{dateRange.endMonth}月 | 
             クロスセル（顧客が購入しようとしている商品に関連する別の商品を追加で購入してもらう販売手法）機会の発見、
             セット販売企画、レコメンデーション精度向上
           </CardDescription>

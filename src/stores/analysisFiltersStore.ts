@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 
 // =============================================================================
-// 型定義
+// 基本型定義
 // =============================================================================
 
 export type ViewModeType = "sales" | "quantity" | "orders"
@@ -13,14 +13,15 @@ export type SalesRangeType = "all" | "high" | "medium" | "low"
 export type DisplayModeType = "count" | "percentage" | "summary" | "monthly"
 export type ComparisonModeType = "sideBySide" | "growth"
 
-// 日付範囲フィルター
-export interface DateRangeFilter {
-  startDate: string
-  endDate: string
-  period: "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
+// ✅ 年月数値ベースの期間指定（PeriodSelectorと統一）
+export interface DateRangePeriod {
+  startYear: number
+  startMonth: number
+  endYear: number
+  endMonth: number
 }
 
-// 商品フィルター
+// ✅ 従来の日付文字列ベースは削除し、DateRangePeriodに統一
 export interface ProductFilters {
   searchTerm: string
   category: string
@@ -28,11 +29,14 @@ export interface ProductFilters {
   productFilter: 'all' | 'top10' | 'category' | 'custom'
 }
 
-// 売上分析フィルター
+// =============================================================================
+// 分析フィルター定義
+// =============================================================================
+
 export interface SalesAnalysisFilters {
   viewMode: ViewModeType
   sortBy: SortByType
-  dateRange: DateRangeFilter
+  dateRange: DateRangePeriod  // ✅ 型を統一
   productFilters: ProductFilters
   comparisonMode: ComparisonModeType
   appliedFilters: {
@@ -49,13 +53,12 @@ export interface ProductAnalysisFilters {
   displayMode: DisplayModeType
   maxFrequency: number | 'custom'
   customMaxFrequency: string
-  dateRange: DateRangeFilter
+  dateRange: DateRangePeriod  // ✅ 型を統一
   productFilters: ProductFilters
   showHeatmap: boolean
   showConditions: boolean
 }
 
-// 顧客分析フィルター  
 export interface CustomerAnalysisFilters {
   ltvFilter: string
   purchaseCountFilter: string
@@ -94,7 +97,7 @@ export interface AnalysisFiltersState {
   setSalesSortBy: (sortBy: SortByType) => void
   setSalesComparisonMode: (mode: ComparisonModeType) => void
   setSalesAppliedFilters: (filters: SalesAnalysisFilters['appliedFilters']) => void
-  updateSalesDateRange: (dateRange: Partial<DateRangeFilter>) => void
+  updateSalesDateRange: (dateRange: Partial<DateRangePeriod>) => void  // ✅ 型を統一
   updateSalesProductFilters: (filters: Partial<ProductFilters>) => void
   resetSalesFilters: () => void
   
@@ -106,7 +109,7 @@ export interface AnalysisFiltersState {
   setProductDisplayMode: (mode: DisplayModeType) => void
   setProductMaxFrequency: (frequency: number | 'custom') => void
   setProductCustomMaxFrequency: (frequency: string) => void
-  updateProductDateRange: (dateRange: Partial<DateRangeFilter>) => void
+  updateProductDateRange: (dateRange: Partial<DateRangePeriod>) => void  // ✅ 型を統一
   updateProductFilters: (filters: Partial<ProductFilters>) => void
   toggleProductHeatmap: () => void
   toggleProductConditions: () => void
@@ -137,14 +140,32 @@ export interface AnalysisFiltersState {
 }
 
 // =============================================================================
-// デフォルト値
+// デフォルト値（年月ベースに統一）
 // =============================================================================
 
-const defaultDateRange: DateRangeFilter = {
-  startDate: "2024-01-01",
-  endDate: "2024-12-31",
-  period: "thisMonth"
+// ✅ デフォルト期間：直近12ヶ月（先に関数定義）
+const getDefaultDateRange = (): DateRangePeriod => {
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
+  
+  let startYear = currentYear - 1
+  let startMonth = currentMonth + 1
+  
+  if (startMonth > 12) {
+    startYear = currentYear
+    startMonth = startMonth - 12
+  }
+  
+  return {
+    startYear,
+    startMonth,
+    endYear: currentYear,
+    endMonth: currentMonth
+  }
 }
+
+const defaultDateRange: DateRangePeriod = getDefaultDateRange()
 
 const defaultProductFilters: ProductFilters = {
   searchTerm: "",
@@ -231,7 +252,7 @@ export const useAnalysisFiltersStore = create<AnalysisFiltersState>()(
             state.salesAnalysis.appliedFilters = filters
           }),
           
-        updateSalesDateRange: (dateRange: Partial<DateRangeFilter>) =>
+        updateSalesDateRange: (dateRange: Partial<DateRangePeriod>) =>
           set((state) => {
             Object.assign(state.salesAnalysis.dateRange, dateRange)
           }),
@@ -270,7 +291,7 @@ export const useAnalysisFiltersStore = create<AnalysisFiltersState>()(
             state.productAnalysis.customMaxFrequency = frequency
           }),
           
-        updateProductDateRange: (dateRange: Partial<DateRangeFilter>) =>
+        updateProductDateRange: (dateRange: Partial<DateRangePeriod>) =>
           set((state) => {
             Object.assign(state.productAnalysis.dateRange, dateRange)
           }),

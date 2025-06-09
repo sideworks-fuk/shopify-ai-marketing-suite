@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 import { DataService } from "@/lib/data-service"
-import { DatePicker } from "@/components/ui/date-picker"
+import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
 import { SAMPLE_PRODUCTS, PRODUCT_CATEGORIES, getCategoryStyle, getCategoryName, getTopProducts, getProductsByCategory, type SampleProduct } from '@/lib/sample-products'
 import { ProductSelectorModal } from '@/components/ui/product-selector-modal'
 
@@ -83,9 +83,8 @@ export default function ProductPurchaseFrequencyAnalysis({
     toggleHeatmap()
   }
   
-  // ✅ Zustandから状態を取得
-  const startDate = filters.dateRange.startDate
-  const endDate = filters.dateRange.endDate
+  // ✅ Zustandから状態を取得（年月ベースに変更）
+  const dateRange = filters.dateRange
   const maxFrequency = filters.maxFrequency
   const customMaxFrequency = filters.customMaxFrequency
   const displayMode = filters.displayMode
@@ -93,6 +92,96 @@ export default function ProductPurchaseFrequencyAnalysis({
   const selectedCategory = filters.productFilters.category
   const selectedProducts = filters.productFilters.selectedProductIds
   const showHeatmap = filters.showHeatmap
+
+  // ✅ プリセット期間の定義（購入頻度分析用）
+  const presetPeriods = [
+    {
+      label: "直近18ヶ月",
+      icon: "📊",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear - 1
+        let startMonth = currentMonth - 5  // 18ヶ月前
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 2
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近12ヶ月",
+      icon: "📈",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear - 1
+        let startMonth = currentMonth + 1
+        
+        if (startMonth > 12) {
+          startYear = currentYear
+          startMonth = startMonth - 12
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近6ヶ月",
+      icon: "📉",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 5
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    }
+  ]
+
+  // ✅ 年月を日付文字列に変換（既存のデータ生成ロジック用）
+  const formatDateRange = (dateRange: DateRangePeriod) => {
+    const startDate = `${dateRange.startYear}-${String(dateRange.startMonth).padStart(2, '0')}-01`
+    const endYear = dateRange.endYear
+    const endMonth = dateRange.endMonth
+    const lastDay = new Date(endYear, endMonth, 0).getDate()
+    const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    
+    return { startDate, endDate }
+  }
+
+  // ✅ 現在の期間を日付文字列として取得
+  const { startDate, endDate } = formatDateRange(dateRange)
 
   // 成長率の計算と色分けのためのヘルパー関数
   const renderGrowthCell = (currentValue: number, previousValue: number) => {
@@ -287,65 +376,33 @@ export default function ProductPurchaseFrequencyAnalysis({
   }
 
   const exportToCsv = () => {
-    if (!filteredData || filteredData.length === 0) {
-      alert("エクスポートするデータがありません。")
-      return
-    }
-
-    const effectiveMaxFreq = maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency
-
-    // 動的CSVヘッダー
-    const headers = ["商品名", "カテゴリー"]
-    for (let i = 1; i <= effectiveMaxFreq; i++) {
-      headers.push(`${i}回`)
-    }
-    headers.push(`${effectiveMaxFreq + 1}回以上`, "総顧客数", "リピート率(%)")
+    const headers = [
+      '商品ID', '商品名', 'カテゴリー', '総顧客数',
+      ...Array.from({ length: maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency }, (_, i) => `${i + 1}回`)
+    ]
     
-    // 動的CSVデータ
-    const csvData = filteredData.map(product => {
-      const repeatCustomers = product.frequencies.slice(1).reduce((sum, freq) => sum + freq.customers, 0)
-      const repeatRate = product.totalCustomers > 0 ? Math.round((repeatCustomers / product.totalCustomers) * 100) : 0
-      const categoryStyle = getCategoryStyle(product.category)
-      
-      const row = [`"${product.productName}"`, `"${categoryStyle.name}"`]
-      
-      // 各頻度のデータ追加
-      for (let i = 1; i <= effectiveMaxFreq; i++) {
-        const freq = product.frequencies.find(f => f.count === i)
-        const value = freq ? 
-          (displayMode === 'count' ? freq.customers : freq.percentage) : 0
-        row.push(displayMode === 'count' ? value.toString() : `${value}%`)
-      }
-      
-      // maxFrequency+1回以上の計算
-      const overMaxCustomers = product.frequencies
-        .filter(f => f.count > effectiveMaxFreq)
-        .reduce((sum, freq) => sum + freq.customers, 0)
-      const overMaxPercentage = product.totalCustomers > 0 ? 
-        Math.round((overMaxCustomers / product.totalCustomers) * 100) : 0
-      
-      row.push(
-        displayMode === 'count' ? overMaxCustomers.toString() : `${overMaxPercentage}%`,
-        product.totalCustomers.toString(),
-        `${repeatRate}%`
-      )
-      
-      return row
-    })
-
-    // CSV文字列作成
-    const csvContent = [headers, ...csvData].map(row => row.join(",")).join("\n")
+    const csvData = [
+      headers.join(','),
+      ...filteredData.map(item => [
+        item.productId,
+        `"${item.productName}"`,
+        `"${getCategoryName(item.category)}"`,
+        item.totalCustomers,
+        ...item.frequencies.map(f => displayMode === 'count' ? f.customers : f.percentage)
+      ].join(','))
+    ]
     
-    // ダウンロード実行
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `purchase_frequency_analysis_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const blob = new Blob([csvData.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `purchase-frequency-analysis-${dateRange.startYear}-${dateRange.startMonth}-to-${dateRange.endYear}-${dateRange.endMonth}.csv`)  // ✅ 年月ベースのファイル名
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
   }
 
   if (error) {
@@ -396,78 +453,70 @@ export default function ProductPurchaseFrequencyAnalysis({
         </div>
       </div>
 
-      {/* 抽出条件設定 */}
+      {/* 分析条件設定 */}
       {showConditions && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">抽出条件設定</CardTitle>
-            <CardDescription>分析対象期間と商品を設定してください</CardDescription>
+            <CardTitle className="text-lg">分析条件設定</CardTitle>
+            <CardDescription>期間と分析条件を設定してください</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {/* 期間・商品選択 */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="start-date">期間開始</Label>
-                  <Input
-                    id="start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => updateDateRange({ startDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="end-date">期間終了</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => updateDateRange({ endDate: e.target.value })}
-                  />
-                </div>
-                
-                {/* 商品絞り込み */}
-                <div className="lg:col-span-2">
-                  <Label>商品選択</Label>
-                  <div className="flex gap-2">
-                    <Select value={productFilter} onValueChange={(value: any) => setProductFilter(value)}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="商品を選択" />
+              {/* ✅ 期間選択（統一UI） */}
+              <div className="space-y-4">
+                <Label>分析期間</Label>
+                <PeriodSelector
+                  dateRange={dateRange}
+                  onDateRangeChange={updateDateRange}
+                  title="購入頻度分析期間"
+                  description="商品の購入頻度を分析する期間を選択してください"
+                  maxMonths={18}
+                  minMonths={3}
+                  presetPeriods={presetPeriods}
+                />
+              </div>
+              
+              {/* 商品絞り込み */}
+              <div className="space-y-4">
+                <Label>商品選択</Label>
+                <div className="flex gap-2">
+                  <Select value={productFilter} onValueChange={(value: any) => setProductFilter(value)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="商品を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべての商品</SelectItem>
+                      <SelectItem value="top10">売上上位10商品</SelectItem>
+                      <SelectItem value="category">カテゴリー別</SelectItem>
+                      <SelectItem value="custom">個別選択</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* カテゴリー選択 */}
+                  {productFilter === 'category' && (
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="カテゴリー" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">すべての商品</SelectItem>
-                        <SelectItem value="top10">売上上位10商品</SelectItem>
-                        <SelectItem value="category">カテゴリー別</SelectItem>
-                        <SelectItem value="custom">個別選択</SelectItem>
+                        {PRODUCT_CATEGORIES.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                    
-                    {/* カテゴリー選択 */}
-                    {productFilter === 'category' && (
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="カテゴリー" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PRODUCT_CATEGORIES.map(category => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    
-                    {/* 個別選択ボタン */}
-                    {productFilter === 'custom' && (
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setShowProductSelector(true)}
-                      >
-                        商品を選択 ({selectedProducts.length}件)
-                      </Button>
-                    )}
-                  </div>
+                  )}
+                  
+                  {/* 個別選択ボタン */}
+                  {productFilter === 'custom' && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowProductSelector(true)}
+                    >
+                      商品を選択 ({selectedProducts.length}件)
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -589,7 +638,7 @@ export default function ProductPurchaseFrequencyAnalysis({
                 <CardTitle>購入頻度分析結果</CardTitle>
                 <CardDescription>
                   {filteredData.length}商品 | 
-                  期間: {startDate} ～ {endDate} | 
+                  期間: {dateRange.startYear}年{dateRange.startMonth}月 ～ {dateRange.endYear}年{dateRange.endMonth}月 | 
                   表示: {displayMode === 'count' ? '購入人数' : '構成比率(%)'}
                 </CardDescription>
               </div>

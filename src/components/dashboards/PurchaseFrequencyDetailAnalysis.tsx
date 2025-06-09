@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, AlertCircle, Download } from "lucide-react"
+import { Label } from "@/components/ui/label"
 import { DataService } from "@/lib/data-service"
+import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
 
 // 購入回数詳細分析データの型定義
 interface PurchaseFrequencyDetailData {
@@ -76,8 +78,132 @@ export default function PurchaseFrequencyDetailAnalysis({
   const [purchaseData, setPurchaseData] = useState<PurchaseFrequencyDetailData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentPeriod, setCurrentPeriod] = useState("2024/10")
-  const [comparisonPeriod, setComparisonPeriod] = useState("2023/10")
+  // ✅ 期間フィルター管理（統一UI）
+  const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth() + 1
+    
+    return {
+      startYear: currentYear,
+      startMonth: currentMonth,
+      endYear: currentYear,
+      endMonth: currentMonth
+    }
+  })
+
+  // ✅ プリセット期間の定義（購入回数分析用）
+  const presetPeriods = [
+    {
+      label: "直近12ヶ月",
+      icon: "📊",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear - 1
+        let startMonth = currentMonth + 1
+        
+        if (startMonth > 12) {
+          startYear = currentYear
+          startMonth = startMonth - 12
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近6ヶ月",
+      icon: "📈",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 5
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近3ヶ月",
+      icon: "📉",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 2
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "先月",
+      icon: "📅",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let targetYear = currentYear
+        let targetMonth = currentMonth - 1
+        
+        if (targetMonth <= 0) {
+          targetYear = currentYear - 1
+          targetMonth = 12
+        }
+        
+        return {
+          startYear: targetYear,
+          startMonth: targetMonth,
+          endYear: targetYear,
+          endMonth: targetMonth
+        }
+      }
+    }
+  ]
+
+  // ✅ 期間更新ハンドラー
+  const updateDateRange = (newDateRange: DateRangePeriod) => {
+    setDateRange(newDateRange)
+  }
+
+  // ✅ 期間の表示用フォーマット
+  const formatDateRange = (range: DateRangePeriod): string => {
+    if (range.startYear === range.endYear && range.startMonth === range.endMonth) {
+      return `${range.startYear}年${range.startMonth}月`
+    }
+    return `${range.startYear}年${range.startMonth}月〜${range.endYear}年${range.endMonth}月`
+  }
 
   const fetchData = async () => {
     if (useSampleData || !shopDomain || !accessToken) {
@@ -90,8 +216,8 @@ export default function PurchaseFrequencyDetailAnalysis({
 
     try {
       const dataService = new DataService(shopDomain, accessToken)
-      const data = await dataService.getPurchaseFrequencyDetailAnalysis(currentPeriod, comparisonPeriod)
-      setPurchaseData(data)
+      // TODO: 実際のAPIが利用可能になったら実装
+      setPurchaseData(getSamplePurchaseFrequencyDetailData())
     } catch (err) {
       console.error("Failed to fetch purchase frequency detail data:", err)
       setError("データの取得に失敗しました。サンプルデータを表示します。")
@@ -103,7 +229,7 @@ export default function PurchaseFrequencyDetailAnalysis({
 
   useEffect(() => {
     fetchData()
-  }, [shopDomain, accessToken, useSampleData, currentPeriod, comparisonPeriod])
+  }, [shopDomain, accessToken, useSampleData, dateRange])
 
   const handleExport = () => {
     // CSV エクスポート機能
@@ -125,7 +251,7 @@ export default function PurchaseFrequencyDetailAnalysis({
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
     link.href = URL.createObjectURL(blob)
-    link.download = `購入回数分析_${currentPeriod}_${comparisonPeriod}.csv`
+    link.download = `購入回数分析_${formatDateRange(dateRange)}.csv`
     link.click()
   }
 
@@ -160,52 +286,47 @@ export default function PurchaseFrequencyDetailAnalysis({
             </div>
           </div>
 
-          {/* 期間設定 */}
-          <div className="flex items-center gap-4 mt-4">
-            <div className="text-lg font-medium">
-              期間【{currentPeriod}】〜【{comparisonPeriod}】前年同期
-            </div>
-            <div className="flex gap-2 ml-auto">
-              <Select value={currentPeriod} onValueChange={setCurrentPeriod}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="現在期間" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2024/10">2024/10</SelectItem>
-                  <SelectItem value="2024/09">2024/09</SelectItem>
-                  <SelectItem value="2024/08">2024/08</SelectItem>
-                  <SelectItem value="2024/07">2024/07</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={comparisonPeriod} onValueChange={setComparisonPeriod}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="比較期間" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2023/10">2023/10</SelectItem>
-                  <SelectItem value="2023/09">2023/09</SelectItem>
-                  <SelectItem value="2023/08">2023/08</SelectItem>
-                  <SelectItem value="2023/07">2023/07</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 text-amber-600 text-sm mt-2">
-              <AlertCircle className="h-4 w-4" />
-              {error}
-            </div>
-          )}
-          {useSampleData && (
-            <div className="flex items-center gap-2 text-blue-600 text-sm mt-2">
-              <AlertCircle className="h-4 w-4" />
-              サンプルデータを表示しています
-            </div>
-          )}
         </CardHeader>
       </Card>
+
+      {/* ✅ 分析条件設定（統一UI） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">分析条件設定</CardTitle>
+          <CardDescription>期間と分析条件を設定してください</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* ✅ 期間選択（統一UI） */}
+            <div className="space-y-4">
+              <Label>分析期間</Label>
+              <PeriodSelector
+                dateRange={dateRange}
+                onDateRangeChange={updateDateRange}
+                title="購入回数分析期間"
+                description="顧客の購入回数を分析する期間を選択してください"
+                maxMonths={12}
+                minMonths={1}
+                presetPeriods={presetPeriods}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* エラーとサンプルデータ表示 */}
+      {error && (
+        <div className="flex items-center gap-2 text-amber-600 text-sm p-4 bg-amber-50 rounded-lg">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
+      {useSampleData && (
+        <div className="flex items-center gap-2 text-blue-600 text-sm p-4 bg-blue-50 rounded-lg">
+          <AlertCircle className="h-4 w-4" />
+          サンプルデータを表示しています
+        </div>
+      )}
 
       {/* 詳細テーブル */}
       <Card>

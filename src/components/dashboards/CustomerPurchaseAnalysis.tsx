@@ -45,9 +45,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Input } from "../ui/input"
+import { Label } from "../ui/label"
 import { CustomerStatusBadge } from "../ui/customer-status-badge"
 import { useCustomerTable } from "../../hooks/useCustomerTable"
-import { customerDetailData as mockCustomerData, ProductInfo } from "../../data/mock/customerData"
+import { customerDetailData as mockCustomerData, ProductInfo, CustomerDetail } from "../../data/mock/customerData"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
 import { Badge } from "../ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
 
 // KPIサマリーデータの型定義
 interface KPISummary {
@@ -149,11 +151,122 @@ export default function CustomerPurchaseAnalysis({
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   
-  // ✅ 期間フィルター管理（簡易版）
-  const [selectedPeriod, setSelectedPeriod] = useState<"thisMonth" | "lastMonth" | "thisQuarter" | "custom">("thisMonth")
+  // ✅ 期間フィルター管理（統一UI）
+  const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
+    const today = new Date()
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth() + 1
+    
+    return {
+      startYear: currentYear,
+      startMonth: currentMonth,
+      endYear: currentYear,
+      endMonth: currentMonth
+    }
+  })
   
   // ✅ セグメントフィルター管理（簡易版）
   const [selectedCustomerSegment, setSelectedCustomerSegment] = useState<string>("全顧客")
+
+  // ✅ プリセット期間の定義（購買分析用）
+  const presetPeriods = [
+    {
+      label: "直近12ヶ月",
+      icon: "📊",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear - 1
+        let startMonth = currentMonth + 1
+        
+        if (startMonth > 12) {
+          startYear = currentYear
+          startMonth = startMonth - 12
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近6ヶ月",
+      icon: "📈",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 5
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "直近3ヶ月",
+      icon: "📉",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let startYear = currentYear
+        let startMonth = currentMonth - 2
+        
+        if (startMonth <= 0) {
+          startYear = currentYear - 1
+          startMonth = 12 + startMonth
+        }
+        
+        return {
+          startYear,
+          startMonth,
+          endYear: currentYear,
+          endMonth: currentMonth
+        }
+      }
+    },
+    {
+      label: "先月",
+      icon: "📅",
+      getValue: () => {
+        const today = new Date()
+        const currentYear = today.getFullYear()
+        const currentMonth = today.getMonth() + 1
+        
+        let targetYear = currentYear
+        let targetMonth = currentMonth - 1
+        
+        if (targetMonth <= 0) {
+          targetYear = currentYear - 1
+          targetMonth = 12
+        }
+        
+        return {
+          startYear: targetYear,
+          startMonth: targetMonth,
+          endYear: targetYear,
+          endMonth: targetMonth
+        }
+      }
+    }
+  ]
 
   // ✅ フィルタリング済みデータ（Zustand移行）
   const filteredMockData = useMemo(() => {
@@ -231,9 +344,22 @@ export default function CustomerPurchaseAnalysis({
     data: filteredMockData,
     itemsPerPage: filters.itemsPerPage,
     selectedSegment: "全顧客", // TODO: AppContext依存削除後に適切なセグメント値を設定
-    initialSortColumn: filters.sortColumn,
+    initialSortColumn: (filters.sortColumn || 'purchaseCount') as keyof CustomerDetail,
     initialSortDirection: filters.sortDirection
   })
+
+  // ✅ 期間更新ハンドラー
+  const updateDateRange = useCallback((newDateRange: DateRangePeriod) => {
+    setDateRange(newDateRange)
+  }, [])
+
+  // ✅ 期間の表示用フォーマット
+  const formatDateRange = (range: DateRangePeriod): string => {
+    if (range.startYear === range.endYear && range.startMonth === range.endMonth) {
+      return `${range.startYear}年${range.startMonth}月`
+    }
+    return `${range.startYear}年${range.startMonth}月〜${range.endYear}年${range.endMonth}月`
+  }
 
   const kpiSummary = calculateKPISummary()
 
@@ -365,20 +491,12 @@ export default function CustomerPurchaseAnalysis({
             <p className="text-gray-600 mt-2">顧客別の詳細な購買プロファイルを分析し、VIP顧客の特定とパーソナライゼーション施策に活用</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="thisMonth">今月</SelectItem>
-                <SelectItem value="lastMonth">先月</SelectItem>
-                <SelectItem value="thisQuarter">今四半期</SelectItem>
-                <SelectItem value="custom">カスタム</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="text-sm text-gray-600 flex items-center gap-2">
+              📅 {formatDateRange(dateRange)}
+            </div>
             <Button onClick={exportCustomerData} variant="outline" className="flex items-center gap-2">
               <Download className="h-4 w-4" />
-              データエクスポート
+              CSVエクスポート（{formatDateRange(dateRange)}）
             </Button>
           </div>
         </div>
@@ -492,6 +610,31 @@ export default function CustomerPurchaseAnalysis({
         </Card>
       </div>
 
+      {/* ✅ 分析条件設定（統一UI） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">分析条件設定</CardTitle>
+          <CardDescription>期間と分析条件を設定してください</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* ✅ 期間選択（統一UI） */}
+            <div className="space-y-4">
+              <Label>分析期間</Label>
+              <PeriodSelector
+                dateRange={dateRange}
+                onDateRangeChange={updateDateRange}
+                title="顧客購買分析期間"
+                description="顧客の購買行動を分析する期間を選択してください"
+                maxMonths={12}
+                minMonths={1}
+                presetPeriods={presetPeriods}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* フィルター・検索エリア */}
       <Card>
         <CardHeader>
@@ -506,6 +649,7 @@ export default function CustomerPurchaseAnalysis({
           </div>
         </CardHeader>
         <CardContent>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* 検索バー */}
             <div className="lg:col-span-2">
