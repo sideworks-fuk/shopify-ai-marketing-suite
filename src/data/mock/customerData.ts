@@ -1,3 +1,5 @@
+import { getRandomProducts, SAMPLE_PRODUCTS, getCategoryName } from "../../lib/sample-products"
+
 // 顧客データの型定義
 export interface CustomerSegment {
   name: string;
@@ -208,6 +210,64 @@ export const dormantCustomersData: DormantCustomer[] = [
   { period: "24ヶ月+", count: 45, action: "最終アプローチ" },
 ];
 
+// 実際の商品名を生成する関数
+const getRandomProductName = (): string => {
+  const randomProduct = SAMPLE_PRODUCTS[Math.floor(Math.random() * SAMPLE_PRODUCTS.length)]
+  return randomProduct.name
+}
+
+const getTopProductsByCategory = (categories: string[]): Array<{ name: string; count: number; percentage: number; category: string; isRepeat: boolean }> => {
+  const products: Array<{ name: string; count: number; percentage: number; category: string; isRepeat: boolean }> = []
+  
+  categories.forEach((category, index) => {
+    let categoryProducts: any[] = []
+    
+    // カテゴリに基づいて商品を選択
+    if (category === "デコ箱・ケーキ系") {
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => 
+        p.name.includes('デコ箱') || p.name.includes('カットケーキ箱')
+      )
+    } else if (category === "パウンドケーキ箱") {
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => 
+        p.name.includes('パウンドケーキ箱')
+      )
+    } else if (category === "ギフト・包装材") {
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => 
+        p.name.includes('ギフトボックス') || p.name.includes('紙袋') || p.name.includes('透明バッグ')
+      )
+    } else if (category === "プラトレー・紙トレー") {
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => 
+        p.name.includes('プラトレー') || p.name.includes('紙トレー')
+      )
+    } else if (category === "配送・保冷材") {
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => 
+        p.name.includes('ダンボール') || p.name.includes('保冷') || p.name.includes('hacobo')
+      )
+    } else {
+      // その他のカテゴリ
+      categoryProducts = SAMPLE_PRODUCTS.filter(p => p.category === 'specialty')
+    }
+    
+    if (categoryProducts.length > 0) {
+      const selectedProduct = categoryProducts[Math.floor(Math.random() * categoryProducts.length)]
+      const count = Math.floor(Math.random() * 8) + 1
+      const percentage = index === 0 ? 50 + Math.floor(Math.random() * 30) : 
+                        index === 1 ? 25 + Math.floor(Math.random() * 20) :
+                        10 + Math.floor(Math.random() * 15)
+      
+      products.push({
+        name: selectedProduct.name,
+        count,
+        percentage,
+        category,
+        isRepeat: Math.random() > 0.3
+      })
+    }
+  })
+  
+  return products
+}
+
 export const customerDetailData: CustomerDetail[] = [
   {
     id: "12345",
@@ -216,49 +276,40 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 450000,
     frequency: 2.5,
     avgInterval: 14,
-    topProduct: "商品A",
+    topProduct: getRandomProductName(),
     status: "VIP",
     lastOrderDate: new Date("2024-05-20"),
-    topProducts: [
-      { name: "カプセルサプリA", count: 8, percentage: 53, category: "健康食品", isRepeat: true },
-      { name: "ビタミンB", count: 4, percentage: 27, category: "サプリメント", isRepeat: true },
-      { name: "プロテイン", count: 3, percentage: 20, category: "健康食品", isRepeat: false }
-    ],
-    productCategories: ["健康食品", "サプリメント"],
-    repeatProducts: 2,
+    topProducts: getTopProductsByCategory(["デコ箱・ケーキ系", "パウンドケーキ箱", "ギフト・包装材"]),
+    productCategories: ["デコ箱・ケーキ系", "パウンドケーキ箱", "ギフト・包装材"],
+    repeatProducts: 3,
   },
   {
     id: "12346",
-    name: "佐藤花子",
-    purchaseCount: 3,
-    totalAmount: 89000,
-    frequency: 0.8,
-    avgInterval: 45,
-    topProduct: "商品B",
+    name: "鈴木花子",
+    purchaseCount: 8,
+    totalAmount: 180000,
+    frequency: 1.8,
+    avgInterval: 20,
+    topProduct: getRandomProductName(),
     status: "リピーター",
-    lastOrderDate: new Date("2024-04-15"),
-    topProducts: [
-      { name: "スキンケアセット", count: 2, percentage: 67, category: "美容", isRepeat: true },
-      { name: "アロマオイル", count: 1, percentage: 33, category: "リラクゼーション", isRepeat: false }
-    ],
-    productCategories: ["美容", "リラクゼーション"],
-    repeatProducts: 1,
+    lastOrderDate: new Date("2024-05-15"),
+    topProducts: getTopProductsByCategory(["プラトレー・紙トレー", "ギフト・包装材"]),
+    productCategories: ["プラトレー・紙トレー", "ギフト・包装材"],
+    repeatProducts: 2,
   },
   {
     id: "12347",
-    name: "鈴木一郎",
-    purchaseCount: 1,
-    totalAmount: 25000,
-    frequency: 0.3,
-    avgInterval: 0,
-    topProduct: "商品C",
+    name: "佐藤次郎",
+    purchaseCount: 3,
+    totalAmount: 75000,
+    frequency: 0.8,
+    avgInterval: 45,
+    topProduct: getRandomProductName(),
     status: "新規",
     lastOrderDate: new Date("2024-05-10"),
-    topProducts: [
-      { name: "フィットネス用品", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
-    ],
-    productCategories: ["スポーツ"],
-    repeatProducts: 0,
+    topProducts: getTopProductsByCategory(["デコ箱・ケーキ系"]),
+    productCategories: ["デコ箱・ケーキ系"],
+    repeatProducts: 1,
   },
   {
     id: "12348",
@@ -267,15 +318,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 230000,
     frequency: 1.5,
     avgInterval: 21,
-    topProduct: "商品D",
+    topProduct: getRandomProductName(),
     status: "リピーター",
     lastOrderDate: new Date("2024-05-18"),
-    topProducts: [
-      { name: "オーガニック食品", count: 5, percentage: 63, category: "食品", isRepeat: true },
-      { name: "エコグッズ", count: 2, percentage: 25, category: "生活雑貨", isRepeat: true },
-      { name: "ハーブティー", count: 1, percentage: 12, category: "飲料", isRepeat: false }
-    ],
-    productCategories: ["食品", "生活雑貨", "飲料"],
+    topProducts: getTopProductsByCategory(["配送・保冷材", "デコ箱・ケーキ系", "ギフト・包装材"]),
+    productCategories: ["配送・保冷材", "デコ箱・ケーキ系", "ギフト・包装材"],
     repeatProducts: 2,
   },
   {
@@ -285,14 +332,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 45000,
     frequency: 0.5,
     avgInterval: 60,
-    topProduct: "商品E",
+    topProduct: getRandomProductName(),
     status: "リピーター",
     lastOrderDate: new Date("2024-03-25"),
-    topProducts: [
-      { name: "PC周辺機器", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false },
-      { name: "ガジェット", count: 1, percentage: 50, category: "テクノロジー", isRepeat: false }
-    ],
-    productCategories: ["テクノロジー"],
+    topProducts: getTopProductsByCategory(["パウンドケーキ箱"]),
+    productCategories: ["パウンドケーキ箱"],
     repeatProducts: 0,
   },
   {
@@ -302,13 +346,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 35000,
     frequency: 0,
     avgInterval: 180,
-    topProduct: "商品F",
+    topProduct: getRandomProductName(),
     status: "休眠",
     lastOrderDate: new Date("2023-12-05"),
-    topProducts: [
-      { name: "アクセサリー", count: 1, percentage: 100, category: "ファッション", isRepeat: false }
-    ],
-    productCategories: ["ファッション"],
+    topProducts: getTopProductsByCategory(["ギフト・包装材"]),
+    productCategories: ["ギフト・包装材"],
     repeatProducts: 0,
   },
   {
@@ -318,15 +360,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 680000,
     frequency: 3.2,
     avgInterval: 10,
-    topProduct: "商品G",
+    topProduct: getRandomProductName(),
     status: "VIP",
     lastOrderDate: new Date("2024-05-22"),
-    topProducts: [
-      { name: "プレミアムサプリ", count: 12, percentage: 55, category: "健康食品", isRepeat: true },
-      { name: "ビタミンD", count: 6, percentage: 27, category: "サプリメント", isRepeat: true },
-      { name: "プロテインバー", count: 4, percentage: 18, category: "健康食品", isRepeat: true }
-    ],
-    productCategories: ["健康食品", "サプリメント"],
+    topProducts: getTopProductsByCategory(["デコ箱・ケーキ系", "プラトレー・紙トレー", "配送・保冷材"]),
+    productCategories: ["デコ箱・ケーキ系", "プラトレー・紙トレー", "配送・保冷材"],
     repeatProducts: 3,
   },
   {
@@ -336,14 +374,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 120000,
     frequency: 1.2,
     avgInterval: 28,
-    topProduct: "商品H",
+    topProduct: getRandomProductName(),
     status: "リピーター",
     lastOrderDate: new Date("2024-04-30"),
-    topProducts: [
-      { name: "オーガニック化粧品", count: 3, percentage: 60, category: "美容", isRepeat: true },
-      { name: "ナチュラルシャンプー", count: 2, percentage: 40, category: "美容", isRepeat: false }
-    ],
-    productCategories: ["美容"],
+    topProducts: getTopProductsByCategory(["ギフト・包装材", "パウンドケーキ箱"]),
+    productCategories: ["ギフト・包装材", "パウンドケーキ箱"],
     repeatProducts: 1,
   },
   {
@@ -353,13 +388,11 @@ export const customerDetailData: CustomerDetail[] = [
     totalAmount: 28000,
     frequency: 0,
     avgInterval: 120,
-    topProduct: "商品I",
+    topProduct: getRandomProductName(),
     status: "休眠",
     lastOrderDate: new Date("2024-01-15"),
-    topProducts: [
-      { name: "ワークアウトギア", count: 1, percentage: 100, category: "スポーツ", isRepeat: false }
-    ],
-    productCategories: ["スポーツ"],
+    topProducts: getTopProductsByCategory(["配送・保冷材"]),
+    productCategories: ["配送・保冷材"],
     repeatProducts: 0,
   },
   {
@@ -483,7 +516,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     analytics: {
       ltv: 35000,
       averageOrderValue: 35000,
-      favoriteCategories: ['ファッション'],
+      favoriteCategories: ['ギフト・包装材'],
       seasonalPattern: 'winter',
       purchaseDecline: 85, // 85%減少
     },
@@ -506,7 +539,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     analytics: {
       ltv: 28000,
       averageOrderValue: 28000,
-      favoriteCategories: ['スポーツ'],
+      favoriteCategories: ['配送・保冷材'],
       seasonalPattern: 'spring',
       purchaseDecline: 70,
     },
@@ -525,15 +558,11 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     totalAmount: 180000,
     frequency: 1.0,
     avgInterval: 30,
-    topProduct: "アロマグッズ",
+    topProduct: getRandomProductName(),
     status: "休眠",
     lastOrderDate: new Date("2024-02-20"),
-    topProducts: [
-      { name: "アロマディフューザー", count: 3, percentage: 50, category: "リラクゼーション", isRepeat: true },
-      { name: "エッセンシャルオイル", count: 2, percentage: 33, category: "リラクゼーション", isRepeat: true },
-      { name: "キャンドル", count: 1, percentage: 17, category: "インテリア", isRepeat: false }
-    ],
-    productCategories: ["リラクゼーション", "インテリア"],
+    topProducts: getTopProductsByCategory(["ギフト・包装材", "デコ箱・ケーキ系"]),
+    productCategories: ["ギフト・包装材", "デコ箱・ケーキ系"],
     repeatProducts: 2,
     dormancy: {
       lastPurchaseDate: new Date('2024-02-20'),
@@ -545,7 +574,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     analytics: {
       ltv: 180000,
       averageOrderValue: 30000,
-      favoriteCategories: ['リラクゼーション', 'インテリア'],
+      favoriteCategories: ['ギフト・包装材', 'デコ箱・ケーキ系'],
       seasonalPattern: 'summer',
       purchaseDecline: 65,
     },
@@ -563,15 +592,11 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     totalAmount: 95000,
     frequency: 0.8,
     avgInterval: 40,
-    topProduct: "ビジネス用品",
+    topProduct: getRandomProductName(),
     status: "休眠",
     lastOrderDate: new Date("2023-11-10"),
-    topProducts: [
-      { name: "革製品", count: 2, percentage: 50, category: "ファッション", isRepeat: true },
-      { name: "ビジネスバッグ", count: 1, percentage: 25, category: "ファッション", isRepeat: false },
-      { name: "ステーショナリー", count: 1, percentage: 25, category: "オフィス用品", isRepeat: false }
-    ],
-    productCategories: ["ファッション", "オフィス用品"],
+    topProducts: getTopProductsByCategory(["パウンドケーキ箱", "配送・保冷材"]),
+    productCategories: ["パウンドケーキ箱", "配送・保冷材"],
     repeatProducts: 1,
     dormancy: {
       lastPurchaseDate: new Date('2023-11-10'),
@@ -583,7 +608,7 @@ export const dormantCustomerDetails: DormantCustomerDetail[] = [
     analytics: {
       ltv: 95000,
       averageOrderValue: 23750,
-      favoriteCategories: ['ファッション', 'オフィス用品'],
+      favoriteCategories: ['パウンドケーキ箱', '配送・保冷材'],
       purchaseDecline: 90,
     },
     reactivation: {

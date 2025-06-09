@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 import { DataService } from "@/lib/data-service"
 import { DatePicker } from "@/components/ui/date-picker"
-import { SAMPLE_PRODUCTS, PRODUCT_CATEGORIES, getCategoryStyle, getTopProducts, getProductsByCategory, type SampleProduct } from '@/lib/sample-products'
+import { SAMPLE_PRODUCTS, PRODUCT_CATEGORIES, getCategoryStyle, getCategoryName, getTopProducts, getProductsByCategory, type SampleProduct } from '@/lib/sample-products'
 import { ProductSelectorModal } from '@/components/ui/product-selector-modal'
 
 interface PurchaseFrequencyData {
@@ -153,17 +153,38 @@ export default function ProductPurchaseFrequencyAnalysis({
       // 動的に頻度データを生成
       const effectiveMaxFreq = maxFrequency === 'custom' ? parseInt(customMaxFrequency) : maxFrequency
       
+      // 商品カテゴリによる購入パターンの調整
+      const getPurchasePattern = (categoryId: string) => {
+        const categoryName = getCategoryName(categoryId)
+        
+        if (categoryName.includes('デコ箱') || categoryName.includes('ギフトボックス')) {
+          // 季節商品は1-2回購入が多い
+          return { firstPurchaseRate: 0.6, repeatDecline: 0.7 }
+        } else if (categoryName.includes('包装材') || categoryName.includes('紙袋')) {
+          // 包装材は定期購入されやすい
+          return { firstPurchaseRate: 0.4, repeatDecline: 0.5 }
+        } else if (categoryName.includes('保冷材')) {
+          // 保冷材は夏季に集中購入
+          return { firstPurchaseRate: 0.5, repeatDecline: 0.6 }
+        } else if (categoryName.includes('ダンボール')) {
+          // ダンボールは定期購入
+          return { firstPurchaseRate: 0.35, repeatDecline: 0.4 }
+        } else {
+          // その他の商品
+          return { firstPurchaseRate: 0.5, repeatDecline: 0.6 }
+        }
+      }
+      
+      const pattern = getPurchasePattern(product.category)
+      
       for (let i = 1; i <= effectiveMaxFreq; i++) {
         let customers = 0
         if (i === 1) {
-          // 1回購入は最も多く (40-60%)
-          customers = Math.floor(totalCustomers * (0.4 + Math.random() * 0.2))
-        } else if (i <= 5) {
-          // 2-5回は中程度の分布
-          customers = Math.floor(remainingCustomers * (0.1 + Math.random() * 0.3))
+          // 1回購入（パターンに基づく）
+          customers = Math.floor(totalCustomers * pattern.firstPurchaseRate)
         } else {
-          // 6回以上は少なく
-          customers = Math.floor(remainingCustomers * Math.random() * 0.1)
+          // 2回目以降は指数的に減少
+          customers = Math.floor(remainingCustomers * Math.pow(pattern.repeatDecline, i - 2) * (0.1 + Math.random() * 0.2))
         }
         
         customers = Math.min(customers, remainingCustomers)

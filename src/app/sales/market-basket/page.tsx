@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Download, TrendingUp, Package, BarChart3 } from 'lucide-react'
+import { getRandomProducts, getProductsByCategory, SAMPLE_PRODUCTS } from '@/lib/sample-products'
 
-// 顧客イメージに基づくサンプルデータの型定義
 interface MarketBasketItem {
   productId: string
   productName: string
@@ -27,84 +27,149 @@ interface MarketBasketItem {
   }>
 }
 
-// 顧客のExcelイメージを再現するサンプルデータ
-const sampleMarketBasketData: MarketBasketItem[] = [
-  {
-    productId: 'A',
-    productName: '商品A',
-    soloCount: 3,
-    soloAmount: 800,
-    totalAmount: 8000,
-    salesRatio: 10.0,
-    combinations: [
-      { rank: 1, productName: '商品B', coOccurrenceCount: 15, confidence: 0.75, lift: 2.5 },
-      { rank: 2, productName: '商品C', coOccurrenceCount: 12, confidence: 0.60, lift: 2.1 },
-      { rank: 3, productName: '商品D', coOccurrenceCount: 8, confidence: 0.40, lift: 1.8 },
-      { rank: 4, productName: '商品E', coOccurrenceCount: 6, confidence: 0.30, lift: 1.5 },
-      { rank: 5, productName: '商品F', coOccurrenceCount: 4, confidence: 0.20, lift: 1.2 },
-    ]
-  },
-  {
-    productId: 'B',
-    productName: '商品B',
-    soloCount: 5,
-    soloAmount: 1200,
-    totalAmount: 15000,
-    salesRatio: 18.5,
-    combinations: [
-      { rank: 1, productName: '商品A', coOccurrenceCount: 15, confidence: 0.70, lift: 2.3 },
-      { rank: 2, productName: '商品G', coOccurrenceCount: 10, confidence: 0.50, lift: 1.9 },
-      { rank: 3, productName: '商品H', coOccurrenceCount: 7, confidence: 0.35, lift: 1.6 },
-      { rank: 4, productName: '商品I', coOccurrenceCount: 5, confidence: 0.25, lift: 1.4 },
-      { rank: 5, productName: '商品J', coOccurrenceCount: 3, confidence: 0.15, lift: 1.1 },
-    ]
-  },
-  {
-    productId: 'C',
-    productName: '商品C（ギフト向け）',
-    soloCount: 8,
-    soloAmount: 2000,
-    totalAmount: 25000,
-    salesRatio: 31.2,
-    combinations: [
-      { rank: 1, productName: '商品K（ラッピング）', coOccurrenceCount: 20, confidence: 0.80, lift: 3.2 },
-      { rank: 2, productName: '商品L（カード）', coOccurrenceCount: 18, confidence: 0.75, lift: 2.8 },
-      { rank: 3, productName: '商品A', coOccurrenceCount: 12, confidence: 0.50, lift: 2.0 },
-      { rank: 4, productName: '商品M（袋）', coOccurrenceCount: 8, confidence: 0.40, lift: 1.7 },
-      { rank: 5, productName: '商品N（リボン）', coOccurrenceCount: 6, confidence: 0.30, lift: 1.3 },
-    ]
-  },
-  {
-    productId: 'D',
-    productName: '商品D（食品容器）',
-    soloCount: 12,
-    soloAmount: 500,
-    totalAmount: 18000,
-    salesRatio: 22.5,
-    combinations: [
-      { rank: 1, productName: '商品O（蓋）', coOccurrenceCount: 25, confidence: 0.85, lift: 4.1 },
-      { rank: 2, productName: '商品P（保冷剤）', coOccurrenceCount: 15, confidence: 0.65, lift: 2.7 },
-      { rank: 3, productName: '商品Q（袋）', coOccurrenceCount: 10, confidence: 0.45, lift: 2.2 },
-      { rank: 4, productName: '商品R（ラベル）', coOccurrenceCount: 8, confidence: 0.35, lift: 1.8 },
-      { rank: 5, productName: '商品S（スプーン）', coOccurrenceCount: 5, confidence: 0.25, lift: 1.4 },
-    ]
-  },
-  {
-    productId: 'E',
-    productName: '商品E（季節商品）',
-    soloCount: 6,
-    soloAmount: 1500,
-    totalAmount: 12000,
-    salesRatio: 15.0,
-    combinations: [
-      { rank: 1, productName: '商品T（関連小物）', coOccurrenceCount: 12, confidence: 0.70, lift: 2.8 },
-      { rank: 2, productName: '商品U（セット品）', coOccurrenceCount: 8, confidence: 0.50, lift: 2.3 },
-      { rank: 3, productName: '商品V（付属品）', coOccurrenceCount: 6, confidence: 0.40, lift: 1.9 },
-      { rank: 4, productName: '商品W（メンテ用品）', coOccurrenceCount: 4, confidence: 0.30, lift: 1.5 },
-      { rank: 5, productName: '商品X（保証書）', coOccurrenceCount: 2, confidence: 0.20, lift: 1.2 },
-    ]
+// 実際の商品データに基づいたサンプルデータ生成
+const generateMarketBasketData = (): MarketBasketItem[] => {
+  const selectedProducts = getRandomProducts(25)
+  
+  const findRelatedProducts = (product: any) => {
+    const relatedProducts: any[] = []
+    
+    // カテゴリー関連の組み合わせロジック
+    if (product.name.includes('デコ箱')) {
+      // デコ箱との組み合わせ商品
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('プラトレー') || 
+          p.name.includes('紙トレー') ||
+          p.name.includes('透明バッグ') ||
+          p.name.includes('紙袋')
+        )
+      )
+    }
+    
+    if (product.name.includes('パウンドケーキ箱')) {
+      // パウンドケーキ箱との組み合わせ
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('紙袋') ||
+          p.name.includes('透明バッグ') ||
+          p.name.includes('保冷') ||
+          p.name.includes('ダンボール')
+        )
+      )
+    }
+    
+    if (product.name.includes('ギフトボックス')) {
+      // ギフトボックスとの組み合わせ
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('紙袋') ||
+          p.name.includes('シール') ||
+          p.name.includes('透明バッグ') ||
+          p.name.includes('ダンボール')
+        )
+      )
+    }
+    
+    if (product.name.includes('プラトレー') || product.name.includes('紙トレー')) {
+      // トレーとの組み合わせ
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('デコ箱') ||
+          p.name.includes('カットケーキ箱') ||
+          p.name.includes('白ムジ')
+        )
+      )
+    }
+    
+    if (product.name.includes('保冷')) {
+      // 保冷材との組み合わせ
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('デコ箱') ||
+          p.name.includes('パウンドケーキ箱') ||
+          p.name.includes('ダンボール')
+        )
+      )
+    }
+    
+    if (product.name.includes('ダンボール') || product.name.includes('hacobo')) {
+      // ダンボールとの組み合わせ
+      relatedProducts.push(
+        ...SAMPLE_PRODUCTS.filter(p => 
+          p.name.includes('デコ箱') ||
+          p.name.includes('ギフトボックス') ||
+          p.name.includes('保冷')
+        )
+      )
+    }
+    
+    // 同カテゴリ商品も追加
+    relatedProducts.push(
+      ...SAMPLE_PRODUCTS.filter(p => p.category === product.category && p.id !== product.id)
+    )
+    
+    return relatedProducts
   }
-]
+
+  return selectedProducts.map((product, index) => {
+    const relatedProducts = findRelatedProducts(product)
+    const basePrice = product.price || 500
+    const soloCount = Math.floor(Math.random() * 20) + 5
+    const soloAmount = soloCount * basePrice
+    
+    // 総売上は単体売上の2-5倍（組み合わせ効果）
+    const multiplier = 2 + Math.random() * 3
+    const totalAmount = Math.floor(soloAmount * multiplier)
+    
+    // 売上構成比（全体の中での比率）
+    const salesRatio = 5 + Math.random() * 25
+    
+    // 組み合わせ商品を選択（最大5つ）
+    const shuffledRelated = relatedProducts
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 5)
+    
+    const combinations = shuffledRelated.map((relatedProduct, rank) => {
+      // リフト値：商品カテゴリーの関連性に基づいて調整
+      let baseLift = 1.2 + Math.random() * 2.5
+      
+      // 論理的な組み合わせに高いリフト値を設定
+      if (
+        (product.name.includes('デコ箱') && relatedProduct.name.includes('プラトレー')) ||
+        (product.name.includes('ギフトボックス') && relatedProduct.name.includes('紙袋')) ||
+        (product.name.includes('パウンドケーキ箱') && relatedProduct.name.includes('保冷')) ||
+        (product.name.includes('ダンボール') && relatedProduct.name.includes('デコ箱'))
+      ) {
+        baseLift = 2.5 + Math.random() * 1.5
+      }
+      
+      const coOccurrenceCount = Math.floor((soloCount * (1 - rank * 0.2)) * baseLift)
+      const confidence = Math.max(0.15, 0.85 - rank * 0.15 + Math.random() * 0.1)
+      
+      return {
+        rank: rank + 1,
+        productName: relatedProduct.name,
+        coOccurrenceCount,
+        confidence,
+        lift: baseLift
+      }
+    })
+    
+    return {
+      productId: product.id,
+      productName: product.name,
+      soloCount,
+      soloAmount,
+      totalAmount,
+      salesRatio,
+      combinations: combinations.sort((a, b) => b.lift - a.lift) // リフト値順にソート
+    }
+  })
+}
+
+// 顧客のExcelイメージを再現するサンプルデータ
+const sampleMarketBasketData: MarketBasketItem[] = generateMarketBasketData()
 
 export default function MarketBasketAnalysisPage() {
   const [startDate, setStartDate] = useState('2024-01-01')

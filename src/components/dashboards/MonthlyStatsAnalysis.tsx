@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Calendar, Download, Package, DollarSign, TrendingUp, AlertTriangle } from "lucide-react"
+import { getTopProducts, getCategoryStyle, type SampleProduct } from "@/lib/sample-products"
 
 // 型定義
 interface ProductMonthlyData {
@@ -15,11 +16,7 @@ interface ProductMonthlyData {
   amount: number
 }
 
-interface Product {
-  id: string
-  name: string
-  category: string
-}
+// Product型をSampleProductに置き換え
 
 interface DateRangePeriod {
   startYear: number
@@ -114,14 +111,8 @@ export default function MonthlyStatsAnalysis({
     }
   ]
 
-  // サンプル商品データ
-  const products: Product[] = [
-    { id: '1', name: 'プロテインパウダー', category: 'サプリメント' },
-    { id: '2', name: 'ビタミンC', category: 'サプリメント' },
-    { id: '3', name: '青汁', category: '健康食品' },
-    { id: '4', name: 'コラーゲン', category: '美容' },
-    { id: '5', name: 'マルチビタミン', category: 'サプリメント' },
-  ]
+  // 実際の商品データを使用（上位売上商品を取得）
+  const products: SampleProduct[] = getTopProducts(15)
 
   // 期間バリデーション関数
   const validateDateRange = (newRange: DateRangePeriod): { isValid: boolean; message: string; monthCount: number } => {
@@ -192,18 +183,89 @@ export default function MonthlyStatsAnalysis({
     return validateDateRange(dateRange).monthCount
   }, [dateRange])
 
-  // 簡単なサンプルデータ生成（期間に基づく）
+  // 商品カテゴリーに基づく現実的なサンプルデータ生成
   const generateSampleData = (productId: string, monthIndex: number): ProductMonthlyData => {
     // 期間が無効な場合は0を返す
     if (!validateDateRange(dateRange).isValid) {
       return { quantity: 0, amount: 0 }
     }
 
-    const baseQuantity = 80 + Math.floor(Math.random() * 40)
-    const unitPrice = 1500 + Math.floor(Math.random() * 500)
+    const product = products.find(p => p.id === productId)
+    if (!product) {
+      return { quantity: 0, amount: 0 }
+    }
+
+    // カテゴリースタイル情報を取得
+    const categoryStyle = getCategoryStyle(product.category)
+    
+    // 季節性を考慮した月の係数（1月=1, 12月=12）
+    const currentMonthInYear = ((dateRange.startMonth + monthIndex - 1) % 12) + 1
+    
+    // カテゴリー別の季節性パターンと基本数量・価格設定
+    const getProductMetrics = (category: string, month: number) => {
+      switch (category) {
+        case 'deco_box': // デコ箱
+          const seasonalMultiplier = [1.0, 0.8, 1.3, 1.2, 1.1, 1.4, 0.9, 0.8, 0.9, 1.0, 1.5, 1.8][month - 1]
+          return {
+            baseQuantity: 150 + Math.floor(Math.random() * 100),
+            seasonalMultiplier,
+            basePrice: product.price || 1200
+          }
+        
+        case 'gift_box': // ギフトボックス
+          const giftSeasonality = [1.2, 1.8, 1.5, 1.3, 1.4, 1.6, 0.8, 0.7, 0.9, 1.0, 1.4, 2.0][month - 1]
+          return {
+            baseQuantity: 120 + Math.floor(Math.random() * 80),
+            seasonalMultiplier: giftSeasonality,
+            basePrice: product.price || 850
+          }
+        
+        case 'pound_cake_box': // パウンドケーキ箱
+          const cakeSeasonality = [1.1, 1.0, 1.2, 1.1, 1.3, 1.2, 1.0, 0.9, 1.0, 1.1, 1.4, 1.6][month - 1]
+          return {
+            baseQuantity: 200 + Math.floor(Math.random() * 150),
+            seasonalMultiplier: cakeSeasonality,
+            basePrice: product.price || 620
+          }
+        
+        case 'paper_bag': // 紙袋
+          return {
+            baseQuantity: 300 + Math.floor(Math.random() * 200),
+            seasonalMultiplier: 1.0 + (Math.random() * 0.4 - 0.2), // ±20%の変動
+            basePrice: product.price || 180
+          }
+        
+        case 'packaging': // 包装材
+          return {
+            baseQuantity: 400 + Math.floor(Math.random() * 300),
+            seasonalMultiplier: 1.0 + (Math.random() * 0.3 - 0.15), // ±15%の変動
+            basePrice: product.price || 120
+          }
+        
+        case 'accessories': // 保冷材・アクセサリー
+          const coolingSeasonality = [0.5, 0.6, 0.8, 1.0, 1.3, 1.8, 2.0, 1.9, 1.5, 1.0, 0.7, 0.5][month - 1]
+          return {
+            baseQuantity: 80 + Math.floor(Math.random() * 120),
+            seasonalMultiplier: coolingSeasonality,
+            basePrice: product.price || 80
+          }
+        
+        default:
+          return {
+            baseQuantity: 100 + Math.floor(Math.random() * 80),
+            seasonalMultiplier: 1.0 + (Math.random() * 0.3 - 0.15),
+            basePrice: product.price || 500
+          }
+      }
+    }
+
+    const metrics = getProductMetrics(product.category, currentMonthInYear)
+    const quantity = Math.floor(metrics.baseQuantity * metrics.seasonalMultiplier)
+    const amount = quantity * metrics.basePrice
+
     return {
-      quantity: baseQuantity,
-      amount: baseQuantity * unitPrice
+      quantity: Math.max(0, quantity),
+      amount: Math.max(0, amount)
     }
   }
 
@@ -499,8 +561,10 @@ export default function MonthlyStatsAnalysis({
                     <TableRow key={product.id}>
                       <TableCell className="sticky left-0 bg-background font-medium border-r">
                         <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-xs text-muted-foreground">{product.category}</div>
+                          <div className="font-medium text-sm">{product.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {getCategoryStyle(product.category).name}
+                          </div>
                         </div>
                       </TableCell>
                       {months.map((_, monthIndex) => (
