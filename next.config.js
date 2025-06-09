@@ -15,6 +15,38 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config, { isServer }) => {
+    // ChunkLoadErrorを防ぐ設定
+    if (!isServer) {
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          default: {
+            chunks: 'async',
+            minChunks: 2,
+            priority: 10,
+            reuseExistingChunk: true,
+            enforce: true
+          },
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+            priority: 20
+          }
+        }
+      }
+
+      // チャンク読み込みのリトライ機能
+      config.output.chunkLoadTimeout = 30000
+    }
+    
+    return config
+  },
+  // 実験的機能の設定
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
+  }
 }
 
 module.exports = nextConfig
