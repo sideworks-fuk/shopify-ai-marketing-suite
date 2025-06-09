@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { useAppStore } from "../../stores/appStore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,28 @@ export default function MonthlyStatsAnalysis({
     }
   }
 
-  // 統計計算（シンプル版）
+  // セル内容のレンダリング
+  const renderCellContent = (productId: string, month: number) => {
+    const data = generateSampleData(productId, month)
+
+    switch (displayMode) {
+      case 'quantity':
+        return <span>{data.quantity.toLocaleString()}</span>
+      
+      case 'amount':
+        return <span>¥{data.amount.toLocaleString()}</span>
+      
+      case 'both':
+        return (
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">{data.quantity.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">¥{data.amount.toLocaleString()}</div>
+          </div>
+        )
+    }
+  }
+
+  // 統計計算
   const calculateTotalAmount = (): number => {
     let total = 0
     products.forEach(product => {
@@ -80,28 +101,7 @@ export default function MonthlyStatsAnalysis({
     return Math.floor(calculateTotalAmount() / months.length)
   }
 
-  // セル内容のレンダリング
-  const renderCellContent = (productId: string, month: number) => {
-    const data = generateSampleData(productId, month)
-
-    switch (displayMode) {
-      case 'quantity':
-        return <span>{data.quantity.toLocaleString()}</span>
-      
-      case 'amount':
-        return <span>¥{data.amount.toLocaleString()}</span>
-      
-      case 'both':
-        return (
-          <div className="space-y-0.5">
-            <div className="text-sm font-medium">{data.quantity.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground">¥{data.amount.toLocaleString()}</div>
-          </div>
-        )
-    }
-  }
-
-  // CSVエクスポート（簡易版）
+  // CSVエクスポート機能
   const handleExport = () => {
     const headers = ['商品名', ...months]
     const rows = products.map(product => {
@@ -270,4 +270,4 @@ export default function MonthlyStatsAnalysis({
       </Card>
     </div>
   )
-} 
+}

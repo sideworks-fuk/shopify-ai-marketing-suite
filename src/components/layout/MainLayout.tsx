@@ -56,7 +56,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const categories = [
     {
       id: "sales",
-      label: "📊 売上分析",
+      label: "📊 商品分析",
       description: "売上・商品分析"
     },
     {

@@ -52,7 +52,7 @@ export const menuStructure: MenuItem[] = [
     label: "月別売上統計【購買】",
     icon: "📅",
     href: "/sales/monthly-stats",
-    category: "sales",
+    category: "purchase",
     isImplemented: true,
     description: "商品別×月別の売上推移を数量・金額で把握"
   },
