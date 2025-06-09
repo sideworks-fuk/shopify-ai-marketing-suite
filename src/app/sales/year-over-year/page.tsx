@@ -4,7 +4,7 @@ import React, { Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 
-// 修正版前年同月比分析コンポーネント
+// 元の修正版前年同月比分析コンポーネント（月別詳細表示対応）
 const YearOverYearProductAnalysisDetailedFixed = React.lazy(() => import("@/components/dashboards/YearOverYearProductAnalysisDetailedFixed"))
 
 // ローディングコンポーネント
@@ -39,15 +39,14 @@ export default function YearOverYearPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">📈 前年同月比【商品】</h1>
-        <p className="text-gray-600 mt-2">商品別の売上トレンドを前年と比較し、成長商品と要注意商品を特定できます</p>
+        <p className="text-gray-600 mt-2">商品別の売上トレンドを前年と比較し、成長商品と要注意商品を特定できます。月別詳細表示とサマリー表示を切り替え可能です。</p>
+
       </div>
       
-
-
-      {/* 修正版コンポーネント */}
+      {/* 元のコンポーネント（月別詳細表示対応）*/}
       <ErrorBoundaryWrapper
         fallbackTitle="前年同月比分析でエラーが発生しました"
-        fallbackDescription="前年同月比分析の読み込み中にエラーが発生しました。サイドメニューは正常に動作しています。"
+        fallbackDescription="前年同月比分析の読み込み中にエラーが発生しました。ページを再読み込みしてください。"
       >
         <Suspense fallback={<LoadingComponent />}>
           <YearOverYearProductAnalysisDetailedFixed />

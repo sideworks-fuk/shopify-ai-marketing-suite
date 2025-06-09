@@ -34,11 +34,20 @@ interface MonthlyYearOverYearData {
 
 const YearOverYearProductAnalysisDetailedFixed = () => {
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
+  
+  // 年選択の追加
+  const currentYear = new Date().getFullYear()
+  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i) // 過去5年分
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  
   const [viewMode, setViewMode] = useState<"sales" | "quantity" | "orders">("sales")
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<"all" | "growth" | "stable" | "decline">("all")
   const [sortBy, setSortBy] = useState<"name" | "growth-desc" | "growth-asc" | "amount-desc">("name")
-  const [displayType, setDisplayType] = useState<"summary" | "monthly">("summary")
+  const [displayType, setDisplayType] = useState<"summary" | "monthly">("monthly")
+
+  // 前年を自動計算
+  const previousYear = selectedYear - 1
 
   // サンプル商品データ
   const products = [
@@ -49,41 +58,39 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
     { id: "5", name: "【サンプル】Criollo-Bitter-デコ箱4号H130", category: "ギフトボックス" },
   ]
 
-  // 簡単な前年同月比データ生成
-  const generateSampleData = (): YearOverYearData[] => {
+  // 動的な前年同月比データ生成（選択した年に基づく）
+  const data = useMemo(() => {
     return products.map(product => {
-      const baseValue2023 = 50000 + Math.floor(Math.random() * 100000)
+      const baseValuePrevious = 50000 + Math.floor(Math.random() * 100000)
       const growthRate = (Math.random() - 0.3) * 50 // -15% ~ +35%の範囲
-      const current2024 = Math.floor(baseValue2023 * (1 + growthRate / 100))
+      const currentValue = Math.floor(baseValuePrevious * (1 + growthRate / 100))
 
       return {
         productId: product.id,
         productName: product.name,
         category: product.category,
-        current2024,
-        previous2023: baseValue2023,
+        current2024: currentValue, // 選択年の値
+        previous2023: baseValuePrevious, // 前年の値
         growthRate: Number(growthRate.toFixed(1))
       }
     })
-  }
+  }, [selectedYear, products])
 
-  const data = generateSampleData()
-
-  // 月別データ生成
-  const generateMonthlyData = (): MonthlyYearOverYearData[] => {
+  // 動的な月別データ生成（選択した年に基づく）
+  const monthlyData = useMemo(() => {
     const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
     
     return products.map(product => {
-      const monthlyData = months.map((month, index) => {
-        const baseValue2023 = 20000 + Math.floor(Math.random() * 40000)
+      const monthlyDataEntries = months.map((month, index) => {
+        const baseValuePrevious = 20000 + Math.floor(Math.random() * 40000)
         const seasonalFactor = 1 + Math.sin((index * Math.PI) / 6) * 0.3 // 季節性変動
         const growthRate = (Math.random() - 0.3) * 50 // -15% ~ +35%の範囲
-        const current2024 = Math.floor(baseValue2023 * seasonalFactor * (1 + growthRate / 100))
+        const currentValue = Math.floor(baseValuePrevious * seasonalFactor * (1 + growthRate / 100))
 
         return {
           month,
-          previous2023: Math.floor(baseValue2023 * seasonalFactor),
-          current2024,
+          previous2023: Math.floor(baseValuePrevious * seasonalFactor),
+          current2024: currentValue,
           growthRate: Number(growthRate.toFixed(1))
         }
       })
@@ -92,12 +99,10 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
         productId: product.id,
         productName: product.name,
         category: product.category,
-        monthlyData
+        monthlyData: monthlyDataEntries
       }
     })
-  }
-
-  const monthlyData = generateMonthlyData()
+  }, [selectedYear, products])
 
   // フィルタリングと並び替え
   const filteredAndSortedData = useMemo(() => {
@@ -253,11 +258,34 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
         <CardHeader>
           <CardTitle className="text-lg">表示設定</CardTitle>
           <CardDescription>
-            データの表示方法とフィルタリング条件を設定
+            比較対象年とデータの表示方法・フィルタリング条件を設定
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {/* 最上段: 年選択 */}
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">比較対象年:</span>
+                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableYears.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}年
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">
+                  → {selectedYear}年 vs {previousYear}年の比較
+                </span>
+              </div>
+            </div>
+
             {/* 上段: 表示項目選択 */}
             <div className="flex flex-wrap gap-4">
               <Select value={displayType} onValueChange={(value: any) => setDisplayType(value)}>
@@ -311,6 +339,7 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
                   <SelectItem value="name">商品名順</SelectItem>
                   <SelectItem value="growth-desc">成長率（高い順）</SelectItem>
                   <SelectItem value="growth-asc">成長率（低い順）</SelectItem>
+                  <SelectItem value="decline">要注意商品（-10%以下）</SelectItem>
                   <SelectItem value="amount-desc">売上金額（高い順）</SelectItem>
                 </SelectContent>
               </Select>
@@ -407,7 +436,7 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
               <Calendar className="h-5 w-5" />
               前年同月比詳細データ
             </CardTitle>
-            <CardDescription>2024年 vs 2023年の商品別比較分析</CardDescription>
+            <CardDescription>{selectedYear}年 vs {previousYear}年の商品別比較分析</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -416,8 +445,8 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
                   <TableRow>
                     <TableHead className="min-w-[200px]">商品名</TableHead>
                     <TableHead className="text-center">カテゴリ</TableHead>
-                    <TableHead className="text-center">2023年</TableHead>
-                    <TableHead className="text-center">2024年</TableHead>
+                    <TableHead className="text-center">{previousYear}年</TableHead>
+                    <TableHead className="text-center">{selectedYear}年</TableHead>
                     <TableHead className="text-center">前年同月比</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -457,7 +486,7 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
               <Calendar className="h-5 w-5" />
               前年同月比月別詳細データ
             </CardTitle>
-            <CardDescription>2024年 vs 2023年の商品別月別比較分析（横スクロールで全ての月を確認できます）</CardDescription>
+            <CardDescription>{selectedYear}年 vs {previousYear}年の商品別月別比較分析（横スクロールで全ての月を確認できます）</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -515,7 +544,7 @@ const YearOverYearProductAnalysisDetailedFixed = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center text-sm text-muted-foreground">
-            選択期間: {selectedPeriod} | 表示モード: {viewMode} | データ範囲: 2024年 vs 2023年
+            選択期間: {selectedPeriod} | 表示モード: {viewMode} | データ範囲: {selectedYear}年 vs {previousYear}年
           </div>
         </CardContent>
       </Card>
