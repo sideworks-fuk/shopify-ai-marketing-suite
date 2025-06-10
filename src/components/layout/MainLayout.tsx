@@ -56,7 +56,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const categories = [
     {
       id: "sales",
-      label: "📊 商品分析",
+      label: "📦 商品分析",
       description: "売上・商品分析"
     },
     {
@@ -103,7 +103,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         {/* ヘッダー */}
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            📊 Shopify ECマーケティング分析
+            🏪 Shopify ECマーケティング分析
           </h1>
         </div>
 

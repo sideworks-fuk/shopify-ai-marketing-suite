@@ -123,8 +123,8 @@ export default function DormantCustomerAnalysis() {
         )}
       </Card>
 
-      {/* KPI サマリーカード */}
-      <DormantKPICards />
+      {/* KPI サマリーカード - オプション機能として一時非表示 */}
+      {/* <DormantKPICards /> */}
 
       {/* 期間別セグメントフィルター */}
       <div>
@@ -132,11 +132,11 @@ export default function DormantCustomerAnalysis() {
         <DormantPeriodFilter />
       </div>
 
-      {/* 分析チャート */}
-      <DormantAnalysisChart />
+      {/* 分析チャート - オプション機能として一時非表示 */}
+      {/* <DormantAnalysisChart /> */}
 
-      {/* 復帰インサイト */}
-      <ReactivationInsights />
+      {/* 復帰インサイト - オプション機能として一時非表示 */}
+      {/* <ReactivationInsights /> */}
 
       {/* 休眠顧客一覧 */}
       <div>
@@ -151,8 +151,8 @@ export default function DormantCustomerAnalysis() {
         <DormantCustomerList selectedSegment={filters.selectedSegment} />
       </div>
 
-      {/* フッター情報 */}
-      <Card className="bg-slate-50 border-slate-200">
+      {/* フッター情報 - オプション機能として一時非表示 */}
+      {/* <Card className="bg-slate-50 border-slate-200">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div>
@@ -172,7 +172,7 @@ export default function DormantCustomerAnalysis() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
-} 
+}
