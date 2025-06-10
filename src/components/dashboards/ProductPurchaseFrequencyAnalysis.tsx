@@ -429,169 +429,143 @@ export default function ProductPurchaseFrequencyAnalysis({
 
   return (
     <div className="space-y-6">
-      {/* ヘッダー */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">購入回数詳細分析【商品】</h2>
-          <p className="text-gray-600 mt-1">
-            商品別の顧客購入回数分布を分析し、リピート購入パターンと転換率を把握できます
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowConditions(!showConditions)}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            抽出条件
-            {showConditions ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-          </Button>
-          <Button onClick={exportToCsv} disabled={isLoading || filteredData.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            CSV出力
-          </Button>
-        </div>
-      </div>
-
       {/* 分析条件設定 */}
-      {showConditions && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">分析条件設定</CardTitle>
-            <CardDescription>期間と分析条件を設定してください</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* ✅ 期間選択（統一UI） */}
-              <div className="space-y-4">
-                <Label>分析期間</Label>
-                <PeriodSelector
-                  dateRange={dateRange}
-                  onDateRangeChange={updateDateRange}
-                  title="購入頻度分析期間"
-                  description="商品の購入頻度を分析する期間を選択してください"
-                  maxMonths={18}
-                  minMonths={3}
-                  presetPeriods={presetPeriods}
-                />
-              </div>
-              
-              {/* 商品絞り込み */}
-              <div className="space-y-4">
-                <Label>商品選択</Label>
-                <div className="flex gap-2">
-                  <Select value={productFilter} onValueChange={(value: any) => setProductFilter(value)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="商品を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">すべての商品</SelectItem>
-                      <SelectItem value="top10">売上上位10商品</SelectItem>
-                      <SelectItem value="category">カテゴリー別</SelectItem>
-                      <SelectItem value="custom">個別選択</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  {/* カテゴリー選択 */}
-                  {productFilter === 'category' && (
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="カテゴリー" />
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">分析条件設定</CardTitle>
+              <CardDescription>期間と分析条件を設定してください</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConditions(!showConditions)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              分析条件
+              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+            <div className="space-y-4">
+              {/* 統一された分析条件設定 - 分析期間を広く */}
+              <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-4">
+                {/* 期間選択 */}
+                <div>
+                  <Label className="text-sm font-medium">分析期間</Label>
+                  <div className="mt-2">
+                    <PeriodSelector
+                      dateRange={dateRange}
+                      onDateRangeChange={updateDateRange}
+                      title=""
+                      description=""
+                      maxMonths={18}
+                      minMonths={3}
+                      presetPeriods={presetPeriods}
+                    />
+                  </div>
+                </div>
+                {/* 商品選択 */}
+                <div>
+                  <Label className="text-sm font-medium">商品選択</Label>
+                  <div className="mt-2 space-y-2">
+                    <Select value={productFilter} onValueChange={(value: any) => setProductFilter(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="商品を選択" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PRODUCT_CATEGORIES.map(category => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="all">すべての商品</SelectItem>
+                        <SelectItem value="top10">売上上位10商品</SelectItem>
+                        <SelectItem value="category">カテゴリー別</SelectItem>
+                        <SelectItem value="custom">個別選択</SelectItem>
                       </SelectContent>
                     </Select>
-                  )}
-                  
-                  {/* 個別選択ボタン */}
-                  {productFilter === 'custom' && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowProductSelector(true)}
-                    >
-                      商品を選択 ({selectedProducts.length}件)
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* 表示設定 */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* 最大表示回数 */}
-                <div>
-                  <Label>最大表示回数</Label>
-                  <RadioGroup 
-                    value={maxFrequency.toString()} 
-                    onValueChange={(v) => setMaxFrequency(v === 'custom' ? 'custom' : Number(v))}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="12" id="f12" />
-                      <Label htmlFor="f12">12回まで</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="20" id="f20" />
-                      <Label htmlFor="f20">20回まで</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="custom" id="fcustom" />
-                      <Label htmlFor="fcustom">カスタム</Label>
-                      {maxFrequency === 'custom' && (
-                        <Input 
-                          type="number" 
-                          value={customMaxFrequency} 
-                          onChange={(e) => setCustomMaxFrequency(e.target.value)}
-                          className="w-20"
-                          min="1"
-                          max="50"
-                        />
-                      )}
-                    </div>
-                  </RadioGroup>
+                    
+                    {/* カテゴリー選択 */}
+                    {productFilter === 'category' && (
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="カテゴリー" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRODUCT_CATEGORIES.map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    
+                    {/* 個別選択ボタン */}
+                    {productFilter === 'custom' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setShowProductSelector(true)}
+                        className="w-full text-xs"
+                      >
+                        商品を選択 ({selectedProducts.length}件)
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                {/* 表示モード */}
+                {/* 表示設定 */}
                 <div>
-                  <Label>表示モード</Label>
-                  <RadioGroup 
-                    value={displayMode} 
-                    onValueChange={(v: any) => setDisplayMode(v)}
-                    className="mt-2"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="count" id="mode-count" />
-                      <Label htmlFor="mode-count">購入人数</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="percentage" id="mode-percentage" />
-                      <Label htmlFor="mode-percentage">構成比率(%)</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                {/* 表示オプション */}
-                <div>
-                  <Label>表示オプション</Label>
+                  <Label className="text-sm font-medium">表示設定</Label>
                   <div className="mt-2 space-y-2">
-                                         <div className="flex items-center space-x-2">
-                       <Checkbox 
-                         checked={showHeatmap} 
-                         onCheckedChange={(checked) => setShowHeatmap(checked === true)}
-                         id="show-heatmap"
-                       />
-                       <Label htmlFor="show-heatmap">ヒートマップ表示</Label>
-                     </div>
+                    {/* 最大表示回数 */}
+                    <Select value={maxFrequency.toString()} onValueChange={(v) => setMaxFrequency(v === 'custom' ? 'custom' : Number(v))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="最大表示回数" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="12">12回まで</SelectItem>
+                        <SelectItem value="20">20回まで</SelectItem>
+                        <SelectItem value="custom">カスタム</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {maxFrequency === 'custom' && (
+                      <Input 
+                        type="number" 
+                        value={customMaxFrequency} 
+                        onChange={(e) => setCustomMaxFrequency(e.target.value)}
+                        placeholder="回数を入力"
+                        min="1"
+                        max="50"
+                      />
+                    )}
+
+                    {/* 表示モード */}
+                    <Select value={displayMode} onValueChange={(v: any) => setDisplayMode(v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="表示モード" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="count">購入人数</SelectItem>
+                        <SelectItem value="percentage">構成比率(%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* 表示オプション */}
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Checkbox 
+                        checked={showHeatmap} 
+                        onCheckedChange={(checked) => setShowHeatmap(checked === true)}
+                        id="show-heatmap"
+                      />
+                      <Label htmlFor="show-heatmap" className="text-xs">ヒートマップ表示</Label>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* ボタン */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 <Button onClick={handleAnalyze} disabled={isLoading}>
                   {isLoading ? (
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -604,11 +578,15 @@ export default function ProductPurchaseFrequencyAnalysis({
                   <RotateCcw className="h-4 w-4 mr-2" />
                   条件クリア
                 </Button>
+                <Button variant="outline" onClick={exportToCsv} disabled={isLoading || filteredData.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV出力
+                </Button>
               </div>
             </div>
           </CardContent>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {/* 商品選択モーダル */}
       <ProductSelectorModal

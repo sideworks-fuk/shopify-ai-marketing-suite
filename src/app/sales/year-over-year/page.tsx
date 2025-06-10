@@ -1,11 +1,8 @@
 "use client"
 
-import React, { Suspense } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
-
-// 元の修正版前年同月比分析コンポーネント（月別詳細表示対応）
-const YearOverYearProductAnalysisDetailedFixed = React.lazy(() => import("@/components/dashboards/YearOverYearProductAnalysisDetailedFixed"))
+import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
+import { AnalysisDescriptionCard } from "@/components/common/AnalysisDescriptionCard"
+import YearOverYearProductAnalysisImproved from "@/components/dashboards/YearOverYearProductAnalysisImproved"
 
 // ローディングコンポーネント
 const LoadingComponent = () => (
@@ -26,7 +23,7 @@ const LoadingComponent = () => (
             📊 前年同月比分析を準備中です...
           </p>
           <p className="text-sm text-blue-600 mt-2">
-            2024年 vs 2023年の詳細比較分析をロードしています
+            商品別の成長率分析をロードしています
           </p>
         </div>
       </CardContent>
@@ -37,21 +34,25 @@ const LoadingComponent = () => (
 export default function YearOverYearPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">📈 前年同月比【商品】</h1>
-        <p className="text-gray-600 mt-2">商品別の売上トレンドを前年と比較し、成長商品と要注意商品を特定できます。月別詳細表示とサマリー表示を切り替え可能です。</p>
+      {/* 統一ヘッダー */}
+      <AnalyticsHeaderUnified
+        mainTitle="前年同月比分析【商品】"
+        description="商品別の売上トレンドを前年と比較し、成長商品と要注意商品を特定できます"
+        badges={[
+          { label: "年選択機能", variant: "outline" },
+          { label: "サマリー/月別表示", variant: "secondary" }
+        ]}
+      />
 
-      </div>
-      
-      {/* 元のコンポーネント（月別詳細表示対応）*/}
-      <ErrorBoundaryWrapper
-        fallbackTitle="前年同月比分析でエラーが発生しました"
-        fallbackDescription="前年同月比分析の読み込み中にエラーが発生しました。ページを再読み込みしてください。"
-      >
-        <Suspense fallback={<LoadingComponent />}>
-          <YearOverYearProductAnalysisDetailedFixed />
-        </Suspense>
-      </ErrorBoundaryWrapper>
+      {/* 説明カード */}
+      <AnalysisDescriptionCard
+        variant="purpose"
+        title="前年同月比分析の活用法"
+        description="商品の成長性を前年と比較することで、好調商品の特徴と要注意商品の早期発見ができます。季節性の高い商品トレンドを把握し、在庫戦略と営業戦略の最適化に活用してください。"
+      />
+
+      {/* メインコンテンツ - 年選択と表示モード切り替え機能付き */}
+      <YearOverYearProductAnalysisImproved />
     </div>
   )
 } 

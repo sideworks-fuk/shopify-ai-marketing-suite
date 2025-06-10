@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Calendar, Download, Package, DollarSign, TrendingUp, AlertTriangle } from "lucide-react"
+import { Calendar, Download, Package, DollarSign, TrendingUp, AlertTriangle, Settings, ChevronUp, ChevronDown, Search } from "lucide-react"
 import { getTopProducts, getCategoryStyle, type SampleProduct } from "@/lib/sample-products"
+import { Label } from "@/components/ui/label"
 
 // 型定義
 interface ProductMonthlyData {
@@ -34,6 +35,7 @@ export default function MonthlyStatsAnalysis({
 }: MonthlyStatsAnalysisProps) {
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [displayMode, setDisplayMode] = useState<'quantity' | 'amount' | 'both'>('amount')
+  const [showConditions, setShowConditions] = useState(true)
   
   // 期間選択の状態管理
   const currentYear = new Date().getFullYear()
@@ -365,126 +367,157 @@ export default function MonthlyStatsAnalysis({
       {/* コントロールパネル */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            月別売上統計分析
-          </CardTitle>
-          <CardDescription>
-            商品別の月別売上推移と季節性分析（デフォルト：直近12ヶ月、最大12ヶ月指定可能）
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* プリセット期間ボタン */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-gray-700 flex items-center mr-2">
-                クイック選択:
-              </span>
-              {presetPeriods.map((preset, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePresetPeriod(preset)}
-                  className="h-8 text-xs"
-                >
-                  {preset.icon} {preset.label}
-                </Button>
-              ))}
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">分析条件設定</CardTitle>
+              <CardDescription>期間と分析条件を設定してください</CardDescription>
             </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConditions(!showConditions)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              分析条件
+              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-4">
+              {/* 期間選択 */}
+              <div>
+                <Label className="text-sm font-medium">分析期間</Label>
+                <div className="mt-2 space-y-3">
+                  {/* プリセット期間ボタン */}
+                  <div className="flex flex-wrap gap-2">
+                    {presetPeriods.map((preset, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePresetPeriod(preset)}
+                        className="h-8 text-xs"
+                      >
+                        {preset.icon} {preset.label}
+                      </Button>
+                    ))}
+                  </div>
 
-            {/* 期間選択UI */}
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">期間:</span>
-                
-                {/* 開始年月 */}
-                <Select value={dateRange.startYear.toString()} onValueChange={(value) => handleDateRangeChange('startYear', parseInt(value))}>
-                  <SelectTrigger className="w-24">
-                    <SelectValue />
+                  {/* 期間選択UI */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Select value={dateRange.startYear.toString()} onValueChange={(value) => handleDateRangeChange('startYear', parseInt(value))}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map(year => (
+                          <SelectItem key={year} value={year.toString()}>{year}年</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={dateRange.startMonth.toString()} onValueChange={(value) => handleDateRangeChange('startMonth', parseInt(value))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMonths.map(month => (
+                          <SelectItem key={month} value={month.toString()}>{month}月</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <span className="text-muted-foreground">〜</span>
+                    
+                    <Select value={dateRange.endYear.toString()} onValueChange={(value) => handleDateRangeChange('endYear', parseInt(value))}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map(year => (
+                          <SelectItem key={year} value={year.toString()}>{year}年</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={dateRange.endMonth.toString()} onValueChange={(value) => handleDateRangeChange('endMonth', parseInt(value))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMonths.map(month => (
+                          <SelectItem key={month} value={month.toString()}>{month}月</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <span className="text-xs text-green-600 font-medium">
+                      📈 {selectedMonthsCount}ヶ月間
+                    </span>
+                  </div>
+
+                  {/* バリデーションエラー表示 */}
+                  {validationError && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>{validationError}</AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              </div>
+              
+              {/* 商品選択（将来拡張用） */}
+              <div>
+                <Label className="text-sm font-medium">商品選択</Label>
+                <Select defaultValue="top15">
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="商品を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableYears.map(year => (
-                      <SelectItem key={year} value={year.toString()}>{year}年</SelectItem>
-                    ))}
+                    <SelectItem value="top15">売上上位15商品</SelectItem>
+                    <SelectItem value="all">すべての商品</SelectItem>
+                    <SelectItem value="category">カテゴリー別</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                <Select value={dateRange.startMonth.toString()} onValueChange={(value) => handleDateRangeChange('startMonth', parseInt(value))}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
+              </div>
+              
+              {/* 表示設定 */}
+              <div>
+                <Label className="text-sm font-medium">表示設定</Label>
+                <Select value={displayMode} onValueChange={(value: any) => setDisplayMode(value)}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="表示項目" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableMonths.map(month => (
-                      <SelectItem key={month} value={month.toString()}>{month}月</SelectItem>
-                    ))}
+                    <SelectItem value="quantity">数量</SelectItem>
+                    <SelectItem value="amount">金額</SelectItem>
+                    <SelectItem value="both">数量/金額</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                <span className="text-muted-foreground">〜</span>
-                
-                {/* 終了年月 */}
-                <Select value={dateRange.endYear.toString()} onValueChange={(value) => handleDateRangeChange('endYear', parseInt(value))}>
-                  <SelectTrigger className="w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableYears.map(year => (
-                      <SelectItem key={year} value={year.toString()}>{year}年</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Select value={dateRange.endMonth.toString()} onValueChange={(value) => handleDateRangeChange('endMonth', parseInt(value))}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableMonths.map(month => (
-                      <SelectItem key={month} value={month.toString()}>{month}月</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <span className="text-sm text-green-600 font-medium">
-                  📈 {selectedMonthsCount}ヶ月間のトレンド
-                </span>
               </div>
             </div>
 
-            {/* バリデーションエラー表示 */}
-            {validationError && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{validationError}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* 表示モードとエクスポート */}
-            <div className="flex flex-wrap gap-4">
-              <Select value={displayMode} onValueChange={(value: any) => setDisplayMode(value)}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="表示項目" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="quantity">数量</SelectItem>
-                  <SelectItem value="amount">金額</SelectItem>
-                  <SelectItem value="both">数量/金額</SelectItem>
-                </SelectContent>
-              </Select>
-
+            {/* アクションボタン */}
+            <div className="flex gap-2 pt-2 mt-4 border-t">
+              <Button onClick={() => alert('分析を実行します')} className="gap-2">
+                <Search className="h-4 w-4" />
+                分析実行
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={handleExport}
                 disabled={!validateDateRange(dateRange).isValid}
+                className="gap-2"
               >
-                <Download className="w-4 h-4 mr-2" />
-                CSVダウンロード
+                <Download className="h-4 w-4" />
+                CSV出力
               </Button>
             </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* サマリーカード */}

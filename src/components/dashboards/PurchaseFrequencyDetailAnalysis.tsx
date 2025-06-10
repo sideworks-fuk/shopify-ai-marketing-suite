@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, AlertCircle, Download } from "lucide-react"
+import { RefreshCw, AlertCircle, Download, Settings, ChevronUp, ChevronDown, Search } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { DataService } from "@/lib/data-service"
 import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
@@ -78,6 +78,7 @@ export default function PurchaseFrequencyDetailAnalysis({
   const [purchaseData, setPurchaseData] = useState<PurchaseFrequencyDetailData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConditions, setShowConditions] = useState(true)
   // ✅ 期間フィルター管理（統一UI）
   const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
     const today = new Date()
@@ -257,61 +258,102 @@ export default function PurchaseFrequencyDetailAnalysis({
 
   return (
     <div className="space-y-6">
-      {/* ヘッダーとコントロール */}
+      {/* 分析条件設定（統一UI） */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between items-center">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                📊 購入回数詳細分析
-                <Badge variant="outline">詳細データ</Badge>
-              </CardTitle>
-              <CardDescription>顧客の購入回数別詳細分析（初回〜20回目）と前年同期比較</CardDescription>
+              <CardTitle className="text-lg">分析条件設定</CardTitle>
+              <CardDescription>期間と分析条件を設定してください</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConditions(!showConditions)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              分析条件
+              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-4">
+              {/* 期間選択 */}
+              <div>
+                <Label className="text-sm font-medium">分析期間</Label>
+                <div className="mt-2">
+                  <PeriodSelector
+                    dateRange={dateRange}
+                    onDateRangeChange={updateDateRange}
+                    title=""
+                    description=""
+                    maxMonths={12}
+                    minMonths={1}
+                    presetPeriods={presetPeriods}
+                  />
+                </div>
+              </div>
+              
+              {/* 顧客セグメント（将来拡張用） */}
+              <div>
+                <Label className="text-sm font-medium">顧客セグメント</Label>
+                <Select defaultValue="all">
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="セグメントを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">すべての顧客</SelectItem>
+                    <SelectItem value="new">新規顧客</SelectItem>
+                    <SelectItem value="repeat">リピート顧客</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* 表示設定 */}
+              <div>
+                <Label className="text-sm font-medium">表示設定</Label>
+                <Select defaultValue="detail">
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="表示形式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="detail">詳細表示</SelectItem>
+                    <SelectItem value="summary">サマリー表示</SelectItem>
+                    <SelectItem value="chart">グラフ表示</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* アクションボタン */}
+            <div className="flex gap-2 pt-2 mt-4 border-t">
+              <Button onClick={() => fetchData()} disabled={isLoading} className="gap-2">
+                <Search className="h-4 w-4" />
+                分析実行
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExport}
+                className="gap-2"
+              >
                 <Download className="h-4 w-4" />
-                エクスポート
+                CSV出力
               </Button>
               <Button
                 variant="outline"
-                size="sm"
                 onClick={fetchData}
                 disabled={isLoading}
-                className="flex items-center gap-2"
+                className="gap-2"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                 更新
               </Button>
             </div>
-          </div>
-
-        </CardHeader>
-      </Card>
-
-      {/* ✅ 分析条件設定（統一UI） */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">分析条件設定</CardTitle>
-          <CardDescription>期間と分析条件を設定してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* ✅ 期間選択（統一UI） */}
-            <div className="space-y-4">
-              <Label>分析期間</Label>
-              <PeriodSelector
-                dateRange={dateRange}
-                onDateRangeChange={updateDateRange}
-                title="購入回数分析期間"
-                description="顧客の購入回数を分析する期間を選択してください"
-                maxMonths={12}
-                minMonths={1}
-                presetPeriods={presetPeriods}
-              />
-            </div>
-          </div>
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* エラーとサンプルデータ表示 */}

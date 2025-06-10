@@ -40,6 +40,10 @@ import {
   Target,
   UserCheck,
   Activity,
+  Settings,
+  Play,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
@@ -481,26 +485,110 @@ export default function CustomerPurchaseAnalysis({
     )
   }
 
+  const [showConditions, setShowConditions] = useState(true)
+
   return (
     <div className="space-y-6">
-      {/* ヘッダーエリア */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">👤 顧客購買【顧客】</h1>
-            <p className="text-gray-600 mt-2">顧客別の詳細な購買プロファイルを分析し、VIP顧客の特定とパーソナライゼーション施策に活用</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="text-sm text-gray-600 flex items-center gap-2">
-              📅 {formatDateRange(dateRange)}
+      {/* 分析条件設定 */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-6 pt-2 pb-4">
+          <CardTitle className="text-base font-medium">分析条件設定</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowConditions(!showConditions)}
+            className="h-8 px-2"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            分析条件
+            {showConditions ? (
+              <ChevronUp className="h-4 w-4 ml-1" />
+            ) : (
+              <ChevronDown className="h-4 w-4 ml-1" />
+            )}
+          </Button>
+        </CardHeader>
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+            <div className="space-y-4">
+              {/* 分析条件グリッド */}
+              <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
+                {/* 分析期間 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">分析期間</label>
+                  <PeriodSelector
+                    dateRange={dateRange}
+                    onDateRangeChange={updateDateRange}
+                    title=""
+                    description=""
+                    maxMonths={12}
+                    minMonths={1}
+                    presetPeriods={presetPeriods}
+                  />
+                </div>
+
+                {/* 顧客セグメント */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">顧客セグメント</label>
+                  <Select value={selectedCustomerSegment} onValueChange={setSelectedCustomerSegment}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="セグメント選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="全顧客">全セグメント</SelectItem>
+                      <SelectItem value="VIP">VIP顧客</SelectItem>
+                      <SelectItem value="リピーター">リピーター</SelectItem>
+                      <SelectItem value="新規">新規顧客</SelectItem>
+                      <SelectItem value="休眠">休眠顧客</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* LTV範囲 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">LTV範囲</label>
+                  <Select value={filters.ltvFilter} onValueChange={setLtvFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="LTV範囲" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ltvRanges.map(range => (
+                        <SelectItem key={range.value} value={range.value}>
+                          {range.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* アクションボタンエリア */}
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
+                <Button className="flex items-center gap-2">
+                  <Play className="h-4 w-4" />
+                  分析実行
+                </Button>
+                <Button variant="outline" onClick={exportCustomerData} className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  CSV出力
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Excel出力
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  セグメント
+                </Button>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  更新
+                </Button>
+              </div>
             </div>
-            <Button onClick={exportCustomerData} variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              CSVエクスポート（{formatDateRange(dateRange)}）
-            </Button>
-          </div>
-        </div>
-      </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* KPIサマリーダッシュボード */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -609,329 +697,6 @@ export default function CustomerPurchaseAnalysis({
           </CardContent>
         </Card>
       </div>
-
-      {/* ✅ 分析条件設定（統一UI） */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">分析条件設定</CardTitle>
-          <CardDescription>期間と分析条件を設定してください</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* ✅ 期間選択（統一UI） */}
-            <div className="space-y-4">
-              <Label>分析期間</Label>
-              <PeriodSelector
-                dateRange={dateRange}
-                onDateRangeChange={updateDateRange}
-                title="顧客購買分析期間"
-                description="顧客の購買行動を分析する期間を選択してください"
-                maxMonths={12}
-                minMonths={1}
-                presetPeriods={presetPeriods}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* フィルター・検索エリア */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="text-lg">顧客検索・フィルタリング</CardTitle>
-              <CardDescription>詳細条件で顧客を絞り込み、ターゲット分析を行います</CardDescription>
-            </div>
-            <div className="text-sm text-gray-500">
-              表示中: {filteredCustomers.length}件 / 全{mockCustomerData.length}件
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* 検索バー */}
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="顧客名・IDで検索..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* セグメントフィルター */}
-            <Select value={selectedCustomerSegment} onValueChange={setSelectedCustomerSegment}>
-              <SelectTrigger>
-                <SelectValue placeholder="セグメント" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="全顧客">全セグメント</SelectItem>
-                <SelectItem value="VIP">VIP顧客</SelectItem>
-                <SelectItem value="リピーター">リピーター</SelectItem>
-                <SelectItem value="新規">新規顧客</SelectItem>
-                <SelectItem value="休眠">休眠顧客</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* LTV範囲フィルター */}
-            <Select value={filters.ltvFilter} onValueChange={setLtvFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="LTV範囲" />
-              </SelectTrigger>
-              <SelectContent>
-                {ltvRanges.map(range => (
-                  <SelectItem key={range.value} value={range.value}>
-                    {range.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* 購入回数フィルター */}
-            <Select value={filters.purchaseCountFilter} onValueChange={setPurchaseCountFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="購入回数" />
-              </SelectTrigger>
-              <SelectContent>
-                {purchaseCountRanges.map(range => (
-                  <SelectItem key={range.value} value={range.value}>
-                    {range.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Phase 1: 拡張フィルター */}
-          <div className="mt-4 space-y-4">
-            {/* 購入回数範囲指定 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                  <ShoppingCart className="h-4 w-4" />
-                  購入回数範囲指定
-                </label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="最小"
-                    value={filters.purchaseCountMin}
-                    onChange={(e) => setPurchaseCountRange(e.target.value, filters.purchaseCountMax)}
-                    className="w-20"
-                    min="0"
-                  />
-                  <span className="text-sm text-gray-500">〜</span>
-                  <Input
-                    type="number"
-                    placeholder="最大"
-                    value={filters.purchaseCountMax}
-                    onChange={(e) => setPurchaseCountRange(filters.purchaseCountMin, e.target.value)}
-                    className="w-20"
-                    min="0"
-                  />
-                  <span className="text-sm text-gray-500">回</span>
-                </div>
-              </div>
-
-              {/* 最終購入日範囲指定 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  最終購入日範囲指定
-                </label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={filters.lastPurchaseStartDate}
-                    onChange={(e) => setLastPurchaseDateRange(e.target.value, filters.lastPurchaseEndDate)}
-                    className="w-36"
-                  />
-                  <span className="text-sm text-gray-500">〜</span>
-                  <Input
-                    type="date"
-                    value={filters.lastPurchaseEndDate}
-                    onChange={(e) => setLastPurchaseDateRange(filters.lastPurchaseStartDate, e.target.value)}
-                    className="w-36"
-                  />
-                </div>
-              </div>
-
-              {/* 最終購入日フィルター（既存） */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  最終購入日（簡易選択）
-                </label>
-                <Select value={filters.lastPurchaseDays} onValueChange={setLastPurchaseDays}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="最終購入日" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">全期間</SelectItem>
-                    <SelectItem value="7">過去7日</SelectItem>
-                    <SelectItem value="30">過去30日</SelectItem>
-                    <SelectItem value="90">過去90日</SelectItem>
-                    <SelectItem value="365">過去1年</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* フィルターリセットボタン */}
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  resetFilters()
-                  setSelectedCustomerSegment("全顧客")
-                }}
-                className="flex items-center gap-1"
-              >
-                <Filter className="h-4 w-4" />
-                フィルターリセット
-              </Button>
-              <div className="text-xs text-gray-500">
-                {(filters.purchaseCountMin !== "" || filters.purchaseCountMax !== "" || filters.lastPurchaseStartDate !== "" || filters.lastPurchaseEndDate !== "") && 
-                  "※ 範囲指定フィルターが適用中"}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* VIP顧客商品分析パネル */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Crown className="h-5 w-5 text-amber-500" />
-                VIP顧客商品分析
-              </CardTitle>
-              <CardDescription>
-                VIP顧客の商品嗜好と購買トレンドを分析
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="popular" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="popular">人気商品</TabsTrigger>
-              <TabsTrigger value="repeat">リピート商品</TabsTrigger>
-              <TabsTrigger value="categories">カテゴリ分析</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="popular" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* VIP顧客の人気商品TOP5 */}
-                {(() => {
-                  const vipCustomers = filteredMockData.filter(c => c.status === "VIP")
-                  const allProducts = vipCustomers.flatMap(c => c.topProducts)
-                  const productCounts = allProducts.reduce((acc, product) => {
-                    const key = product.name
-                    acc[key] = (acc[key] || 0) + product.count
-                    return acc
-                  }, {} as Record<string, number>)
-                  const topProducts = Object.entries(productCounts)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 5)
-
-                  return topProducts.map(([productName, count], index) => (
-                    <Card key={index} className="border-amber-200">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-sm">{productName}</div>
-                            <div className="text-xs text-gray-600">VIP顧客による購入</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-amber-600">{count}回</div>
-                            <div className="text-xs text-amber-500">#{index + 1}</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                })()}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="repeat" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* VIP顧客のリピート商品分析 */}
-                {(() => {
-                  const vipCustomers = filteredMockData.filter(c => c.status === "VIP")
-                  const repeatProducts = vipCustomers.flatMap(c => 
-                    c.topProducts.filter(p => p.isRepeat)
-                  )
-                  const repeatCounts = repeatProducts.reduce((acc, product) => {
-                    const key = product.name
-                    acc[key] = (acc[key] || 0) + product.count
-                    return acc
-                  }, {} as Record<string, number>)
-                  const topRepeats = Object.entries(repeatCounts)
-                    .sort(([,a], [,b]) => b - a)
-                    .slice(0, 5)
-
-                  return topRepeats.map(([productName, count], index) => (
-                    <Card key={index} className="border-green-200">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-sm flex items-center gap-1">
-                              <span>🔄</span>
-                              {productName}
-                            </div>
-                            <div className="text-xs text-gray-600">リピート購入</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-green-600">{count}回</div>
-                            <div className="text-xs text-green-500">#{index + 1}</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                })()}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="categories" className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* VIP顧客のカテゴリ分析 */}
-                {(() => {
-                  const vipCustomers = filteredMockData.filter(c => c.status === "VIP")
-                  const allCategories = vipCustomers.flatMap(c => c.productCategories)
-                  const categoryCounts = allCategories.reduce((acc, category) => {
-                    acc[category] = (acc[category] || 0) + 1
-                    return acc
-                  }, {} as Record<string, number>)
-                  const topCategories = Object.entries(categoryCounts)
-                    .sort(([,a], [,b]) => b - a)
-
-                  return topCategories.map(([category, count], index) => (
-                    <Card key={index} className="border-blue-200">
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-sm font-medium">{category}</div>
-                          <div className="text-2xl font-bold text-blue-600 mt-2">{count}</div>
-                          <div className="text-xs text-gray-600">人のVIP顧客</div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                })()}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
 
       {/* 顧客リスト */}
       <Card>

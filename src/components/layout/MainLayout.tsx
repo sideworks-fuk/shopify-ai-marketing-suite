@@ -198,8 +198,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
             {/* 右側のコントロール */}
             <div className="flex items-center gap-3">
-              {/* 期間選択 */}
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              {/* 期間選択 - 非表示 */}
+              {/* <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue>
                     <span>{getPeriodLabel(selectedPeriod)}</span>
@@ -212,10 +212,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </Select> */}
 
-              {/* アクションボタン */}
-              <Button variant="outline" size="sm" onClick={refreshData}>
+              {/* アクションボタン - 非表示 */}
+              {/* <Button variant="outline" size="sm" onClick={refreshData}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 更新
               </Button>
@@ -223,9 +223,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <Button variant="outline" size="sm" onClick={exportData}>
                 <Download className="h-4 w-4 mr-2" />
                 エクスポート
-              </Button>
+              </Button> */}
 
-              {/* その他のアクション */}
+              {/* その他のアクション - 設定ボタンのみ表示 */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">

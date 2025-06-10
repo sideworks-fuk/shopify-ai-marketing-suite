@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Download, TrendingUp, Package, BarChart3 } from 'lucide-react'
+import { Download, TrendingUp, Package, BarChart3, Settings, ChevronUp, ChevronDown, Search } from 'lucide-react'
 import { getRandomProducts, getProductsByCategory, SAMPLE_PRODUCTS } from '@/lib/sample-products'
 import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
+import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
+import { AnalysisDescriptionCard, analysisDescriptions } from "@/components/common/AnalysisDescriptionCard"
 
 interface MarketBasketItem {
   productId: string
@@ -189,6 +191,7 @@ export default function MarketBasketAnalysisPage() {
   
   const [sortBy, setSortBy] = useState('totalAmount')
   const [minSupport, setMinSupport] = useState('0.01')
+  const [showConditions, setShowConditions] = useState(true)
 
   const presetPeriods = [
     {
@@ -324,93 +327,108 @@ export default function MarketBasketAnalysisPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">🛒 組み合わせ商品【商品】</h1>
-        <p className="text-gray-600 mt-2">一緒に購入される商品の組み合わせを分析し、クロスセル機会の発見とセット販売企画に活用できます</p>
-      </div>
-      
+      {/* 統一ヘッダー */}
+      <AnalyticsHeaderUnified
+        mainTitle="組み合わせ商品【商品】"
+        description="一緒に購入される商品の組み合わせを分析し、クロスセル機会の発見とセット販売企画に活用できます"
+        badges={[
+          { label: "マーケットバスケット分析", variant: "outline" },
+          { label: "クロスセル機会発見", variant: "secondary" }
+        ]}
+      />
 
-
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-700">マーケットバスケット分析機能</h2>
-          <p className="text-gray-600 mt-1">
-            商品毎に組み合わせて購入される商品を分析することによってセット販売や、
-            その後の顧客提案商品の商材を分析する。
-          </p>
-        </div>
-        <Button onClick={handleExport} className="gap-2">
-          <Download className="h-4 w-4" />
-          Excel出力
-        </Button>
-      </div>
-
-      {/* 概要説明 */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-2">
-            <p><strong>【概要説明】</strong> 商品毎に組み合わせて購入される商品を分析することによってセット販売や、その後の顧客提案商品の商材を分析する。</p>
-            <p><strong>【期間指定】</strong> 期間ごとに季節要因なども検討できるようにする。</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 分析の目的・活用法説明 */}
+      <AnalysisDescriptionCard
+        variant="purpose"
+        title="マーケットバスケット分析の活用法"
+        description="商品同士の購入関連性を分析することで、セット販売の企画立案、レコメンデーション機能の向上、店舗レイアウトの最適化に活用できます。期間別分析により季節要因も考慮した戦略策定が可能です。"
+      />
 
       {/* フィルター・設定エリア */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">分析条件設定</CardTitle>
-          <CardDescription>期間と分析条件を設定してください</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">分析条件設定</CardTitle>
+              <CardDescription>期間と分析条件を設定してください</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConditions(!showConditions)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              分析条件
+              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            {/* ✅ 期間選択（統一UI） */}
-            <div className="space-y-4">
-              <Label>分析期間</Label>
-              <PeriodSelector
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                title="組み合わせ商品分析期間"
-                description="商品の組み合わせを分析する期間を選択してください"
-                maxMonths={12}
-                minMonths={1}
-                presetPeriods={presetPeriods}
-              />
+        
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4">
+            {/* 期間選択 */}
+            <div>
+              <Label className="text-sm font-medium">分析期間</Label>
+              <div className="mt-2">
+                <PeriodSelector
+                  dateRange={dateRange}
+                  onDateRangeChange={setDateRange}
+                  title=""
+                  description=""
+                  maxMonths={12}
+                  minMonths={1}
+                  presetPeriods={presetPeriods}
+                />
+              </div>
             </div>
             
-            {/* その他の設定 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">並び順</Label>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="並び順を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="totalAmount">売上総金額順</SelectItem>
-                    <SelectItem value="salesRatio">売上構成順</SelectItem>
-                    <SelectItem value="soloCount">件数順</SelectItem>
-                    <SelectItem value="combinations">組み合わせ数順</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">最小支持度</Label>
-                <Select value={minSupport} onValueChange={setMinSupport}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="閾値を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0.01">1%以上</SelectItem>
-                    <SelectItem value="0.05">5%以上</SelectItem>
-                    <SelectItem value="0.10">10%以上</SelectItem>
-                    <SelectItem value="0.20">20%以上</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* 並び順 */}
+            <div>
+              <Label className="text-sm font-medium">並び順</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="並び順を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="totalAmount">売上総金額順</SelectItem>
+                  <SelectItem value="salesRatio">売上構成順</SelectItem>
+                  <SelectItem value="soloCount">件数順</SelectItem>
+                  <SelectItem value="combinations">組み合わせ数順</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* 最小支持度 */}
+            <div>
+              <Label className="text-sm font-medium">最小支持度</Label>
+              <Select value={minSupport} onValueChange={setMinSupport}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="閾値を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.01">1%以上</SelectItem>
+                  <SelectItem value="0.05">5%以上</SelectItem>
+                  <SelectItem value="0.10">10%以上</SelectItem>
+                  <SelectItem value="0.20">20%以上</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* アクションボタン */}
+          <div className="flex gap-2 pt-2 mt-4 border-t">
+            <Button onClick={() => alert('分析を実行します')} className="gap-2">
+              <Search className="h-4 w-4" />
+              分析実行
+            </Button>
+            <Button variant="outline" onClick={handleExport} className="gap-2">
+              <Download className="h-4 w-4" />
+              Excel出力
+            </Button>
+          </div>
         </CardContent>
+        )}
       </Card>
 
       {/* サマリー統計 */}

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Download, TrendingUp, TrendingDown, BarChart, Users, ShoppingCart, Target, UserCheck, UserPlus, AlertTriangle, Activity } from "lucide-react"
+import { Download, TrendingUp, TrendingDown, BarChart, Users, ShoppingCart, Target, UserCheck, UserPlus, AlertTriangle, Activity, Settings, ChevronUp, ChevronDown, Play, FileSpreadsheet, RefreshCw, BarChart3 } from "lucide-react"
 import { useAppStore } from "@/stores/appStore"
 import { LineChart, Line, BarChart as RechartBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
@@ -73,6 +73,7 @@ export default function FTierTrendAnalysis({
   const [chartType, setChartType] = useState<'line' | 'bar'>('line')
   const [selectedTier, setSelectedTier] = useState<string>('all')
   const [analysisRange, setAnalysisRange] = useState<'全年' | '上半期' | '下半期' | 'Q1' | 'Q2' | 'Q3' | 'Q4'>('全年')
+  const [showConditions, setShowConditions] = useState(true)
 
   // データフィルタリング
   const filteredData = useMemo(() => {
@@ -316,60 +317,106 @@ export default function FTierTrendAnalysis({
 
   return (
     <div className="space-y-6">
-      {/* ヘッダーエリア */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">📊 F階層傾向【購買】</h1>
-            <p className="text-gray-600 mt-2">
-              購入頻度による顧客階層の時系列変化を分析し、顧客ロイヤリティの推移とリテンション施策の効果測定
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Select value={analysisRange} onValueChange={(value: any) => setAnalysisRange(value)}>
-              <SelectTrigger className="w-full sm:w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="全年">全年</SelectItem>
-                <SelectItem value="上半期">上半期</SelectItem>
-                <SelectItem value="下半期">下半期</SelectItem>
-                <SelectItem value="Q1">Q1</SelectItem>
-                <SelectItem value="Q2">Q2</SelectItem>
-                <SelectItem value="Q3">Q3</SelectItem>
-                <SelectItem value="Q4">Q4</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* 分析条件設定 */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-6 pt-2 pb-4">
+          <CardTitle className="text-base font-medium">分析条件設定</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowConditions(!showConditions)}
+            className="h-8 px-2"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            分析条件
+            {showConditions ? (
+              <ChevronUp className="h-4 w-4 ml-1" />
+            ) : (
+              <ChevronDown className="h-4 w-4 ml-1" />
+            )}
+          </Button>
+        </CardHeader>
+        {showConditions && (
+          <CardContent className="px-6 pt-2 pb-4">
+            <div className="space-y-4">
+              {/* 分析条件グリッド */}
+              <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
+                {/* 分析期間 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">分析期間</label>
+                  <Select value={analysisRange} onValueChange={(value: any) => setAnalysisRange(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="期間を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="全年">全年</SelectItem>
+                      <SelectItem value="上半期">上半期</SelectItem>
+                      <SelectItem value="下半期">下半期</SelectItem>
+                      <SelectItem value="Q1">Q1</SelectItem>
+                      <SelectItem value="Q2">Q2</SelectItem>
+                      <SelectItem value="Q3">Q3</SelectItem>
+                      <SelectItem value="Q4">Q4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
-              <SelectTrigger className="w-full sm:w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="both">両方表示</SelectItem>
-                <SelectItem value="heatmap">ヒートマップ</SelectItem>
-                <SelectItem value="chart">チャート</SelectItem>
-              </SelectContent>
-            </Select>
+                {/* 表示形式 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">表示形式</label>
+                  <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="表示形式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="both">両方表示</SelectItem>
+                      <SelectItem value="heatmap">ヒートマップ</SelectItem>
+                      <SelectItem value="chart">チャート</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={chartType} onValueChange={(value: any) => setChartType(value)}>
-              <SelectTrigger className="w-full sm:w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="line">ライン</SelectItem>
-                <SelectItem value="bar">バー</SelectItem>
-              </SelectContent>
-            </Select>
+                {/* グラフ種類 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">グラフ種類</label>
+                  <Select value={chartType} onValueChange={(value: any) => setChartType(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="グラフ種類" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="line">ライン</SelectItem>
+                      <SelectItem value="bar">バー</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-            <Button onClick={exportToCsv} variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              CSV出力
-            </Button>
-          </div>
-        </div>
-      </div>
+              {/* アクションボタンエリア */}
+              <div className="flex flex-wrap gap-2 pt-4 border-t">
+                <Button className="flex items-center gap-2">
+                  <Play className="h-4 w-4" />
+                  分析実行
+                </Button>
+                <Button variant="outline" onClick={exportToCsv} className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  CSV出力
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Excel出力
+                </Button>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  階層推移
+                </Button>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  更新
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       {/* KPIサマリーダッシュボード */}
       {kpiSummary && (
