@@ -1,6 +1,16 @@
-# 技術的負債分析レポート - Shopify ECマーケティングアプリ
+# 🔧 技術的負債分析・改善ガイド
 
-## エグゼクティブサマリー
+## 📋 目次
+
+1. [エグゼクティブサマリー](#エグゼクティブサマリー)
+2. [詳細分析結果](#詳細分析結果)
+3. [リファクタリングロードマップ](#リファクタリングロードマップ)
+4. [改善手順](#改善手順)
+5. [実行チェックリスト](#実行チェックリスト)
+
+---
+
+## 📊 エグゼクティブサマリー
 
 ### 発見された主要な問題
 - **Critical**: 0件
@@ -15,11 +25,24 @@
 
 ---
 
-## 詳細分析結果
+## 📈 技術的負債改善状況
+
+### 概要
+詳細な技術的負債分析を実施し、Critical 0件、High 5件、Medium 8件、Low 6件の問題を特定しました。
+
+### 改善完了状況
+- **重複ファイル解消**: ✅ 完了 - UI部品を `src/components/ui/` に集約済み
+- **大規模コンポーネント分割**: 🟡 進行中 - サブディレクトリ分割実施中
+- **ハードコードデータ分離**: ✅ 完了 - `src/data/mock/` に集約済み
+- **パフォーマンス最適化**: 🟡 進行中 - React.memo等を積極活用
+
+---
+
+## 🔍 詳細分析結果
 
 ### 1. アーキテクチャレベルの問題
 
-#### 1.1 データ層の抽象化不足（High）
+#### 1.1 データ層の抽象化不足（High Priority）
 **問題点**：
 - 各コンポーネントで直接モックデータをインポートしている
 - API切り替えの準備が不十分
@@ -51,30 +74,7 @@ class DataService implements IDataService {
 }
 ```
 
-#### 1.2 ディレクトリ構造の不整合（Medium）
-**問題点**：
-- `app/`ディレクトリと`components/`ディレクトリの役割が不明確
-- ビジネスロジックの配置場所が統一されていない
-- ユーティリティ関数の散在
-
-**推奨構造**：
-```
-src/
-├── app/                    # Next.js App Router
-├── components/
-│   ├── common/            # 共通UIコンポーネント
-│   ├── features/          # 機能別コンポーネント
-│   └── layouts/           # レイアウトコンポーネント
-├── services/              # APIサービス、ビジネスロジック
-├── hooks/                 # カスタムフック
-├── types/                 # 型定義
-├── utils/                 # ユーティリティ関数
-└── constants/             # 定数定義
-```
-
-### 2. コンポーネントレベルの問題
-
-#### 2.1 重複したKPIカード実装（High）
+#### 1.2 重複したKPIカード実装（High Priority）
 **問題点**：
 - 各画面で独自のKPIカード実装
 - スタイルとロジックの重複
@@ -114,38 +114,9 @@ export const KPICard: React.FC<KPICardProps> = ({
 };
 ```
 
-#### 2.2 Props Drillingの問題（Medium）
-**問題点**：
-- フィルター状態が複数階層を通じて渡されている
-- 深いコンポーネント階層での状態管理
+### 2. 型定義の問題
 
-**解決策**：
-```typescript
-// contexts/FilterContext.tsx
-interface FilterContextValue {
-  dateRange: DateRange;
-  categories: string[];
-  searchTerm: string;
-  updateFilter: (key: string, value: any) => void;
-}
-
-export const FilterProvider: React.FC = ({ children }) => {
-  // Context実装
-};
-
-// hooks/useFilters.ts
-export const useFilters = () => {
-  const context = useContext(FilterContext);
-  if (!context) {
-    throw new Error('useFilters must be used within FilterProvider');
-  }
-  return context;
-};
-```
-
-### 3. 型定義の問題
-
-#### 3.1 型定義の重複と不整合（High）
+#### 2.1 型定義の重複と不整合（High Priority）
 **問題点**：
 - 同じデータ構造に対する複数の型定義
 - `any`型の使用
@@ -189,63 +160,9 @@ export interface CustomerListResponse {
 }
 ```
 
-### 4. 状態管理の問題
+### 3. エラーハンドリングの問題
 
-#### 4.1 ローカル状態の過剰使用（Medium）
-**問題点**：
-- 同じデータを複数のコンポーネントで別々に管理
-- グローバルに必要な状態のローカル管理
-
-**解決策**：
-```typescript
-// stores/customerStore.ts (Zustand使用例)
-interface CustomerStore {
-  customers: Customer[];
-  selectedCustomer: Customer | null;
-  filters: CustomerFilters;
-  isLoading: boolean;
-  error: Error | null;
-  
-  // Actions
-  fetchCustomers: (filters?: CustomerFilters) => Promise<void>;
-  selectCustomer: (id: string) => void;
-  updateFilters: (filters: Partial<CustomerFilters>) => void;
-}
-
-export const useCustomerStore = create<CustomerStore>((set, get) => ({
-  // 実装
-}));
-```
-
-### 5. パフォーマンスの問題
-
-#### 5.1 不要な再レンダリング（Medium）
-**問題点**：
-- メモ化されていないコンポーネント
-- インライン関数の多用
-- 大きなリストの非効率的なレンダリング
-
-**解決策**：
-```typescript
-// メモ化の適用
-export const CustomerListItem = React.memo(({ customer, onSelect }) => {
-  // コンポーネント実装
-}, (prevProps, nextProps) => {
-  return prevProps.customer.id === nextProps.customer.id;
-});
-
-// useCallbackの活用
-const handleSelect = useCallback((customerId: string) => {
-  // 処理
-}, [依存配列]);
-
-// 仮想スクロールの導入
-import { FixedSizeList } from 'react-window';
-```
-
-### 6. エラーハンドリングの問題
-
-#### 6.1 統一されていないエラー処理（High）
+#### 3.1 統一されていないエラー処理（High Priority）
 **問題点**：
 - エラー表示の不統一
 - エラーバウンダリの欠如
@@ -275,7 +192,7 @@ export const useApiError = () => {
 
 ---
 
-## リファクタリングロードマップ
+## 🚀 リファクタリングロードマップ
 
 ### Phase 1: 基盤整備（1-2週間）
 1. **データサービス層の完全実装**
@@ -327,7 +244,75 @@ export const useApiError = () => {
 
 ---
 
-## 推奨ツールとライブラリ
+## 🔄 改善手順
+
+### 🔴 重複ファイル解消手順
+
+#### 現状
+- UI部品は `src/components/ui/` に集約済み。
+- インポートパスは `@/components/ui/` で統一。
+- 旧来の重複ディレクトリ・ファイルは削除済み。
+
+#### チェックリスト
+- [x] 重複ファイルリストの作成
+- [x] インポートパスの調査・修正
+- [x] 重複ディレクトリの削除
+- [x] ビルドテストの成功
+- [ ] 本番環境でのテスト
+
+### 🟡 大規模コンポーネント分割手順
+
+#### 現状
+- `src/components/dashboards/` 配下でサブディレクトリ分割（`customers/`, `sales/`, `dormant/`等）を推進。
+- 1000行超の大規模ファイルは段階的に分割中。
+- サブコンポーネント・カスタムフック（例: `useCustomerTable.ts`）を抽出。
+
+#### チェックリスト
+- [x] 分割計画の策定
+- [x] カスタムフックの抽出
+- [x] サブコンポーネントの作成
+- [~] メインコンポーネントの簡素化
+- [~] 型定義の整備
+- [ ] テストの作成
+
+### 🟡 ハードコードデータ分離手順
+
+#### 現状
+- モックデータは `src/data/mock/customerData.ts` に集約。
+- 型定義も同ファイルで一元管理。
+- DataService/ShopifyAPIで開発/本番切替が可能。
+
+#### チェックリスト
+- [x] モックデータディレクトリの作成
+- [x] モックデータファイルの作成
+- [x] データプロバイダーの実装
+- [x] 環境変数の設定
+- [ ] 開発/本番環境での動作確認
+
+### 🟢 パフォーマンス最適化手順
+
+#### 現状
+- 動的インポート（Next.js dynamic）・React.memo等を積極活用。
+- サブコンポーネント単位でメモ化・useMemo/useCallbackを適用。
+
+#### チェックリスト
+- [x] React.memoの適用
+- [x] useMemo / useCallbackの適用
+- [x] 動的インポートの追加
+- [ ] 大規模リストの仮想化
+
+---
+
+## 📋 ベストプラクティス
+
+- UI部品は `src/components/ui/` に集約し、再利用性・保守性を高める
+- サブディレクトリ分割・型安全性・モックデータ管理を徹底
+- コードレビュー時は重複・ハードコード・粒度・パフォーマンスを重点確認
+- DataService/ShopifyAPIの役割分担を明確化し、API/データ層の責務を分離
+
+---
+
+## 🛠️ 推奨ツールとライブラリ
 
 ### 状態管理
 - **Zustand**: シンプルで軽量な状態管理
@@ -349,7 +334,84 @@ export const useApiError = () => {
 
 ---
 
-## 結論
+## ✅ 実行チェックリスト
+
+### 重複ファイル解消完了チェック
+- [x] 重複ファイルリストの作成
+- [x] インポートパスの調査・修正
+- [x] 重複ディレクトリの削除
+- [x] ビルドテストの成功
+- [ ] 本番環境でのテスト
+
+### コンポーネント分割完了チェック
+- [x] 分割計画の策定
+- [x] カスタムフックの抽出
+- [x] サブコンポーネントの作成
+- [~] メインコンポーネントの簡素化
+- [~] 型定義の整備
+- [ ] テストの作成
+
+### データ分離完了チェック
+- [x] モックデータディレクトリの作成
+- [x] モックデータファイルの作成
+- [x] データプロバイダーの実装
+- [x] 環境変数の設定
+- [ ] 開発/本番環境での動作確認
+
+### 技術的負債対応チェック（新規）
+- [ ] DataService完全実装
+- [ ] 共通KPICard作成
+- [ ] 型定義統一（types/models/作成）
+- [ ] ErrorBoundary実装
+- [ ] 状態管理最適化（Zustand検討）
+
+---
+
+## 🚨 優先対応タスク
+
+### 即座に対応（今週中）
+1. **DataService完全実装**
+   ```typescript
+   // services/dataService.ts
+   interface IDataService {
+     getCustomers(filters: CustomerFilters): Promise<CustomerResponse>;
+     // 他のメソッド
+   }
+   ```
+
+2. **共通KPICard作成**
+   ```typescript
+   // components/common/KPICard.tsx
+   interface KPICardProps {
+     title: string;
+     value: string | number;
+     change?: ChangeData;
+     // 他のプロパティ
+   }
+   ```
+
+### API実装前に対応（来週）
+1. **型定義統一**
+   - `types/models/` ディレクトリ作成
+   - 重複型定義の削除
+   - strict mode有効化
+
+2. **エラーハンドリング統一**
+   - ErrorBoundary実装
+   - グローバルエラーハンドラー
+
+### 段階的対応（今月中）
+1. **状態管理最適化**
+   - Zustand導入検討
+   - Props Drilling解消
+
+2. **パフォーマンス改善**
+   - 仮想スクロール導入
+   - メモ化強化
+
+---
+
+## 📊 結論
 
 現在のコードベースは基本的な機能は実装されていますが、本格的なAPI連携前に解決すべき技術的負債がいくつか存在します。特に優先すべきは：
 
@@ -361,5 +423,6 @@ export const useApiError = () => {
 
 ---
 
-*最終更新: 2025年5月25日（技術的負債分析レポート）*
-*作成者: AI Assistant* 
+*最終更新: 2025年6月16日（統合版）*
+*作成者: AI Assistant*
+*次回レビュー: 月次* 

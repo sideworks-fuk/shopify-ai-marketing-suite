@@ -68,31 +68,52 @@ shopify-ai-marketing-suite/
 
 ---
 
-## 🛠️ 技術スタック
+## 🛠️ 技術スタック（2025年6月16日更新）
 
 ### フロントエンド
-- **Next.js**: 15.2.4 (App Router)
-- **React**: 19
+- **Next.js**: 14 (App Router)
+- **React**: 18
 - **TypeScript**: 5
 - **Tailwind CSS**: 3.4.17
-- **shadcn/ui**: UIコンポーネントライブラリ（`src/components/ui/`に集約）
+- **Shopify Polaris**: UIコンポーネントライブラリ（Shopify公式）
+- **shadcn/ui**: 補完UIコンポーネント（`src/components/ui/`に集約）
 - **Radix UI**: ヘッドレスUIコンポーネント
 - **Lucide React**: アイコンライブラリ
 - **Recharts**: チャートライブラリ
+
+### バックエンド・サーバーサイド
+- **ASP.NET Core**: 8.0
+- **Entity Framework Core**: 8.0
+- **Azure SQL Database**: Standard S2
+- **JWT Authentication**: 認証・認可
+- **AutoMapper**: オブジェクトマッピング
 
 ### データ処理・分析
 - **React Hook Form**: フォーム管理
 - **Zod**: スキーマバリデーション
 - **date-fns**: 日付処理
+- **LINQ**: サーバーサイドデータクエリ
 
 ### Shopify統合
-- **Shopify API**: 2023-10バージョン
+- **Shopify GraphQL API**: データ取得・操作
+- **Shopify REST Admin API**: 管理機能
+- **OAuth 2.0**: 認証フロー
+- **Webhook**: リアルタイム連携
 - **ShopifyAPIクラス**: `src/lib/shopify.ts`で実装
 - **DataServiceクラス**: `src/lib/data-service.ts`でAPIラッパー・集計
 
 ### 状態管理
-- **React Context API**: グローバル状態管理
-- **useReducer**: 複雑な状態ロジック
+- **Zustand**: 軽量状態管理ライブラリ
+- **React Query**: サーバー状態管理
+- **React Context API**: 補完的グローバル状態
+
+### インフラ・クラウド
+- **Microsoft Azure**: クラウドプラットフォーム
+- **Azure App Service**: Webアプリケーションホスティング
+- **Azure SQL Database**: マネージドデータベース
+- **Azure Key Vault**: 機密情報管理
+- **Azure Application Insights**: 監視・ログ分析
+- **GitHub Actions**: CI/CDパイプライン
 
 ---
 
@@ -156,45 +177,137 @@ shopify-ai-marketing-suite/
 
 ---
 
-## 🏛️ アーキテクチャ詳細
+## 🏛️ アーキテクチャ詳細（2025年6月16日更新）
 
-### データフロー
+### システム構成図
 ```mermaid
 graph TD
-    A[Shopify Store] --> B[Shopify API]
-    B --> C[Next.js API Routes]
-    C --> D[DataService Class]
-    D --> E[Analytics Functions]
-    E --> F[React Components]
-    F --> G[Dashboard UI]
+    A[Shopify Store] --> B[Shopify GraphQL/REST API]
+    B --> C[Azure App Service<br/>ASP.NET Core API]
+    C --> D[Entity Framework Core]
+    D --> E[Azure SQL Database]
+    
+    F[Next.js Frontend] --> C
+    C --> G[Authentication<br/>JWT + OAuth 2.0]
+    C --> H[Data Processing<br/>Analytics Engine]
+    H --> I[Business Logic Layer]
+    I --> J[Dashboard Components]
+    
+    K[Azure Key Vault] --> C
+    L[Azure Application Insights] --> C
+    M[GitHub Actions] --> N[Azure Deployment]
 ```
 
-### 状態管理パターン
+### データフロー（フルスタック構成）
+```mermaid
+sequenceDiagram
+    participant S as Shopify Store
+    participant API as ASP.NET Core API
+    participant DB as Azure SQL Database  
+    participant UI as Next.js Frontend
+    
+    S->>API: Webhook/API Call
+    API->>DB: Entity Framework Query
+    DB-->>API: Raw Data
+    API->>API: Business Logic Processing
+    API-->>UI: JSON Response
+    UI->>UI: React State Management
+    UI-->>User: Dashboard Display
+```
+
+### 状態管理パターン（Zustand）
 ```typescript
-// AppContext による集中管理
-interface AppContextType {
+// Zustand Store による軽量状態管理
+interface AppStore {
+  // UI状態
   activeTab: "sales" | "customers" | "ai"
-  selectedPeriod: "thisMonth" | "lastMonth" | "thisQuarter" | "custom"
+  selectedPeriod: DateRange
   isLoading: boolean
-  isExporting: boolean
+  
+  // データ状態
+  analyticsData: AnalyticsData | null
+  error: string | null
+  
+  // アクション
+  setActiveTab: (tab: string) => void
+  fetchAnalyticsData: () => Promise<void>
   refreshData: () => void
-  exportData: () => void
+}
+
+// React Query によるサーバー状態管理
+const useAnalyticsData = () => {
+  return useQuery({
+    queryKey: ['analytics', selectedPeriod],
+    queryFn: () => api.getAnalyticsData(selectedPeriod),
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+  })
 }
 ```
 
-### API統合パターン
+### API統合パターン（フルスタック）
 ```typescript
-// ShopifyAPI クラス
-export class ShopifyAPI {
-  async getProducts(limit = 50): Promise<{ products: ShopifyProduct[] }>
-  async getOrders(limit = 250): Promise<{ orders: ShopifyOrder[] }>
-  async getCustomers(limit = 250): Promise<{ customers: ShopifyCustomer[] }>
+// ASP.NET Core API Controller
+[ApiController]
+[Route("api/[controller]")]
+public class AnalyticsController : ControllerBase
+{
+    private readonly IAnalyticsService _analyticsService;
+    
+    [HttpGet("sales-trends")]
+    public async Task<IActionResult> GetSalesTrends(
+        [FromQuery] DateTime startDate, 
+        [FromQuery] DateTime endDate)
+    {
+        var trends = await _analyticsService.GetSalesTrendsAsync(startDate, endDate);
+        return Ok(trends);
+    }
 }
 
-// DataService ラッパー
-export class DataService {
-  async getAnalyticsData(period: string): Promise<AnalyticsData>
-  async getPurchaseFrequencyAnalysis(): Promise<FrequencyAnalysis[]>
+// Next.js API Client
+export class ApiClient {
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  async getSalesTrends(startDate: Date, endDate: Date): Promise<SalesTrend[]> {
+    const response = await fetch(
+      `${this.baseUrl}/api/analytics/sales-trends?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+      { headers: { Authorization: `Bearer ${await getToken()}` } }
+    );
+    return response.json();
+  }
+}
+
+// Entity Framework Data Access
+public class AnalyticsService : IAnalyticsService
+{
+    private readonly ApplicationDbContext _context;
+    
+    public async Task<List<SalesTrend>> GetSalesTrendsAsync(DateTime startDate, DateTime endDate)
+    {
+        return await _context.Orders
+            .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
+            .GroupBy(o => new { o.ProductId, o.CreatedAt.Date })
+            .Select(g => new SalesTrend { ... })
+            .ToListAsync();
+    }
+}
+```
+
+### セキュリティアーキテクチャ
+```typescript
+// JWT認証 + Shopify OAuth統合
+interface SecurityLayer {
+  // 認証
+  shopifyOAuth: ShopifyOAuthProvider
+  jwtTokens: JWTManager
+  
+  // 認可
+  roleBasedAccess: RoleManager
+  apiKeyValidation: ApiKeyValidator
+  
+  // セキュリティ
+  rateLimiting: RateLimiter
+  dataEncryption: AzureKeyVault
+  auditLogging: ApplicationInsights
 }
 ```
 
@@ -239,6 +352,6 @@ export class DataService {
 
 ---
 
-*最終更新: 2025年5月25日（src構成・API/データ層・モックデータ現状反映）*
+*最終更新: 2025年6月16日（Azure+ASP.NET Core フルスタック構成・初期リリース機能絞り込み対応）*
 *作成者: AI Assistant*
-*バージョン: 1.1.0* 
+*バージョン: 2.0.0* 
