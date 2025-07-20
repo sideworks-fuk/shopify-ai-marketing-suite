@@ -16,6 +16,12 @@ const nextConfig = {
     unoptimized: true,
   },
   webpack: (config, { isServer }) => {
+    // パスエイリアスの明示的な設定
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': require('path').resolve(__dirname, 'src')
+    }
+
     // ChunkLoadErrorを防ぐ設定
     if (!isServer) {
       config.optimization.splitChunks = {
