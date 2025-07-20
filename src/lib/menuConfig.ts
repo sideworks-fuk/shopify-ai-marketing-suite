@@ -10,16 +10,15 @@ export interface MenuItem {
 }
 
 export const menuStructure: MenuItem[] = [
-  // 一時的に非表示
-  // {
-  //   id: "sales-dashboard",
-  //   label: "売上ダッシュボード",
-  //   icon: "📊",
-  //   href: "/sales/dashboard",
-  //   category: "sales",
-  //   isImplemented: true,
-  //   description: "売上の全体像と主要KPIを確認"
-  // },
+  {
+    id: "sales-overview",
+    label: "売上総合【概要】",
+    icon: "📊",
+    href: "/sales/dashboard",
+    category: "sales",
+    isImplemented: true,
+    description: "売上の全体像と主要KPIを確認"
+  },
   {
     id: "year-over-year",
     label: "前年同月比【商品】",
@@ -74,16 +73,6 @@ export const menuStructure: MenuItem[] = [
     isImplemented: true,
     description: "購入頻度による顧客階層の時系列変化分析"
   },
-  // 一時的に非表示
-  // {
-  //   id: "customer-dashboard",
-  //   label: "顧客ダッシュボード",
-  //   icon: "👥",
-  //   href: "/customers/dashboard",
-  //   category: "customers",
-  //   isImplemented: true,
-  //   description: "顧客の全体像と主要セグメント"
-  // },
   {
     id: "customer-profile",
     label: "顧客購買【顧客】",
@@ -102,16 +91,6 @@ export const menuStructure: MenuItem[] = [
     isImplemented: true,
     description: "最終購入からの経過期間別に顧客を分類・管理"
   },
-  // 一時的に非表示
-  // {
-  //   id: "ai-insights",
-  //   label: "AIインサイト",
-  //   icon: "🤖",
-  //   href: "/ai-insights",
-  //   category: "ai-insights",
-  //   isImplemented: true,
-  //   description: "AIによる予測分析と自動インサイト生成"
-  // }
 ]
 
 export const getMenuByCategory = (category: string) => {
