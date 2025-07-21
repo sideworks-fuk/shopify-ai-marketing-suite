@@ -3,9 +3,9 @@
 ## 📍 **主要URL** 
 
 ### **本番環境**
-- **フロントエンド**: `https://brave-sea-038f17a00.azurestaticapps.net`
-- **バックエンドAPI**: `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net`
-- **API接続テスト**: `https://brave-sea-038f17a00.azurestaticapps.net/api-test`
+- **フロントエンド**: `https://brave-sea-038f17a00.1.azurestaticapps.net` ⭐
+- **バックエンドAPI**: `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net` ✅
+- **API接続テスト**: `https://brave-sea-038f17a00.1.azurestaticapps.net/api-test` ✅
 
 ### **開発環境**
 - **フロントエンド**: `http://localhost:3000`

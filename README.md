@@ -2,6 +2,11 @@
 
 ![Shopify ECマーケティング分析](https://placeholder.svg?height=200&width=600&query=Shopify+AI+Marketing+Analytics)
 
+## 🔖 **クイックアクセス**
+- [🚀 **ブックマークリンク集**](./docs/BOOKMARKS.md) - 全URLワンクリックアクセス
+- [⚡ **クイックリファレンス**](./docs/QUICK-REFERENCE.md) - 開発者向け簡易ガイド
+- [🧪 **本番API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - ライブ動作確認
+
 ## 概要
 
 Shopifyストア運営者向けに、**AIを活用した購買データ分析とDM（ダイレクトメール）作成・郵送自動化**を実現するアプリケーションです。
