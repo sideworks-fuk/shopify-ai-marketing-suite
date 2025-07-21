@@ -24,6 +24,7 @@ builder.Services.AddCors(options =>
             "https://localhost:3000", // HTTPS localhost
             "https://brave-sea-038f17a01.azurestaticapps.net",  // Azure Static Web Apps
             "https://brave-sea-038f17a00.azurestaticapps.net",  // Azure Static Web Apps (alternative)
+            "https://brave-sea-038f17a00.1.azurestaticapps.net",  // Azure Static Web Apps (実際のURL)
             "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net",  // Backend API
             "https://localhost:7177",  // HTTPS dev
             "http://localhost:5177"   // HTTP dev
@@ -50,17 +51,18 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Use CORS - 環境に応じて設定
-if (app.Environment.IsDevelopment())
-{
-    // 開発環境では緩い設定を使用
-    app.UseCors("DevelopmentPolicy");
-}
-else
-{
-    // 本番環境では厳密な設定を使用
-    app.UseCors("AllowFrontend");
-}
+// Use CORS - 一時的に緩い設定を使用（デバッグ用）
+app.UseCors("DevelopmentPolicy");
+
+// TODO: 本番環境では厳密な設定に戻す
+// if (app.Environment.IsDevelopment())
+// {
+//     app.UseCors("DevelopmentPolicy");
+// }
+// else
+// {
+//     app.UseCors("AllowFrontend");
+// }
 
 app.UseAuthorization();
 
