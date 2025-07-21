@@ -1,9 +1,11 @@
-name: Build and deploy to Azure App Service
+name: Build and deploy .NET API to Azure App Service
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/**'
   workflow_dispatch:
 
 jobs:
@@ -13,27 +15,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
-        uses: actions/setup-node@v4
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          dotnet-version: '8.0.x'
 
-      - name: Install dependencies
+      - name: Build with dotnet
         run: |
-          cd frontend
-          npm ci
+          cd backend/ShopifyTestApi
+          dotnet restore
+          dotnet build --configuration Release
 
-      - name: Build for production
+      - name: Publish with dotnet
         run: |
-          cd frontend
-          npm run build
+          cd backend/ShopifyTestApi
+          dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: frontend/.next
+          name: dotnet-app
+          path: ${{env.DOTNET_ROOT}}/myapp
 
   deploy:
     runs-on: ubuntu-latest
@@ -46,13 +48,13 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: dotnet-app
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: 'your-azure-app-service-name'
+          app-name: 'shopifyaimarketing-api-eastasia'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: . 
