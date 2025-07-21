@@ -23,7 +23,10 @@ namespace ShopifyTestApi.Controllers
                 status = "healthy",
                 timestamp = DateTime.UtcNow,
                 message = "API is running!",
-                environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown"
+                environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Unknown",
+                version = "1.1.0", // CI/CDテスト用バージョン
+                deploymentTest = "2025-07-21 GitHub Actions CI/CD テスト",
+                lastUpdated = "2025-07-21 14:00 JST"
             });
         }
 

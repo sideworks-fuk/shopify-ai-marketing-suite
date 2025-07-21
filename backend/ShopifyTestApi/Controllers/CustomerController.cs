@@ -203,6 +203,9 @@ namespace ShopifyTestApi.Controllers
                 { 
                     message = "Customer API接続テスト成功！",
                     serverTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
+                    version = "1.1.0",
+                    deploymentTest = "GitHub Actions CI/CD 自動デプロイテスト",
+                    testTimestamp = "2025-07-21 14:00 JST",
                     availableEndpoints = new[]
                     {
                         "GET /api/customer/dashboard - 全ダッシュボードデータ",
