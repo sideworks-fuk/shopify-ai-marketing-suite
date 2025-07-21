@@ -61,6 +61,10 @@ export default function DatabaseTestPage() {
   // API Base URL
   const API_BASE = 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database';
 
+  // CORSテスト用の状態
+  const [corsTestResult, setCorsTestResult] = useState<any>(null);
+  const [corsTestLoading, setCorsTestLoading] = useState(false);
+
   // 接続テスト
   useEffect(() => {
     const testConnection = async () => {
@@ -70,7 +74,6 @@ export default function DatabaseTestPage() {
           mode: 'cors',
           credentials: 'omit',
           headers: {
-            'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
         });
@@ -97,6 +100,37 @@ export default function DatabaseTestPage() {
     testConnection();
   }, []);
 
+  // CORSテスト
+  const testCors = async () => {
+    try {
+      setCorsTestLoading(true);
+      const response = await fetch(`${API_BASE}/cors-test`, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setCorsTestResult(data);
+      console.log('CORS Test Result:', data);
+    } catch (error) {
+      console.error('CORS test error:', error);
+      setCorsTestResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setCorsTestLoading(false);
+    }
+  };
+
   // 顧客データ取得
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -107,7 +141,6 @@ export default function DatabaseTestPage() {
           mode: 'cors',
           credentials: 'omit',
           headers: {
-            'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
         });
@@ -167,6 +200,32 @@ export default function DatabaseTestPage() {
       description="Azure SQL Database統合の動作確認画面"
     >
       <div className="space-y-8">
+        {/* CORSテスト */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="mr-2">🌐</span>
+            CORSテスト
+          </h2>
+          
+          <div className="flex items-center space-x-4 mb-4">
+            <button
+              onClick={testCors}
+              disabled={corsTestLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {corsTestLoading ? 'テスト中...' : 'CORSテスト実行'}
+            </button>
+          </div>
+          
+          {corsTestResult && (
+            <div className={`p-4 rounded ${corsTestResult.success ? 'bg-green-100' : 'bg-red-100'}`}>
+              <pre className="text-sm overflow-auto">
+                {JSON.stringify(corsTestResult, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+
         {/* 接続ステータス */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-4 flex items-center">

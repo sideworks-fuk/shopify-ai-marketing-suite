@@ -324,12 +324,18 @@ namespace ShopifyTestApi.Controllers
         [HttpGet("cors-test")]
         public IActionResult CorsTest()
         {
+            // リクエストヘッダーをログ出力
+            var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+            
             return Ok(new
             {
                 success = true,
                 message = "CORS test successful",
                 timestamp = DateTime.UtcNow,
-                corsEnabled = true
+                corsEnabled = true,
+                requestHeaders = headers,
+                origin = Request.Headers["Origin"].ToString(),
+                userAgent = Request.Headers["User-Agent"].ToString()
             });
         }
 
