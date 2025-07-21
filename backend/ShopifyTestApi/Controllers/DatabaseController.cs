@@ -15,12 +15,12 @@ namespace ShopifyTestApi.Controllers
     public class DatabaseController : ControllerBase
     {
         private readonly ShopifyDbContext _context;
-        private readonly DatabaseService _databaseService;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<DatabaseController> _logger;
 
         public DatabaseController(
             ShopifyDbContext context,
-            DatabaseService databaseService,
+            IDatabaseService databaseService,
             ILogger<DatabaseController> logger)
         {
             _context = context;
