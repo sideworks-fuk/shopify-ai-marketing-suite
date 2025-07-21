@@ -21,30 +21,10 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
-// Add CORS
+// Add CORS - 本番環境でのCORS問題解決のため、すべてのオリジンを許可
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins(
-            "http://localhost:3000",  // Next.js dev server
-            "http://localhost:3001",  // Next.js dev server (alternative)
-            "http://localhost:4200",  // Angular dev server
-            "https://localhost:3000", // HTTPS localhost
-            "https://brave-sea-038f17a01.azurestaticapps.net",  // Azure Static Web Apps
-            "https://brave-sea-038f17a00.azurestaticapps.net",  // Azure Static Web Apps (alternative)
-            "https://brave-sea-038f17a00.1.azurestaticapps.net",  // Azure Static Web Apps (実際のURL)
-            "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net",  // Backend API
-            "https://localhost:7177",  // HTTPS dev
-            "http://localhost:5177"   // HTTP dev
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader()
-        .AllowCredentials();
-    });
-    
-    // 開発環境用の許可度の高いポリシー
-    options.AddPolicy("DevelopmentPolicy", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
@@ -60,14 +40,8 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Use CORS - 本番環境でもCORSを有効にする
-app.UseCors("AllowFrontend");
-
-// 緊急対応: 一時的にすべてのオリジンを許可（本番環境でのCORS問題解決のため）
-app.UseCors(builder => builder
-    .AllowAnyOrigin()
-    .AllowAnyMethod()
-    .AllowAnyHeader());
+// Use CORS - すべてのオリジンを許可（本番環境でのCORS問題解決のため）
+app.UseCors("AllowAll");
 
 app.UseAuthorization();
 
