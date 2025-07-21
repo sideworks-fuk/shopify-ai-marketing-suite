@@ -28,7 +28,8 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .SetIsOriginAllowed(origin => true); // 追加の安全性
     });
 });
 
