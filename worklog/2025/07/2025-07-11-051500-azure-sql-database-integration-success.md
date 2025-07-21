@@ -1,10 +1,10 @@
 # 作業ログ: Azure SQL Database統合完全成功
 
 ## 作業情報
-- 開始日時: 2025-07-21 05:15:00
-- 完了日時: 2025-07-21 06:00:00 
+- 開始日時: 2025-07-11 05:15:00
+- 完了日時: 2025-07-11 06:00:00
 - 所要時間: 45分
-- 担当: AI Assistant
+- 担当: 福田＋AI Assistant
 - 記録者: h.fukuda1207
 
 ## 作業概要
@@ -58,7 +58,7 @@ Response:
 {
   "success": true,
   "message": "Azure SQL Database接続成功！",
-  "timestamp": "2025-07-21T05:12:52.4778786Z",
+  "timestamp": "2025-07-11T05:12:52.4778786Z",
   "database": "shopify-test-db",
   "server": "shopify-test-server.database.windows.net"
 }
@@ -80,7 +80,7 @@ Response:
       "segment": "リピーター",
       "totalSpent": 25000.00,
       "ordersCount": 3,
-      "createdAt": "2025-06-21T04:56:29.7232103"
+      "createdAt": "2025-06-11T04:56:29.7232103"
     },
     {
       "id": 2,
@@ -90,7 +90,7 @@ Response:
       "segment": "新規顧客",
       "totalSpent": 8500.00,
       "ordersCount": 1,
-      "createdAt": "2025-07-14T04:56:29.723213"
+      "createdAt": "2025-07-04T04:56:29.723213"
     },
     {
       "id": 3,
@@ -105,7 +105,7 @@ Response:
   ],
   "count": 3,
   "message": "データベースから顧客データを取得しました",
-  "timestamp": "2025-07-21T05:11:48.9980223Z"
+  "timestamp": "2025-07-11T05:11:48.9980223Z"
 }
 ```
 
@@ -293,7 +293,7 @@ const data: DatabaseResponse<Customer[]> = await response.json();
 - `README.md`
 
 ### **マイグレーションファイル**
-- `backend/ShopifyTestApi/Migrations/20250721045630_InitialCreate.cs`
+- `backend/ShopifyTestApi/Migrations/20250711045630_InitialCreate.cs`
 - `backend/ShopifyTestApi/Migrations/ShopifyDbContextModelSnapshot.cs`
 
 ## 📝 **教訓・ベストプラクティス**

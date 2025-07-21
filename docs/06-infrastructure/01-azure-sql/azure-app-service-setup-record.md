@@ -1,7 +1,7 @@
 # Azure App Service 設定記録
 
 ## 📋 設定概要
-- **作成日**: 2025年7月20日
+- **作成日**: 2025年7月6日
 - **目的**: Shopify AI Marketing Suite 技術検証
 - **環境**: 開発環境
 

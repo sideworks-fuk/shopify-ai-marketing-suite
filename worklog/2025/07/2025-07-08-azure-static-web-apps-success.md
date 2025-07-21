@@ -1,6 +1,6 @@
 # Azure Static Web Apps デプロイ成功記録
 
-## 📅 日付: 2025年7月20日
+## 📅 日付: 2025年7月8日
 
 ## 🎯 成果
 ### ✅ Azure Static Web Apps デプロイ成功

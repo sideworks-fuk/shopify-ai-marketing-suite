@@ -1,21 +1,38 @@
 # 🔖 Shopify AIマーケティングスイート - ブックマークリンク集
 
-## 📅 最終更新: 2025年7月21日
+## 📅 最終更新: 2025年7月20日 [[memory:3773065]]
 
 ---
 
-## 🌐 **本番環境 - ワンクリックアクセス**
+## 🌐 **開発環境 - ワンクリックアクセス**
 
-### **📱 フロントエンド**
-- [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 本番フロントエンド
-- [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - 動作確認ページ
+### **📱 フロントエンド (開発環境)**
+- [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
+- [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
+- [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
 
-### **🔌 バックエンドAPI**
+### **🔌 バックエンドAPI (開発環境)**
 - [❤️ **Health Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) - API稼働確認
-- [🔍 **Customer Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/test) - 接続テスト
+- [🔌 **Database Connection Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/test) - Azure SQL接続テスト ✅ **新機能**
+- [👥 **Database Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/customers) - 顧客データAPI ✅ **新機能**
+- [📦 **Database Orders**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/orders) - 注文データAPI ✅ **新機能**
+- [🏷️ **Database Products**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/products) - 商品データAPI ✅ **新機能**
+- [🔍 **Customer Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/test) - Shopify接続テスト
 - [👥 **Customer Segments**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/segments) - 顧客セグメント
 - [📊 **Customer Dashboard**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dashboard) - ダッシュボードデータ
 - [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
+
+---
+
+## 🏭 **本番環境 (後日構築予定)**
+
+### **🚀 本番構築計画**
+```yaml
+状況: 未構築（開発環境を優先使用中）
+計画: Phase 2 で本番環境構築予定
+URL: 未定（後日決定）
+データベース: 本番用Azure SQL Database作成予定
+```
 
 ---
 
@@ -25,12 +42,14 @@
 - [🌐 **Azure Portal**](https://portal.azure.com) - Azureリソース管理
 - [📊 **App Service**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2Fsites) - バックエンド管理
 - [⚡ **Static Web Apps**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2FStaticSites) - フロントエンド管理
+- [🗄️ **SQL Database**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Sql%2Fservers) - Azure SQL管理
 
 ### **🔄 GitHub**
 - [📂 **リポジトリ**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite) - ソースコード
 - [⚙️ **GitHub Actions**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/actions) - CI/CDパイプライン
 - [📋 **Issues**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/issues) - 課題管理
 - [🔀 **Pull Requests**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/pulls) - コードレビュー
+- [🌳 **Branches**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/branches) - ブランチ管理
 
 ### **📈 監視・ログ**
 - [📊 **Application Insights**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/microsoft.insights%2Fcomponents) - アプリケーション監視
@@ -38,17 +57,20 @@
 
 ---
 
-## 🧪 **開発環境 - ローカル**
+## 🧪 **ローカル開発環境**
 
 ### **🖥️ 開発サーバー**
 - [🎨 **フロントエンド**](http://localhost:3000) - Next.js開発サーバー
+- [🗄️ **Database API テスト (ローカル)**](http://localhost:3000/database-test) - ローカルDB統合テスト
 - [⚡ **バックエンドAPI**](https://localhost:7177) - ASP.NET Core API
 - [📖 **Swagger (ローカル)**](https://localhost:7177/swagger) - ローカルAPI仕様
-- [🧪 **API接続テスト (ローカル)**](http://localhost:3000/api-test) - ローカルテスト
+- [🧪 **API接続テスト (ローカル)**](http://localhost:3000/api-test) - ローカルShopifyテスト
 
 ### **🔍 ローカルAPIエンドポイント**
 - [❤️ **Local Health Check**](https://localhost:7177/api/health) - ローカルAPI稼働確認
-- [🔍 **Local Customer Test**](https://localhost:7177/api/customer/test) - ローカル接続テスト
+- [🔌 **Local Database Test**](https://localhost:7177/api/database/test) - ローカルDB接続テスト
+- [👥 **Local Database Customers**](https://localhost:7177/api/database/customers) - ローカル顧客データ
+- [🔍 **Local Customer Test**](https://localhost:7177/api/customer/test) - ローカルShopify接続テスト
 
 ---
 
@@ -57,17 +79,20 @@
 ### **📖 プロジェクトドキュメント**
 - [📝 **環境・URL情報**](./05-operations/environment-urls-reference.md) - 詳細環境情報
 - [⚡ **クイックリファレンス**](./QUICK-REFERENCE.md) - 簡易参照
+- [🌳 **ブランチ戦略**](./05-operations/branch-strategy-and-deployment-plan.md) - 開発フロー・デプロイ戦略 ✅ **更新済み**
 - [🚀 **デプロイガイド**](./05-operations/deployment-guide.md) - デプロイ手順
 - [⚙️ **開発環境セットアップ**](./04-development/development-environment-setup.md) - 環境構築
 
-### **📊 作業ログ**
+### **📊 作業ログ・成果**
 - [📁 **2025年7月**](../worklog/2025/07/) - 最新作業ログ
+- [🗄️ **Azure SQL統合成功ログ**](../worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - Database統合詳細記録 ✅ **新規**
 - [📋 **メインTODO**](../worklog/tasks/main-todo.md) - タスク管理
 - [📈 **プロジェクト状況**](./01-project-management/01-planning/project-status.md) - 進捗状況
 
 ### **🏗️ 技術仕様**
 - [🏛️ **システムアーキテクチャ**](./02-architecture/system-architecture.md) - 全体設計
 - [🎨 **画面設計**](./03-design-specs/screen-design.md) - UI設計仕様
+- [🗄️ **データ設計**](./01-project-management/02-data-architecture/) - データベース設計
 - [🧪 **テスト計画**](./01-project-management/03-testing/test-store-creation-plan.md) - テスト戦略
 
 ---
@@ -75,14 +100,24 @@
 ## 🎯 **クイックアクション**
 
 ### **⚡ 即座に確認**
-| 項目 | 本番 | 開発 |
-|------|------|------|
-| サイト表示 | [🌐 本番サイト](https://brave-sea-038f17a00.1.azurestaticapps.net) | [🖥️ ローカル](http://localhost:3000) |
+| 項目 | 開発環境 | ローカル |
+|------|----------|----------|
+| サイト表示 | [🌐 開発サイト](https://brave-sea-038f17a00.1.azurestaticapps.net) | [🖥️ ローカル](http://localhost:3000) |
+| Database API | [🗄️ DB統合テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) | [🗄️ ローカルDBテスト](http://localhost:3000/database-test) |
 | API動作 | [❤️ Health Check](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | [❤️ Local Health](https://localhost:7177/api/health) |
-| 接続テスト | [🧪 本番テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) | [🧪 ローカルテスト](http://localhost:3000/api-test) |
+| Shopify連携 | [🧪 API接続テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) | [🧪 ローカルテスト](http://localhost:3000/api-test) |
 
-### **🚀 デプロイ状況確認**
+### **🗄️ Database API クイックテスト**
+| エンドポイント | 開発環境 | 説明 |
+|----------------|----------|------|
+| 接続テスト | [🔌 /database/test](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/test) | Azure SQL接続確認 |
+| 顧客データ | [👥 /database/customers](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/customers) | 顧客一覧取得 |
+| 注文データ | [📦 /database/orders](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/orders) | 注文一覧取得 |
+| 商品データ | [🏷️ /database/products](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/products) | 商品一覧取得 |
+
+### **🚀 デプロイ・開発状況確認**
 - [⚙️ **GitHub Actions**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/actions) - 最新デプロイ状況
+- [🌳 **develop ブランチ**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/tree/develop) - 開発統合ブランチ ✅ **新規**
 - [📊 **Azure App Service**](https://portal.azure.com) - バックエンドデプロイ状況  
 - [⚡ **Static Web Apps**](https://portal.azure.com) - フロントエンドデプロイ状況
 
@@ -93,12 +128,13 @@
 
 ---
 
-## 🔧 **開発ツール**
+## 🔧 **開発ツール・リソース**
 
 ### **🌐 外部ツール**
 - [🎨 **Tailwind CSS Docs**](https://tailwindcss.com/docs) - CSSフレームワーク
 - [⚛️ **Next.js Docs**](https://nextjs.org/docs) - フロントエンドフレームワーク
 - [🔷 **ASP.NET Core Docs**](https://docs.microsoft.com/en-us/aspnet/core/) - バックエンドフレームワーク
+- [🗄️ **Entity Framework Core Docs**](https://docs.microsoft.com/en-us/ef/core/) - ORM
 - [☁️ **Azure Docs**](https://docs.microsoft.com/en-us/azure/) - クラウドプラットフォーム
 
 ### **🎯 便利リンク**
@@ -108,7 +144,7 @@
 
 ---
 
-## 📱 **モバイル・レスポンシブ確認**
+## 📱 **パフォーマンス・品質確認**
 
 ### **📱 デバイステスト**
 - [📱 **Mobile Simulator**](https://www.responsinator.com/?url=https://brave-sea-038f17a00.1.azurestaticapps.net) - レスポンシブテスト
@@ -116,19 +152,26 @@
 
 ---
 
-## 🎉 **成功マイルストーン**
+## 🎉 **開発マイルストーン**
 
-### **✅ 完了済み**
-- ✅ Azure環境構築 (2025-07-19)
+### **✅ Phase 1 完了済み (2025年7月20日)**
+- ✅ Azure環境構築・統合 (2025-07-19〜20)
 - ✅ バックエンドAPI実装 (2025-07-20)  
-- ✅ フロントエンド・バックエンド統合 (2025-07-21)
-- ✅ 本番環境完全統合 (2025-07-21 13:15)
+- ✅ Azure SQL Database完全統合 (2025-07-20〜21) ⭐ **最新成果**
+- ✅ Database API フロントエンド統合 (2025-07-21) ⭐ **最新成果**
+- ✅ developブランチ戦略導入 (2025-07-20) ⭐ **最新成果**
 
-### **🚀 次のターゲット**
-- 🎯 実データベース統合
+### **🔄 Phase 2 開発中**
+- 🔄 feature ブランチでの機能開発開始予定
+- 🎯 注文・商品APIフロントエンド統合
+- 🎯 Shopify API連携実装
+- 🎯 バッチ処理 (Hangfire) 導入
+
+### **⏳ Phase 3 計画中**
+- 🎯 本番環境構築
 - 🎯 認証システム実装
 - 🎯 パフォーマンス最適化
-- 🎯 モニタリング強化
+- 🎯 監視・ログ強化
 
 ---
 

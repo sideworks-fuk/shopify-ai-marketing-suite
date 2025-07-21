@@ -30,6 +30,32 @@ namespace ShopifyTestApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AcceptsEmailMarketing")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("AcceptsSMSMarketing")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AddressPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Company")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CompanyStoreName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CountryCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -48,6 +74,10 @@ namespace ShopifyTestApi.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Industry")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -60,6 +90,27 @@ namespace ShopifyTestApi.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("ProvinceCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("ShopifyCustomerId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("TaxExempt")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TotalOrders")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("TotalSpent")
                         .HasColumnType("decimal(18,2)");
 
@@ -68,8 +119,13 @@ namespace ShopifyTestApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
+                    b.HasIndex("Email");
+
+                    b.HasIndex("ShopifyCustomerId");
+
+                    b.HasIndex("StoreId", "Email");
+
+                    b.HasIndex("StoreId", "ShopifyCustomerId");
 
                     b.ToTable("Customers");
 
@@ -77,40 +133,55 @@ namespace ShopifyTestApi.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2025, 6, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2103),
+                            AcceptsEmailMarketing = false,
+                            AcceptsSMSMarketing = false,
+                            CreatedAt = new DateTime(2025, 6, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5957),
                             CustomerSegment = "リピーター",
                             Email = "yamada@example.com",
                             FirstName = "太郎",
                             LastName = "山田",
                             OrdersCount = 3,
                             Phone = "090-1234-5678",
+                            StoreId = 1,
+                            TaxExempt = false,
+                            TotalOrders = 3,
                             TotalSpent = 25000m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2128)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5961)
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2025, 7, 14, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2130),
+                            AcceptsEmailMarketing = false,
+                            AcceptsSMSMarketing = false,
+                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5963),
                             CustomerSegment = "新規顧客",
                             Email = "sato@example.com",
                             FirstName = "花子",
                             LastName = "佐藤",
                             OrdersCount = 1,
                             Phone = "080-9876-5432",
+                            StoreId = 1,
+                            TaxExempt = false,
+                            TotalOrders = 1,
                             TotalSpent = 8500m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2131)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5964)
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2025, 1, 22, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2133),
+                            AcceptsEmailMarketing = false,
+                            AcceptsSMSMarketing = false,
+                            CreatedAt = new DateTime(2025, 1, 22, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5966),
                             CustomerSegment = "VIP顧客",
                             Email = "suzuki@example.com",
                             FirstName = "一郎",
                             LastName = "鈴木",
                             OrdersCount = 15,
+                            StoreId = 1,
+                            TaxExempt = false,
+                            TotalOrders = 15,
                             TotalSpent = 125000m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2133)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5967)
                         });
                 });
 
@@ -143,6 +214,9 @@ namespace ShopifyTestApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("SubtotalPrice")
                         .HasColumnType("decimal(18,2)");
 
@@ -162,34 +236,38 @@ namespace ShopifyTestApi.Migrations
                     b.HasIndex("OrderNumber")
                         .IsUnique();
 
+                    b.HasIndex("StoreId", "OrderNumber");
+
                     b.ToTable("Orders");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2025, 7, 7, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2358),
+                            CreatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6086),
                             Currency = "JPY",
                             CustomerId = 1,
                             OrderNumber = "ORD-001",
                             Status = "completed",
+                            StoreId = 1,
                             SubtotalPrice = 6300m,
                             TaxPrice = 700m,
                             TotalPrice = 7000m,
-                            UpdatedAt = new DateTime(2025, 7, 7, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2359)
+                            UpdatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6086)
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2025, 7, 14, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2361),
+                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6094),
                             Currency = "JPY",
                             CustomerId = 2,
                             OrderNumber = "ORD-002",
                             Status = "completed",
+                            StoreId = 1,
                             SubtotalPrice = 7700m,
                             TaxPrice = 800m,
                             TotalPrice = 8500m,
-                            UpdatedAt = new DateTime(2025, 7, 14, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2362)
+                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6095)
                         });
                 });
 
@@ -201,26 +279,85 @@ namespace ShopifyTestApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal?>("CompareAtPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Option1Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option1Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option2Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option2Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option3Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option3Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
+                    b.Property<string>("ProductHandle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ProductTitle")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ProductType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProductVendor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<bool>("RequiresShipping")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("Taxable")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VariantTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
-
-                    b.HasIndex("ProductId");
 
                     b.ToTable("OrderItems");
 
@@ -228,29 +365,67 @@ namespace ShopifyTestApi.Migrations
                         new
                         {
                             Id = 1,
+                            CompareAtPrice = 4000m,
+                            CreatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6166),
+                            Option1Name = "サイズ",
+                            Option1Value = "M",
+                            Option2Name = "カラー",
+                            Option2Value = "ブルー",
                             OrderId = 1,
                             Price = 3500m,
-                            ProductId = 1,
+                            ProductHandle = "organic-cotton-tshirt",
+                            ProductTitle = "オーガニックコットンTシャツ",
+                            ProductType = "衣類",
+                            ProductVendor = "テストベンダーA01",
                             Quantity = 2,
-                            TotalPrice = 7000m
+                            RequiresShipping = true,
+                            Sku = "TSHIRT-001",
+                            Taxable = true,
+                            TotalPrice = 7000m,
+                            UpdatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6167),
+                            VariantTitle = "M / ブルー"
                         },
                         new
                         {
                             Id = 2,
+                            CompareAtPrice = 3200m,
+                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6177),
+                            Option1Name = "容量",
+                            Option1Value = "500ml",
                             OrderId = 2,
                             Price = 2800m,
-                            ProductId = 2,
+                            ProductHandle = "stainless-tumbler",
+                            ProductTitle = "ステンレス製タンブラー",
+                            ProductType = "雑貨",
+                            ProductVendor = "テストベンダーB02",
                             Quantity = 1,
-                            TotalPrice = 2800m
+                            RequiresShipping = true,
+                            Sku = "TUMBLER-001",
+                            Taxable = true,
+                            TotalPrice = 2800m,
+                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6177),
+                            VariantTitle = "500ml"
                         },
                         new
                         {
                             Id = 3,
+                            CompareAtPrice = 4800m,
+                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6181),
+                            Option1Name = "容量",
+                            Option1Value = "100g",
                             OrderId = 2,
                             Price = 4200m,
-                            ProductId = 3,
+                            ProductHandle = "organic-green-tea-set",
+                            ProductTitle = "オーガニック緑茶セット",
+                            ProductType = "食品",
+                            ProductVendor = "テストベンダーC03",
                             Quantity = 1,
-                            TotalPrice = 4200m
+                            RequiresShipping = true,
+                            Sku = "TEA-001",
+                            Taxable = true,
+                            TotalPrice = 4200m,
+                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6181),
+                            VariantTitle = "100g"
                         });
                 });
 
@@ -269,20 +444,23 @@ namespace ShopifyTestApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("Handle")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<int>("InventoryQuantity")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<string>("ProductType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -292,9 +470,15 @@ namespace ShopifyTestApi.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Vendor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Title");
+
+                    b.HasIndex("StoreId", "Title");
 
                     b.ToTable("Products");
 
@@ -303,38 +487,165 @@ namespace ShopifyTestApi.Migrations
                         {
                             Id = 1,
                             Category = "衣類",
-                            CreatedAt = new DateTime(2025, 5, 22, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2337),
-                            Currency = "JPY",
+                            CreatedAt = new DateTime(2025, 5, 22, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6052),
                             Description = "環境に優しいオーガニックコットン100%のTシャツ",
                             InventoryQuantity = 50,
-                            Price = 3500m,
+                            StoreId = 1,
                             Title = "オーガニックコットンTシャツ",
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2338)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6053)
                         },
                         new
                         {
                             Id = 2,
                             Category = "雑貨",
-                            CreatedAt = new DateTime(2025, 6, 6, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2340),
-                            Currency = "JPY",
+                            CreatedAt = new DateTime(2025, 6, 6, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6056),
                             Description = "保温・保冷効果抜群のステンレス製タンブラー",
                             InventoryQuantity = 25,
-                            Price = 2800m,
+                            StoreId = 1,
                             Title = "ステンレス製タンブラー",
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2340)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6056)
                         },
                         new
                         {
                             Id = 3,
                             Category = "食品",
-                            CreatedAt = new DateTime(2025, 6, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2342),
-                            Currency = "JPY",
+                            CreatedAt = new DateTime(2025, 6, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6058),
                             Description = "厳選されたオーガニック緑茶の詰め合わせセット",
                             InventoryQuantity = 15,
-                            Price = 4200m,
+                            StoreId = 1,
                             Title = "オーガニック緑茶セット",
-                            UpdatedAt = new DateTime(2025, 7, 21, 4, 56, 29, 723, DateTimeKind.Utc).AddTicks(2343)
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6059)
                         });
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.ProductVariant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("CompareAtPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InventoryQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Option1Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option1Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option2Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option2Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option3Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Option3Value")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresShipping")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("Taxable")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Weight")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("WeightUnit")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductVariants");
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.Store", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Domain")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ShopifyShopId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Stores");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2024, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5698),
+                            Domain = "test-store.myshopify.com",
+                            Name = "テストストア",
+                            ShopifyShopId = "test-store",
+                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5728)
+                        });
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.Customer", b =>
+                {
+                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                        .WithMany("Customers")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ShopifyTestApi.Models.Order", b =>
@@ -343,6 +654,12 @@ namespace ShopifyTestApi.Migrations
                         .WithMany("Orders")
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                        .WithMany("Orders")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Customer");
@@ -356,13 +673,25 @@ namespace ShopifyTestApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ShopifyTestApi.Models.Product", "Product")
-                        .WithMany("OrderItems")
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.Product", b =>
+                {
+                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                        .WithMany("Products")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.ProductVariant", b =>
+                {
+                    b.HasOne("ShopifyTestApi.Models.Product", "Product")
+                        .WithMany("Variants")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Product");
                 });
@@ -379,7 +708,16 @@ namespace ShopifyTestApi.Migrations
 
             modelBuilder.Entity("ShopifyTestApi.Models.Product", b =>
                 {
-                    b.Navigation("OrderItems");
+                    b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("ShopifyTestApi.Models.Store", b =>
+                {
+                    b.Navigation("Customers");
+
+                    b.Navigation("Orders");
+
+                    b.Navigation("Products");
                 });
 #pragma warning restore 612, 618
         }
