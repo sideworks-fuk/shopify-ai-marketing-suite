@@ -4,7 +4,7 @@
 - 開始日時: 2025-06-10 
 - 完了日時: 2025-06-10
 - 所要時間: 15分
-- 担当: AI Assistant
+- 担当: 福田＋AI Assistant
 
 ## 作業概要
 - `getCategoryStyle` 関数が未定義により発生したTypeScriptエラーの修正

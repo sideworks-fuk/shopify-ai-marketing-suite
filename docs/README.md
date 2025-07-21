@@ -61,12 +61,12 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 | [screen-design.md](./03-design-specs/screen-design.md) | 画面設計仕様・UI/UX設計・機能別詳細仕様 | 機能追加時 | 2025-06-16 |
 | [user-interview-guide.md](./03-design-specs/user-interview-guide.md) | ユーザーインタビューガイド | 必要時 | 最新確認要 |
 | [user-research-framework.md](./03-design-specs/user-research-framework.md) | ユーザー調査フレームワーク | 必要時 | 最新確認要 |
-| [year-over-year-detailed-design.md](./03-design-specs/year-over-year-detailed-design.md) | 前年同月比詳細設計 | 機能更新時 | 2025-06-10 |
+| [PROD-01-YOY-detailed-design.md](./03-design-specs/PROD-01-YOY-detailed-design.md) | 前年同月比詳細設計 | 機能更新時 | 2025-06-10 |
 | [year-over-year-detailed-design-review.md](./03-design-specs/year-over-year-detailed-design-review.md) | 前年同月比設計レビュー | 必要時 | 最新確認要 |
 
 **📝 更新推奨:**
 - screen-design.md: Database API統合画面追加要
-- year-over-year-detailed-design.md: Azure SQL Database実装反映要
+- PROD-01-YOY-detailed-design.md: Azure SQL Database実装反映要
 
 ---
 

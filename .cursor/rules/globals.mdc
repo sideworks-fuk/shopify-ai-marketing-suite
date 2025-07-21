@@ -128,7 +128,7 @@ alwaysApply: true
     - 開始日時: YYYY-MM-DD HH:MM:SS
     - 完了日時: YYYY-MM-DD HH:MM:SS
     - 所要時間: X時間Y分
-    - 担当: AI Assistant
+    - 担当: 福田＋AI Assistant
 
     ## 作業概要
     - [作業の要約を記述]

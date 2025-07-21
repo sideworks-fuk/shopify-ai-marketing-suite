@@ -4,7 +4,7 @@
 - 開始日時: 2025-06-10 22:50:00
 - 完了日時: 2025-06-10 23:30:00
 - 所要時間: 40分
-- 担当: AI Assistant
+- 担当: 福田＋AI Assistant
 
 ## 作業概要
 初期リリース4機能の中で最もシンプルな「前年同月比【商品】機能」の詳細設計書を作成し、実装計画を策定しました。
@@ -112,7 +112,7 @@
 ## 成果物
 
 ### 主要ドキュメント
-- `docs/03-design-specs/year-over-year-detailed-design.md` - 詳細設計書（新規作成）
+- `docs/03-design-specs/PROD-01-YOY-detailed-design.md` - 詳細設計書（新規作成）
 
 ### 設計内容（最終版）
 1. **機能概要**: 商品別売上の前年同月比較機能
@@ -165,7 +165,7 @@
 - セキュリティ対策の徹底
 
 ## 関連ファイル
-- 設計書: `docs/03-design-specs/year-over-year-detailed-design.md`
+- 設計書: `docs/03-design-specs/PROD-01-YOY-detailed-design.md`
 - 既存実装: `src/app/sales/year-over-year/page.tsx`
 - メインコンポーネント: `src/components/dashboards/YearOverYearProductAnalysisImproved.tsx`
 - プロジェクト管理: `docs/01-project-management/backlog-management.md`

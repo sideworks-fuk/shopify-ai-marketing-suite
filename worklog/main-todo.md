@@ -26,7 +26,7 @@
   - データベース設計: 4テーブル構成（商品マスタ、日次集計、月次集計、キャッシュ）
   - API設計: RESTful エンドポイント、GraphQL連携、バッチ処理設計
   - パフォーマンス戦略: 事前集計キャッシュ、1.5秒以内レスポンス目標
-  - 実装ファイル: `docs/03-design-specs/year-over-year-detailed-design.md`
+  - 実装ファイル: `docs/03-design-specs/PROD-01-YOY-detailed-design.md`
 
 - [x] **実装計画策定**
   - Phase構成: 4段階×1週間 = 合計4週間の実装計画
