@@ -60,17 +60,14 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Use CORS - 環境に応じた設定（セキュア版）
-if (app.Environment.IsDevelopment())
-{
-    // 開発環境では緩い設定を使用
-    app.UseCors("DevelopmentPolicy");
-}
-else
-{
-    // 本番環境では厳密な設定を使用（実際のURLを追加済み）
-    app.UseCors("AllowFrontend");
-}
+// Use CORS - 本番環境でもCORSを有効にする
+app.UseCors("AllowFrontend");
+
+// 緊急対応: 一時的にすべてのオリジンを許可（本番環境でのCORS問題解決のため）
+app.UseCors(builder => builder
+    .AllowAnyOrigin()
+    .AllowAnyMethod()
+    .AllowAnyHeader());
 
 app.UseAuthorization();
 
