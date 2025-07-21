@@ -5,6 +5,7 @@ using ShopifyTestApi.Data;
 using ShopifyTestApi.Models;
 using ShopifyTestApi.Services;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
 
 namespace ShopifyTestApi.Controllers
 {
@@ -36,13 +37,24 @@ namespace ShopifyTestApi.Controllers
             try
             {
                 var canConnect = await _context.Database.CanConnectAsync();
-                var connectionString = _context.Database.GetConnectionString();
+                
+                // 接続文字列を安全に取得
+                string connectionStringPreview = "";
+                try
+                {
+                    var connection = _context.Database.GetDbConnection();
+                    connectionStringPreview = connection.ConnectionString?.Substring(0, Math.Min(50, connection.ConnectionString.Length)) + "...";
+                }
+                catch
+                {
+                    connectionStringPreview = "接続文字列の取得に失敗";
+                }
 
                 return Ok(new
                 {
                     success = canConnect,
                     message = canConnect ? "データベース接続成功" : "データベース接続失敗",
-                    connectionString = connectionString?.Substring(0, Math.Min(50, connectionString.Length)) + "...",
+                    connectionString = connectionStringPreview,
                     timestamp = DateTime.UtcNow
                 });
             }
