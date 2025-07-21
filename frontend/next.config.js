@@ -52,7 +52,11 @@ const nextConfig = {
   // 実験的機能の設定
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
-  }
+  },
+  // Azure Static Web Apps 対応
+  output: 'export',
+  trailingSlash: true,
+  distDir: 'out'
 }
 
 module.exports = nextConfig
