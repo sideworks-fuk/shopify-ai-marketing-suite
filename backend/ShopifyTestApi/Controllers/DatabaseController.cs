@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.EntityFrameworkCore;
 using ShopifyTestApi.Data;
 using ShopifyTestApi.Models;
@@ -9,6 +10,7 @@ namespace ShopifyTestApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [EnableCors("AllowAll")]
     public class DatabaseController : ControllerBase
     {
         private readonly ShopifyDbContext _context;
@@ -314,6 +316,21 @@ namespace ShopifyTestApi.Controllers
                     error = ex.Message
                 });
             }
+        }
+
+        /// <summary>
+        /// CORSテスト用エンドポイント
+        /// </summary>
+        [HttpGet("cors-test")]
+        public IActionResult CorsTest()
+        {
+            return Ok(new
+            {
+                success = true,
+                message = "CORS test successful",
+                timestamp = DateTime.UtcNow,
+                corsEnabled = true
+            });
         }
 
         /// <summary>

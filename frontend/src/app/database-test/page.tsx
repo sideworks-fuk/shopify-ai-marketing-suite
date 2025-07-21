@@ -65,11 +65,25 @@ export default function DatabaseTestPage() {
   useEffect(() => {
     const testConnection = async () => {
       try {
-        const response = await fetch(`${API_BASE}/test`);
+        const response = await fetch(`${API_BASE}/test`, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data: ConnectionTestResponse = await response.json();
         setConnectionResult(data);
         setConnectionStatus(data.success ? 'success' : 'error');
       } catch (error) {
+        console.error('Connection test error:', error);
         setConnectionStatus('error');
         setConnectionResult({
           success: false,
@@ -88,7 +102,20 @@ export default function DatabaseTestPage() {
     const fetchCustomers = async () => {
       try {
         setCustomersLoading(true);
-        const response = await fetch(`${API_BASE}/customers`);
+        const response = await fetch(`${API_BASE}/customers`, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data: DatabaseResponse<Customer[]> = await response.json();
         
         if (data.success && data.data) {
@@ -98,6 +125,7 @@ export default function DatabaseTestPage() {
           setCustomersError(data.message || '顧客データの取得に失敗しました');
         }
       } catch (error) {
+        console.error('Customer data fetch error:', error);
         setCustomersError(error instanceof Error ? error.message : 'ネットワークエラー');
       } finally {
         setCustomersLoading(false);
