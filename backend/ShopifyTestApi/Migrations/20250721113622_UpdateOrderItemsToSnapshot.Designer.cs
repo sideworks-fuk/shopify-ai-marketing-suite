@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ShopifyTestApi.Data;
 
@@ -11,9 +12,11 @@ using ShopifyTestApi.Data;
 namespace ShopifyTestApi.Migrations
 {
     [DbContext(typeof(ShopifyDbContext))]
-    partial class ShopifyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250721113622_UpdateOrderItemsToSnapshot")]
+    partial class UpdateOrderItemsToSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

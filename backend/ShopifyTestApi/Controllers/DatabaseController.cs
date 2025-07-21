@@ -100,6 +100,7 @@ namespace ShopifyTestApi.Controllers
                     .Select(c => new
                     {
                         c.Id,
+                        name = $"{c.FirstName} {c.LastName}".Trim(),
                         c.FirstName,
                         c.LastName,
                         c.Email,
@@ -107,13 +108,13 @@ namespace ShopifyTestApi.Controllers
                         c.City,
                         c.ProvinceCode,
                         c.CountryCode,
-                        c.TotalSpent,
-                        c.TotalOrders,
+                        totalSpent = c.TotalSpent,
+                        ordersCount = c.TotalOrders,
                         c.Industry,
                         c.AcceptsEmailMarketing,
                         c.AcceptsSMSMarketing,
                         c.Tags,
-                        c.CreatedAt,
+                        createdAt = c.CreatedAt,
                         AverageOrderValue = c.TotalOrders > 0 ? c.TotalSpent / c.TotalOrders : 0,
                         IsHighValue = c.TotalSpent > 100000,
                         RegionDisplay = !string.IsNullOrEmpty(c.ProvinceCode) ?
