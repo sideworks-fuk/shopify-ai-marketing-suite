@@ -21,16 +21,44 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
-// Add CORS - 本番環境でのCORS問題解決のため、すべてのオリジンを許可
+// Add CORS - 環境別の設定
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    var environment = builder.Environment.EnvironmentName;
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new string[0];
+    
+    if (environment == "Development")
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .SetIsOriginAllowed(origin => true); // 追加の安全性
-    });
+        // 開発環境: 緩い設定
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+    }
+    else
+    {
+        // 本番環境: 設定ファイルから読み込み
+        options.AddPolicy("AllowAll", policy =>
+        {
+            if (corsOrigins.Length > 0)
+            {
+                policy.WithOrigins(corsOrigins)
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            }
+            else
+            {
+                // フォールバック: デフォルトの本番URL
+                policy.WithOrigins("https://brave-sea-038f17a00.1.azurestaticapps.net")
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            }
+        });
+    }
 });
 
 var app = builder.Build();
@@ -41,7 +69,7 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Use CORS - すべてのオリジンを許可（本番環境でのCORS問題解決のため）
+// Use CORS
 app.UseCors("AllowAll");
 
 app.UseAuthorization();
