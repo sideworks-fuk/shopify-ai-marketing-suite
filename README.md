@@ -6,6 +6,7 @@
 - [🚀 **ブックマークリンク集**](./docs/BOOKMARKS.md) - 全URLワンクリックアクセス
 - [⚡ **クイックリファレンス**](./docs/QUICK-REFERENCE.md) - 開発者向け簡易ガイド
 - [🧪 **本番API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - ライブ動作確認
+- [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認画面
 
 ## 概要
 
