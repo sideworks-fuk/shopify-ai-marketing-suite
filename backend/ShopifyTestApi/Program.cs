@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using ShopifyTestApi.Data;
 using ShopifyTestApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,12 +7,19 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
+// Add Entity Framework
+builder.Services.AddDbContext<ShopifyDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Register Mock Data Service
 builder.Services.AddScoped<IMockDataService, MockDataService>();
+
+// Register Database Service
+builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
