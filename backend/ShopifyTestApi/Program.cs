@@ -48,4 +48,21 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// ヘルスチェックエンドポイントを追加
+app.MapGet("/health", () => "OK");
+
+// データベース接続テストエンドポイントを追加
+app.MapGet("/db-test", async (ShopifyDbContext context) =>
+{
+    try
+    {
+        var canConnect = await context.Database.CanConnectAsync();
+        return Results.Ok(new { success = canConnect, message = canConnect ? "Connected" : "Failed" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new { success = false, message = ex.Message });
+    }
+});
+
 app.Run();
