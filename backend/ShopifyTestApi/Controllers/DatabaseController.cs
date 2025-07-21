@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ShopifyTestApi.Data;
+using ShopifyTestApi.Models;
 using ShopifyTestApi.Services;
+using System.Text.Json;
 
 namespace ShopifyTestApi.Controllers
 {
@@ -7,223 +11,341 @@ namespace ShopifyTestApi.Controllers
     [Route("api/[controller]")]
     public class DatabaseController : ControllerBase
     {
-        private readonly IDatabaseService _databaseService;
+        private readonly ShopifyDbContext _context;
+        private readonly DatabaseService _databaseService;
         private readonly ILogger<DatabaseController> _logger;
 
-        public DatabaseController(IDatabaseService databaseService, ILogger<DatabaseController> logger)
+        public DatabaseController(
+            ShopifyDbContext context,
+            DatabaseService databaseService,
+            ILogger<DatabaseController> logger)
         {
+            _context = context;
             _databaseService = databaseService;
             _logger = logger;
         }
 
         /// <summary>
         /// データベース接続テスト
-        /// GET: api/database/test
         /// </summary>
         [HttpGet("test")]
         public async Task<IActionResult> TestConnection()
         {
             try
             {
-                _logger.LogInformation("Database connection test requested");
-                
-                var isConnected = await _databaseService.TestConnectionAsync();
-                
-                if (isConnected)
+                var canConnect = await _context.Database.CanConnectAsync();
+                var connectionString = _context.Database.GetConnectionString();
+
+                return Ok(new
                 {
-                    return Ok(new 
-                    { 
-                        success = true,
-                        message = "Azure SQL Database接続成功！",
-                        timestamp = DateTime.UtcNow,
-                        database = "shopify-test-db",
-                        server = "shopify-test-server.database.windows.net"
-                    });
-                }
-                else
-                {
-                    return StatusCode(500, new 
-                    { 
-                        success = false,
-                        message = "データベース接続に失敗しました",
-                        timestamp = DateTime.UtcNow
-                    });
-                }
+                    success = canConnect,
+                    message = canConnect ? "データベース接続成功" : "データベース接続失敗",
+                    connectionString = connectionString?.Substring(0, Math.Min(50, connectionString.Length)) + "...",
+                    timestamp = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Database connection test error");
-                return StatusCode(500, new 
-                { 
+                _logger.LogError(ex, "データベース接続テストでエラーが発生しました");
+                return StatusCode(500, new
+                {
                     success = false,
                     message = "データベース接続エラー",
-                    error = ex.Message,
-                    timestamp = DateTime.UtcNow
+                    error = ex.Message
                 });
             }
         }
 
         /// <summary>
-        /// データベース初期化
-        /// POST: api/database/initialize
+        /// データベース初期化（テーブル作成・サンプルデータ投入）
         /// </summary>
         [HttpPost("initialize")]
         public async Task<IActionResult> InitializeDatabase()
         {
             try
             {
-                _logger.LogInformation("Database initialization requested");
-                
                 await _databaseService.InitializeDatabaseAsync();
-                
-                return Ok(new 
-                { 
+                return Ok(new
+                {
                     success = true,
-                    message = "データベース初期化完了！マイグレーションとサンプルデータの投入が完了しました。",
+                    message = "データベース初期化完了",
                     timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Database initialization error");
-                return StatusCode(500, new 
-                { 
+                _logger.LogError(ex, "データベース初期化でエラーが発生しました");
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "データベース初期化に失敗しました",
-                    error = ex.Message,
-                    timestamp = DateTime.UtcNow
+                    message = "データベース初期化エラー",
+                    error = ex.Message
                 });
             }
         }
 
         /// <summary>
-        /// データベースから顧客一覧取得
-        /// GET: api/database/customers
+        /// 顧客データ一覧取得
         /// </summary>
         [HttpGet("customers")]
-        public async Task<IActionResult> GetCustomers()
+        public async Task<IActionResult> GetCustomers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             try
             {
-                _logger.LogInformation("Database customers list requested");
-                
-                var customers = await _databaseService.GetCustomersAsync();
-                
-                return Ok(new 
-                { 
+                var totalCount = await _context.Customers.CountAsync();
+                var customers = await _context.Customers
+                    .OrderByDescending(c => c.TotalSpent)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(c => new
+                    {
+                        c.Id,
+                        c.FirstName,
+                        c.LastName,
+                        c.Email,
+                        c.Company,
+                        c.City,
+                        c.ProvinceCode,
+                        c.CountryCode,
+                        c.TotalSpent,
+                        c.TotalOrders,
+                        c.Industry,
+                        c.AcceptsEmailMarketing,
+                        c.AcceptsSMSMarketing,
+                        c.Tags,
+                        c.CreatedAt,
+                        AverageOrderValue = c.TotalOrders > 0 ? c.TotalSpent / c.TotalOrders : 0,
+                        IsHighValue = c.TotalSpent > 100000,
+                        RegionDisplay = !string.IsNullOrEmpty(c.ProvinceCode) ?
+                            $"{c.City}, {c.ProvinceCode}" : c.City
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
                     success = true,
-                    data = customers.Select(c => new {
-                        id = c.Id,
-                        name = $"{c.FirstName} {c.LastName}",
-                        email = c.Email,
-                        phone = c.Phone,
-                        segment = c.CustomerSegment,
-                        totalSpent = c.TotalSpent,
-                        ordersCount = c.OrdersCount,
-                        createdAt = c.CreatedAt
-                    }),
-                    count = customers.Count(),
-                    message = "データベースから顧客データを取得しました",
+                    data = customers,
+                    totalCount,
+                    page,
+                    pageSize,
+                    totalPages = (int)Math.Ceiling((double)totalCount / pageSize),
                     timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching customers from database");
-                return StatusCode(500, new 
-                { 
+                _logger.LogError(ex, "顧客データ取得でエラーが発生しました");
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "顧客データの取得に失敗しました",
-                    error = ex.Message,
-                    timestamp = DateTime.UtcNow
+                    message = "顧客データ取得エラー",
+                    error = ex.Message
                 });
             }
         }
 
         /// <summary>
-        /// データベースから注文一覧取得
-        /// GET: api/database/orders
+        /// 顧客統計情報取得
         /// </summary>
-        [HttpGet("orders")]
-        public async Task<IActionResult> GetOrders()
+        [HttpGet("customers/stats")]
+        public async Task<IActionResult> GetCustomerStats()
         {
             try
             {
-                _logger.LogInformation("Database orders list requested");
-                
-                var orders = await _databaseService.GetOrdersAsync();
-                
-                return Ok(new 
-                { 
+                var stats = await _context.Customers
+                    .GroupBy(c => 1)
+                    .Select(g => new
+                    {
+                        TotalCustomers = g.Count(),
+                        TotalRevenue = g.Sum(c => c.TotalSpent),
+                        AverageOrderValue = g.Average(c => c.TotalOrders > 0 ? c.TotalSpent / c.TotalOrders : 0),
+                        HighValueCustomers = g.Count(c => c.TotalSpent > 100000),
+                        EmailMarketingOptIn = g.Count(c => c.AcceptsEmailMarketing),
+                        SMSMarketingOptIn = g.Count(c => c.AcceptsSMSMarketing),
+                        TopRegions = g.GroupBy(c => c.ProvinceCode)
+                            .Where(r => !string.IsNullOrEmpty(r.Key))
+                            .OrderByDescending(r => r.Count())
+                            .Take(5)
+                            .Select(r => new { Region = r.Key, Count = r.Count() })
+                            .ToList(),
+                        TopIndustries = g.GroupBy(c => c.Industry)
+                            .Where(i => !string.IsNullOrEmpty(i.Key))
+                            .OrderByDescending(i => i.Count())
+                            .Take(5)
+                            .Select(i => new { Industry = i.Key, Count = i.Count() })
+                            .ToList()
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (stats == null)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        data = new
+                        {
+                            TotalCustomers = 0,
+                            TotalRevenue = 0m,
+                            AverageOrderValue = 0m,
+                            HighValueCustomers = 0,
+                            EmailMarketingOptIn = 0,
+                            SMSMarketingOptIn = 0,
+                            TopRegions = new List<object>(),
+                            TopIndustries = new List<object>()
+                        },
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+
+                return Ok(new
+                {
                     success = true,
-                    data = orders.Select(o => new {
-                        id = o.Id,
-                        orderNumber = o.OrderNumber,
-                        customerName = $"{o.Customer.FirstName} {o.Customer.LastName}",
-                        totalPrice = o.TotalPrice,
-                        status = o.Status,
-                        itemsCount = o.OrderItems.Count,
-                        createdAt = o.CreatedAt
-                    }),
-                    count = orders.Count(),
-                    message = "データベースから注文データを取得しました",
+                    data = stats,
                     timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching orders from database");
-                return StatusCode(500, new 
-                { 
+                _logger.LogError(ex, "顧客統計取得でエラーが発生しました");
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "注文データの取得に失敗しました",
-                    error = ex.Message,
-                    timestamp = DateTime.UtcNow
+                    message = "顧客統計取得エラー",
+                    error = ex.Message
                 });
             }
         }
 
         /// <summary>
-        /// データベースから商品一覧取得
-        /// GET: api/database/products
+        /// CSVファイルから顧客データをインポート
         /// </summary>
-        [HttpGet("products")]
-        public async Task<IActionResult> GetProducts()
+        [HttpPost("import/customers")]
+        public async Task<IActionResult> ImportCustomersFromCsv(IFormFile csvFile)
         {
+            if (csvFile == null || csvFile.Length == 0)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "CSVファイルが指定されていません"
+                });
+            }
+
+            if (!csvFile.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "CSVファイルのみ受け付けています"
+                });
+            }
+
             try
             {
-                _logger.LogInformation("Database products list requested");
-                
-                var products = await _databaseService.GetProductsAsync();
-                
-                return Ok(new 
-                { 
+                var result = await _databaseService.ImportCustomersFromCsvAsync(csvFile);
+
+                return Ok(new
+                {
                     success = true,
-                    data = products.Select(p => new {
-                        id = p.Id,
-                        title = p.Title,
-                        description = p.Description,
-                        price = p.Price,
-                        category = p.Category,
-                        inventory = p.InventoryQuantity,
-                        createdAt = p.CreatedAt
-                    }),
-                    count = products.Count(),
-                    message = "データベースから商品データを取得しました",
+                    message = $"顧客データインポート完了: {result.ImportedCount}件",
+                    data = new
+                    {
+                        importedCount = result.ImportedCount,
+                        skippedCount = result.SkippedCount,
+                        errorCount = result.ErrorCount,
+                        errors = result.Errors.Take(10).ToList(), // 最初の10件のエラーのみ表示
+                        summary = result.Summary
+                    },
                     timestamp = DateTime.UtcNow
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching products from database");
-                return StatusCode(500, new 
-                { 
+                _logger.LogError(ex, "CSVインポートでエラーが発生しました");
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "商品データの取得に失敗しました",
-                    error = ex.Message,
+                    message = "CSVインポートエラー",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// データベース全体の統計情報取得
+        /// </summary>
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetDatabaseStats()
+        {
+            try
+            {
+                var customerCount = await _context.Customers.CountAsync();
+                var orderCount = await _context.Orders.CountAsync();
+                var productCount = await _context.Products.CountAsync();
+                var orderItemCount = await _context.OrderItems.CountAsync();
+
+                var totalRevenue = await _context.Orders.SumAsync(o => o.TotalPrice);
+                var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        customers = customerCount,
+                        orders = orderCount,
+                        products = productCount,
+                        orderItems = orderItemCount,
+                        totalRevenue,
+                        averageOrderValue,
+                        lastUpdated = DateTime.UtcNow
+                    },
                     timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "データベース統計取得でエラーが発生しました");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "データベース統計取得エラー",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// データベース接続文字列情報取得（デバッグ用）
+        /// </summary>
+        [HttpGet("connection-info")]
+        public IActionResult GetConnectionInfo()
+        {
+            try
+            {
+                var connectionString = _context.Database.GetConnectionString();
+                var serverInfo = connectionString?.Split(';')
+                    .Where(part => part.Contains("Server") || part.Contains("Database"))
+                    .ToList();
+
+                return Ok(new
+                {
+                    success = true,
+                    serverInfo = serverInfo ?? new List<string>(),
+                    provider = _context.Database.ProviderName,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "接続情報取得でエラーが発生しました");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "接続情報取得エラー",
+                    error = ex.Message
                 });
             }
         }
     }
-} 
+}

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ShopifyDataAnonymizer": {
+      "commandName": "Project",
+      "commandLineArgs": "import --input \"anonymized_orders.csv\" --type \"orders\""
+    }
+  }
+}

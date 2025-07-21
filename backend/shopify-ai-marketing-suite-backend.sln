@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShopifyTestApi", "ShopifyTestApi\ShopifyTestApi.csproj", "{E5706C3D-8FD9-4D47-D636-7E4EB204F978}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShopifyDataAnonymizer", "ShopifyDataAnonymizer\ShopifyDataAnonymizer.csproj", "{F640D5C3-3F7C-7221-11D0-600750BC579D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{E5706C3D-8FD9-4D47-D636-7E4EB204F978}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E5706C3D-8FD9-4D47-D636-7E4EB204F978}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E5706C3D-8FD9-4D47-D636-7E4EB204F978}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F640D5C3-3F7C-7221-11D0-600750BC579D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F640D5C3-3F7C-7221-11D0-600750BC579D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F640D5C3-3F7C-7221-11D0-600750BC579D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F640D5C3-3F7C-7221-11D0-600750BC579D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
