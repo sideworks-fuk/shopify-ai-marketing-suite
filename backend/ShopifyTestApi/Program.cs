@@ -109,8 +109,21 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
+{
+    // 本番環境でもSwaggerを有効にする（必要に応じて）
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Shopify Test API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
 
 app.UseHttpsRedirection();
 
@@ -143,6 +156,19 @@ app.MapGet("/db-test", async (ShopifyDbContext context) =>
     {
         return Results.Ok(new { success = false, message = ex.Message });
     }
+});
+
+// 環境情報エンドポイントを追加
+app.MapGet("/env-info", () =>
+{
+    return Results.Ok(new
+    {
+        environment = app.Environment.EnvironmentName,
+        isDevelopment = app.Environment.IsDevelopment(),
+        applicationName = app.Environment.ApplicationName,
+        contentRootPath = app.Environment.ContentRootPath,
+        webRootPath = app.Environment.WebRootPath
+    });
 });
 
 try
