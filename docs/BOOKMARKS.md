@@ -1,6 +1,6 @@
 # 🔖 Shopify AIマーケティングスイート - ブックマークリンク集
 
-## 📅 最終更新: 2025年7月20日 [[memory:3773065]]
+## 📅 最終更新: 2025年7月23日 [[memory:3773065]]
 
 ---
 
@@ -21,6 +21,8 @@
 - [👥 **Customer Segments**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/segments) - 顧客セグメント
 - [📊 **Customer Dashboard**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dashboard) - ダッシュボードデータ
 - [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
+- [🔍 **Health Ready Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/health/ready) - 詳細ヘルスチェック ✅ **新機能**
+- [ℹ️ **Environment Info**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/env-info) - 環境情報確認 ✅ **新機能**
 
 ---
 
@@ -68,6 +70,8 @@ URL: 未定（後日決定）
 
 ### **🔍 ローカルAPIエンドポイント**
 - [❤️ **Local Health Check**](https://localhost:7177/api/health) - ローカルAPI稼働確認
+- [🔍 **Local Health Ready**](https://localhost:7177/health/ready) - ローカル詳細ヘルスチェック ✅ **新機能**
+- [ℹ️ **Local Environment Info**](https://localhost:7177/env-info) - ローカル環境情報 ✅ **新機能**
 - [🔌 **Local Database Test**](https://localhost:7177/api/database/test) - ローカルDB接続テスト
 - [👥 **Local Database Customers**](https://localhost:7177/api/database/customers) - ローカル顧客データ
 - [🔍 **Local Customer Test**](https://localhost:7177/api/customer/test) - ローカルShopify接続テスト
@@ -86,6 +90,7 @@ URL: 未定（後日決定）
 ### **📊 作業ログ・成果**
 - [📁 **2025年7月**](../worklog/2025/07/) - 最新作業ログ
 - [🗄️ **Azure SQL統合成功ログ**](../worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - Database統合詳細記録 ✅ **新規**
+- [🔧 **ログシステム実装ログ**](../worklog/2025/07/2025-07-23-180500-azure-application-insights-issue.md) - Application Insights設定問題調査 ✅ **最新**
 - [📋 **メインTODO**](../worklog/tasks/main-todo.md) - タスク管理
 - [📈 **プロジェクト状況**](./01-project-management/01-planning/project-status.md) - 進捗状況
 
@@ -124,6 +129,7 @@ URL: 未定（後日決定）
 ### **🆘 トラブルシューティング**
 - [📝 **App Service ログ**](https://portal.azure.com) - エラーログ確認
 - [📊 **Application Insights**](https://portal.azure.com) - パフォーマンス監視
+- [🔧 **Application Insights設定**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/microsoft.insights%2Fcomponents) - Application Insights設定確認 ✅ **新機能**
 - [📋 **GitHub Issues**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/issues) - 既知の問題
 
 ---
@@ -160,6 +166,8 @@ URL: 未定（後日決定）
 - ✅ Azure SQL Database完全統合 (2025-07-20〜21) ⭐ **最新成果**
 - ✅ Database API フロントエンド統合 (2025-07-21) ⭐ **最新成果**
 - ✅ developブランチ戦略導入 (2025-07-20) ⭐ **最新成果**
+- ✅ 包括的ログシステム実装 (2025-07-23) ⭐ **最新成果**
+- ✅ Application Insights統合 (2025-07-23) ⭐ **最新成果**
 
 ### **🔄 Phase 2 開発中**
 - 🔄 feature ブランチでの機能開発開始予定
