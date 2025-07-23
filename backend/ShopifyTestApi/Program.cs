@@ -38,21 +38,29 @@ builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
-if (aiConnectionString?.Contains("#") == true)
+if (string.IsNullOrEmpty(aiConnectionString) || aiConnectionString?.Contains("#") == true)
 {
     aiConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
 }
+
 if (!string.IsNullOrEmpty(aiConnectionString))
 {
-    builder.Services.AddApplicationInsightsTelemetry(options =>
+    try
     {
-        options.ConnectionString = aiConnectionString;
-    });
-    Log.Information("Application Insights configured with connection string");
+        builder.Services.AddApplicationInsightsTelemetry(options =>
+        {
+            options.ConnectionString = aiConnectionString;
+        });
+        Log.Information("Application Insights configured with connection string");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Failed to configure Application Insights - continuing without telemetry");
+    }
 }
 else
 {
-    Log.Warning("Application Insights connection string not configured");
+    Log.Warning("Application Insights connection string not configured - continuing without telemetry");
 }
 
 // Add Azure App Service Logging
