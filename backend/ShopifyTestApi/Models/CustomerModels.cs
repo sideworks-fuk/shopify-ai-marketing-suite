@@ -90,5 +90,6 @@ namespace ShopifyTestApi.Models
         public T? Data { get; set; }
         public string Message { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public List<string> Errors { get; set; } = new();
     }
 } 

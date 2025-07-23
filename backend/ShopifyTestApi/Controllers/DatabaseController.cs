@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ShopifyTestApi.Data;
 using ShopifyTestApi.Models;
 using ShopifyTestApi.Services;
+using ShopifyTestApi.Helpers;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 
@@ -34,8 +35,14 @@ namespace ShopifyTestApi.Controllers
         [HttpGet("test")]
         public async Task<IActionResult> TestConnection()
         {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
             try
             {
+                _logger.LogInformation("Database connection test requested. {RequestId}", logProperties["RequestId"]);
+                
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "TestDatabaseConnection", logProperties);
+                
                 var canConnect = await _context.Database.CanConnectAsync();
                 
                 // 接続文字列を安全に取得
@@ -50,6 +57,9 @@ namespace ShopifyTestApi.Controllers
                     connectionStringPreview = "接続文字列の取得に失敗";
                 }
 
+                _logger.LogInformation("Database connection test completed. {RequestId}, Success: {Success}", 
+                    logProperties["RequestId"], canConnect);
+
                 return Ok(new
                 {
                     success = canConnect,
@@ -60,7 +70,7 @@ namespace ShopifyTestApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "データベース接続テストでエラーが発生しました");
+                _logger.LogError(ex, "Database connection test failed. {RequestId}", logProperties["RequestId"]);
                 return StatusCode(500, new
                 {
                     success = false,

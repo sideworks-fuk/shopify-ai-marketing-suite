@@ -1,8 +1,23 @@
 using Microsoft.EntityFrameworkCore;
 using ShopifyTestApi.Data;
 using ShopifyTestApi.Services;
+using ShopifyTestApi.Middleware;
+using ShopifyTestApi.HealthChecks;
+using Serilog;
+using Serilog.Events;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilogの設定
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.With(new LogEnricher())
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -20,6 +35,36 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
+
+// Application Insights接続文字列の環境変数対応
+var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+if (aiConnectionString?.Contains("#") == true)
+{
+    aiConnectionString = Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+}
+if (!string.IsNullOrEmpty(aiConnectionString))
+{
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = aiConnectionString;
+    });
+    Log.Information("Application Insights configured with connection string");
+}
+else
+{
+    Log.Warning("Application Insights connection string not configured");
+}
+
+// Add Azure App Service Logging
+builder.Services.AddLogging(loggingBuilder =>
+{
+    loggingBuilder.AddAzureWebAppDiagnostics();
+});
+
+// Add Health Checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ShopifyDbContext>("Database")
+    .AddCheck<DatabaseHealthCheck>("DatabaseDetailed", tags: new[] { "ready" });
 
 // Add CORS - 環境別の設定
 builder.Services.AddCors(options =>
@@ -72,12 +117,19 @@ app.UseHttpsRedirection();
 // Use CORS
 app.UseCors("AllowAll");
 
+// グローバル例外ハンドラーを最初に配置
+app.UseGlobalExceptionHandler();
+
 app.UseAuthorization();
 
 app.MapControllers();
 
 // ヘルスチェックエンドポイントを追加
-app.MapGet("/health", () => "OK");
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // データベース接続テストエンドポイントを追加
 app.MapGet("/db-test", async (ShopifyDbContext context) =>
@@ -93,4 +145,16 @@ app.MapGet("/db-test", async (ShopifyDbContext context) =>
     }
 });
 
-app.Run();
+try
+{
+    Log.Information("Starting Shopify Test API");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

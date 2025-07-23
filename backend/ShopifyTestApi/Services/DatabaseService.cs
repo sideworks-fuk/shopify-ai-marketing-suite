@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ShopifyTestApi.Data;
 using ShopifyTestApi.Models;
+using ShopifyTestApi.Helpers;
 using System.Globalization;
 using System.Text;
 
@@ -42,9 +43,16 @@ namespace ShopifyTestApi.Services
             try
             {
                 _logger.LogInformation("Fetching customers from database");
-                return await _context.Customers
+                
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetCustomersAsync");
+                
+                var customers = await _context.Customers
                     .Include(c => c.Orders)
                     .ToListAsync();
+                
+                _logger.LogInformation("Successfully fetched {CustomerCount} customers from database", customers.Count());
+                
+                return customers;
             }
             catch (Exception ex)
             {

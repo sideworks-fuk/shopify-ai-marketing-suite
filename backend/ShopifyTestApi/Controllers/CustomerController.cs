@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ShopifyTestApi.Models;
 using ShopifyTestApi.Services;
+using ShopifyTestApi.Helpers;
 
 namespace ShopifyTestApi.Controllers
 {
@@ -24,11 +25,18 @@ namespace ShopifyTestApi.Controllers
         [HttpGet("dashboard")]
         public ActionResult<ApiResponse<CustomerDashboardData>> GetDashboardData()
         {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
             try
             {
-                _logger.LogInformation("Customer dashboard data requested");
+                _logger.LogInformation("Customer dashboard data requested. {RequestId}", logProperties["RequestId"]);
+                
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetCustomerDashboardData", logProperties);
                 
                 var data = _mockDataService.GetCustomerDashboardData();
+                
+                _logger.LogInformation("Customer dashboard data retrieved successfully. {RequestId}, DataCount: {DataCount}", 
+                    logProperties["RequestId"], data?.CustomerSegments?.Count ?? 0);
                 
                 return Ok(new ApiResponse<CustomerDashboardData>
                 {
@@ -39,7 +47,7 @@ namespace ShopifyTestApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving customer dashboard data");
+                _logger.LogError(ex, "Error retrieving customer dashboard data. {RequestId}", logProperties["RequestId"]);
                 return StatusCode(500, new ApiResponse<CustomerDashboardData>
                 {
                     Success = false,
