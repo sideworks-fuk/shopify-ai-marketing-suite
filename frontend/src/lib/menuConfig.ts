@@ -85,7 +85,7 @@ export const menuStructure: MenuItem[] = [
   // },
   {
     id: "dormant-customers",
-    label: "休眠顧客マネジメント【顧客】",
+    label: "休眠顧客【顧客】",
     icon: "😴",
     href: "/customers/dormant",
     category: "customers",
