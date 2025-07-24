@@ -90,7 +90,7 @@ export const menuStructure: MenuItem[] = [
     href: "/customers/dormant",
     category: "customers",
     isImplemented: true,
-    description: "最終購入からの経過期間別顧客分類と復帰施策管理"
+    description: "最終購入からの経過期間別顧客分類"
   },
 ]
 
