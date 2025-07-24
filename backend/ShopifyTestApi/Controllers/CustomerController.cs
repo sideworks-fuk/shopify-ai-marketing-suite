@@ -10,11 +10,16 @@ namespace ShopifyTestApi.Controllers
     public class CustomerController : ControllerBase
     {
         private readonly IMockDataService _mockDataService;
+        private readonly IDormantCustomerService _dormantCustomerService;
         private readonly ILogger<CustomerController> _logger;
 
-        public CustomerController(IMockDataService mockDataService, ILogger<CustomerController> logger)
+        public CustomerController(
+            IMockDataService mockDataService, 
+            IDormantCustomerService dormantCustomerService,
+            ILogger<CustomerController> logger)
         {
             _mockDataService = mockDataService;
+            _dormantCustomerService = dormantCustomerService;
             _logger = logger;
         }
 
@@ -221,11 +226,133 @@ namespace ShopifyTestApi.Controllers
                         "GET /api/customer/details - 顧客詳細一覧",
                         "GET /api/customer/details/{id} - 顧客詳細",
                         "GET /api/customer/top - トップ顧客",
-                        "GET /api/customer/test - 接続テスト"
+                        "GET /api/customer/test - 接続テスト",
+                        "GET /api/customer/dormant - 休眠顧客分析 (NEW!)"
                     }
                 },
                 Message = "Customer API は正常に動作しています。"
             });
+        }
+
+        // ==============================================
+        // 休眠顧客分析API (Phase 1実装)
+        // ==============================================
+
+        /// <summary>
+        /// 休眠顧客分析データを取得
+        /// GET: api/customer/dormant
+        /// </summary>
+        [HttpGet("dormant")]
+        public async Task<ActionResult<ApiResponse<DormantCustomerResponse>>> GetDormantCustomers([FromQuery] DormantCustomerRequest request)
+        {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            try
+            {
+                _logger.LogInformation("休眠顧客分析データ取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}", 
+                    request.StoreId, request.Segment, logProperties["RequestId"]);
+                
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomers", logProperties);
+                
+                var result = await _dormantCustomerService.GetDormantCustomersAsync(request);
+                
+                _logger.LogInformation("休眠顧客分析データ取得完了. CustomerCount: {CustomerCount}, RequestId: {RequestId}", 
+                    result.Customers.Count, logProperties["RequestId"]);
+                
+                return Ok(new ApiResponse<DormantCustomerResponse>
+                {
+                    Success = true,
+                    Data = result,
+                    Message = "休眠顧客分析データを正常に取得しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "休眠顧客分析データ取得でエラーが発生. RequestId: {RequestId}", logProperties["RequestId"]);
+                return StatusCode(500, new ApiResponse<DormantCustomerResponse>
+                {
+                    Success = false,
+                    Data = null,
+                    Message = "休眠顧客分析データ取得中にエラーが発生しました。"
+                });
+            }
+        }
+
+        /// <summary>
+        /// 休眠顧客サマリー統計を取得
+        /// GET: api/customer/dormant/summary
+        /// </summary>
+        [HttpGet("dormant/summary")]
+        public async Task<ActionResult<ApiResponse<DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
+        {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            try
+            {
+                _logger.LogInformation("休眠顧客サマリー取得開始. StoreId: {StoreId}, RequestId: {RequestId}", 
+                    storeId, logProperties["RequestId"]);
+                
+                var result = await _dormantCustomerService.GetDormantSummaryStatsAsync(storeId);
+                
+                _logger.LogInformation("休眠顧客サマリー取得完了. TotalDormant: {TotalDormant}, RequestId: {RequestId}", 
+                    result.TotalDormantCustomers, logProperties["RequestId"]);
+                
+                return Ok(new ApiResponse<DormantSummaryStats>
+                {
+                    Success = true,
+                    Data = result,
+                    Message = "休眠顧客サマリー統計を正常に取得しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "休眠顧客サマリー取得でエラーが発生. RequestId: {RequestId}", logProperties["RequestId"]);
+                return StatusCode(500, new ApiResponse<DormantSummaryStats>
+                {
+                    Success = false,
+                    Data = null,
+                    Message = "休眠顧客サマリー統計取得中にエラーが発生しました。"
+                });
+            }
+        }
+
+        /// <summary>
+        /// 顧客の離脱確率を取得
+        /// GET: api/customer/{customerId}/churn-probability
+        /// </summary>
+        [HttpGet("{customerId}/churn-probability")]
+        public async Task<ActionResult<ApiResponse<decimal>>> GetChurnProbability(int customerId)
+        {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            try
+            {
+                _logger.LogInformation("離脱確率計算開始. CustomerId: {CustomerId}, RequestId: {RequestId}", 
+                    customerId, logProperties["RequestId"]);
+                
+                var result = await _dormantCustomerService.CalculateChurnProbabilityAsync(customerId);
+                
+                _logger.LogInformation("離脱確率計算完了. CustomerId: {CustomerId}, Probability: {Probability}, RequestId: {RequestId}", 
+                    customerId, result, logProperties["RequestId"]);
+                
+                return Ok(new ApiResponse<decimal>
+                {
+                    Success = true,
+                    Data = result,
+                    Message = "離脱確率を正常に計算しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "離脱確率計算でエラーが発生. CustomerId: {CustomerId}, RequestId: {RequestId}", 
+                    customerId, logProperties["RequestId"]);
+                return StatusCode(500, new ApiResponse<decimal>
+                {
+                    Success = false,
+                    Data = 0,
+                    Message = "離脱確率計算中にエラーが発生しました。"
+                });
+            }
         }
     }
 } 

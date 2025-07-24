@@ -26,6 +26,9 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add Memory Cache
+builder.Services.AddMemoryCache();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -35,6 +38,9 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
+
+// Register Dormant Customer Service (休眠顧客分析サービス)
+builder.Services.AddScoped<IDormantCustomerService, DormantCustomerService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];

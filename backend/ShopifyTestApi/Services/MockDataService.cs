@@ -41,8 +41,8 @@ namespace ShopifyTestApi.Services
             return new CustomerDashboardData
             {
                 CustomerSegments = GetCustomerSegments(),
-                CustomerAcquisitions = GetCustomerAcquisitions(),
-                CustomerLifetimeValues = GetCustomerLifetimeValues(),
+                CustomerAcquisition = GetCustomerAcquisitions(),
+                CustomerLifetimeValue = GetCustomerLifetimeValues(),
                 TopCustomers = GetTopCustomers(),
                 PurchaseFrequencies = GetPurchaseFrequencies(),
                 CustomerDetails = GetCustomerDetails()
