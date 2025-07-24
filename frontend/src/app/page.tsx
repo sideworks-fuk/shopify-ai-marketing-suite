@@ -1,18 +1,12 @@
-"use client"
-
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
 export default function HomePage() {
-  const router = useRouter()
+  // 静的エクスポートに対応するため、サーバーサイドリダイレクトを使用
+  redirect("/dev-bookmarks")
 
-  // デフォルトでdev-bookmarksにリダイレクト
-  useEffect(() => {
-    router.push("/dev-bookmarks")
-  }, [router])
-
+  // 以下のコードは実行されませんが、型エラーを避けるために残します
   return (
     <div className="space-y-6">
       <div>

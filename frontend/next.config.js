@@ -56,7 +56,10 @@ const nextConfig = {
   // Azure Static Web Apps 対応
   output: 'export',
   trailingSlash: true,
-  distDir: 'out'
+  distDir: 'out',
+  // 静的エクスポート用の設定
+  skipTrailingSlashRedirect: true,
+  skipMiddlewareUrlNormalize: true
 }
 
 module.exports = nextConfig
