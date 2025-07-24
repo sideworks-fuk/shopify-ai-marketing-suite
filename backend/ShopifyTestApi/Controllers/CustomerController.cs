@@ -95,6 +95,38 @@ namespace ShopifyTestApi.Controllers
         }
 
         /// <summary>
+        /// 顧客セグメントデータを取得
+        /// GET: api/customer/segments
+        /// </summary>
+        [HttpGet("segments2")]
+        public ActionResult<ApiResponse<List<CustomerSegment>>> GetSegments2()
+        {
+            try
+            {
+                _logger.LogInformation("Customer segments data requested");
+
+                var segments = _mockDataService.GetCustomerSegments();
+
+                return Ok(new ApiResponse<List<CustomerSegment>>
+                {
+                    Success = true,
+                    Data = segments,
+                    Message = "顧客セグメントデータを正常に取得しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving customer segments");
+                return StatusCode(500, new ApiResponse<List<CustomerSegment>>
+                {
+                    Success = false,
+                    Data = null,
+                    Message = "セグメントデータ取得中にエラーが発生しました。"
+                });
+            }
+        }
+
+        /// <summary>
         /// 顧客詳細データ一覧を取得
         /// GET: api/customer/details
         /// </summary>
