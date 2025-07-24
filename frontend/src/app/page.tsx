@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge"
 export default function HomePage() {
   const router = useRouter()
 
-  // デフォルトで売上ダッシュボードにリダイレクト
+  // デフォルトでdev-bookmarksにリダイレクト
   useEffect(() => {
-    router.push("/sales/dashboard")
+    router.push("/dev-bookmarks")
   }, [router])
 
   return (

@@ -37,10 +37,15 @@ class ApiClient {
 
     try {
       console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+      console.log('📋 Request Options:', defaultOptions);
       
       const response = await fetch(url, defaultOptions);
       
+      console.log('📡 Response Status:', response.status, response.statusText);
+      console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
+        console.error('❌ HTTP Error:', response.status, response.statusText);
         throw new ApiError(
           `HTTP Error: ${response.status} ${response.statusText}`,
           response.status,
@@ -55,6 +60,11 @@ class ApiClient {
       return data;
     } catch (error) {
       console.error('❌ API Error:', error);
+      console.error('❌ Error Details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       
       if (error instanceof ApiError) {
         throw error;
@@ -138,4 +148,37 @@ export const api = {
   // トップ顧客取得
   customerTop: () =>
     apiClient.get<any[]>(API_CONFIG.ENDPOINTS.CUSTOMER_TOP),
+  
+  // 休眠顧客分析API
+  dormantCustomers: (params?: {
+    storeId?: number;
+    segment?: string;
+    riskLevel?: string;
+    minTotalSpent?: number;
+    maxTotalSpent?: number;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    descending?: boolean;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT}?${queryString}` : API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT;
+    return apiClient.get<any>(url);
+  },
+  
+  // 休眠顧客サマリー統計取得
+  dormantSummary: (storeId: number = 1) =>
+    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_SUMMARY}?storeId=${storeId}`),
+  
+  // 顧客離脱確率取得
+  customerChurnProbability: (customerId: number) =>
+    apiClient.get<{ data: number }>(`${API_CONFIG.ENDPOINTS.CUSTOMER_CHURN_PROBABILITY}/${customerId}/churn-probability`),
 }; 
