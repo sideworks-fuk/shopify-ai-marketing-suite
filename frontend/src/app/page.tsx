@@ -1,25 +1,48 @@
 "use client"
 
-import { useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-
 export default function HomePage() {
-  // 静的エクスポートに対応するため、クライアントサイドリダイレクトを使用
-  useEffect(() => {
-    // 即座にリダイレクト
-    window.location.href = "/dev-bookmarks/"
-  }, [])
-
-  // リダイレクト中の表示
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">リダイレクト中...</p>
+    <html>
+      <head>
+        <meta httpEquiv="refresh" content="0;url=/dev-bookmarks/" />
+        <title>リダイレクト中...</title>
+      </head>
+      <body>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            // 即座にリダイレクト
+            window.location.replace("/dev-bookmarks/");
+          `
+        }} />
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              border: '2px solid #e5e7eb',
+              borderTop: '2px solid #2563eb',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto'
+            }}></div>
+            <p style={{ marginTop: '16px', color: '#6b7280' }}>リダイレクト中...</p>
+          </div>
         </div>
-      </div>
-    </div>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `
+        }} />
+      </body>
+    </html>
   )
 }
