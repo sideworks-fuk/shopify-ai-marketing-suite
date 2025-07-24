@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,23 +26,155 @@ import { DormantAnalysisChart } from "@/components/dashboards/dormant/DormantAna
 import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCustomerList"
 import { ReactivationInsights } from "@/components/dashboards/dormant/ReactivationInsights"
 
-import { dormantCustomerDetails } from "@/data/mock/customerData"
+import { api } from "@/lib/api-client"
 import { useDormantFilters } from "@/contexts/FilterContext"
 
 export default function DormantCustomerAnalysis() {
   const [showConditions, setShowConditions] = useState(true)
+  const [dormantData, setDormantData] = useState<any[]>([])
+  const [summaryData, setSummaryData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
   const { filters } = useDormantFilters()
+
+  // API からデータを取得
+  useEffect(() => {
+    const fetchDormantData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        console.log('🔄 休眠顧客分析データの取得を開始...')
+        
+        // 並行して両方のAPIを呼び出し
+        const [customersResponse, summaryResponse] = await Promise.all([
+          api.dormantCustomers({
+            storeId: 1,
+            pageSize: 1000, // 全件取得
+            sortBy: 'DaysSinceLastPurchase',
+            descending: true
+          }),
+          api.dormantSummary(1)
+        ])
+        
+        console.log('✅ 休眠顧客データ取得成功:', customersResponse)
+        console.log('✅ サマリーデータ取得成功:', summaryResponse)
+        
+        setDormantData(customersResponse.data || [])
+        setSummaryData(summaryResponse.data)
+        
+      } catch (err) {
+        console.error('❌ 休眠顧客分析データの取得に失敗:', err)
+        
+        // より詳細なエラー情報を構築
+        let errorMessage = 'データの取得に失敗しました'
+        let errorDetails = ''
+        
+        if (err instanceof Error) {
+          errorMessage = err.message
+          errorDetails = err.stack || ''
+        } else if (typeof err === 'string') {
+          errorMessage = err
+        } else if (err && typeof err === 'object') {
+          errorMessage = JSON.stringify(err)
+        }
+        
+        console.error('📋 エラー詳細:', {
+          message: errorMessage,
+          details: errorDetails,
+          type: typeof err,
+          constructor: err?.constructor?.name
+        })
+        
+        setError(`${errorMessage}\n\n詳細: ${errorDetails}`)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDormantData()
+  }, [])
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
+    if (!dormantData) return []
+    
     const selectedSegment = filters.selectedSegment
     return selectedSegment 
-      ? dormantCustomerDetails.filter(customer => {
-          const daysSince = customer.dormancy.daysSincePurchase
+      ? dormantData.filter(customer => {
+          const daysSince = customer.daysSinceLastPurchase || customer.dormancy?.daysSincePurchase || 0
           return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
         })
-      : dormantCustomerDetails
-  }, [filters.selectedSegment])
+      : dormantData
+  }, [dormantData, filters.selectedSegment])
+
+  // ローディング状態
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">分析データを読み込み中...</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // エラー状態
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex items-center justify-center">
+              <div className="text-center max-w-2xl">
+                <div className="text-red-500 text-lg mb-4">❌ データの取得に失敗しました</div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <pre className="text-sm text-red-700 whitespace-pre-wrap overflow-auto max-h-40">
+                    {error}
+                  </pre>
+                </div>
+                <div className="text-sm text-gray-600 mb-4">
+                  <p>💡 トラブルシューティング:</p>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>ブラウザの開発者ツールでネットワークタブを確認</li>
+                    <li>コンソールタブでエラーログを確認</li>
+                    <li>APIサーバーが正常に動作しているか確認</li>
+                  </ul>
+                </div>
+                <div className="space-x-4">
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="outline"
+                  >
+                    再読み込み
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      console.log('🔍 デバッグ情報:');
+                      console.log('  - Current URL:', window.location.href);
+                      console.log('  - User Agent:', navigator.userAgent);
+                    }} 
+                    variant="secondary"
+                    size="sm"
+                  >
+                    デバッグ情報
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -148,7 +280,10 @@ export default function DormantCustomerAnalysis() {
             </Badge>
           )}
         </h2>
-        <DormantCustomerList selectedSegment={filters.selectedSegment} />
+        <DormantCustomerList 
+          selectedSegment={filters.selectedSegment}
+          dormantData={dormantData}
+        />
       </div>
 
       {/* フッター情報 - オプション機能として一時非表示 */}

@@ -1,6 +1,33 @@
 # 🔖 Shopify AIマーケティングスイート - ブックマークリンク集
 
-## 📅 最終更新: 2025年7月23日 [[memory:3773065]]
+## 📅 最終更新: 2025年7月24日 [[memory:3773065]]
+
+---
+
+## 🎯 **各機能への直リンク集（開発環境）**
+
+### **📦 商品分析機能**
+- [📊 **売上ダッシュボード【概要】**](https://brave-sea-038f17a00.1.azurestaticapps.net/sales/dashboard) - 売上の全体像と主要KPIをリアルタイム確認
+- [📈 **前年同月比較【商品別】**](https://brave-sea-038f17a00.1.azurestaticapps.net/sales/year-over-year) - 商品別の売上トレンドを前年と詳細比較
+- [🔄 **リピート購入分析【商品】**](https://brave-sea-038f17a00.1.azurestaticapps.net/sales/purchase-frequency) - 商品別のリピート購入パターンと頻度分析
+- [🛒 **バスケット分析【商品】**](https://brave-sea-038f17a00.1.azurestaticapps.net/sales/market-basket) - 一緒に購入される商品の組み合わせとトレンド分析
+
+### **🛍️ 購買分析機能**
+- [📅 **月次売上レポート【購買】**](https://brave-sea-038f17a00.1.azurestaticapps.net/sales/monthly-stats) - 商品別×月別の売上推移を数量・金額で詳細把握
+- [🔢 **購入回数セグメント【購買】**](https://brave-sea-038f17a00.1.azurestaticapps.net/purchase/frequency-detail) - 顧客の購入回数別セグメント分析と前年比較レポート
+- [📊 **顧客階層トレンド【購買】**](https://brave-sea-038f17a00.1.azurestaticapps.net/purchase/f-tier-trend) - 購入頻度による顧客階層の時系列変化とトレンド分析
+
+### **👥 顧客分析機能**
+- [👤 **顧客プロファイル【顧客】**](https://brave-sea-038f17a00.1.azurestaticapps.net/customers/profile) - 顧客別の詳細な購買履歴とプロファイル分析
+- [😴 **休眠顧客マネジメント【顧客】**](https://brave-sea-038f17a00.1.azurestaticapps.net/customers/dormant) - 最終購入からの経過期間別顧客分類と復帰施策管理
+
+### **🤖 AIインサイト機能**
+- [🤖 **AIインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net/ai-insights) - AI予測・提案機能
+
+### **🧪 テスト・開発機能**
+- [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
+- [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認
+- [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
 
 ---
 
@@ -10,6 +37,7 @@
 - [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
 - [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
 - [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
+- [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
 
 ### **🔌 バックエンドAPI (開発環境)**
 - [❤️ **Health Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) - API稼働確認
@@ -20,6 +48,8 @@
 - [🔍 **Customer Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/test) - Shopify接続テスト
 - [👥 **Customer Segments**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/segments) - 顧客セグメント
 - [📊 **Customer Dashboard**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dashboard) - ダッシュボードデータ
+- [😴 **Dormant Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant) - 休眠顧客分析API ✅ **NEW!**
+- [📋 **Dormant Summary**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant/summary) - 休眠顧客サマリー統計 ✅ **NEW!**
 - [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
 - [🔍 **Health Ready Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/health/ready) - 詳細ヘルスチェック ✅ **新機能**
 - [ℹ️ **Environment Info**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/env-info) - 環境情報確認 ✅ **新機能**
@@ -64,6 +94,7 @@ URL: 未定（後日決定）
 ### **🖥️ 開発サーバー**
 - [🎨 **フロントエンド**](http://localhost:3000) - Next.js開発サーバー
 - [🗄️ **Database API テスト (ローカル)**](http://localhost:3000/database-test) - ローカルDB統合テスト
+- [🔍 **休眠顧客API テスト (ローカル)**](http://localhost:3000/dormant-api-test) - ローカル休眠顧客分析テスト ✅ **NEW!**
 - [⚡ **バックエンドAPI**](https://localhost:7177) - ASP.NET Core API
 - [📖 **Swagger (ローカル)**](https://localhost:7177/swagger) - ローカルAPI仕様
 - [🧪 **API接続テスト (ローカル)**](http://localhost:3000/api-test) - ローカルShopifyテスト
@@ -75,6 +106,8 @@ URL: 未定（後日決定）
 - [🔌 **Local Database Test**](https://localhost:7177/api/database/test) - ローカルDB接続テスト
 - [👥 **Local Database Customers**](https://localhost:7177/api/database/customers) - ローカル顧客データ
 - [🔍 **Local Customer Test**](https://localhost:7177/api/customer/test) - ローカルShopify接続テスト
+- [😴 **Local Dormant Customers**](https://localhost:7177/api/customer/dormant) - ローカル休眠顧客分析API ✅ **NEW!**
+- [📋 **Local Dormant Summary**](https://localhost:7177/api/customer/dormant/summary) - ローカル休眠顧客サマリー ✅ **NEW!**
 
 ---
 
@@ -109,6 +142,7 @@ URL: 未定（後日決定）
 |------|----------|----------|
 | サイト表示 | [🌐 開発サイト](https://brave-sea-038f17a00.1.azurestaticapps.net) | [🖥️ ローカル](http://localhost:3000) |
 | Database API | [🗄️ DB統合テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) | [🗄️ ローカルDBテスト](http://localhost:3000/database-test) |
+| 休眠顧客API | [🔍 休眠顧客テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) | [🔍 ローカル休眠テスト](http://localhost:3000/dormant-api-test) |
 | API動作 | [❤️ Health Check](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | [❤️ Local Health](https://localhost:7177/api/health) |
 | Shopify連携 | [🧪 API接続テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) | [🧪 ローカルテスト](http://localhost:3000/api-test) |
 
@@ -168,6 +202,7 @@ URL: 未定（後日決定）
 - ✅ developブランチ戦略導入 (2025-07-20) ⭐ **最新成果**
 - ✅ 包括的ログシステム実装 (2025-07-23) ⭐ **最新成果**
 - ✅ Application Insights統合 (2025-07-23) ⭐ **最新成果**
+- ✅ 休眠顧客API専用テスト画面作成 (2025-07-24) ⭐ **最新成果**
 
 ### **🔄 Phase 2 開発中**
 - 🔄 feature ブランチでの機能開発開始予定

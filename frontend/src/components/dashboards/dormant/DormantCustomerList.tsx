@@ -56,11 +56,34 @@ import {
   type DormancyReason 
 } from "@/data/mock/customerData"
 
-interface DormantCustomerListProps {
-  selectedSegment?: DormantSegment | null;
+// API データの型定義（簡易版）
+interface ApiDormantCustomer {
+  customerId?: string | number;
+  customerName?: string;
+  daysSinceLastPurchase?: number;
+  riskLevel?: string;
+  estimatedReason?: string;
+  ltv?: number;
+  totalSpent?: number;
+  // モックデータとの互換性のため
+  id?: string;
+  name?: string;
+  dormancy?: any;
+  analytics?: any;
+  reactivation?: {
+    probability?: number;
+    recommendedActions?: any[];
+    optimalTiming?: Date | string;
+    estimatedValue?: number;
+  };
 }
 
-export function DormantCustomerList({ selectedSegment }: DormantCustomerListProps) {
+interface DormantCustomerListProps {
+  selectedSegment?: DormantSegment | null;
+  dormantData?: ApiDormantCustomer[];
+}
+
+export function DormantCustomerList({ selectedSegment, dormantData = [] }: DormantCustomerListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
   const [reasonFilter, setReasonFilter] = useState<DormancyReason | "all">("all")
@@ -79,50 +102,61 @@ export function DormantCustomerList({ selectedSegment }: DormantCustomerListProp
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
-    let result = dormantCustomerDetails.filter((customer) => {
-      // 検索条件
-      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customer.id.includes(searchTerm)
+    let result = dormantData.filter((customer) => {
+      // 検索条件 - APIデータに合わせてフィールドを調整
+      const customerName = customer.customerName || customer.name || ''
+      const customerId = customer.customerId || customer.id || ''
+      const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          customerId.toString().includes(searchTerm)
 
-      // セグメント条件
+      // セグメント条件 - APIデータに合わせてフィールドを調整
+      const daysSince = customer.daysSinceLastPurchase || customer.dormancy?.daysSincePurchase || 0
       const matchesSegment = !selectedSegment || (
-        customer.dormancy.daysSincePurchase >= selectedSegment.range[0] &&
-        (selectedSegment.range[1] === 9999 || customer.dormancy.daysSincePurchase <= selectedSegment.range[1])
+        daysSince >= selectedSegment.range[0] &&
+        (selectedSegment.range[1] === 9999 || daysSince <= selectedSegment.range[1])
       )
 
-      // リスクレベル条件
-      const matchesRisk = riskFilter === "all" || customer.dormancy.riskLevel === riskFilter
+      // リスクレベル条件 - APIデータに合わせてフィールドを調整
+      const riskLevel = customer.riskLevel || customer.dormancy?.riskLevel || 'medium'
+      const matchesRisk = riskFilter === "all" || riskLevel === riskFilter
 
-      // 休眠理由条件
-      const matchesReason = reasonFilter === "all" || customer.dormancy.estimatedReason === reasonFilter
+      // 休眠理由条件 - APIデータに合わせてフィールドを調整
+      const estimatedReason = customer.estimatedReason || customer.dormancy?.estimatedReason || 'unknown'
+      const matchesReason = reasonFilter === "all" || estimatedReason === reasonFilter
 
       return matchesSearch && matchesSegment && matchesRisk && matchesReason
     })
 
-    // ソート処理
+    // ソート処理 - APIデータに合わせてフィールドを調整
     if (sortConfig) {
       result.sort((a, b) => {
         if (sortConfig.key === 'name') {
+          const nameA = a.customerName || a.name || ''
+          const nameB = b.customerName || b.name || ''
           return sortConfig.direction === 'asc' 
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name)
+            ? nameA.localeCompare(nameB)
+            : nameB.localeCompare(nameA)
         }
         if (sortConfig.key === 'daysSincePurchase') {
+          const daysA = a.daysSinceLastPurchase || a.dormancy?.daysSincePurchase || 0
+          const daysB = b.daysSinceLastPurchase || b.dormancy?.daysSincePurchase || 0
           return sortConfig.direction === 'asc'
-            ? a.dormancy.daysSincePurchase - b.dormancy.daysSincePurchase
-            : b.dormancy.daysSincePurchase - a.dormancy.daysSincePurchase
+            ? daysA - daysB
+            : daysB - daysA
         }
         if (sortConfig.key === 'ltv') {
+          const ltvA = a.ltv || a.analytics?.ltv || 0
+          const ltvB = b.ltv || b.analytics?.ltv || 0
           return sortConfig.direction === 'asc'
-            ? a.analytics.ltv - b.analytics.ltv
-            : b.analytics.ltv - a.analytics.ltv
+            ? ltvA - ltvB
+            : ltvB - ltvA
         }
         return 0
       })
     }
 
     return result
-  }, [dormantCustomerDetails, searchTerm, selectedSegment, riskFilter, reasonFilter, sortConfig])
+  }, [dormantData, searchTerm, selectedSegment, riskFilter, reasonFilter, sortConfig])
 
   // ページネーション
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage)
