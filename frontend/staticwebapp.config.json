@@ -5,6 +5,10 @@
       "redirect": "/dev-bookmarks/"
     },
     {
+      "route": "/index.html",
+      "redirect": "/dev-bookmarks/"
+    },
+    {
       "route": "/api/*",
       "rewrite": "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/{*}"
     },
