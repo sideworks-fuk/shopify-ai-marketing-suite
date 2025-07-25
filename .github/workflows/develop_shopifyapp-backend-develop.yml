@@ -1,4 +1,4 @@
-name: Build and deploy ASP.Net Core app to Azure Web App - shopifyapp-backend-develop
+name: Build and deploy ShopifyTestApi
 
 on:
   push:
@@ -23,15 +23,20 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        run: |
+          cd backend/ShopifyTestApi
+          dotnet restore
+          dotnet build --configuration Release
 
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+      - name: Publish with dotnet
+        run: |
+          cd backend/ShopifyTestApi
+          dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
+          name: dotnet-app
           path: ${{env.DOTNET_ROOT}}/myapp
 
   deploy:
