@@ -1,12 +1,29 @@
 name: Build and deploy ShopifyTestApi
 
 on:
+  # 自動デプロイ（developブランチへのプッシュ時）
   push:
     branches:
       - develop
     paths:
       - 'backend/**'
+  
+  # 手動デプロイ（GitHub画面上から実行可能）
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+      force_rebuild:
+        description: '強制リビルド'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -18,7 +35,8 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Debug - Workflow Information
         run: |
@@ -63,7 +81,7 @@ jobs:
   deploy:
     runs-on: windows-latest
     needs: build
-    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'  # 手動実行時もデプロイ
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       actions: read
@@ -93,3 +111,12 @@ jobs:
           app-name: 'shopifyapp-backend-develop'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
           package: .
+
+      - name: Deploy Status
+        run: |
+          echo "✅ バックエンドデプロイ完了"
+          echo "🌐 環境: development"
+          echo "🔗 URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
+          echo "👤 実行者: ${{ github.actor }}"
+          echo "📅 実行日時: $(Get-Date)"
+          echo "📦 ビルドID: ${{ github.run_id }}"

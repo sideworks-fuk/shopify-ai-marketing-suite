@@ -40,6 +40,7 @@ export interface ProductInfo {
 export interface CustomerDetail {
   id: string;
   name: string;
+  company?: string;  // 会社名を追加
   purchaseCount: number;
   totalAmount: number;
   frequency: number;

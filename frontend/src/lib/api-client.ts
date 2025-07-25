@@ -230,6 +230,10 @@ export const api = {
   dormantSummary: (storeId: number = 1) =>
     apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_SUMMARY}?storeId=${storeId}`),
   
+  // 詳細な期間別セグメント分布取得
+  dormantDetailedSegments: (storeId: number = 1) =>
+    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_DETAILED_SEGMENTS}?storeId=${storeId}`),
+  
   // 顧客離脱確率取得
   customerChurnProbability: (customerId: number) =>
     apiClient.get<{ data: number }>(`${API_CONFIG.ENDPOINTS.CUSTOMER_CHURN_PROBABILITY}/${customerId}/churn-probability`),

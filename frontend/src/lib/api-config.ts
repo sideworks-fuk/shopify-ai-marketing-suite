@@ -19,6 +19,7 @@ export const API_CONFIG = {
     // Dormant Customer API (休眠顧客分析API)
     CUSTOMER_DORMANT: '/api/customer/dormant',
     CUSTOMER_DORMANT_SUMMARY: '/api/customer/dormant/summary',
+    CUSTOMER_DORMANT_DETAILED_SEGMENTS: '/api/customer/dormant/detailed-segments',
     CUSTOMER_CHURN_PROBABILITY: '/api/customer', // + /{id}/churn-probability
     
     // Analytics API (分析API)
