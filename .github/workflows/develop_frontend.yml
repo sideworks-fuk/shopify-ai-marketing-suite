@@ -6,6 +6,8 @@ on:
       - develop
     paths:
       - 'frontend/**'
+    workflow_dispatch:
+
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
