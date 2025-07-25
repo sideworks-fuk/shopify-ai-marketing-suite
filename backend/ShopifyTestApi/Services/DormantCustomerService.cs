@@ -47,6 +47,12 @@ namespace ShopifyTestApi.Services
         /// </summary>
         public async Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request)
         {
+            // 入力検証
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
             // パフォーマンス改善: ページサイズの制限（最大50件）
             request.PageSize = Math.Min(request.PageSize, 50);
             if (request.PageSize <= 0)
@@ -69,7 +75,8 @@ namespace ShopifyTestApi.Services
                 _logger.LogInformation("休眠顧客リスト取得開始. StoreId: {StoreId}, Segment: {Segment}, PageNumber: {PageNumber}",
                     request.StoreId, request.Segment, request.PageNumber);
 
-                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomersAsync", logProperties);
+                // 一時的にコメントアウト - パフォーマンススコープがエラーの原因の可能性
+                // using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomersAsync", logProperties);
 
                 // キャッシュチェック（5分間）
                 if (_cache.TryGetValue(cacheKey, out DormantCustomerResponse? cachedResponse))
