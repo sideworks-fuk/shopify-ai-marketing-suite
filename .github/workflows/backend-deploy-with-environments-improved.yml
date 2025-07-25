@@ -1,0 +1,198 @@
+name: Backend Deploy with Environments (Improved)
+
+on:
+  push:
+    branches: [ main, staging, develop ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main, staging, develop ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Source branch to deploy from'
+        required: true
+        default: 'develop'
+        type: choice
+        options:
+        - main
+        - staging
+        - develop
+      target_environment:
+        description: 'Target environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - main
+        - staging
+        - develop
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_branch || github.ref }}
+
+      - name: Debug - Workflow Information
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Source Branch: ${{ github.event.inputs.source_branch || github.ref }}"
+          echo "Target Environment: ${{ github.event.inputs.target_environment || 'auto' }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run ID: ${{ github.run_id }}"
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Build with dotnet
+        run: |
+          cd backend/ShopifyTestApi
+          dotnet restore
+          dotnet build --configuration Release
+
+      - name: Debug - Check project structure
+        run: |
+          cd backend/ShopifyTestApi
+          echo "Current directory: $(pwd)"
+          echo "Project file exists: $(Test-Path ShopifyTestApi.csproj)"
+          echo "Directory contents:"
+          Get-ChildItem -Force
+
+      - name: Publish with dotnet
+        run: |
+          cd backend/ShopifyTestApi
+          dotnet publish -c Release -o ./publish
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-app
+          path: backend/ShopifyTestApi/publish
+
+  deploy-main:
+    runs-on: windows-latest
+    needs: build
+    if: |
+      github.ref == 'refs/heads/main' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'main')
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+    environment:
+      name: 'Production'
+      url: 'https://shopifyapp-backend-production.japanwest-01.azurewebsites.net/'
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+      
+      - name: Debug - Deploy Information
+        run: |
+          echo "Deploying to Azure App Service: shopifyapp-backend-production"
+          echo "Environment URL: https://shopifyapp-backend-production.japanwest-01.azurewebsites.net/"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Source Branch: ${{ github.event.inputs.source_branch || github.ref }}"
+          echo "Target Environment: main (Production)"
+
+      - name: Deploy to Azure Web App (Production)
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'shopifyapp-backend-production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PRODUCTION }}
+          package: .
+
+  deploy-staging:
+    runs-on: windows-latest
+    needs: build
+    if: |
+      github.ref == 'refs/heads/staging' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'staging')
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+    environment:
+      name: 'Staging'
+      url: 'https://shopifyapp-backend-staging.japanwest-01.azurewebsites.net/'
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+      
+      - name: Debug - Deploy Information
+        run: |
+          echo "Deploying to Azure App Service: shopifyapp-backend-staging"
+          echo "Environment URL: https://shopifyapp-backend-staging.japanwest-01.azurewebsites.net/"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Source Branch: ${{ github.event.inputs.source_branch || github.ref }}"
+          echo "Target Environment: staging"
+
+      - name: Deploy to Azure Web App (Staging)
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'shopifyapp-backend-staging'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_STAGING }}
+          package: .
+
+  deploy-develop:
+    runs-on: windows-latest
+    needs: build
+    if: |
+      github.ref == 'refs/heads/develop' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'develop')
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+    environment:
+      name: 'Development'
+      url: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/'
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+      
+      - name: Debug - Deploy Information
+        run: |
+          echo "Deploying to Azure App Service: shopifyapp-backend-develop"
+          echo "Environment URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Source Branch: ${{ github.event.inputs.source_branch || github.ref }}"
+          echo "Target Environment: develop"
+
+      - name: Deploy to Azure Web App (Development)
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'shopifyapp-backend-develop'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+          package: . 

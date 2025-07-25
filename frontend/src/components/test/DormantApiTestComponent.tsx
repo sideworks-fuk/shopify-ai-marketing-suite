@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { api } from '../../lib/api-client';
+import { getApiUrl } from '../../lib/api-config';
 
 interface TestResult {
   endpoint: string;
@@ -141,6 +142,9 @@ export default function DormantApiTestComponent() {
   const handleParamChange = (key: keyof DormantTestParams, value: any) => {
     setParams(prev => ({ ...prev, [key]: value }));
   };
+
+  // 動的にベースURLを取得
+  const apiBaseUrl = getApiUrl();
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -397,7 +401,7 @@ export default function DormantApiTestComponent() {
       <div className="mt-6 bg-gray-50 p-6 rounded-lg">
         <h3 className="text-lg font-medium mb-3">🔗 API情報</h3>
         <div className="text-sm text-gray-600 space-y-2">
-          <div><span className="font-medium">ベースURL:</span> https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net</div>
+          <div><span className="font-medium">ベースURL:</span> {apiBaseUrl}</div>
           <div><span className="font-medium">休眠顧客リスト:</span> GET /api/customer/dormant</div>
           <div><span className="font-medium">サマリー統計:</span> GET /api/customer/dormant/summary</div>
           <div><span className="font-medium">離脱確率:</span> GET /api/customer/{'{id}'}/churn-probability</div>

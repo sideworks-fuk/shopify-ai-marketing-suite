@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../../lib/api-config';
 
 // シンプルなレイアウトコンポーネント
 function PageLayout({ title, description, children }: { 
@@ -58,18 +59,25 @@ export default function DatabaseTestPage() {
   const [customersLoading, setCustomersLoading] = useState(true);
   const [customersError, setCustomersError] = useState<string | null>(null);
 
-  // API Base URL
-  const API_BASE = 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database';
+  // 動的にAPI Base URLを取得
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
 
   // CORSテスト用の状態
   const [corsTestResult, setCorsTestResult] = useState<any>(null);
   const [corsTestLoading, setCorsTestLoading] = useState(false);
 
+  // API Base URLを初期化
+  useEffect(() => {
+    setApiBaseUrl(getApiUrl());
+  }, []);
+
   // 接続テスト
   useEffect(() => {
+    if (!apiBaseUrl) return;
+
     const testConnection = async () => {
       try {
-        const response = await fetch(`${API_BASE}/test`, {
+        const response = await fetch(`${apiBaseUrl}/api/database/test`, {
           method: 'GET',
           mode: 'cors',
           credentials: 'omit',
@@ -98,13 +106,15 @@ export default function DatabaseTestPage() {
     };
 
     testConnection();
-  }, []);
+  }, [apiBaseUrl]);
 
   // CORSテスト
   const testCors = async () => {
+    if (!apiBaseUrl) return;
+
     try {
       setCorsTestLoading(true);
-      const response = await fetch(`${API_BASE}/cors-test`, {
+      const response = await fetch(`${apiBaseUrl}/api/database/cors-test`, {
         method: 'GET',
         mode: 'cors',
         credentials: 'omit',
@@ -133,10 +143,12 @@ export default function DatabaseTestPage() {
 
   // 顧客データ取得
   useEffect(() => {
+    if (!apiBaseUrl) return;
+
     const fetchCustomers = async () => {
       try {
         setCustomersLoading(true);
-        const response = await fetch(`${API_BASE}/customers`, {
+        const response = await fetch(`${apiBaseUrl}/api/database/customers`, {
           method: 'GET',
           mode: 'cors',
           credentials: 'omit',
@@ -153,22 +165,19 @@ export default function DatabaseTestPage() {
         
         if (data.success && data.data) {
           setCustomers(data.data);
-          setCustomersError(null);
         } else {
-          setCustomersError(data.message || '顧客データの取得に失敗しました');
+          setCustomersError(data.message || 'データの取得に失敗しました');
         }
       } catch (error) {
-        console.error('Customer data fetch error:', error);
-        setCustomersError(error instanceof Error ? error.message : 'ネットワークエラー');
+        console.error('Fetch customers error:', error);
+        setCustomersError(error instanceof Error ? error.message : 'Unknown error');
       } finally {
         setCustomersLoading(false);
       }
     };
 
-    if (connectionStatus === 'success') {
-      fetchCustomers();
-    }
-  }, [connectionStatus]);
+    fetchCustomers();
+  }, [apiBaseUrl]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ja-JP', {
@@ -400,7 +409,7 @@ export default function DatabaseTestPage() {
         <div className="bg-gray-50 p-6 rounded-lg">
           <h3 className="text-lg font-medium mb-3">🔗 API接続情報</h3>
           <div className="text-sm text-gray-600 space-y-2">
-            <div><span className="font-medium">ベースURL:</span> {API_BASE}</div>
+            <div><span className="font-medium">ベースURL:</span> {apiBaseUrl}</div>
             <div><span className="font-medium">接続テスト:</span> GET /test</div>
             <div><span className="font-medium">顧客データ:</span> GET /customers</div>
             <div><span className="font-medium">技術スタック:</span> Next.js 14 + .NET 8 + Azure SQL Database + Entity Framework Core</div>

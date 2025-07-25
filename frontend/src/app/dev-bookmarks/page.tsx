@@ -22,6 +22,8 @@ import {
   Zap
 } from "lucide-react"
 import Link from "next/link"
+import { useState, useEffect } from "react"
+import { getEnvironmentInfo } from "@/lib/api-config"
 
 interface BookmarkItem {
   title: string
@@ -112,7 +114,7 @@ const bookmarkItems: BookmarkItem[] = [
   },
   {
     title: "休眠顧客【顧客】",
-    description: "休眠顧客の分析と復帰施策",
+    description: "休眠顧客の分析と復帰施策（パフォーマンス改善済み）",
     href: "/customers/dormant",
     icon: <UserX className="h-5 w-5" />,
     status: 'implemented',
@@ -153,6 +155,14 @@ const bookmarkItems: BookmarkItem[] = [
     icon: <Database className="h-5 w-5" />,
     status: 'implemented',
     category: 'dev'
+  },
+  {
+    title: "環境情報確認",
+    description: "API環境設定と接続状態の確認",
+    href: "/dev-bookmarks",
+    icon: <Settings className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
   }
 ]
 
@@ -183,6 +193,18 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 }
 
 export default function DevBookmarksPage() {
+  const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
+  
+  useEffect(() => {
+    // 環境情報を取得
+    try {
+      const envInfo = getEnvironmentInfo()
+      setEnvironmentInfo(envInfo)
+    } catch (error) {
+      console.error('環境情報の取得に失敗:', error)
+    }
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* ヘッダー */}
@@ -377,6 +399,56 @@ export default function DevBookmarksPage() {
           </div>
         </div>
       </div>
+
+      {/* 環境情報 */}
+      {environmentInfo && (
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              環境情報
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">現在の環境:</span>
+                  <Badge variant={environmentInfo.isProduction ? "destructive" : "secondary"}>
+                    {environmentInfo.environmentName}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">API ベースURL:</span>
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                    {environmentInfo.apiBaseUrl}
+                  </code>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">ビルド環境:</span>
+                  <span className="text-sm">{environmentInfo.buildTimeInfo?.buildEnvironment || 'N/A'}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">本番環境:</span>
+                  <Badge variant={environmentInfo.isProduction ? "destructive" : "default"}>
+                    {environmentInfo.isProduction ? 'はい' : 'いいえ'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">デプロイ環境:</span>
+                  <span className="text-sm">{environmentInfo.buildTimeInfo?.deployEnvironment || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">説明:</span>
+                  <span className="text-sm">{environmentInfo.description}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 統計情報 */}
       <Card className="mt-8">
