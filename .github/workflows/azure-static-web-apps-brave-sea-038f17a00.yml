@@ -1,15 +1,15 @@
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (Development)
 
 on:
   push:
     branches:
-      - main
+      - develop
     paths:
       - 'frontend/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - main
+      - develop
     paths:
       - 'frontend/**'
 
@@ -17,7 +17,7 @@ jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
+    name: Build and Deploy Job (Development)
     steps:
       - uses: actions/checkout@v3
         with:
