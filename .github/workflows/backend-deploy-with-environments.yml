@@ -83,7 +83,7 @@ jobs:
       deployments: write
       id-token: write
     environment:
-      name: 'Production'
+      name: 'main'
       url: 'https://shopifyapp-backend-production.japanwest-01.azurewebsites.net/'
 
     steps:
@@ -99,12 +99,12 @@ jobs:
           echo "Event type: ${{ github.event_name }}"
           echo "Branch: ${{ github.ref }}"
 
-      - name: Deploy to Azure Web App (Production)
+      - name: Deploy to Azure Web App (main)
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'shopifyapp-backend-production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_PRODUCTION }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_MAIN }}
           package: .
 
   deploy-staging:
@@ -117,7 +117,7 @@ jobs:
       deployments: write
       id-token: write
     environment:
-      name: 'Staging'
+      name: 'staging'
       url: 'https://shopifyapp-backend-staging.japanwest-01.azurewebsites.net/'
 
     steps:
@@ -133,7 +133,7 @@ jobs:
           echo "Event type: ${{ github.event_name }}"
           echo "Branch: ${{ github.ref }}"
 
-      - name: Deploy to Azure Web App (Staging)
+      - name: Deploy to Azure Web App (staging)
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
@@ -151,7 +151,7 @@ jobs:
       deployments: write
       id-token: write
     environment:
-      name: 'Development'
+      name: 'develop'
       url: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/'
 
     steps:
@@ -167,10 +167,10 @@ jobs:
           echo "Event type: ${{ github.event_name }}"
           echo "Branch: ${{ github.ref }}"
 
-      - name: Deploy to Azure Web App (Development)
+      - name: Deploy to Azure Web App (develop)
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'shopifyapp-backend-develop'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DEVELOP }}
           package: . 

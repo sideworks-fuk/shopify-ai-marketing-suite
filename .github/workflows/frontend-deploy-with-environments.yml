@@ -24,7 +24,7 @@ on:
 jobs:
   deploy-main:
     runs-on: ubuntu-latest
-    environment: Production
+    environment: main
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main')
     
     steps:
@@ -52,18 +52,12 @@ jobs:
         NODE_ENV: production
       run: npm run build
 
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        working-directory: ./frontend
-        vercel-args: '--prod'
+    - name: Build completed
+      run: echo "Build completed for main environment"
 
   deploy-staging:
     runs-on: ubuntu-latest
-    environment: Staging
+    environment: staging
     if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     
     steps:
@@ -91,14 +85,8 @@ jobs:
         NODE_ENV: production
       run: npm run build
 
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        working-directory: ./frontend
-        vercel-args: '--prod'
+    - name: Build completed
+      run: echo "Build completed for staging environment"
 
   deploy-develop:
     runs-on: ubuntu-latest
@@ -130,11 +118,5 @@ jobs:
         NODE_ENV: production
       run: npm run build
 
-    - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        working-directory: ./frontend
-        vercel-args: '--prod' 
+    - name: Build completed
+      run: echo "Build completed for develop environment" 
