@@ -75,6 +75,14 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
+    console.log('🔍 DormantCustomerList - フィルタリング開始:', {
+      dormantDataLength: dormantData.length,
+      selectedSegment,
+      searchTerm,
+      riskFilter,
+      sampleCustomer: dormantData[0]
+    })
+
     let result = dormantData.filter((customer) => {
       // 検索条件
       const customerName = customer.name || ''
@@ -86,20 +94,54 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
       const matchesSegment = !selectedSegment || (() => {
         const customerSegment = customer.dormancySegment
         if (customerSegment) {
-          return customerSegment === selectedSegment.label
+          // セグメント名の完全一致を確認
+          const segmentMatch = customerSegment === selectedSegment.label
+          console.log('🔍 セグメントマッチング（API値使用）:', {
+            customerId: customer.customerId,
+            customerSegment,
+            selectedLabel: selectedSegment.label,
+            matches: segmentMatch
+          })
+          return segmentMatch
         }
         
         // フォールバック: daysSinceLastPurchase による範囲チェック
         const daysSince = customer.daysSinceLastPurchase || 0
-        return daysSince >= selectedSegment.range[0] &&
+        const rangeMatch = daysSince >= selectedSegment.range[0] &&
                (selectedSegment.range[1] === 9999 || daysSince <= selectedSegment.range[1])
+        console.log('🔍 セグメントマッチング（範囲チェック）:', {
+          customerId: customer.customerId,
+          daysSince,
+          range: selectedSegment.range,
+          matches: rangeMatch
+        })
+        return rangeMatch
       })()
 
       // リスクレベル条件
       const riskLevel = customer.riskLevel || 'medium'
       const matchesRisk = riskFilter === "all" || riskLevel === riskFilter
 
-      return matchesSearch && matchesSegment && matchesRisk
+      const finalMatch = matchesSearch && matchesSegment && matchesRisk
+      
+      if (selectedSegment && !finalMatch) {
+        console.log('🔍 フィルタ除外:', {
+          customerId: customer.customerId,
+          matchesSearch,
+          matchesSegment,
+          matchesRisk,
+          finalMatch
+        })
+      }
+
+      return finalMatch
+    })
+
+    console.log('✅ DormantCustomerList - フィルタリング結果:', {
+      originalCount: dormantData.length,
+      filteredCount: result.length,
+      hasSelectedSegment: !!selectedSegment,
+      expectedCount: selectedSegment?.count || 0 // フィルター欄に表示されている人数
     })
 
     return result
@@ -222,6 +264,22 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
               </TableRow>
             </TableHeader>
             <TableBody>
+              {paginatedCustomers.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="text-gray-500">
+                      {selectedSegment 
+                        ? `選択されたセグメント「${selectedSegment.label}」に該当する顧客が見つかりません` 
+                        : 'データがありません'}
+                    </div>
+                    {dormantData.length > 0 && (
+                      <div className="text-sm text-gray-400 mt-2">
+                        全体データ: {dormantData.length}件
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
               {paginatedCustomers.map((customer) => {
                 const customerId = customer.customerId?.toString() || ''
                 const customerName = customer.name || ''

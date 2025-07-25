@@ -35,7 +35,10 @@ export default function DormantCustomerAnalysis() {
   const [summaryData, setSummaryData] = useState<any>(null)
   const [segmentDistributions, setSegmentDistributions] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMoreData, setHasMoreData] = useState(true)
   
   const { filters } = useDormantFilters()
 
@@ -52,9 +55,9 @@ export default function DormantCustomerAnalysis() {
         const [customersResponse, summaryResponse] = await Promise.all([
           api.dormantCustomers({
             storeId: 1,
-            pageSize: 50, // パフォーマンスを考慮して適切なサイズに変更
+            pageSize: 100, // パフォーマンス改善のため適切なサイズに調整
             sortBy: 'DaysSinceLastPurchase',
-            descending: false // 昇順に変更して短期間の休眠から取得
+            descending: false // 昇順で表示（休眠期間の短い順）
           }),
           api.dormantSummary(1)
         ])
@@ -64,57 +67,98 @@ export default function DormantCustomerAnalysis() {
         
         // APIレスポンスから顧客データを正しく取得
         const customersData = customersResponse.data?.customers || []
-        const segmentData = customersResponse.data?.segmentDistributions || []
+        const pagination = customersResponse.data?.pagination
+        
+        // サマリーデータからセグメント分布を配列形式に変換
+        const summarySegments = summaryResponse.data?.segmentCounts || {}
+        const segmentData = Object.entries(summarySegments).map(([segment, count]) => ({
+          segment,
+          count: Number(count),
+          percentage: summaryResponse.data?.totalDormantCustomers > 0 
+            ? (Number(count) / summaryResponse.data.totalDormantCustomers * 100) 
+            : 0,
+          revenue: summaryResponse.data?.segmentRevenue?.[segment] || 0
+        }))
+        
         console.log('📊 取得した顧客数:', customersData.length)
-        console.log('📊 セグメント分布:', segmentData)
+        console.log('📊 ページネーション情報:', pagination)
+        console.log('📊 変換前セグメントカウント:', summarySegments)
+        console.log('📊 変換後セグメント分布:', segmentData)
+        console.log('📊 合計休眠顧客数:', summaryResponse.data?.totalDormantCustomers)
         
         setDormantData(customersData)
         setSummaryData(summaryResponse.data)
         setSegmentDistributions(segmentData)
         
-      } catch (err) {
-        console.error('❌ 休眠顧客分析データの取得に失敗:', err)
-        
-        // より詳細なエラー情報を構築
-        let errorMessage = 'データの取得に失敗しました'
-        let errorDetails = ''
-        
-        if (err instanceof Error) {
-          errorMessage = err.message
-          errorDetails = err.stack || ''
-          
-          // タイムアウトエラーの特別処理
-          if (err.message.includes('timeout')) {
-            errorMessage = 'リクエストがタイムアウトしました。データが多いため時間がかかっています。'
-            errorDetails = 'ページサイズを小さくするか、しばらく待ってから再試行してください。'
-          }
-          
-          // ネットワークエラーの特別処理
-          if (err.message.includes('fetch') || err.message.includes('network')) {
-            errorMessage = 'ネットワーク接続エラーが発生しました'
-            errorDetails = 'インターネット接続を確認してください'
-          }
-        } else if (typeof err === 'string') {
-          errorMessage = err
-        } else if (err && typeof err === 'object') {
-          errorMessage = JSON.stringify(err)
+        // 初期ページネーション情報の設定
+        if (pagination) {
+          setCurrentPage(pagination.currentPage || 1)
+          setHasMoreData(pagination.hasNextPage || false)
+        } else {
+          // ページネーション情報がない場合は、データ数で判断
+          setHasMoreData(customersData.length === 20) // pageSize分だけ取得できた場合は続きがある可能性
         }
         
-        console.error('📋 エラー詳細:', {
-          message: errorMessage,
-          details: errorDetails,
-          type: typeof err,
-          constructor: err?.constructor?.name
-        })
+      } catch (error) {
+        console.error('❌ 休眠顧客データ取得エラー:', error);
         
-        setError(`${errorMessage}\n\n詳細: ${errorDetails}`)
-      } finally {
-        setIsLoading(false)
+        // タイムアウトエラーの特別処理
+        if (error instanceof Error && error.message.includes('timeout')) {
+          setError('データの取得に失敗しました。リクエストがタイムアウトしました。データが多いため時間がかかっています。詳細: ページサイズを小さくするか、しばらく待ってから再試行してください。');
+        } else if (error instanceof Error && error.message.includes('Invalid JSON')) {
+          setError('APIサーバーとの通信に問題があります。バックエンドAPIの状態を確認してください。');
+        } else {
+          setError(`データの取得に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+        }
+        
+        setIsLoading(false);
       }
     }
 
     fetchDormantData()
   }, [])
+
+  // 追加データを読み込む関数（もっと見る機能）
+  const loadMoreData = async () => {
+    if (isLoadingMore || !hasMoreData) return
+    
+    try {
+      setIsLoadingMore(true)
+      const nextPage = currentPage + 1
+      
+      console.log('🔄 追加データの取得を開始...', { nextPage })
+      
+      const response = await api.dormantCustomers({
+        storeId: 1,
+        pageSize: 20,
+        pageNumber: nextPage,
+        sortBy: 'DaysSinceLastPurchase',
+        descending: true
+      })
+      
+      const newCustomers = response.data?.customers || []
+      console.log('✅ 追加データ取得成功:', { newCount: newCustomers.length })
+      
+      if (newCustomers.length === 0) {
+        setHasMoreData(false)
+        console.log('🔚 これ以上データがありません')
+      } else {
+        setDormantData(prev => [...prev, ...newCustomers])
+        setCurrentPage(nextPage)
+        
+        // ページネーション情報から残りページを確認
+        const pagination = response.data?.pagination
+        if (pagination && nextPage >= pagination.totalPages) {
+          setHasMoreData(false)
+        }
+      }
+    } catch (error) {
+      console.error('❌ 追加データ取得エラー:', error)
+      setError('追加データの取得に失敗しました')
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
@@ -144,6 +188,7 @@ export default function DormantCustomerAnalysis() {
       let matches = false
       
       if (customerSegment) {
+        // セグメント名の完全一致を確認
         matches = customerSegment === selectedSegment.label
         console.log('🔍 セグメントマッチング:', {
           customerId: customer.customerId,
@@ -170,7 +215,8 @@ export default function DormantCustomerAnalysis() {
     console.log('✅ フィルタリング結果:', {
       selectedSegment: selectedSegment.label,
       filteredCount: filtered.length,
-      totalCount: dormantData.length
+      totalCount: dormantData.length,
+      expectedCount: selectedSegment.count // フィルター欄に表示されている人数
     })
     
     return filtered
@@ -351,6 +397,38 @@ export default function DormantCustomerAnalysis() {
           selectedSegment={filters.selectedSegment}
           dormantData={dormantData}
         />
+        
+        {/* もっと見るボタン */}
+        {hasMoreData && (
+          <div className="flex justify-center mt-6">
+            <Button
+              onClick={loadMoreData}
+              disabled={isLoadingMore}
+              variant="outline"
+              size="lg"
+              className="flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  読み込み中...
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  もっと見る（20件追加）
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        
+        {/* データの読み込み状況表示 */}
+        {!hasMoreData && filteredCustomers.length > 20 && (
+          <div className="text-center mt-4 text-sm text-gray-500">
+            全 {filteredCustomers.length} 件のデータを表示しています
+          </div>
+        )}
       </div>
 
       {/* フッター情報 - オプション機能として一時非表示 */}

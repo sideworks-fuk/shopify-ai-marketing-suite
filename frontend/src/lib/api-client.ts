@@ -1,4 +1,4 @@
-import { API_CONFIG, buildApiUrl } from './api-config';
+import { API_CONFIG, buildApiUrl, getApiUrl } from './api-config';
 
 // API レスポンス型定義
 export interface ApiResponse<T> {
@@ -43,6 +43,9 @@ class ApiClient {
     try {
       console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
       console.log('📋 Request Options:', defaultOptions);
+      console.log('🔍 Full Request URL:', url);
+      console.log('🔍 Base URL from config:', getApiUrl());
+      console.log('🔍 Endpoint:', endpoint);
       
       const response = await fetch(url, defaultOptions);
       
@@ -52,8 +55,16 @@ class ApiClient {
       console.log('📡 Response Status:', response.status, response.statusText);
       console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
       
+      // レスポンスの内容を確認
+      const responseText = await response.text();
+      console.log('📡 Response Text (first 500 chars):', responseText.substring(0, 500));
+      console.log('📡 Full Response URL:', response.url);
+      console.log('📡 Response Type:', response.type);
+      console.log('📡 Request URL:', url);
+      
       if (!response.ok) {
         console.error('❌ HTTP Error:', response.status, response.statusText);
+        console.error('❌ Response Text:', responseText);
         throw new ApiError(
           `HTTP Error: ${response.status} ${response.statusText}`,
           response.status,
@@ -61,7 +72,19 @@ class ApiClient {
         );
       }
 
-      const data: ApiResponse<T> = await response.json();
+      // JSONとして解析を試行
+      let data: ApiResponse<T>;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        console.error('❌ Response Text:', responseText);
+        throw new ApiError(
+          `Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`,
+          response.status,
+          responseText
+        );
+      }
       
       console.log('✅ API Response:', data);
       
@@ -91,6 +114,15 @@ class ApiClient {
       }
       
       // ネットワークエラーやその他のエラー
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiError(
+          'Failed to fetch: ネットワーク接続エラーまたはCORS問題が発生しました。\n' +
+          'Azure Static Web Appsのプロキシ設定を確認してください。',
+          0,
+          error
+        );
+      }
+      
       throw new ApiError(
         error instanceof Error ? error.message : 'Unknown API Error'
       );
@@ -201,4 +233,103 @@ export const api = {
   // 顧客離脱確率取得
   customerChurnProbability: (customerId: number) =>
     apiClient.get<{ data: number }>(`${API_CONFIG.ENDPOINTS.CUSTOMER_CHURN_PROBABILITY}/${customerId}/churn-probability`),
+  
+  // 月別売上統計API
+  monthlySales: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES;
+    return apiClient.get<any>(url);
+  },
+  
+  // 月別売上サマリー取得
+  monthlySalesSummary: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY;
+    return apiClient.get<any>(url);
+  },
+  
+  // カテゴリ別売上統計取得
+  monthlySalesCategories: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES;
+    return apiClient.get<any>(url);
+  },
+  
+  // 月別売上トレンド取得
+  monthlySalesTrends: (storeId: number = 1, year: number = new Date().getFullYear()) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('storeId', storeId.toString());
+    searchParams.append('year', year.toString());
+    const url = `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_TRENDS}?${searchParams.toString()}`;
+    return apiClient.get<any>(url);
+  },
 }; 

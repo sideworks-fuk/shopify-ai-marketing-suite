@@ -56,15 +56,15 @@ export const menuStructure: MenuItem[] = [
   //   isImplemented: true,
   //   description: "商品別×月別の売上推移を数量・金額で詳細把握"
   // },
-  // {
-  //   id: "frequency-detail",
-  //   label: "購入回数セグメント【購買】",
-  //   icon: "🔢",
-  //   href: "/purchase/frequency-detail",
-  //   category: "purchase",
-  //   isImplemented: true,
-  //   description: "顧客の購入回数別セグメント分析と前年比較レポート"
-  // },
+  {
+    id: "purchase-count",
+    label: "購入回数分析【購買】",
+    icon: "🔢",
+    href: "/purchase/count-analysis",
+    category: "purchase",
+    isImplemented: true,
+    description: "顧客の購入回数別詳細分析とリピート促進インサイト"
+  },
   // {
   //   id: "f-tier-trend",
   //   label: "顧客階層トレンド【購買】",

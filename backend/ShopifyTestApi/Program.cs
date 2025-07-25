@@ -42,6 +42,15 @@ builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 // Register Dormant Customer Service (休眠顧客分析サービス)
 builder.Services.AddScoped<IDormantCustomerService, DormantCustomerService>();
 
+// Register Year Over Year Analysis Service (前年同月比分析サービス)
+builder.Services.AddScoped<IYearOverYearService, YearOverYearService>();
+
+// Register Purchase Count Analysis Service (購入回数分析サービス)
+builder.Services.AddScoped<IPurchaseCountAnalysisService, PurchaseCountAnalysisService>();
+
+// Register Monthly Sales Service (月別売上統計サービス)
+builder.Services.AddScoped<IMonthlySalesService, MonthlySalesService>();
+
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
 if (string.IsNullOrEmpty(aiConnectionString) || aiConnectionString?.Contains("#") == true)

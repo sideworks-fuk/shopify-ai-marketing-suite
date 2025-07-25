@@ -14,7 +14,7 @@ namespace ShopifyTestApi.Controllers
         private readonly ILogger<CustomerController> _logger;
 
         public CustomerController(
-            IMockDataService mockDataService, 
+            IMockDataService mockDataService,
             IDormantCustomerService dormantCustomerService,
             ILogger<CustomerController> logger)
         {
@@ -31,18 +31,18 @@ namespace ShopifyTestApi.Controllers
         public ActionResult<ApiResponse<CustomerDashboardData>> GetDashboardData()
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
-            
+
             try
             {
                 _logger.LogInformation("Customer dashboard data requested. {RequestId}", logProperties["RequestId"]);
-                
+
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetCustomerDashboardData", logProperties);
-                
+
                 var data = _mockDataService.GetCustomerDashboardData();
-                
-                _logger.LogInformation("Customer dashboard data retrieved successfully. {RequestId}, DataCount: {DataCount}", 
+
+                _logger.LogInformation("Customer dashboard data retrieved successfully. {RequestId}, DataCount: {DataCount}",
                     logProperties["RequestId"], data?.CustomerSegments?.Count ?? 0);
-                
+
                 return Ok(new ApiResponse<CustomerDashboardData>
                 {
                     Success = true,
@@ -68,38 +68,6 @@ namespace ShopifyTestApi.Controllers
         /// </summary>
         [HttpGet("segments")]
         public ActionResult<ApiResponse<List<CustomerSegment>>> GetSegments()
-        {
-            try
-            {
-                _logger.LogInformation("Customer segments data requested");
-                
-                var segments = _mockDataService.GetCustomerSegments();
-                
-                return Ok(new ApiResponse<List<CustomerSegment>>
-                {
-                    Success = true,
-                    Data = segments,
-                    Message = "顧客セグメントデータを正常に取得しました。"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving customer segments");
-                return StatusCode(500, new ApiResponse<List<CustomerSegment>>
-                {
-                    Success = false,
-                    Data = null,
-                    Message = "セグメントデータ取得中にエラーが発生しました。"
-                });
-            }
-        }
-
-        /// <summary>
-        /// 顧客セグメントデータを取得
-        /// GET: api/customer/segments
-        /// </summary>
-        [HttpGet("segments2")]
-        public ActionResult<ApiResponse<List<CustomerSegment>>> GetSegments2()
         {
             try
             {
@@ -136,9 +104,9 @@ namespace ShopifyTestApi.Controllers
             try
             {
                 _logger.LogInformation("Customer details list requested");
-                
+
                 var details = _mockDataService.GetCustomerDetails();
-                
+
                 return Ok(new ApiResponse<List<CustomerDetail>>
                 {
                     Success = true,
@@ -168,9 +136,9 @@ namespace ShopifyTestApi.Controllers
             try
             {
                 _logger.LogInformation("Customer detail requested for ID: {CustomerId}", customerId);
-                
+
                 var customer = _mockDataService.GetCustomerDetail(customerId);
-                
+
                 if (customer == null)
                 {
                     return NotFound(new ApiResponse<CustomerDetail>
@@ -210,9 +178,9 @@ namespace ShopifyTestApi.Controllers
             try
             {
                 _logger.LogInformation("Top customers data requested");
-                
+
                 var topCustomers = _mockDataService.GetTopCustomers();
-                
+
                 return Ok(new ApiResponse<List<TopCustomer>>
                 {
                     Success = true,
@@ -240,12 +208,12 @@ namespace ShopifyTestApi.Controllers
         public ActionResult<ApiResponse<object>> TestConnection()
         {
             _logger.LogInformation("Customer API connection test requested");
-            
+
             return Ok(new ApiResponse<object>
             {
                 Success = true,
-                Data = new 
-                { 
+                Data = new
+                {
                     message = "Customer API接続テスト成功！",
                     serverTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
                     version = "1.1.0",
@@ -278,19 +246,19 @@ namespace ShopifyTestApi.Controllers
         public async Task<ActionResult<ApiResponse<DormantCustomerResponse>>> GetDormantCustomers([FromQuery] DormantCustomerRequest request)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
-            
+
             try
             {
-                _logger.LogInformation("休眠顧客分析データ取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}", 
+                _logger.LogInformation("休眠顧客分析データ取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}",
                     request.StoreId, request.Segment, logProperties["RequestId"]);
-                
+
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomers", logProperties);
-                
+
                 var result = await _dormantCustomerService.GetDormantCustomersAsync(request);
-                
-                _logger.LogInformation("休眠顧客分析データ取得完了. CustomerCount: {CustomerCount}, RequestId: {RequestId}", 
+
+                _logger.LogInformation("休眠顧客分析データ取得完了. CustomerCount: {CustomerCount}, RequestId: {RequestId}",
                     result.Customers.Count, logProperties["RequestId"]);
-                
+
                 return Ok(new ApiResponse<DormantCustomerResponse>
                 {
                     Success = true,
@@ -318,17 +286,17 @@ namespace ShopifyTestApi.Controllers
         public async Task<ActionResult<ApiResponse<DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
-            
+
             try
             {
-                _logger.LogInformation("休眠顧客サマリー取得開始. StoreId: {StoreId}, RequestId: {RequestId}", 
+                _logger.LogInformation("休眠顧客サマリー取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
                     storeId, logProperties["RequestId"]);
-                
+
                 var result = await _dormantCustomerService.GetDormantSummaryStatsAsync(storeId);
-                
-                _logger.LogInformation("休眠顧客サマリー取得完了. TotalDormant: {TotalDormant}, RequestId: {RequestId}", 
+
+                _logger.LogInformation("休眠顧客サマリー取得完了. TotalDormant: {TotalDormant}, RequestId: {RequestId}",
                     result.TotalDormantCustomers, logProperties["RequestId"]);
-                
+
                 return Ok(new ApiResponse<DormantSummaryStats>
                 {
                     Success = true,
@@ -356,17 +324,17 @@ namespace ShopifyTestApi.Controllers
         public async Task<ActionResult<ApiResponse<decimal>>> GetChurnProbability(int customerId)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
-            
+
             try
             {
-                _logger.LogInformation("離脱確率計算開始. CustomerId: {CustomerId}, RequestId: {RequestId}", 
+                _logger.LogInformation("離脱確率計算開始. CustomerId: {CustomerId}, RequestId: {RequestId}",
                     customerId, logProperties["RequestId"]);
-                
+
                 var result = await _dormantCustomerService.CalculateChurnProbabilityAsync(customerId);
-                
-                _logger.LogInformation("離脱確率計算完了. CustomerId: {CustomerId}, Probability: {Probability}, RequestId: {RequestId}", 
+
+                _logger.LogInformation("離脱確率計算完了. CustomerId: {CustomerId}, Probability: {Probability}, RequestId: {RequestId}",
                     customerId, result, logProperties["RequestId"]);
-                
+
                 return Ok(new ApiResponse<decimal>
                 {
                     Success = true,
@@ -376,7 +344,7 @@ namespace ShopifyTestApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "離脱確率計算でエラーが発生. CustomerId: {CustomerId}, RequestId: {RequestId}", 
+                _logger.LogError(ex, "離脱確率計算でエラーが発生. CustomerId: {CustomerId}, RequestId: {RequestId}",
                     customerId, logProperties["RequestId"]);
                 return StatusCode(500, new ApiResponse<decimal>
                 {
@@ -387,4 +355,4 @@ namespace ShopifyTestApi.Controllers
             }
         }
     }
-} 
+}

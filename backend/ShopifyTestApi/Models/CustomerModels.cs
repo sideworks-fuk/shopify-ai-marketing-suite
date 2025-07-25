@@ -119,7 +119,7 @@ namespace ShopifyTestApi.Models
         public decimal? MinTotalSpent { get; set; }
         public decimal? MaxTotalSpent { get; set; }
         public int PageNumber { get; set; } = 1;
-        public int PageSize { get; set; } = 50;
+        public int PageSize { get; set; } = 50; // 一時的に元に戻す
         public string SortBy { get; set; } = "DaysSinceLastPurchase";
         public bool Descending { get; set; } = true;
     }

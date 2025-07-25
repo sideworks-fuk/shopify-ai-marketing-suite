@@ -47,12 +47,26 @@ namespace ShopifyTestApi.Services
         /// </summary>
         public async Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request)
         {
+            // 入力検証
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            // パフォーマンス改善: ページサイズの制限（最大50件）
+            request.PageSize = Math.Min(request.PageSize, 50);
+            if (request.PageSize <= 0)
+            {
+                request.PageSize = 20; // デフォルトに設定
+            }
+
             var logProperties = new Dictionary<string, object>
             {
                 ["RequestId"] = Guid.NewGuid().ToString(),
                 ["StoreId"] = request.StoreId,
                 ["Segment"] = request.Segment ?? "all",
-                ["PageNumber"] = request.PageNumber
+                ["PageNumber"] = request.PageNumber,
+                ["PageSize"] = request.PageSize
             };
             var cacheKey = $"dormant_{request.StoreId}_{request.Segment}_{request.RiskLevel}_{request.PageNumber}_{request.PageSize}";
 
@@ -61,7 +75,8 @@ namespace ShopifyTestApi.Services
                 _logger.LogInformation("休眠顧客リスト取得開始. StoreId: {StoreId}, Segment: {Segment}, PageNumber: {PageNumber}",
                     request.StoreId, request.Segment, request.PageNumber);
 
-                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomersAsync", logProperties);
+                // 一時的にコメントアウト - パフォーマンススコープがエラーの原因の可能性
+                // using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomersAsync", logProperties);
 
                 // キャッシュチェック（5分間）
                 if (_cache.TryGetValue(cacheKey, out DormantCustomerResponse? cachedResponse))
@@ -73,13 +88,13 @@ namespace ShopifyTestApi.Services
                 // 休眠顧客の基本クエリ（最終注文日から90日以上経過）
                 var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
-                // Basic tier緊急対応: 超シンプルクエリ
-                var query = _context.Customers
-                           .Where(customer => customer.StoreId == request.StoreId)
-                           .Select(customer => new { 
-                               Customer = customer, 
-                               LastOrder = (Order?)null
-                           });
+                // 修正: LastOrderを正しく取得するクエリ（パフォーマンス最適化）
+                var query = from customer in _context.Customers
+                           .Include(c => c.Orders.OrderByDescending(o => o.CreatedAt).Take(1)) // 最新の注文のみ取得
+                           where customer.StoreId == request.StoreId
+                           let lastOrder = customer.Orders.FirstOrDefault() // 既にOrderByDescending済み
+                           where lastOrder == null || lastOrder.CreatedAt < cutoffDate
+                           select new { Customer = customer, LastOrder = lastOrder };
 
                 // 購入金額フィルタ
                 if (request.MinTotalSpent.HasValue)
@@ -387,14 +402,18 @@ namespace ShopifyTestApi.Services
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
+            // 休眠顧客の基本クエリ
             var dormantCustomersQuery = from customer in _context.Customers
                                       where customer.StoreId == storeId
                                       let lastOrder = customer.Orders.OrderByDescending(o => o.CreatedAt).FirstOrDefault()
                                       where lastOrder == null || lastOrder.CreatedAt < cutoffDate
                                       select new { Customer = customer, LastOrder = lastOrder };
 
+            // 全件取得してセグメント分布を計算
             var dormantCustomers = await dormantCustomersQuery.ToListAsync();
             var totalCount = dormantCustomers.Count;
+
+            _logger.LogInformation("休眠顧客セグメント分布計算開始. 総件数: {TotalCount}", totalCount);
 
             var segmentGroups = dormantCustomers
                 .GroupBy(x => CalculateDormancySegment(x.Customer, x.LastOrder))
@@ -407,6 +426,13 @@ namespace ShopifyTestApi.Services
                 })
                 .OrderBy(s => s.Segment)
                 .ToList();
+
+            // ログ出力で各セグメントの件数を確認
+            foreach (var segment in segmentGroups)
+            {
+                _logger.LogInformation("セグメント分布: {Segment} = {Count}件 ({Percentage:F1}%)", 
+                    segment.Segment, segment.Count, segment.Percentage);
+            }
 
             return segmentGroups;
         }

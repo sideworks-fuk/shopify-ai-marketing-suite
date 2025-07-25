@@ -9,7 +9,10 @@
       "Bash(npm run dev:*)",
       "Bash(curl:*)",
       "Bash(find:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }

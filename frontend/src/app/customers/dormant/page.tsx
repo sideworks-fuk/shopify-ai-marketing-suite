@@ -33,7 +33,7 @@ export default function DormantCustomersPage() {
         
         const response = await api.dormantCustomers({
           storeId: 1,
-          pageSize: 1000, // 全件取得してフィルタリング
+          pageSize: 50, // 一時的に元に戻す（APIエラー解決まで）
           sortBy: 'DaysSinceLastPurchase',
           descending: true
         })

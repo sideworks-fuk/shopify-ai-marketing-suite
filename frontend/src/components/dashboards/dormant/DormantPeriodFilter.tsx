@@ -24,8 +24,11 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
   
   // APIデータからセグメント情報を生成
   const periodSegments = useMemo(() => {
+    console.log('🔍 PeriodFilter - segmentDistributions:', segmentDistributions)
+    
     if (segmentDistributions.length === 0) {
-      // APIデータがない場合のフォールバック
+      // APIデータがない場合のフォールバック（読み込み中）
+      console.log('⚠️ PeriodFilter - フォールバックデータを使用')
       return [
         { id: '90-180', label: '90-180日', range: [90, 180], count: 0, color: '#FEF3C7', urgency: 'medium' },
         { id: '180-365', label: '180-365日', range: [180, 365], count: 0, color: '#FECACA', urgency: 'high' },
@@ -34,7 +37,7 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
     }
 
     // APIデータから DormantSegment 形式に変換
-    return segmentDistributions.map((dist) => {
+    const segments = segmentDistributions.map((dist) => {
       const segment = dist.segment
       let range: [number, number] = [0, 999]
       let urgency: 'low' | 'medium' | 'high' | 'critical' = 'medium'
@@ -55,6 +58,13 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
         color = '#EF4444'
       }
 
+      console.log('🔍 PeriodFilter - セグメント変換:', {
+        original: segment,
+        count: dist.count,
+        range,
+        urgency
+      })
+
       return {
         id: segment.replace(/[日以上\-]/g, ''),
         label: segment,
@@ -64,6 +74,15 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
         urgency
       } as DormantSegment
     }).sort((a, b) => a.range[0] - b.range[0])
+    
+    console.log('✅ PeriodFilter - 最終セグメント:', segments)
+    
+    // デバッグ情報: 各セグメントの詳細を出力
+    segments.forEach(segment => {
+      console.log(`📊 セグメント詳細: ${segment.label} = ${segment.count}名 (範囲: ${segment.range[0]}-${segment.range[1]}日)`)
+    })
+    
+    return segments
   }, [segmentDistributions])
 
   const handleSegmentClick = (segment: DormantSegment) => {
