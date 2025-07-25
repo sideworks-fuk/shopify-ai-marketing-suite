@@ -64,23 +64,33 @@ jobs:
   deploy:
     runs-on: windows-latest
     needs: build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'  # 手動実行時もデプロイ
     permissions:
       contents: read
       actions: read
       deployments: write
       id-token: write
-    
+    environment:
+      name: 'Development'
+      url: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/'
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: dotnet-app
       
-      - name: Deploy to Azure Web App
+      - name: Debug - Deploy Information
+        run: |
+          echo "Deploying to Azure App Service: shopifyapp-backend-develop"
+          echo "Environment URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
+          echo "Event type: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref }}"
+
+      - name: Deploy to Azure Web App (Development)
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'shopifyapp-backend-develop'
-          slot-name: 'Production'
-          package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+          package: .
