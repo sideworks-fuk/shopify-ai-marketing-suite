@@ -48,12 +48,17 @@ jobs:
         NEXT_PUBLIC_BUILD_ENVIRONMENT: main
         NEXT_PUBLIC_DEPLOY_ENVIRONMENT: main
         NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
-        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
         NODE_ENV: production
-      run: npm run build
+      run: npm run build:static
 
-    - name: Build completed
-      run: echo "Build completed for main environment"
+    - name: Deploy to Azure Static Web Apps (main)
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "frontend"
+        output_location: "out"
 
   deploy-staging:
     runs-on: ubuntu-latest
@@ -81,16 +86,21 @@ jobs:
         NEXT_PUBLIC_BUILD_ENVIRONMENT: staging
         NEXT_PUBLIC_DEPLOY_ENVIRONMENT: staging
         NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
-        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
         NODE_ENV: production
-      run: npm run build
+      run: npm run build:static
 
-    - name: Build completed
-      run: echo "Build completed for staging environment"
+    - name: Deploy to Azure Static Web Apps (staging)
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "frontend"
+        output_location: "out"
 
   deploy-develop:
     runs-on: ubuntu-latest
-    environment: Development
+    environment: develop
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'develop')
     
     steps:
@@ -114,9 +124,14 @@ jobs:
         NEXT_PUBLIC_BUILD_ENVIRONMENT: develop
         NEXT_PUBLIC_DEPLOY_ENVIRONMENT: develop
         NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
-        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
         NODE_ENV: production
-      run: npm run build
+      run: npm run build:static
 
-    - name: Build completed
-      run: echo "Build completed for develop environment" 
+    - name: Deploy to Azure Static Web Apps (develop)
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "frontend"
+        output_location: "out" 
