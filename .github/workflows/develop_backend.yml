@@ -38,39 +38,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Debug - Workflow Information
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "SHA: ${{ github.sha }}"
-          echo "Workflow: ${{ github.workflow }}"
-          echo "Run ID: ${{ github.run_id }}"
-
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
 
-      - name: Build with dotnet
+      - name: Restore dependencies
         run: |
           cd backend/ShopifyTestApi
           dotnet restore
-          dotnet build --configuration Release
 
-      - name: Debug - Check project structure
+      - name: Build with dotnet
         run: |
           cd backend/ShopifyTestApi
-          echo "Current directory: $(pwd)"
-          echo "Project file exists: $(Test-Path ShopifyTestApi.csproj)"
-          echo "Directory contents:"
-          Get-ChildItem -Force
+          dotnet build --configuration Release --no-restore
 
       - name: Publish with dotnet
         run: |
           cd backend/ShopifyTestApi
-          dotnet publish -c Release -o ./publish
+          dotnet publish -c Release -o ./publish --no-build
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -97,13 +83,6 @@ jobs:
         with:
           name: dotnet-app
       
-      - name: Debug - Deploy Information
-        run: |
-          echo "Deploying to Azure App Service: shopifyapp-backend-develop"
-          echo "Environment URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
-          echo "Event type: ${{ github.event_name }}"
-          echo "Branch: ${{ github.ref }}"
-
       - name: Deploy to Azure Web App (Development)
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
