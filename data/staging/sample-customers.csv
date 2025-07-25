@@ -1,0 +1,11 @@
+Customer ID,First Name,Last Name,Email,Accepts Email Marketing,Default Address Company,Default Address Address1,Default Address Address2,Default Address City,Default Address Province Code,Default Address Country Code,Default Address Zip,Default Address Phone,Phone,Accepts SMS Marketing,Total Spent,Total Orders,Note,Tax Exempt,Tags,会社名 または 店舗名 (customer.metafields.orig_fields.company_store),業種名 (customer.metafields.orig_fields.industry)
+1001,田中,太郎,tanaka@example.com,yes,田中商事株式会社,東京都新宿区西新宿1-1-1,オフィスビル5F,新宿区,JP-13,JP,160-0023,03-1234-5678,090-1234-5678,no,125000,8,優良顧客です,no,"VIP,リピーター,法人",田中商事株式会社,小売業
+1002,佐藤,花子,sato@example.com,yes,,大阪府大阪市北区梅田1-2-3,マンション202,大阪市,JP-27,JP,530-0001,06-9876-5432,080-9876-5432,yes,89000,5,新規登録顧客,no,新規,個人事業主,美容業
+1003,鈴木,一郎,suzuki@example.com,no,鈴木工業,愛知県名古屋市中区栄3-4-5,,名古屋市,JP-23,JP,460-0008,052-1111-2222,070-1111-2222,no,340000,15,長期取引先,yes,"VIP,法人,優良顧客",鈴木工業株式会社,製造業
+1004,高橋,美咲,takahashi@example.com,yes,,神奈川県横浜市西区みなとみらい2-1-1,タワーマンション1203,横浜市,JP-14,JP,220-0012,045-3333-4444,090-3333-4444,yes,67000,3,定期購入利用,no,"定期購入,個人",フリーランス,IT関連
+1005,田村,健太,tamura@example.com,yes,田村デザイン事務所,東京都渋谷区渋谷1-5-8,クリエイティブビル4F,渋谷区,JP-13,JP,150-0002,03-5555-6666,080-5555-6666,no,156000,12,クリエイティブ関連,no,"法人,デザイン関連",田村デザイン事務所,デザイン業
+1006,山田,由美,yamada@example.com,no,,埼玉県さいたま市大宮区大門町1-7-9,,さいたま市,JP-11,JP,330-0846,048-7777-8888,090-7777-8888,yes,43000,2,まとめ買い傾向,no,"まとめ買い,個人",,サービス業
+1007,中村,孝志,nakamura@example.com,yes,中村建設,千葉県千葉市中央区中央1-10-20,建設業ビル3F,千葉市,JP-12,JP,260-0013,043-9999-0000,070-9999-0000,no,278000,18,建設関連大口,yes,"VIP,法人,建設関連",中村建設株式会社,建設業
+1008,伊藤,真理,ito@example.com,yes,,兵庫県神戸市中央区三宮町1-3-5,ショッピングビル8F,神戸市,JP-28,JP,650-0021,078-1111-3333,080-1111-3333,yes,92000,6,ファッション関連,no,"ファッション,個人",個人ショップ,アパレル
+1009,渡辺,大輔,watanabe@example.com,no,渡辺商事,北海道札幌市中央区大通西1-15-25,,札幌市,JP-01,JP,060-0042,011-2222-4444,090-2222-4444,no,189000,9,北海道エリア代表,no,"法人,地域代表",渡辺商事株式会社,卸売業
+1010,小林,あゆみ,kobayashi@example.com,yes,,福岡県福岡市博多区博多駅前2-8-12,駅前マンション507,福岡市,JP-40,JP,812-0011,092-3333-5555,070-3333-5555,yes,71000,4,九州エリア顧客,no,"個人,九州",フリーランス,コンサルティング 
