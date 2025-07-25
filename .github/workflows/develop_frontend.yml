@@ -13,10 +13,32 @@ on:
     paths:
       - 'frontend/**'
 
+  # 手動デプロイ（GitHub画面上から実行可能）
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+      force_rebuild:
+        description: '強制リビルド'
+        required: false
+        default: false
+        type: boolean      
+
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
     name: Build and Deploy Job
     steps:
       - uses: actions/checkout@v3
