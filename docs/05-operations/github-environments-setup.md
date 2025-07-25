@@ -6,7 +6,7 @@ GitHub Environmentsを使用して環境別にSecretsを管理し、適切な環
 ## GitHub Environmentsの利点
 
 ### 1. 環境分離
-- 各環境（Production、Development、Preview）で独立したSecrets管理
+- 各環境（main、staging、develop）で独立したSecrets管理
 - 環境別の保護ルール設定
 - デプロイ履歴の環境別管理
 
@@ -17,40 +17,34 @@ GitHub Environmentsを使用して環境別にSecretsを管理し、適切な環
 
 ## 環境設定
 
-### Production環境
+### main環境
 **用途**: 本番環境へのデプロイ
 **ブランチ**: `main`
+**Azure App Service**: `shopifyapp-backend-production`
 **Secrets設定**:
 ```
-API_URL = https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net
-DEBUG_API = https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
-VERCEL_TOKEN = your_production_vercel_token
-VERCEL_ORG_ID = your_org_id
-VERCEL_PROJECT_ID = your_production_project_id
+API_URL = https://shopifyapp-backend-production.japanwest-01.azurewebsites.net
+AZUREAPPSERVICE_PUBLISHPROFILE_MAIN = [Azure Portalから取得]
 ```
 
-### Development環境
+### staging環境
 **用途**: ステージング環境へのデプロイ
-**ブランチ**: `develop`
+**ブランチ**: `staging`
+**Azure App Service**: `shopifyapp-backend-staging`
 **Secrets設定**:
 ```
-API_URL = https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
-DEBUG_API = https://localhost:7088
-VERCEL_TOKEN = your_staging_vercel_token
-VERCEL_ORG_ID = your_org_id
-VERCEL_PROJECT_ID = your_staging_project_id
+API_URL = https://shopifyapp-backend-staging.japanwest-01.azurewebsites.net
+AZUREAPPSERVICE_PUBLISHPROFILE_STAGING = [Azure Portalから取得]
 ```
 
-### Preview環境
-**用途**: プルリクエスト時のプレビューデプロイ
-**ブランチ**: 全ブランチ（PR時）
+### develop環境
+**用途**: 開発環境へのデプロイ
+**ブランチ**: `develop`
+**Azure App Service**: `shopifyapp-backend-develop`
 **Secrets設定**:
 ```
 API_URL = https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
-DEBUG_API = https://localhost:7088
-VERCEL_TOKEN = your_preview_vercel_token
-VERCEL_ORG_ID = your_org_id
-VERCEL_PROJECT_ID = your_preview_project_id
+AZUREAPPSERVICE_PUBLISHPROFILE_DEVELOP = [Azure Portalから取得]
 ```
 
 ## 設定手順
@@ -74,21 +68,42 @@ VERCEL_PROJECT_ID = your_preview_project_id
 
 ### 2. ワークフローファイルの設定
 
+#### フロントエンド用
 ```yaml
 jobs:
-  deploy-production:
+  deploy-main:
     runs-on: ubuntu-latest
-    environment: Production  # 環境名を指定
-    if: github.ref == 'refs/heads/main'
+    environment: main  # 環境名を指定
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main')
     
     steps:
     # ... ビルドステップ
     - name: Build application
       env:
-        NEXT_PUBLIC_BUILD_ENVIRONMENT: production
+        NEXT_PUBLIC_BUILD_ENVIRONMENT: main
+        NEXT_PUBLIC_DEPLOY_ENVIRONMENT: main
         NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}  # 環境別Secrets
         NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
       run: npm run build
+```
+
+#### バックエンド用
+```yaml
+jobs:
+  deploy-main:
+    runs-on: windows-latest
+    needs: build
+    environment: main  # 環境名を指定
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main')
+    
+    steps:
+    # ... デプロイステップ
+    - name: Deploy to Azure Web App (main)
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: 'shopifyapp-backend-production'
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_MAIN }}
+        package: .
 ```
 
 ## 環境別の動作
@@ -98,46 +113,68 @@ jobs:
 | ブランチ/イベント | 環境 | デプロイ先 | API接続先 |
 |------------------|------|-----------|----------|
 | `main` | Production | 本番環境 | 本番API |
-| `develop` | Development | ステージング環境 | ステージングAPI |
-| プルリクエスト | Preview | プレビュー環境 | ステージングAPI |
+| `staging` | Staging | ステージング環境 | ステージングAPI |
+| `develop` | Development | 開発環境 | 開発API |
 
 ### 環境変数の自動設定
 
+#### フロントエンド用
 ```yaml
 # mainブランチ → Production環境
-NEXT_PUBLIC_BUILD_ENVIRONMENT: production
-NEXT_PUBLIC_API_URL: https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net
+NEXT_PUBLIC_BUILD_ENVIRONMENT: main
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: main
+NEXT_PUBLIC_API_URL: https://shopifyapp-backend-production.japanwest-01.azurewebsites.net
+
+# stagingブランチ → Staging環境
+NEXT_PUBLIC_BUILD_ENVIRONMENT: staging
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: staging
+NEXT_PUBLIC_API_URL: https://shopifyapp-backend-staging.japanwest-01.azurewebsites.net
 
 # developブランチ → Development環境
-NEXT_PUBLIC_BUILD_ENVIRONMENT: staging
+NEXT_PUBLIC_BUILD_ENVIRONMENT: develop
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: develop
 NEXT_PUBLIC_API_URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
+```
 
-# プルリクエスト → Preview環境
-NEXT_PUBLIC_BUILD_ENVIRONMENT: preview
-NEXT_PUBLIC_API_URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
+#### バックエンド用
+```yaml
+# mainブランチ → main環境
+ASPNETCORE_ENVIRONMENT: Production
+app-name: shopifyapp-backend-production
+publish-profile: AZUREAPPSERVICE_PUBLISHPROFILE_MAIN
+
+# stagingブランチ → staging環境
+ASPNETCORE_ENVIRONMENT: Staging
+app-name: shopifyapp-backend-staging
+publish-profile: AZUREAPPSERVICE_PUBLISHPROFILE_STAGING
+
+# developブランチ → develop環境
+ASPNETCORE_ENVIRONMENT: Development
+app-name: shopifyapp-backend-develop
+publish-profile: AZUREAPPSERVICE_PUBLISHPROFILE_DEVELOP
 ```
 
 ## 保護ルールの設定
 
-### Production環境の保護ルール
+### main環境の保護ルール
 ```
 ✅ Required reviewers: 1人以上
 ✅ Wait timer: 5分
 ✅ Deployment branches: mainブランチのみ
 ```
 
-### Development環境の保護ルール
+### staging環境の保護ルール
+```
+✅ Required reviewers: なし（自動デプロイ）
+✅ Wait timer: なし
+✅ Deployment branches: stagingブランチのみ
+```
+
+### develop環境の保護ルール
 ```
 ✅ Required reviewers: なし（自動デプロイ）
 ✅ Wait timer: なし
 ✅ Deployment branches: developブランチのみ
-```
-
-### Preview環境の保護ルール
-```
-✅ Required reviewers: なし（自動デプロイ）
-✅ Wait timer: なし
-✅ Deployment branches: 全ブランチ
 ```
 
 ## トラブルシューティング
@@ -159,16 +196,25 @@ NEXT_PUBLIC_API_URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwe
 ## ベストプラクティス
 
 ### 1. 環境分離
-- 本番環境は必ず承認フローを設定
-- ステージング環境は自動デプロイ
-- プレビュー環境は軽量な設定
+- main環境（本番）は必ず承認フローを設定
+- staging環境（ステージング）は自動デプロイ
+- develop環境（開発）は自動デプロイ
+- 手動実行で任意のブランチから任意の環境にデプロイ可能
 
 ### 2. セキュリティ
 - 機密情報は必ずSecretsで管理
-- 環境別に異なるトークンを使用
+- 環境別に異なるpublish profileを使用
 - 定期的なSecretsのローテーション
+- Azure App Serviceの接続文字列はKey Vaultで管理
 
 ### 3. 監視
 - デプロイ履歴の定期的な確認
 - 環境別のログ監視
-- エラー通知の設定 
+- エラー通知の設定
+- 環境別のパフォーマンス監視
+
+### 4. 設定管理
+- appsettings.jsonを環境別に分離
+- ASPNETCORE_ENVIRONMENTで環境切り替え
+- CORS設定を環境別に制限
+- ログ出力を環境別に設定 

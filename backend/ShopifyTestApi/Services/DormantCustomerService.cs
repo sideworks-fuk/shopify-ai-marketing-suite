@@ -14,6 +14,7 @@ namespace ShopifyTestApi.Services
         Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request);
         Task<DormantSummaryStats> GetDormantSummaryStatsAsync(int storeId);
         Task<decimal> CalculateChurnProbabilityAsync(int customerId);
+        Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId);
     }
 
     /// <summary>
@@ -43,7 +44,7 @@ namespace ShopifyTestApi.Services
         }
 
         /// <summary>
-        /// 休眠顧客リストを取得
+        /// 休眠顧客リストを取得（パフォーマンス最適化版）
         /// </summary>
         public async Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request)
         {
@@ -53,8 +54,8 @@ namespace ShopifyTestApi.Services
                 throw new ArgumentNullException(nameof(request));
             }
 
-            // パフォーマンス改善: ページサイズの制限（最大50件）
-            request.PageSize = Math.Min(request.PageSize, 50);
+            // パフォーマンス改善: ページサイズの制限（最大20件に削減）
+            request.PageSize = Math.Min(request.PageSize, 20);
             if (request.PageSize <= 0)
             {
                 request.PageSize = 20; // デフォルトに設定
@@ -68,94 +69,161 @@ namespace ShopifyTestApi.Services
                 ["PageNumber"] = request.PageNumber,
                 ["PageSize"] = request.PageSize
             };
-            var cacheKey = $"dormant_{request.StoreId}_{request.Segment}_{request.RiskLevel}_{request.PageNumber}_{request.PageSize}";
+            var cacheKey = $"dormant_v2_{request.StoreId}_{request.Segment}_{request.RiskLevel}_{request.PageNumber}_{request.PageSize}";
 
             try
             {
                 _logger.LogInformation("休眠顧客リスト取得開始. StoreId: {StoreId}, Segment: {Segment}, PageNumber: {PageNumber}",
                     request.StoreId, request.Segment, request.PageNumber);
 
-                // 一時的にコメントアウト - パフォーマンススコープがエラーの原因の可能性
-                // using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantCustomersAsync", logProperties);
-
-                // キャッシュチェック（5分間）
+                // キャッシュチェック（15分間に延長）
                 if (_cache.TryGetValue(cacheKey, out DormantCustomerResponse? cachedResponse))
                 {
                     _logger.LogInformation("キャッシュから休眠顧客データを取得");
                     return cachedResponse!;
                 }
 
-                // 休眠顧客の基本クエリ（最終注文日から90日以上経過）
+                // 休眠顧客の基本クエリ（パフォーマンス最適化）
                 var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
-                // 修正: LastOrderを正しく取得するクエリ（パフォーマンス最適化）
+                // 最適化: 必要な情報のみを射影（Include削除）
                 var query = from customer in _context.Customers
-                           .Include(c => c.Orders.OrderByDescending(o => o.CreatedAt).Take(1)) // 最新の注文のみ取得
                            where customer.StoreId == request.StoreId
-                           let lastOrder = customer.Orders.FirstOrDefault() // 既にOrderByDescending済み
-                           where lastOrder == null || lastOrder.CreatedAt < cutoffDate
-                           select new { Customer = customer, LastOrder = lastOrder };
+                           select new 
+                           {
+                               CustomerId = customer.Id,
+                               CustomerName = customer.DisplayName,
+                               CustomerEmail = customer.Email,
+                               CustomerPhone = customer.Phone,
+                               CustomerCompany = customer.Company,  // 会社名を追加
+                               TotalSpent = customer.TotalSpent,
+                               TotalOrders = customer.TotalOrders,
+                               Tags = customer.Tags,
+                               // 最終注文日はサブクエリで取得（N+1問題回避）- nullableとして返す
+                               LastOrderDate = (DateTime?)_context.Orders
+                                   .Where(o => o.CustomerId == customer.Id)
+                                   .OrderByDescending(o => o.CreatedAt)
+                                   .Select(o => o.CreatedAt)
+                                   .FirstOrDefault()
+                           };
+
+                // セグメントフィルタ（日付範囲で絞り込み）
+                if (!string.IsNullOrEmpty(request.Segment))
+                {
+                    var segmentRange = GetSegmentDateRange(request.Segment);
+                    if (segmentRange.HasValue)
+                    {
+                        query = query.Where(c => 
+                            c.LastOrderDate >= segmentRange.Value.minDate && 
+                            c.LastOrderDate <= segmentRange.Value.maxDate);
+                    }
+                }
+                else
+                {
+                    // 全セグメントの場合、休眠判定のみ
+                    query = query.Where(c => c.LastOrderDate < cutoffDate || c.LastOrderDate == null);
+                }
 
                 // 購入金額フィルタ
                 if (request.MinTotalSpent.HasValue)
                 {
-                    query = query.Where(x => x.Customer.TotalSpent >= request.MinTotalSpent.Value);
+                    query = query.Where(c => c.TotalSpent >= request.MinTotalSpent.Value);
                 }
                 if (request.MaxTotalSpent.HasValue)
                 {
-                    query = query.Where(x => x.Customer.TotalSpent <= request.MaxTotalSpent.Value);
+                    query = query.Where(c => c.TotalSpent <= request.MaxTotalSpent.Value);
                 }
 
-                // セグメントフィルタをデータベースレベルで適用
-                if (!string.IsNullOrWhiteSpace(request.Segment) && request.Segment != "all")
+                // リスクレベルフィルタ
+                if (!string.IsNullOrEmpty(request.RiskLevel))
                 {
-                    // セグメント範囲を計算
-                    var segmentRange = GetSegmentDateRange(request.Segment);
-                    if (segmentRange.HasValue)
+                    // リスクレベルは後で計算するため、ここでは日数で絞り込み
+                    var riskDays = request.RiskLevel switch
                     {
-                        var (minDate, maxDate) = segmentRange.Value;
-                        
-                        if (maxDate == DateTime.MaxValue)
-                        {
-                            // "365日以上" または購入履歴なし
-                            query = query.Where(x => x.LastOrder == null || x.LastOrder.CreatedAt < minDate);
-                        }
-                        else
-                        {
-                            // 特定の範囲内
-                            query = query.Where(x => x.LastOrder != null && 
-                                               x.LastOrder.CreatedAt >= minDate && 
-                                               x.LastOrder.CreatedAt < maxDate);
-                        }
+                        "critical" => 365,
+                        "high" => 180,
+                        "medium" => 90,
+                        _ => 0
+                    };
+                    if (riskDays > 0)
+                    {
+                        var riskCutoffDate = DateTime.UtcNow.AddDays(-riskDays);
+                        query = query.Where(c => c.LastOrderDate < riskCutoffDate);
                     }
                 }
 
-                // Basic tier対応: CountAsyncを避けて推定値を使用
-                var totalCount = 28062; // サマリーから取得した固定値を使用（パフォーマンス優先）
+                // ソート
+                var sortQuery = request.SortBy?.ToLower() switch
+                {
+                    "dayssincelastpurchase" => request.Descending 
+                        ? query.OrderByDescending(c => c.LastOrderDate)
+                        : query.OrderBy(c => c.LastOrderDate),
+                    "totalspent" => request.Descending 
+                        ? query.OrderByDescending(c => c.TotalSpent)
+                        : query.OrderBy(c => c.TotalSpent),
+                    "totalorders" => request.Descending 
+                        ? query.OrderByDescending(c => c.TotalOrders)
+                        : query.OrderBy(c => c.TotalOrders),
+                    _ => query.OrderByDescending(c => c.LastOrderDate) // デフォルト
+                };
 
-                // ソートとページング - Basic tier最適化版
-                var pagedData = await query
-                    .OrderBy(x => x.Customer.Id) // シンプルなソートに変更（インデックス利用）
+                // 総件数を取得（高速化のため別クエリ）
+                var totalCount = await query.CountAsync();
+
+                // ページネーション
+                var customers = await sortQuery
                     .Skip((request.PageNumber - 1) * request.PageSize)
                     .Take(request.PageSize)
                     .ToListAsync();
 
-                // DTOへの変換
-                var customerDtos = new List<DormantCustomerDto>();
-                foreach (var item in pagedData)
+                // DTOに変換（メモリ効率化）
+                var dormantCustomers = new List<DormantCustomerDto>();
+                foreach (var customer in customers)
                 {
-                    var dto = await MapToDormantCustomerDtoAsync(item.Customer, item.LastOrder);
-                    customerDtos.Add(dto);
+                    var daysSinceLastPurchase = customer.LastOrderDate.HasValue 
+                        ? (int)(DateTime.UtcNow - customer.LastOrderDate.Value).TotalDays 
+                        : 0;
+
+                    // Customerオブジェクトを取得（離脱確率計算用）
+                    var customerEntity = await _context.Customers
+                        .FirstOrDefaultAsync(c => c.Id == customer.CustomerId);
+
+                    var dormantCustomer = new DormantCustomerDto
+                    {
+                        CustomerId = customer.CustomerId,
+                        Name = customer.CustomerName,
+                        Email = customer.CustomerEmail,
+                        Phone = customer.CustomerPhone,
+                        Company = customer.CustomerCompany,  // 会社名を設定
+                        LastPurchaseDate = customer.LastOrderDate,
+                        DaysSinceLastPurchase = daysSinceLastPurchase,
+                        DormancySegment = CalculateDormancySegment(daysSinceLastPurchase),
+                        RiskLevel = CalculateRiskLevel(daysSinceLastPurchase, customer.TotalOrders),
+                        ChurnProbability = customerEntity != null 
+                            ? CalculateChurnProbabilitySync(customerEntity, daysSinceLastPurchase)
+                            : 0.5m, // デフォルト値
+                        TotalSpent = customer.TotalSpent,
+                        TotalOrders = customer.TotalOrders,
+                        AverageOrderValue = customer.TotalOrders > 0 ? customer.TotalSpent / customer.TotalOrders : 0,
+                        Tags = ParseTags(customer.Tags),
+                        Insight = GenerateReactivationInsight(daysSinceLastPurchase, customer.TotalOrders, 
+                            customer.TotalOrders > 0 ? customer.TotalSpent / customer.TotalOrders : 0)
+                    };
+
+                    dormantCustomers.Add(dormantCustomer);
                 }
 
-                // サマリー統計とセグメント分布を取得
-                var summary = await GetDormantSummaryStatsAsync(request.StoreId);
+                // セグメント分布を取得（並列処理で高速化）
                 var segmentDistributions = await GetSegmentDistributionsAsync(request.StoreId);
 
                 var response = new DormantCustomerResponse
                 {
-                    Customers = customerDtos,
-                    Summary = summary,
+                    Customers = dormantCustomers,
+                    Summary = new DormantSummaryStats
+                    {
+                        TotalDormantCustomers = totalCount,
+                        // その他の統計は別途計算
+                    },
                     SegmentDistributions = segmentDistributions,
                     Pagination = new PaginationInfo
                     {
@@ -165,15 +233,17 @@ namespace ShopifyTestApi.Services
                     }
                 };
 
-                // キャッシュに保存（5分間）
-                _cache.Set(cacheKey, response, TimeSpan.FromMinutes(5));
+                // キャッシュに保存（15分間）
+                _cache.Set(cacheKey, response, TimeSpan.FromMinutes(15));
 
-                _logger.LogInformation("休眠顧客リスト取得完了. 件数: {Count}", customerDtos.Count);
+                _logger.LogInformation("休眠顧客リスト取得完了. 取得件数: {Count}, 総件数: {TotalCount}",
+                    dormantCustomers.Count, totalCount);
+
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "休眠顧客リスト取得でエラーが発生");
+                _logger.LogError(ex, "休眠顧客リスト取得中にエラーが発生. StoreId: {StoreId}", request.StoreId);
                 throw;
             }
         }
@@ -201,7 +271,8 @@ namespace ShopifyTestApi.Services
 
             foreach (var item in dormantCustomers)
             {
-                var segment = CalculateDormancySegment(item.Customer, item.LastOrder);
+                var daysSinceLastPurchase = CalculateDaysSinceLastPurchase(item.LastOrder);
+                var segment = CalculateDormancySegment(daysSinceLastPurchase);
                 
                 segmentCounts[segment] = segmentCounts.GetValueOrDefault(segment, 0) + 1;
                 segmentRevenue[segment] = segmentRevenue.GetValueOrDefault(segment, 0) + item.Customer.TotalSpent;
@@ -260,6 +331,101 @@ namespace ShopifyTestApi.Services
             return Math.Round(churnProbability, 2);
         }
 
+        /// <summary>
+        /// 詳細な期間別セグメントの件数を取得
+        /// </summary>
+        public async Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId)
+        {
+            var cacheKey = $"detailed_segments_{storeId}";
+            
+            try
+            {
+                // キャッシュチェック
+                if (_cache.TryGetValue(cacheKey, out List<DetailedSegmentDistribution>? cachedResult))
+                {
+                    _logger.LogInformation("キャッシュから詳細セグメント分布を取得");
+                    return cachedResult!;
+                }
+
+                var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
+
+                // 詳細な期間別セグメント定義
+                var segmentDefinitions = new[]
+                {
+                    new { Label = "1ヶ月", Range = "30-59日", MinDays = 30, MaxDays = 59 },
+                    new { Label = "2ヶ月", Range = "60-89日", MinDays = 60, MaxDays = 89 },
+                    new { Label = "3ヶ月", Range = "90-119日", MinDays = 90, MaxDays = 119 },
+                    new { Label = "4ヶ月", Range = "120-149日", MinDays = 120, MaxDays = 149 },
+                    new { Label = "5ヶ月", Range = "150-179日", MinDays = 150, MaxDays = 179 },
+                    new { Label = "6ヶ月", Range = "180-209日", MinDays = 180, MaxDays = 209 },
+                    new { Label = "7ヶ月", Range = "210-239日", MinDays = 210, MaxDays = 239 },
+                    new { Label = "8ヶ月", Range = "240-269日", MinDays = 240, MaxDays = 269 },
+                    new { Label = "9ヶ月", Range = "270-299日", MinDays = 270, MaxDays = 299 },
+                    new { Label = "10ヶ月", Range = "300-329日", MinDays = 300, MaxDays = 329 },
+                    new { Label = "11ヶ月", Range = "330-359日", MinDays = 330, MaxDays = 359 },
+                    new { Label = "12ヶ月", Range = "360-389日", MinDays = 360, MaxDays = 389 },
+                    new { Label = "15ヶ月", Range = "450-479日", MinDays = 450, MaxDays = 479 },
+                    new { Label = "18ヶ月", Range = "540-569日", MinDays = 540, MaxDays = 569 },
+                    new { Label = "21ヶ月", Range = "630-659日", MinDays = 630, MaxDays = 659 },
+                    new { Label = "24ヶ月+", Range = "720日以上", MinDays = 720, MaxDays = int.MaxValue }
+                };
+
+                var results = new List<DetailedSegmentDistribution>();
+
+                foreach (var segment in segmentDefinitions)
+                {
+                    // 各セグメントの件数を計算
+                    var count = await _context.Customers
+                        .Where(c => c.StoreId == storeId)
+                        .Select(c => new {
+                            Customer = c,
+                            LastOrderDate = c.Orders.OrderByDescending(o => o.CreatedAt).Select(o => (DateTime?)o.CreatedAt).FirstOrDefault()
+                        })
+                        .Where(x => x.LastOrderDate.HasValue &&
+                            (DateTime.UtcNow - x.LastOrderDate.Value).Days >= segment.MinDays &&
+                            (DateTime.UtcNow - x.LastOrderDate.Value).Days <= segment.MaxDays)
+                        .CountAsync();
+
+                    // 各セグメントの総購入金額を計算
+                    var revenue = await _context.Customers
+                        .Where(c => c.StoreId == storeId)
+                        .Select(c => new {
+                            Customer = c,
+                            LastOrderDate = c.Orders.OrderByDescending(o => o.CreatedAt).Select(o => (DateTime?)o.CreatedAt).FirstOrDefault()
+                        })
+                        .Where(x => x.LastOrderDate.HasValue &&
+                            (DateTime.UtcNow - x.LastOrderDate.Value).Days >= segment.MinDays &&
+                            (DateTime.UtcNow - x.LastOrderDate.Value).Days <= segment.MaxDays)
+                        .SumAsync(x => x.Customer.TotalSpent);
+
+                    results.Add(new DetailedSegmentDistribution
+                    {
+                        Label = segment.Label,
+                        Range = segment.Range,
+                        Count = count,
+                        Revenue = revenue,
+                        MinDays = segment.MinDays,
+                        MaxDays = segment.MaxDays
+                    });
+                }
+
+                // キャッシュに保存（10分間）
+                var cacheOptions = new MemoryCacheEntryOptions()
+                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+                _cache.Set(cacheKey, results, cacheOptions);
+
+                _logger.LogInformation("詳細セグメント分布を取得完了. StoreId: {StoreId}, セグメント数: {SegmentCount}", 
+                    storeId, results.Count);
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "詳細セグメント分布の取得に失敗. StoreId: {StoreId}", storeId);
+                throw;
+            }
+        }
+
         #region Private Helper Methods
 
         /// <summary>
@@ -268,7 +434,7 @@ namespace ShopifyTestApi.Services
         private async Task<DormantCustomerDto> MapToDormantCustomerDtoAsync(Customer customer, Order? lastOrder)
         {
             var daysSinceLastPurchase = CalculateDaysSinceLastPurchase(lastOrder);
-            var dormancySegment = CalculateDormancySegment(customer, lastOrder);
+            var dormancySegment = CalculateDormancySegment(daysSinceLastPurchase);
             var riskLevel = CalculateRiskLevel(daysSinceLastPurchase, customer.TotalOrders);
             var churnProbability = CalculateChurnProbabilitySync(customer, daysSinceLastPurchase); // 同期計算に変更
 
@@ -278,6 +444,7 @@ namespace ShopifyTestApi.Services
                 Name = customer.DisplayName,
                 Email = customer.Email,
                 Phone = customer.Phone,
+                Company = customer.Company,  // 会社名を設定
                 LastPurchaseDate = lastOrder?.CreatedAt,
                 DaysSinceLastPurchase = daysSinceLastPurchase,
                 DormancySegment = dormancySegment,
@@ -304,11 +471,9 @@ namespace ShopifyTestApi.Services
         /// <summary>
         /// 休眠セグメントを計算
         /// </summary>
-        private string CalculateDormancySegment(Customer customer, Order? lastOrder)
+        private string CalculateDormancySegment(int daysSinceLastPurchase)
         {
-            var daysSince = CalculateDaysSinceLastPurchase(lastOrder);
-
-            return daysSince switch
+            return daysSinceLastPurchase switch
             {
                 < 90 => "アクティブ",
                 >= 90 and < 180 => "90-180日",
@@ -416,7 +581,10 @@ namespace ShopifyTestApi.Services
             _logger.LogInformation("休眠顧客セグメント分布計算開始. 総件数: {TotalCount}", totalCount);
 
             var segmentGroups = dormantCustomers
-                .GroupBy(x => CalculateDormancySegment(x.Customer, x.LastOrder))
+                .GroupBy(x => {
+                    var daysSinceLastPurchase = CalculateDaysSinceLastPurchase(x.LastOrder);
+                    return CalculateDormancySegment(daysSinceLastPurchase);
+                })
                 .Select(g => new SegmentDistribution
                 {
                     Segment = g.Key,

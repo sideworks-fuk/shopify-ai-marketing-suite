@@ -286,32 +286,81 @@ namespace ShopifyTestApi.Controllers
         public async Task<ActionResult<ApiResponse<DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            logProperties["StoreId"] = storeId;
 
             try
             {
-                _logger.LogInformation("休眠顧客サマリー取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
-                    storeId, logProperties["RequestId"]);
+                _logger.LogInformation("Dormant customer summary requested. StoreId: {StoreId}", storeId);
 
-                var result = await _dormantCustomerService.GetDormantSummaryStatsAsync(storeId);
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDormantSummary", logProperties);
 
-                _logger.LogInformation("休眠顧客サマリー取得完了. TotalDormant: {TotalDormant}, RequestId: {RequestId}",
-                    result.TotalDormantCustomers, logProperties["RequestId"]);
+                var summary = await _dormantCustomerService.GetDormantSummaryStatsAsync(storeId);
+
+                _logger.LogInformation("Dormant customer summary retrieved successfully. StoreId: {StoreId}, TotalDormant: {TotalDormant}",
+                    storeId, summary.TotalDormantCustomers);
 
                 return Ok(new ApiResponse<DormantSummaryStats>
                 {
                     Success = true,
-                    Data = result,
-                    Message = "休眠顧客サマリー統計を正常に取得しました。"
+                    Data = summary,
+                    Message = "休眠顧客サマリーを正常に取得しました。"
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "休眠顧客サマリー取得でエラーが発生. RequestId: {RequestId}", logProperties["RequestId"]);
+                _logger.LogError(ex, "Error retrieving dormant customer summary. StoreId: {StoreId}", storeId);
                 return StatusCode(500, new ApiResponse<DormantSummaryStats>
                 {
                     Success = false,
                     Data = null,
-                    Message = "休眠顧客サマリー統計取得中にエラーが発生しました。"
+                    Message = "休眠顧客サマリーの取得中にエラーが発生しました。"
+                });
+            }
+        }
+
+        /// <summary>
+        /// 詳細な期間別セグメントの件数を取得
+        /// GET: api/customer/dormant/detailed-segments
+        /// </summary>
+        [HttpGet("dormant/detailed-segments")]
+        public async Task<ActionResult<ApiResponse<List<DetailedSegmentDistribution>>>> GetDetailedSegments([FromQuery] int storeId = 1)
+        {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            logProperties["StoreId"] = storeId;
+
+            try
+            {
+                _logger.LogInformation("Detailed segment distributions requested. StoreId: {StoreId}", storeId);
+
+                using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetDetailedSegments", logProperties);
+
+                var segments = await _dormantCustomerService.GetDetailedSegmentDistributionsAsync(storeId);
+
+                // 全体の件数を計算して各セグメントに設定
+                var totalCount = segments.Sum(s => s.Count);
+                foreach (var segment in segments)
+                {
+                    segment.TotalCount = totalCount;
+                }
+
+                _logger.LogInformation("Detailed segment distributions retrieved successfully. StoreId: {StoreId}, SegmentCount: {SegmentCount}, TotalCount: {TotalCount}",
+                    storeId, segments.Count, totalCount);
+
+                return Ok(new ApiResponse<List<DetailedSegmentDistribution>>
+                {
+                    Success = true,
+                    Data = segments,
+                    Message = "詳細な期間別セグメント分布を正常に取得しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving detailed segment distributions. StoreId: {StoreId}", storeId);
+                return StatusCode(500, new ApiResponse<List<DetailedSegmentDistribution>>
+                {
+                    Success = false,
+                    Data = null,
+                    Message = "詳細な期間別セグメント分布の取得中にエラーが発生しました。"
                 });
             }
         }

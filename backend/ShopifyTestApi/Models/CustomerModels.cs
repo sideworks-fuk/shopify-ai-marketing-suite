@@ -144,6 +144,7 @@ namespace ShopifyTestApi.Models
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
+        public string? Company { get; set; }  // 会社名を追加
         public DateTime? LastPurchaseDate { get; set; }
         public int DaysSinceLastPurchase { get; set; }
         public string DormancySegment { get; set; } = string.Empty;
@@ -181,6 +182,21 @@ namespace ShopifyTestApi.Models
         public int Count { get; set; }
         public decimal Percentage { get; set; }
         public decimal Revenue { get; set; }
+    }
+
+    /// <summary>
+    /// 詳細な期間別セグメント分布
+    /// </summary>
+    public class DetailedSegmentDistribution
+    {
+        public string Label { get; set; } = string.Empty;  // "1ヶ月", "2ヶ月" など
+        public string Range { get; set; } = string.Empty;  // "30-59日", "60-89日" など
+        public int Count { get; set; }                     // 件数
+        public decimal Revenue { get; set; }               // 総購入金額
+        public int MinDays { get; set; }                   // 最小日数
+        public int MaxDays { get; set; }                   // 最大日数
+        public decimal Percentage => Count > 0 ? Math.Round((decimal)Count / TotalCount * 100, 1) : 0;
+        public int TotalCount { get; set; }                // 全体の件数（計算用）
     }
 
     /// <summary>

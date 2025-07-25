@@ -35,6 +35,7 @@ interface ApiDormantCustomer {
   customerId?: string | number;
   name?: string;
   email?: string;
+  company?: string;  // 会社名を追加
   lastPurchaseDate?: string | Date;
   daysSinceLastPurchase?: number;
   dormancySegment?: string;
@@ -87,8 +88,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
       // 検索条件
       const customerName = customer.name || ''
       const customerId = customer.customerId || ''
+      const customerCompany = customer.company || ''
       const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customerId.toString().includes(searchTerm)
+                          customerId.toString().includes(searchTerm) ||
+                          customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
 
       // セグメント条件 - APIの dormancySegment を優先使用
       const matchesSegment = !selectedSegment || (() => {
@@ -157,7 +160,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
   // CSV エクスポート
   const exportToCSV = () => {
     const headers = [
-      '顧客ID', '顧客名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
+      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
       'リスクレベル', '離脱確率', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
     ]
     
@@ -173,6 +176,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
       return [
         customerId,
         customerName,
+        customer.company || '',
         customer.email || '',
         lastPurchaseDate ? (typeof lastPurchaseDate === 'string' 
           ? format(new Date(lastPurchaseDate), 'yyyy-MM-dd')
@@ -229,7 +233,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="顧客名・IDで検索..."
+              placeholder="顧客名・会社名・IDで検索..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -250,118 +254,107 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
           </Select>
         </div>
 
-        {/* テーブル */}
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>顧客情報</TableHead>
-                <TableHead>休眠状況</TableHead>
-                <TableHead>リスク</TableHead>
-                <TableHead>購入実績</TableHead>
-                <TableHead>推奨アクション</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedCustomers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <div className="text-gray-500">
-                      {selectedSegment 
-                        ? `選択されたセグメント「${selectedSegment.label}」に該当する顧客が見つかりません` 
-                        : 'データがありません'}
-                    </div>
-                    {dormantData.length > 0 && (
-                      <div className="text-sm text-gray-400 mt-2">
-                        全体データ: {dormantData.length}件
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
+        {/* カードベースの顧客リスト */}
+        <div className="space-y-4">
+          {paginatedCustomers.length === 0 && (
+            <div className="text-center py-8">
+              <div className="text-gray-500">
+                {selectedSegment 
+                  ? `選択されたセグメント「${selectedSegment.label}」に該当する顧客が見つかりません` 
+                  : 'データがありません'}
+              </div>
+              {dormantData.length > 0 && (
+                <div className="text-sm text-gray-400 mt-2">
+                  全体データ: {dormantData.length}件
+                </div>
               )}
-              {paginatedCustomers.map((customer) => {
-                const customerId = customer.customerId?.toString() || ''
-                const customerName = customer.name || ''
-                const lastPurchaseDate = customer.lastPurchaseDate
-                const daysSince = customer.daysSinceLastPurchase || 0
-                const riskLevel = customer.riskLevel || 'medium'
-                const churnProbability = customer.churnProbability || 0
-                const totalSpent = customer.totalSpent || 0
-                
-                return (
-                  <TableRow key={customerId}>
-                    <TableCell>
+            </div>
+          )}
+          
+          {paginatedCustomers.map((customer) => {
+            const customerId = customer.customerId?.toString() || ''
+            const customerName = customer.name || ''
+            const lastPurchaseDate = customer.lastPurchaseDate
+            const daysSince = customer.daysSinceLastPurchase || 0
+            const riskLevel = customer.riskLevel || 'medium'
+            const churnProbability = customer.churnProbability || 0
+            const totalSpent = customer.totalSpent || 0
+            
+            return (
+              <Card key={customerId} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-medium text-lg">{customerName}</h3>
+                      {customer.company && (
+                        <Badge variant="outline" className="text-xs">
+                          {customer.company}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-3">
                       <div>
-                        <div className="font-medium">{customerName}</div>
-                        <div className="text-sm text-gray-500">ID: {customerId}</div>
-                        <div className="text-sm text-gray-500">{customer.email}</div>
+                        <div className="text-sm text-gray-500">メールアドレス</div>
+                        <div className="text-sm">{customer.email}</div>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                      
                       <div>
-                        <div className="font-medium">{daysSince}日前</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500">最終購入日</div>
+                        <div className="text-sm">
                           {lastPurchaseDate ? (
                             typeof lastPurchaseDate === 'string' 
                               ? format(new Date(lastPurchaseDate), 'yyyy/MM/dd')
                               : format(lastPurchaseDate, 'yyyy/MM/dd')
                           ) : 'データなし'}
                         </div>
-                        <Badge variant="outline" className="mt-1">
-                          {customer.dormancySegment || ''}
-                        </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                      
                       <div>
-                        <Badge variant={getRiskBadge(riskLevel as RiskLevel).variant}>
-                          {getRiskBadge(riskLevel as RiskLevel).label}
-                        </Badge>
-                        <div className="text-sm text-gray-500 mt-1">
-                          離脱確率: {Math.round(churnProbability * 100)}%
-                        </div>
+                        <div className="text-sm text-gray-500">休眠期間</div>
+                        <div className="text-sm font-medium">{daysSince}日前</div>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                      
                       <div>
-                        <div className="font-medium">¥{totalSpent.toLocaleString()}</div>
-                        <div className="text-sm text-gray-500">
-                          {customer.totalOrders || 0}回購入
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          平均: ¥{Math.round(customer.averageOrderValue || 0).toLocaleString()}
-                        </div>
+                        <div className="text-sm text-gray-500">総購入金額</div>
+                        <div className="text-sm font-medium">¥{totalSpent.toLocaleString()}</div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {customer.insight?.recommendedAction || 'アクション提案なし'}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {customer.insight?.optimalTiming || ''}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" title="メール送信">
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" title="クーポン発行">
-                          <Gift className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="outline">
+                        {customer.dormancySegment || ''}
+                      </Badge>
+                      <Badge variant={getRiskBadge(riskLevel as RiskLevel).variant}>
+                        {getRiskBadge(riskLevel as RiskLevel).label}
+                      </Badge>
+                      <span className="text-sm text-gray-500">
+                        離脱確率: {Math.round(churnProbability * 100)}%
+                      </span>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600">
+                      {customer.insight?.recommendedAction || 'アクション提案なし'}
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1 ml-4">
+                    <Button variant="ghost" size="sm" title="メール送信">
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" title="クーポン発行">
+                      <Gift className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )
+          })}
         </div>
 
         {/* ページネーション */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
+          <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-slate-500">
               {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredCustomers.length)} / {filteredCustomers.length}件
             </div>
