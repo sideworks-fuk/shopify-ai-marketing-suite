@@ -68,10 +68,8 @@ jobs:
       - name: Install dependencies
         run: |
           cd frontend
-          echo "📦 npm キャッシュ情報:"
-          npm config get cache
           echo "📦 依存関係のインストール開始..."
-          npm ci --verbose
+          npm ci
         env:
           NODE_ENV: development
 
@@ -136,10 +134,8 @@ jobs:
       - name: Install dependencies
         run: |
           cd frontend
-          echo "📦 npm キャッシュ情報:"
-          npm config get cache
           echo "📦 依存関係のインストール開始..."
-          npm ci --verbose
+          npm ci
         env:
           NODE_ENV: ${{ github.event.inputs.environment }}
 
