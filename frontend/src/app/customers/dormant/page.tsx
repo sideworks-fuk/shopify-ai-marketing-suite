@@ -39,7 +39,12 @@ export default function DormantCustomersPage() {
         })
         
         console.log('✅ APIレスポンス取得成功:', response)
-        setDormantData(response.data || [])
+        
+        // APIレスポンス構造に合わせて修正: customers配列を正しく抽出
+        const customersData = response.data?.customers || []
+        console.log('📊 抽出された顧客データ数:', customersData.length)
+        
+        setDormantData(customersData)
         
       } catch (err) {
         console.error('❌ 休眠顧客データの取得に失敗:', err)
@@ -80,8 +85,16 @@ export default function DormantCustomersPage() {
     const selectedSegment = filters.selectedSegment
     return selectedSegment 
       ? dormantData.filter(customer => {
-          const daysSince = customer.daysSinceLastPurchase || customer.dormancy?.daysSincePurchase || 0
-          return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
+          // APIの dormancySegment フィールドを優先的に使用
+          const customerSegment = customer.dormancySegment
+          if (customerSegment) {
+            return customerSegment === selectedSegment.label
+          }
+          
+          // フォールバック: daysSinceLastPurchase による範囲チェック
+          const daysSince = customer.daysSinceLastPurchase || 0
+          return daysSince >= selectedSegment.range[0] && 
+                 (selectedSegment.range[1] === 9999 || daysSince <= selectedSegment.range[1])
         })
       : dormantData
   }, [dormantData, filters.selectedSegment])

@@ -1,1 +1,199 @@
-import React, { memo, useCallback } from 'react'\nimport { Button } from '../ui/button'\nimport { Badge } from '../ui/badge'\nimport { Card, CardContent } from '../ui/card'\nimport { Eye, Mail, Phone, MapPin } from 'lucide-react'\n\n// =============================================================================\n// 型定義\n// =============================================================================\n\nexport interface CustomerItemProps {\n  customer: {\n    id: string\n    name: string\n    email: string\n    phone?: string\n    status: 'active' | 'inactive' | 'dormant'\n    ltv: number\n    purchaseCount: number\n    lastPurchase?: string\n    segment?: string\n    location?: string\n  }\n  isSelected?: boolean\n  onSelect?: (customerId: string) => void\n  onContact?: (customerId: string, method: 'email' | 'phone') => void\n  onViewDetails?: (customerId: string) => void\n}\n\n// =============================================================================\n// メモ化された顧客アイテム - パフォーマンス最適化\n// =============================================================================\n\n/**\n * メモ化された顧客アイテムコンポーネント\n * \n * React.memoによって顧客データが変更されない限り再レンダリングを防ぐ\n * 大量の顧客リストでのパフォーマンス向上に寄与\n * \n * @example\n * ```tsx\n * <MemoizedCustomerItem\n *   customer={customerData}\n *   isSelected={false}\n *   onSelect={handleSelect}\n *   onContact={handleContact}\n *   onViewDetails={handleViewDetails}\n * />\n * ```\n */\nexport const MemoizedCustomerItem = memo<CustomerItemProps>(({\n  customer,\n  isSelected = false,\n  onSelect,\n  onContact,\n  onViewDetails\n}) => {\n  // ✅ コールバック関数をメモ化\n  const handleSelect = useCallback(() => {\n    onSelect?.(customer.id)\n  }, [customer.id, onSelect])\n  \n  const handleContact = useCallback((method: 'email' | 'phone') => {\n    onContact?.(customer.id, method)\n  }, [customer.id, onContact])\n  \n  const handleViewDetails = useCallback(() => {\n    onViewDetails?.(customer.id)\n  }, [customer.id, onViewDetails])\n  \n  // ✅ ステータス表示の最適化\n  const getStatusVariant = (status: string) => {\n    switch (status) {\n      case 'active': return 'default'\n      case 'inactive': return 'secondary' \n      case 'dormant': return 'destructive'\n      default: return 'outline'\n    }\n  }\n  \n  const getStatusLabel = (status: string) => {\n    switch (status) {\n      case 'active': return 'アクティブ'\n      case 'inactive': return '非アクティブ'\n      case 'dormant': return '休眠'\n      default: return status\n    }\n  }\n  \n  // ✅ 金額フォーマット（メモ化されたコンポーネント内で最適化）\n  const formatCurrency = (amount: number) => {\n    return new Intl.NumberFormat('ja-JP', {\n      style: 'currency',\n      currency: 'JPY',\n      maximumFractionDigits: 0\n    }).format(amount)\n  }\n  \n  // ✅ 日付フォーマット\n  const formatDate = (dateString?: string) => {\n    if (!dateString) return '未購入'\n    return new Date(dateString).toLocaleDateString('ja-JP')\n  }\n  \n  return (\n    <Card \n      className={`transition-all duration-200 hover:shadow-md cursor-pointer ${\n        isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'\n      }`}\n      onClick={handleSelect}\n    >\n      <CardContent className=\"p-4\">\n        <div className=\"flex items-center justify-between\">\n          {/* 顧客基本情報 */}\n          <div className=\"flex-1 min-w-0\">\n            <div className=\"flex items-center gap-3 mb-2\">\n              <h3 className=\"font-semibold text-gray-900 truncate\">\n                {customer.name}\n              </h3>\n              <Badge variant={getStatusVariant(customer.status)}>\n                {getStatusLabel(customer.status)}\n              </Badge>\n              {customer.segment && (\n                <Badge variant=\"outline\">\n                  {customer.segment}\n                </Badge>\n              )}\n            </div>\n            \n            {/* 連絡先情報 */}\n            <div className=\"space-y-1 text-sm text-gray-600\">\n              <div className=\"flex items-center gap-2\">\n                <Mail className=\"h-3 w-3\" />\n                <span className=\"truncate\">{customer.email}</span>\n              </div>\n              {customer.phone && (\n                <div className=\"flex items-center gap-2\">\n                  <Phone className=\"h-3 w-3\" />\n                  <span>{customer.phone}</span>\n                </div>\n              )}\n              {customer.location && (\n                <div className=\"flex items-center gap-2\">\n                  <MapPin className=\"h-3 w-3\" />\n                  <span>{customer.location}</span>\n                </div>\n              )}\n            </div>\n          </div>\n          \n          {/* 購入統計 */}\n          <div className=\"text-right space-y-1 mx-4\">\n            <div className=\"text-sm font-medium text-gray-900\">\n              {formatCurrency(customer.ltv)}\n            </div>\n            <div className=\"text-xs text-gray-500\">\n              {customer.purchaseCount}回購入\n            </div>\n            <div className=\"text-xs text-gray-500\">\n              最終: {formatDate(customer.lastPurchase)}\n            </div>\n          </div>\n          \n          {/* アクションボタン */}\n          <div className=\"flex flex-col gap-1\">\n            <Button \n              variant=\"ghost\" \n              size=\"sm\"\n              onClick={(e) => {\n                e.stopPropagation()\n                handleViewDetails()\n              }}\n            >\n              <Eye className=\"h-3 w-3\" />\n            </Button>\n            {customer.email && (\n              <Button \n                variant=\"ghost\" \n                size=\"sm\"\n                onClick={(e) => {\n                  e.stopPropagation()\n                  handleContact('email')\n                }}\n              >\n                <Mail className=\"h-3 w-3\" />\n              </Button>\n            )}\n            {customer.phone && (\n              <Button \n                variant=\"ghost\" \n                size=\"sm\"\n                onClick={(e) => {\n                  e.stopPropagation()\n                  handleContact('phone')\n                }}\n              >\n                <Phone className=\"h-3 w-3\" />\n              </Button>\n            )}\n          </div>\n        </div>\n      </CardContent>\n    </Card>\n  )\n}, (prevProps, nextProps) => {\n  // ✅ カスタム比較関数：重要なpropsのみ比較\n  const prevCustomer = prevProps.customer\n  const nextCustomer = nextProps.customer\n  \n  return (\n    // 顧客基本データの比較\n    prevCustomer.id === nextCustomer.id &&\n    prevCustomer.name === nextCustomer.name &&\n    prevCustomer.email === nextCustomer.email &&\n    prevCustomer.phone === nextCustomer.phone &&\n    prevCustomer.status === nextCustomer.status &&\n    prevCustomer.ltv === nextCustomer.ltv &&\n    prevCustomer.purchaseCount === nextCustomer.purchaseCount &&\n    prevCustomer.lastPurchase === nextCustomer.lastPurchase &&\n    prevCustomer.segment === nextCustomer.segment &&\n    prevCustomer.location === nextCustomer.location &&\n    \n    // その他のpropsの比較\n    prevProps.isSelected === nextProps.isSelected\n    // NOTE: コールバック関数は毎回新しい関数なので比較しない\n    // 代わりにuseCallbackでメモ化されている\n  )\n})\n\nMemoizedCustomerItem.displayName = 'MemoizedCustomerItem'\n\n// =============================================================================\n// エクスポート\n// =============================================================================\n\nexport default MemoizedCustomerItem\nexport type { CustomerItemProps } 
+import React, { memo, useCallback } from 'react'
+import { Button } from '../ui/button'
+import { Badge } from '../ui/badge'
+import { Card, CardContent } from '../ui/card'
+import { Eye, Mail, Phone, MapPin } from 'lucide-react'
+
+// =============================================================================
+// 型定義
+// =============================================================================
+
+export interface CustomerItemProps {
+  customer: {
+    id: string
+    name: string
+    email: string
+    phone?: string
+    status: 'active' | 'inactive' | 'dormant'
+    ltv: number
+    purchaseCount: number
+    lastPurchase?: string
+    segment?: string
+    location?: string
+  }
+  isSelected?: boolean
+  onSelect?: (customerId: string) => void
+  onContact?: (customerId: string, method: 'email' | 'phone') => void
+  onViewDetails?: (customerId: string) => void
+}
+
+// =============================================================================
+// メモ化された顧客アイテム - パフォーマンス最適化
+// =============================================================================
+
+/**
+ * メモ化された顧客アイテムコンポーネント
+ * 
+ * React.memoによって顧客データが変更されない限り再レンダリングを防ぐ
+ * 大量の顧客リストでのパフォーマンス向上に寄与
+ */
+export const MemoizedCustomerItem = memo<CustomerItemProps>(({
+  customer,
+  isSelected = false,
+  onSelect,
+  onContact,
+  onViewDetails
+}) => {
+  // コールバック関数をメモ化
+  const handleSelect = useCallback(() => {
+    onSelect?.(customer.id)
+  }, [customer.id, onSelect])
+  
+  const handleContact = useCallback((method: 'email' | 'phone') => {
+    onContact?.(customer.id, method)
+  }, [customer.id, onContact])
+  
+  const handleViewDetails = useCallback(() => {
+    onViewDetails?.(customer.id)
+  }, [customer.id, onViewDetails])
+  
+  // ステータス表示の最適化
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active': return 'default'
+      case 'inactive': return 'secondary' 
+      case 'dormant': return 'destructive'
+      default: return 'outline'
+    }
+  }
+  
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'アクティブ'
+      case 'inactive': return '非アクティブ'
+      case 'dormant': return '休眠'
+      default: return status
+    }
+  }
+  
+  // 金額フォーマット
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ja-JP', {
+      style: 'currency',
+      currency: 'JPY',
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+  
+  // 日付フォーマット
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '未購入'
+    return new Date(dateString).toLocaleDateString('ja-JP')
+  }
+  
+  return (
+    <Card 
+      className={`transition-all duration-200 hover:shadow-md cursor-pointer ${
+        isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+      }`}
+      onClick={handleSelect}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          {/* 顧客基本情報 */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="font-semibold text-gray-900 truncate">
+                {customer.name}
+              </h3>
+              <Badge variant={getStatusVariant(customer.status) as any}>
+                {getStatusLabel(customer.status)}
+              </Badge>
+              {customer.segment && (
+                <Badge variant="outline">
+                  {customer.segment}
+                </Badge>
+              )}
+            </div>
+            
+            {/* 連絡先情報 */}
+            <div className="space-y-1 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <Mail className="h-3 w-3" />
+                <span className="truncate">{customer.email}</span>
+              </div>
+              {customer.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3 w-3" />
+                  <span>{customer.phone}</span>
+                </div>
+              )}
+              {customer.location && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3" />
+                  <span>{customer.location}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* 購入統計 */}
+          <div className="text-right space-y-1 mx-4">
+            <div className="text-sm font-medium text-gray-900">
+              {formatCurrency(customer.ltv)}
+            </div>
+            <div className="text-xs text-gray-500">
+              {customer.purchaseCount}回購入
+            </div>
+            <div className="text-xs text-gray-500">
+              最終: {formatDate(customer.lastPurchase)}
+            </div>
+          </div>
+          
+          {/* アクションボタン */}
+          <div className="flex flex-col gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleViewDetails()
+              }}
+            >
+              <Eye className="h-3 w-3" />
+            </Button>
+            {customer.email && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleContact('email')
+                }}
+              >
+                <Mail className="h-3 w-3" />
+              </Button>
+            )}
+            {customer.phone && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleContact('phone')
+                }}
+              >
+                <Phone className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+})
+
+MemoizedCustomerItem.displayName = 'MemoizedCustomerItem'
+
+export default MemoizedCustomerItem
+export type { CustomerItemProps }

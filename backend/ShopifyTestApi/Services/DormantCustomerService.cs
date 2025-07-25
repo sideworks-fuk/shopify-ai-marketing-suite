@@ -90,16 +90,34 @@ namespace ShopifyTestApi.Services
                     query = query.Where(x => x.Customer.TotalSpent <= request.MaxTotalSpent.Value);
                 }
 
-                // セグメントフィルタ（簡易化版）
+                // セグメントフィルタをデータベースレベルで適用
                 if (!string.IsNullOrWhiteSpace(request.Segment) && request.Segment != "all")
                 {
-                    // データベース側でのフィルタリングは簡略化し、メモリ上でフィルタリング
-                    // セグメントフィルタは後でメモリ上で適用する
+                    // セグメント範囲を計算
+                    var segmentRange = GetSegmentDateRange(request.Segment);
+                    if (segmentRange.HasValue)
+                    {
+                        var (minDate, maxDate) = segmentRange.Value;
+                        
+                        if (maxDate == DateTime.MaxValue)
+                        {
+                            // "365日以上" または購入履歴なし
+                            query = query.Where(x => x.LastOrder == null || x.LastOrder.CreatedAt < minDate);
+                        }
+                        else
+                        {
+                            // 特定の範囲内
+                            query = query.Where(x => x.LastOrder != null && 
+                                               x.LastOrder.CreatedAt >= minDate && 
+                                               x.LastOrder.CreatedAt < maxDate);
+                        }
+                    }
                 }
 
+                // フィルタ適用後の総件数を取得
                 var totalCount = await query.CountAsync();
 
-                // ソートとページング（簡易版）
+                // ソートとページング
                 var pagedData = await query
                     .OrderByDescending(x => x.LastOrder != null ? x.LastOrder.CreatedAt : DateTime.MinValue)
                     .Skip((request.PageNumber - 1) * request.PageSize)
@@ -111,14 +129,6 @@ namespace ShopifyTestApi.Services
                 foreach (var item in pagedData)
                 {
                     var dto = await MapToDormantCustomerDtoAsync(item.Customer, item.LastOrder);
-                    
-                    // セグメントフィルタをメモリ上で適用
-                    if (!string.IsNullOrWhiteSpace(request.Segment) && request.Segment != "all")
-                    {
-                        if (dto.DormancySegment != request.Segment)
-                            continue;
-                    }
-                    
                     customerDtos.Add(dto);
                 }
 
@@ -398,6 +408,22 @@ namespace ShopifyTestApi.Services
                 .ToList();
 
             return segmentGroups;
+        }
+
+        /// <summary>
+        /// セグメント名から日付範囲を計算
+        /// </summary>
+        private (DateTime minDate, DateTime maxDate)? GetSegmentDateRange(string segment)
+        {
+            var now = DateTime.UtcNow;
+            
+            return segment switch
+            {
+                "90-180日" => (now.AddDays(-180), now.AddDays(-90)),
+                "180-365日" => (now.AddDays(-365), now.AddDays(-180)),
+                "365日以上" => (DateTime.MinValue, now.AddDays(-365)),
+                _ => null
+            };
         }
 
         #endregion

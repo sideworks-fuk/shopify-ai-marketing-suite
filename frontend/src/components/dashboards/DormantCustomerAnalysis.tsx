@@ -33,6 +33,7 @@ export default function DormantCustomerAnalysis() {
   const [showConditions, setShowConditions] = useState(true)
   const [dormantData, setDormantData] = useState<any[]>([])
   const [summaryData, setSummaryData] = useState<any>(null)
+  const [segmentDistributions, setSegmentDistributions] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -51,9 +52,9 @@ export default function DormantCustomerAnalysis() {
         const [customersResponse, summaryResponse] = await Promise.all([
           api.dormantCustomers({
             storeId: 1,
-            pageSize: 1000, // 全件取得
+            pageSize: 10000, // より多くのデータを取得
             sortBy: 'DaysSinceLastPurchase',
-            descending: true
+            descending: false // 昇順に変更して短期間の休眠から取得
           }),
           api.dormantSummary(1)
         ])
@@ -61,8 +62,15 @@ export default function DormantCustomerAnalysis() {
         console.log('✅ 休眠顧客データ取得成功:', customersResponse)
         console.log('✅ サマリーデータ取得成功:', summaryResponse)
         
-        setDormantData(customersResponse.data || [])
+        // APIレスポンスから顧客データを正しく取得
+        const customersData = customersResponse.data?.customers || []
+        const segmentData = customersResponse.data?.segmentDistributions || []
+        console.log('📊 取得した顧客数:', customersData.length)
+        console.log('📊 セグメント分布:', segmentData)
+        
+        setDormantData(customersData)
         setSummaryData(summaryResponse.data)
+        setSegmentDistributions(segmentData)
         
       } catch (err) {
         console.error('❌ 休眠顧客分析データの取得に失敗:', err)
@@ -101,12 +109,59 @@ export default function DormantCustomerAnalysis() {
     if (!dormantData) return []
     
     const selectedSegment = filters.selectedSegment
-    return selectedSegment 
-      ? dormantData.filter(customer => {
-          const daysSince = customer.daysSinceLastPurchase || customer.dormancy?.daysSincePurchase || 0
-          return daysSince >= selectedSegment.range[0] && daysSince < selectedSegment.range[1]
+    console.log('🔍 フィルタリング開始:', {
+      selectedSegment,
+      totalCustomers: dormantData.length,
+      sampleCustomers: dormantData.slice(0, 3).map(c => ({
+        id: c.customerId,
+        dormancySegment: c.dormancySegment,
+        daysSince: c.daysSinceLastPurchase
+      }))
+    })
+    
+    if (!selectedSegment) {
+      console.log('✅ セグメント未選択 - 全件表示:', dormantData.length)
+      return dormantData
+    }
+    
+    const filtered = dormantData.filter(customer => {
+      // APIの dormancySegment フィールドを優先的に使用
+      const customerSegment = customer.dormancySegment
+      const daysSince = customer.daysSinceLastPurchase || customer.dormancy?.daysSincePurchase || 0
+      
+      let matches = false
+      
+      if (customerSegment) {
+        matches = customerSegment === selectedSegment.label
+        console.log('🔍 セグメントマッチング:', {
+          customerId: customer.customerId,
+          customerSegment,
+          selectedLabel: selectedSegment.label,
+          matches,
+          daysSince
         })
-      : dormantData
+      } else {
+        // フォールバック: daysSinceLastPurchase による範囲チェック
+        matches = daysSince >= selectedSegment.range[0] && 
+                 (selectedSegment.range[1] === 9999 || daysSince <= selectedSegment.range[1])
+        console.log('🔍 範囲マッチング:', {
+          customerId: customer.customerId,
+          daysSince,
+          range: selectedSegment.range,
+          matches
+        })
+      }
+      
+      return matches
+    })
+    
+    console.log('✅ フィルタリング結果:', {
+      selectedSegment: selectedSegment.label,
+      filteredCount: filtered.length,
+      totalCount: dormantData.length
+    })
+    
+    return filtered
   }, [dormantData, filters.selectedSegment])
 
   // ローディング状態
@@ -261,7 +316,7 @@ export default function DormantCustomerAnalysis() {
       {/* 期間別セグメントフィルター */}
       <div>
         <h2 className="text-xl font-semibold mb-4">期間別セグメント</h2>
-        <DormantPeriodFilter />
+        <DormantPeriodFilter segmentDistributions={segmentDistributions} />
       </div>
 
       {/* 分析チャート - オプション機能として一時非表示 */}

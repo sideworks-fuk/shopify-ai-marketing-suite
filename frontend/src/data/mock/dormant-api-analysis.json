@@ -1,0 +1,112 @@
+{
+  "summary_response": {
+    "success": true,
+    "data": {
+      "totalDormantCustomers": 28062,
+      "dormantRate": 100,
+      "averageDormancyDays": 3590,
+      "estimatedLostRevenue": 385201738.61143629963607062101,
+      "reactivationRate": 15.0,
+      "recoveredRevenue": 0,
+      "segmentCounts": {
+        "90-180日": 2294,
+        "365日以上": 9708,
+        "180-365日": 16060
+      },
+      "segmentRevenue": {
+        "90-180日": 487098044.00,
+        "365日以上": 75231889.00,
+        "180-365日": 629502448.00
+      }
+    },
+    "message": "休眠顧客サマリー統計を正常に取得しました。",
+    "timestamp": "2025-07-25T03:29:43.7353167Z",
+    "errors": []
+  },
+  "customer_list_response": {
+    "success": true,
+    "data": {
+      "customers": [
+        {
+          "customerId": 3290,
+          "name": "テスト典子 テスト藤嶋",
+          "email": "test-user-23396@example.com",
+          "phone": "",
+          "lastPurchaseDate": "2025-03-22T12:03:35",
+          "daysSinceLastPurchase": 124,
+          "dormancySegment": "90-180日",
+          "riskLevel": "medium",
+          "churnProbability": 0.37,
+          "totalSpent": 192036.00,
+          "totalOrders": 24,
+          "averageOrderValue": 8001.50,
+          "tags": ["一般顧客"],
+          "preferredCategories": [],
+          "insight": {
+            "recommendedAction": "特別割引オファー",
+            "optimalTiming": "3日以内",
+            "estimatedSuccessRate": 0.20,
+            "suggestedOffer": "15%割引クーポン",
+            "personalizationTips": ["ロイヤルカスタマーとして特別扱い"]
+          }
+        }
+      ],
+      "summary": {
+        "totalDormantCustomers": 28062,
+        "dormantRate": 100,
+        "averageDormancyDays": 3590,
+        "estimatedLostRevenue": 385201738.61143629963607062101,
+        "reactivationRate": 15.0,
+        "recoveredRevenue": 0,
+        "segmentCounts": {
+          "90-180日": 2294,
+          "365日以上": 9708,
+          "180-365日": 16060
+        },
+        "segmentRevenue": {
+          "90-180日": 487098044.00,
+          "365日以上": 75231889.00,
+          "180-365日": 629502448.00
+        }
+      },
+      "segmentDistributions": [
+        {
+          "segment": "180-365日",
+          "count": 16060,
+          "percentage": 57.230418359347159860309315090,
+          "revenue": 629502448.00
+        },
+        {
+          "segment": "365日以上",
+          "count": 9708,
+          "percentage": 34.594825742997648064998930940,
+          "revenue": 75231889.00
+        },
+        {
+          "segment": "90-180日",
+          "count": 2294,
+          "percentage": 8.174755897655192074691753970,
+          "revenue": 487098044.00
+        }
+      ],
+      "pagination": {
+        "currentPage": 1,
+        "pageSize": 5,
+        "totalCount": 28062,
+        "totalPages": 5613,
+        "hasNextPage": true,
+        "hasPreviousPage": false
+      }
+    },
+    "message": "休眠顧客分析データを正常に取得しました。",
+    "timestamp": "2025-07-25T03:30:32.9766502Z",
+    "errors": []
+  },
+  "churn_probability_response": {
+    "success": true,
+    "data": 0.37,
+    "message": "離脱確率を正常に計算しました。",
+    "timestamp": "2025-07-25T03:30:47.6716076Z",
+    "errors": []
+  }
+}

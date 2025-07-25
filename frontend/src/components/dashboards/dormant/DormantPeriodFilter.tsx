@@ -4,24 +4,72 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Filter } from "lucide-react"
-import { dormantSegments, type DormantSegment } from "@/data/mock/customerData"
+import { type DormantSegment } from "@/types/models/customer"
 import { useDormantFilters } from "@/contexts/FilterContext"
+import { useMemo } from "react"
 
-interface DormantPeriodFilterProps {
-  // Props Drilling解消により、これらのpropsは不要になった
-  // onSegmentSelect?: (segment: DormantSegment | null) => void;
-  // selectedSegment?: DormantSegment | null;
+interface ApiSegmentDistribution {
+  segment: string;
+  count: number;
+  percentage: number;
+  revenue: number;
 }
 
-export function DormantPeriodFilter({}: DormantPeriodFilterProps) {
+interface DormantPeriodFilterProps {
+  segmentDistributions?: ApiSegmentDistribution[];
+}
+
+export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriodFilterProps) {
   const { filters, setSelectedSegment } = useDormantFilters()
   
+  // APIデータからセグメント情報を生成
+  const periodSegments = useMemo(() => {
+    if (segmentDistributions.length === 0) {
+      // APIデータがない場合のフォールバック
+      return [
+        { id: '90-180', label: '90-180日', range: [90, 180], count: 0, color: '#FEF3C7', urgency: 'medium' },
+        { id: '180-365', label: '180-365日', range: [180, 365], count: 0, color: '#FECACA', urgency: 'high' },
+        { id: '365+', label: '365日以上', range: [365, 9999], count: 0, color: '#EF4444', urgency: 'critical' },
+      ] as DormantSegment[]
+    }
+
+    // APIデータから DormantSegment 形式に変換
+    return segmentDistributions.map((dist) => {
+      const segment = dist.segment
+      let range: [number, number] = [0, 999]
+      let urgency: 'low' | 'medium' | 'high' | 'critical' = 'medium'
+      let color = '#FEF3C7'
+
+      // セグメント名から範囲を推定
+      if (segment === '90-180日') {
+        range = [90, 180]
+        urgency = 'medium'
+        color = '#FEF3C7'
+      } else if (segment === '180-365日') {
+        range = [180, 365]
+        urgency = 'high'
+        color = '#FECACA'
+      } else if (segment === '365日以上') {
+        range = [365, 9999]
+        urgency = 'critical'
+        color = '#EF4444'
+      }
+
+      return {
+        id: segment.replace(/[日以上\-]/g, ''),
+        label: segment,
+        range,
+        count: dist.count,
+        color,
+        urgency
+      } as DormantSegment
+    }).sort((a, b) => a.range[0] - b.range[0])
+  }, [segmentDistributions])
+
   const handleSegmentClick = (segment: DormantSegment) => {
     const newSelection = filters.selectedSegment?.id === segment.id ? null : segment
     setSelectedSegment(newSelection)
   }
-
-  const periodSegments = dormantSegments.slice().sort((a, b) => a.range[0] - b.range[0])
 
   return (
     <Card className="border-slate-200">

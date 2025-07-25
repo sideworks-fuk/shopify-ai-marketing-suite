@@ -4,11 +4,12 @@
 
 ## 📋 ドキュメント情報
 - **作成日**: 2025年7月21日
+- **更新日**: 2025年7月25日
 - **作成者**: AI Assistant
-- **バージョン**: v1.1 (Phase 1実装対応)
+- **バージョン**: v1.2 (現状実装対応)
 - **対象機能**: 休眠顧客分析【顧客】
 - **画面ID**: CUST-01-DORMANT
-- **ステータス**: Phase 1実装完了・Phase 2設計継続中
+- **ステータス**: Phase 1実装完了・フロントエンド統合済み
 
 ---
 
@@ -30,24 +31,23 @@
 
 ---
 
-## 🚀 **Phase 1実装状況 (2025年7月24日完了)**
+## 🚀 **実装状況 (2025年7月25日現在)**
 
 ### ✅ 実装完了項目
-1. **基本DTOモデル** - `CustomerModels.cs`に休眠顧客分析用モデル追加
-2. **サービス層** - `DormantCustomerService.cs`作成・実装
-3. **APIコントローラー** - `CustomerController.cs`に休眠顧客API追加
-4. **DI設定** - `Program.cs`でサービス登録
-5. **設定ファイル** - `appsettings.json`に休眠判定閾値追加
+1. **バックエンドAPI** - `DormantCustomerService.cs`完全実装
+2. **フロントエンド統合** - APIクライアント実装済み
+3. **UIコンポーネント** - 休眠顧客リスト・KPI表示
+4. **データフロー** - バックエンド→フロントエンド完全連携
 
 ### 🔧 実装されたAPIエンドポイント
 ```csharp
-// 基本エンドポイント (Phase 1)
+// 基本エンドポイント (実装済み)
 GET /api/customer/dormant              // 休眠顧客リスト取得
 GET /api/customer/dormant/summary      // 休眠顧客サマリー統計
 GET /api/customer/{id}/churn-probability // 離脱確率計算
 ```
 
-### 📊 **Phase 1の簡略化実装アプローチ**
+### 📊 **実装アプローチ**
 既存のデータベース構造（Customer + Order）を活用して、専用テーブルなしで実装:
 
 1. **休眠判定ロジック**: 最終注文日から90日以上経過
@@ -57,9 +57,124 @@ GET /api/customer/{id}/churn-probability // 離脱確率計算
 
 ---
 
+## 🔄 **API ↔ フロントエンド データフロー**
+
+### 1. データ取得フロー
+
+```mermaid
+graph TD
+    A[フロントエンド] --> B[api-client.ts]
+    B --> C[API Gateway]
+    C --> D[CustomerController]
+    D --> E[DormantCustomerService]
+    E --> F[ShopifyDbContext]
+    F --> G[Customer/Order Tables]
+    G --> F
+    F --> E
+    E --> D
+    D --> C
+    C --> B
+    B --> A
+```
+
+### 2. 実装されたAPIクライアント
+
+```typescript
+// frontend/src/lib/api-client.ts
+export const api = {
+  // 休眠顧客分析API
+  dormantCustomers: (params?: {
+    storeId?: number;
+    segment?: string;
+    riskLevel?: string;
+    minTotalSpent?: number;
+    maxTotalSpent?: number;
+    pageNumber?: number;
+    pageSize?: number;
+    sortBy?: string;
+    descending?: boolean;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT}?${queryString}` : API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT;
+    return apiClient.get<any>(url);
+  },
+  
+  // 休眠顧客サマリー統計取得
+  dormantSummary: (storeId: number = 1) =>
+    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_SUMMARY}?storeId=${storeId}`),
+};
+```
+
+### 3. フロントエンドコンポーネント実装
+
+```typescript
+// frontend/src/components/dashboards/dormant/DormantCustomerList.tsx
+interface ApiDormantCustomer {
+  customerId?: string | number;
+  name?: string;
+  email?: string;
+  lastPurchaseDate?: string | Date;
+  daysSinceLastPurchase?: number;
+  dormancySegment?: string;
+  riskLevel?: string;
+  churnProbability?: number;
+  totalSpent?: number;
+  totalOrders?: number;
+  averageOrderValue?: number;
+  insight?: {
+    recommendedAction?: string;
+    optimalTiming?: string;
+    estimatedSuccessRate?: number;
+    suggestedOffer?: string;
+  };
+}
+```
+
+### 4. データ取得実装
+
+```typescript
+// frontend/src/app/customers/dormant/page.tsx
+useEffect(() => {
+  const fetchDormantData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const response = await api.dormantCustomers({
+        storeId: 1,
+        pageSize: 1000,
+        sortBy: 'DaysSinceLastPurchase',
+        descending: true
+      })
+      
+      const customersData = response.data?.customers || []
+      setDormantData(customersData)
+      
+    } catch (err) {
+      console.error('❌ 休眠顧客データの取得に失敗:', err)
+      setError(`${errorMessage}\n\n詳細: ${errorDetails}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  fetchDormantData()
+}, [])
+```
+
+---
+
 ## 📊 データベース設計
 
-### Phase 1: 既存テーブル活用
+### 現在の実装: 既存テーブル活用
 現在は既存の`Customer`と`Order`テーブルを使用:
 
 ```sql
@@ -164,7 +279,7 @@ CREATE TABLE [dbo].[ReactivationCampaigns](
 
 ## 🔌 API設計
 
-### Phase 1実装済みエンドポイント
+### 実装済みエンドポイント
 
 ```csharp
 [Route("api/customer")]
@@ -216,7 +331,7 @@ public class CustomerAnalyticsController : ControllerBase
 }
 ```
 
-### Phase 1実装済みDTOモデル
+### 実装済みDTOモデル
 
 ```csharp
 // リクエストDTO
@@ -287,7 +402,7 @@ public class ReactivationInsight
 
 ## ⚙️ サービス層設計
 
-### Phase 1実装済みサービス
+### 実装済みサービス
 
 ```csharp
 public interface IDormantCustomerService
@@ -306,7 +421,7 @@ public class DormantCustomerService : IDormantCustomerService
 }
 ```
 
-### Phase 1の主要実装ポイント
+### 主要実装ポイント
 
 1. **休眠判定ロジック**: `DormancyThresholdDays`設定（デフォルト90日）
 2. **セグメント分類**: 簡易ルールベース
@@ -314,6 +429,96 @@ public class DormantCustomerService : IDormantCustomerService
 4. **インサイト生成**: 固定ルールによる推奨アクション
 5. **キャッシュ**: MemoryCache 5分間
 6. **ページング**: 標準的なSkip/Take実装
+
+---
+
+## 🎨 フロントエンド実装
+
+### 1. ページコンポーネント
+
+```typescript
+// frontend/src/app/customers/dormant/page.tsx
+export default function DormantCustomersPage() {
+  const [dormantData, setDormantData] = useState<ApiDormantCustomer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchDormantData = async () => {
+      try {
+        const response = await api.dormantCustomers({
+          storeId: 1,
+          pageSize: 1000,
+          sortBy: 'DaysSinceLastPurchase',
+          descending: true
+        })
+        
+        const customersData = response.data?.customers || []
+        setDormantData(customersData)
+      } catch (err) {
+        setError('データの取得に失敗しました')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDormantData()
+  }, [])
+
+  return (
+    <div>
+      <DormantKPICards />
+      <DormantCustomerList dormantData={dormantData} />
+    </div>
+  )
+}
+```
+
+### 2. リストコンポーネント
+
+```typescript
+// frontend/src/components/dashboards/dormant/DormantCustomerList.tsx
+export function DormantCustomerList({ dormantData = [] }: DormantCustomerListProps) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // フィルタリング・ページング・CSV出力機能
+  // リスクレベル表示・検索機能
+  // 推奨アクション表示
+}
+```
+
+### 3. KPIコンポーネント
+
+```typescript
+// frontend/src/components/dashboards/dormant/DormantKPICards.tsx
+export function DormantKPICards() {
+  const [summaryData, setSummaryData] = useState<DormantSummaryStats | null>(null)
+
+  useEffect(() => {
+    const fetchSummaryData = async () => {
+      try {
+        const response = await api.dormantSummary(1)
+        setSummaryData(response.data)
+      } catch (err) {
+        console.error('サマリーデータ取得エラー:', err)
+      }
+    }
+
+    fetchSummaryData()
+  }, [])
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <KPICard title="休眠顧客数" value={summaryData?.totalDormantCustomers} />
+      <KPICard title="休眠率" value={`${summaryData?.dormantRate}%`} />
+      <KPICard title="平均休眠日数" value={summaryData?.averageDormancyDays} />
+      <KPICard title="推定損失額" value={`¥${summaryData?.estimatedLostRevenue}`} />
+    </div>
+  )
+}
+```
 
 ---
 
@@ -326,7 +531,12 @@ public class DormantCustomerService : IDormantCustomerService
    - コントローラー実装
    - DI設定
 
-2. **基本機能**
+2. **フロントエンド統合**
+   - APIクライアント実装
+   - コンポーネント実装
+   - データフロー確立
+
+3. **基本機能**
    - 休眠顧客リスト取得
    - サマリー統計計算
    - 離脱確率計算
@@ -357,7 +567,7 @@ public class DormantCustomerService : IDormantCustomerService
 
 ## 📊 技術的考慮事項
 
-### Phase 1の制約と考慮点
+### 現在の実装の制約と考慮点
 1. **パフォーマンス**: 既存テーブル結合によるクエリ性能
 2. **リアルタイム性**: リアルタイム計算のため若干の遅延
 3. **精度**: 簡易ルールベースのため改善余地あり
@@ -377,11 +587,13 @@ public class DormantCustomerService : IDormantCustomerService
 
 ## ✅ テスト項目
 
-### Phase 1テスト項目
+### 実装済みテスト項目
 - [x] 基本API動作確認
 - [x] DTOシリアライゼーション
 - [x] エラーハンドリング
 - [x] ログ出力確認
+- [x] フロントエンド統合
+- [x] データフロー確認
 - [ ] パフォーマンステスト
 - [ ] セグメント分類ロジック
 - [ ] 離脱確率計算ロジック
@@ -400,22 +612,25 @@ public class DormantCustomerService : IDormantCustomerService
 
 ---
 
-## 📝 **Phase 1完了報告（2025年7月24日）**
+## 📝 **実装完了報告（2025年7月25日）**
 
 ### 実装成果
 - ✅ 基本的な休眠顧客分析API実装完了
+- ✅ フロントエンド統合完了
 - ✅ 既存データベース構造を活用した効率的な実装
 - ✅ キャッシュ・ログ・エラーハンドリング完備
 - ✅ Swagger対応・API仕様書自動生成
 
 ### 次のステップ
-1. **フロントエンド統合** - モックデータからAPI切り替え
+1. **パフォーマンステスト** - 大量データでの性能確認
 2. **データ投入** - より多くのテストデータでの動作確認
-3. **パフォーマンステスト** - 大量データでの性能確認
-4. **Phase 2設計** - 専用テーブル・バッチ処理の詳細設計
+3. **Phase 2設計** - 専用テーブル・バッチ処理の詳細設計
+4. **機能拡張** - 復帰施策管理機能の実装
 
 ---
 
 *作成日: 2025年7月21日*
+*更新日: 2025年7月25日*
 *Phase 1完了: 2025年7月24日*
+*フロントエンド統合完了: 2025年7月25日*
 *次回更新: Phase 2実装完了時* 
