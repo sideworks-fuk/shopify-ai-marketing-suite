@@ -1,51 +1,50 @@
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (Development)
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - develop
     paths:
       - 'frontend/**'
   pull_request:
-    branches: [ main, develop ]
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - develop
     paths:
       - 'frontend/**'
 
 jobs:
   build_and_deploy_job:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
+    name: Build and Deploy Job (Development)
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          submodules: true
 
-      - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Build application
-        working-directory: ./frontend
-        env:
-          # 環境変数の設定
-          NEXT_PUBLIC_BUILD_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
-          NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
-          NODE_ENV: production
-        run: npm run build
-
-      - name: Deploy
-        id: deploy
+      - name: Build And Deploy
+        id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/frontend" # App source code path
-          api_location: "" # Api source code path - Optional
-          output_location: "frontend/.next" # Built app content directory - Optional
-          skip_app_build: false 
+          api_location: "" # Api source code path - optional
+          output_location: "out" # Built app content directory - optional
+          ###### End of Repository/Build Configurations ######
+
+  close_pull_request_job:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request Job
+    steps:
+      - name: Close Pull Request
+        id: closepullrequest
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+          action: "close"
