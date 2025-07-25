@@ -1,4 +1,4 @@
-import { API_CONFIG, buildApiUrl } from './api-config';
+import { API_CONFIG, buildApiUrl, getApiUrl } from './api-config';
 
 // API レスポンス型定義
 export interface ApiResponse<T> {
@@ -43,6 +43,9 @@ class ApiClient {
     try {
       console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
       console.log('📋 Request Options:', defaultOptions);
+      console.log('🔍 Full Request URL:', url);
+      console.log('🔍 Base URL from config:', getApiUrl());
+      console.log('🔍 Endpoint:', endpoint);
       
       const response = await fetch(url, defaultOptions);
       
@@ -91,6 +94,15 @@ class ApiClient {
       }
       
       // ネットワークエラーやその他のエラー
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new ApiError(
+          'Failed to fetch: ネットワーク接続エラーまたはCORS問題が発生しました。\n' +
+          'Azure Static Web Appsのプロキシ設定を確認してください。',
+          0,
+          error
+        );
+      }
+      
       throw new ApiError(
         error instanceof Error ? error.message : 'Unknown API Error'
       );

@@ -1,7 +1,7 @@
 // API設定ファイル
 export const API_CONFIG = {
-  // バックエンドAPI URL
-  BASE_URL: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net',
+  // バックエンドAPI URL - Azure Static Web Appsの場合は相対パスを使用
+  BASE_URL: '',
   
   // エンドポイント
   ENDPOINTS: {
@@ -38,6 +38,7 @@ export const getApiUrl = () => {
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('  - NEXT_PUBLIC_DEBUG_API:', process.env.NEXT_PUBLIC_DEBUG_API);
+  console.log('  - Window location:', typeof window !== 'undefined' ? window.location.href : 'SSR');
   
   // 環境変数で明示的に設定されている場合はそれを優先
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -45,21 +46,27 @@ export const getApiUrl = () => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
-  // デバッグモードが有効な場合はAzure App Serviceを使用
+  // Azure Static Web Appsの検出（本番環境）
+  if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
+    console.log('✅ Detected Azure Static Web Apps - using relative paths');
+    return '';
+  }
+  
+  // ローカル開発環境でのデバッグモード
   if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
-    console.log('✅ Using Azure App Service URL (debug mode)');
-    return API_CONFIG.BASE_URL;
+    console.log('✅ Using direct Azure App Service URL (debug mode)');
+    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
   }
   
-  // 開発環境の場合はAzure App Serviceを使用（ローカルバックエンドは未稼働のため）
+  // ローカル開発環境
   if (process.env.NODE_ENV === 'development') {
-    console.log('✅ Using Azure App Service URL (development mode)');
-    return API_CONFIG.BASE_URL;
+    console.log('✅ Development mode - using direct Azure App Service URL (proxy bypass)');
+    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
   }
   
-  // 本番環境
-  console.log('✅ Using production backend URL');
-  return API_CONFIG.BASE_URL;
+  // フォールバック: 相対パス
+  console.log('✅ Using relative paths');
+  return '';
 };
 
 // フルURL生成ヘルパー

@@ -64,9 +64,22 @@ export default function DormantCustomerAnalysis() {
         
         // APIレスポンスから顧客データを正しく取得
         const customersData = customersResponse.data?.customers || []
-        const segmentData = customersResponse.data?.segmentDistributions || []
+        
+        // サマリーデータからセグメント分布を配列形式に変換
+        const summarySegments = summaryResponse.data?.segmentCounts || {}
+        const segmentData = Object.entries(summarySegments).map(([segment, count]) => ({
+          segment,
+          count: Number(count),
+          percentage: summaryResponse.data?.totalDormantCustomers > 0 
+            ? (Number(count) / summaryResponse.data.totalDormantCustomers * 100) 
+            : 0,
+          revenue: summaryResponse.data?.segmentRevenue?.[segment] || 0
+        }))
+        
         console.log('📊 取得した顧客数:', customersData.length)
-        console.log('📊 セグメント分布:', segmentData)
+        console.log('📊 変換前セグメントカウント:', summarySegments)
+        console.log('📊 変換後セグメント分布:', segmentData)
+        console.log('📊 合計休眠顧客数:', summaryResponse.data?.totalDormantCustomers)
         
         setDormantData(customersData)
         setSummaryData(summaryResponse.data)
