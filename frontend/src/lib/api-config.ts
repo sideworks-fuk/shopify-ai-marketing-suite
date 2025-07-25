@@ -24,7 +24,7 @@ export const API_CONFIG = {
   },
   
   // リクエスト設定
-  TIMEOUT: 30000, // 30秒
+  TIMEOUT: 60000, // 60秒（大量データ処理を考慮）
   HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

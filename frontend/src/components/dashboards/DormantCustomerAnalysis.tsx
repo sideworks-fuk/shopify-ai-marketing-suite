@@ -52,7 +52,7 @@ export default function DormantCustomerAnalysis() {
         const [customersResponse, summaryResponse] = await Promise.all([
           api.dormantCustomers({
             storeId: 1,
-            pageSize: 10000, // より多くのデータを取得
+            pageSize: 50, // パフォーマンスを考慮して適切なサイズに変更
             sortBy: 'DaysSinceLastPurchase',
             descending: false // 昇順に変更して短期間の休眠から取得
           }),
@@ -82,6 +82,18 @@ export default function DormantCustomerAnalysis() {
         if (err instanceof Error) {
           errorMessage = err.message
           errorDetails = err.stack || ''
+          
+          // タイムアウトエラーの特別処理
+          if (err.message.includes('timeout')) {
+            errorMessage = 'リクエストがタイムアウトしました。データが多いため時間がかかっています。'
+            errorDetails = 'ページサイズを小さくするか、しばらく待ってから再試行してください。'
+          }
+          
+          // ネットワークエラーの特別処理
+          if (err.message.includes('fetch') || err.message.includes('network')) {
+            errorMessage = 'ネットワーク接続エラーが発生しました'
+            errorDetails = 'インターネット接続を確認してください'
+          }
         } else if (typeof err === 'string') {
           errorMessage = err
         } else if (err && typeof err === 'object') {

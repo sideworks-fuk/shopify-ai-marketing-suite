@@ -28,10 +28,15 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = buildApiUrl(endpoint);
     
+    // タイムアウト制御
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    
     const defaultOptions: RequestInit = {
       headers: {
         ...API_CONFIG.HEADERS,
       },
+      signal: controller.signal,
       ...options,
     };
 
@@ -40,6 +45,9 @@ class ApiClient {
       console.log('📋 Request Options:', defaultOptions);
       
       const response = await fetch(url, defaultOptions);
+      
+      // タイムアウトをクリア
+      clearTimeout(timeoutId);
       
       console.log('📡 Response Status:', response.status, response.statusText);
       console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
@@ -59,6 +67,9 @@ class ApiClient {
       
       return data;
     } catch (error) {
+      // タイムアウトをクリア
+      clearTimeout(timeoutId);
+      
       console.error('❌ API Error:', error);
       console.error('❌ Error Details:', {
         name: error instanceof Error ? error.name : 'Unknown',
@@ -68,6 +79,15 @@ class ApiClient {
       
       if (error instanceof ApiError) {
         throw error;
+      }
+      
+      // AbortErrorの処理（タイムアウト）
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new ApiError(
+          `Request timeout after ${API_CONFIG.TIMEOUT}ms`,
+          408,
+          error
+        );
       }
       
       // ネットワークエラーやその他のエラー
