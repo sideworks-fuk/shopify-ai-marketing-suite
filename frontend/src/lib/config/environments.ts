@@ -10,7 +10,7 @@ export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   development: {
     name: '開発環境',
     apiBaseUrl: 'https://localhost:7088',
-    description: 'ローカル開発用',
+    description: 'ローカル開発',
     isProduction: false,
   },
   staging: {
