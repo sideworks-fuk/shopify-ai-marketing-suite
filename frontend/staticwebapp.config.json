@@ -2,7 +2,12 @@
   "routes": [
     {
       "route": "/api/*",
-      "rewrite": "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/*"
+      "rewrite": "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/*",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+      }
     },
     {
       "route": "/_next/static/*",

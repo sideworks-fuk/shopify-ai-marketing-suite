@@ -55,8 +55,13 @@ class ApiClient {
       console.log('📡 Response Status:', response.status, response.statusText);
       console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
       
+      // レスポンスの内容を確認
+      const responseText = await response.text();
+      console.log('📡 Response Text (first 500 chars):', responseText.substring(0, 500));
+      
       if (!response.ok) {
         console.error('❌ HTTP Error:', response.status, response.statusText);
+        console.error('❌ Response Text:', responseText);
         throw new ApiError(
           `HTTP Error: ${response.status} ${response.statusText}`,
           response.status,
@@ -64,7 +69,19 @@ class ApiClient {
         );
       }
 
-      const data: ApiResponse<T> = await response.json();
+      // JSONとして解析を試行
+      let data: ApiResponse<T>;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        console.error('❌ Response Text:', responseText);
+        throw new ApiError(
+          `Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`,
+          response.status,
+          responseText
+        );
+      }
       
       console.log('✅ API Response:', data);
       
