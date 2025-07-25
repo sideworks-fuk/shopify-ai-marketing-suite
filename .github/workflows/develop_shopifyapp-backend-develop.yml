@@ -47,7 +47,7 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Project file exists: $(Test-Path ShopifyTestApi.csproj)"
           echo "Directory contents:"
-          ls -la
+          Get-ChildItem -Force
 
       - name: Publish with dotnet
         run: |
