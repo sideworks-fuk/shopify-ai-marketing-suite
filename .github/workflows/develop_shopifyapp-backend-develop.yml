@@ -80,7 +80,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'shopifyapp-backend-${{ github.event.inputs.environment || 'develop' }}'
+          app-name: 'shopifyapp-backend-develop'
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
