@@ -19,11 +19,11 @@ on:
       environment:
         description: 'デプロイ環境'
         required: true
-        default: 'development'
+        default: 'develop'
         type: choice
         options:
-          - development
-          - staging
+          - main
+          - develop
       force_rebuild:
         description: '強制リビルド'
         required: false
