@@ -28,16 +28,24 @@ jobs:
           dotnet restore
           dotnet build --configuration Release
 
+      - name: Debug - Check project structure
+        run: |
+          cd backend/ShopifyTestApi
+          echo "Current directory: $(pwd)"
+          echo "Project file exists: $(Test-Path ShopifyTestApi.csproj)"
+          echo "Directory contents:"
+          ls -la
+
       - name: Publish with dotnet
         run: |
           cd backend/ShopifyTestApi
-          dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+          dotnet publish -c Release -o ./publish
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: backend/ShopifyTestApi/publish
 
   deploy:
     runs-on: windows-latest
@@ -47,7 +55,7 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
+          name: dotnet-app
       
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
