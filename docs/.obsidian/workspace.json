@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03-design-specs/PROD-01-YOY-detailed-design.md",
+                "file": "05-operations/multi-environment-deployment-strategy.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "PROD-01-YOY-detailed-design"
+              "title": "multi-environment-deployment-strategy"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 413.5
   },
   "right": {
     "id": "414bea11b273a475",
@@ -94,7 +94,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "03-design-specs/PROD-01-YOY-detailed-design.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +103,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "PROD-01-YOY-detailed-designへのバックリンク"
+              "title": "バックリンク"
             }
           },
           {
@@ -113,12 +112,11 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "03-design-specs/PROD-01-YOY-detailed-design.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "PROD-01-YOY-detailed-designからのアウトゴーイングリンク"
+              "title": "アウトゴーイングリンク"
             }
           },
           {
@@ -142,13 +140,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "03-design-specs/PROD-01-YOY-detailed-design.md",
+                "file": "05-operations/github-actions-environment-variables.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "PROD-01-YOY-detailed-designのアウトライン"
+              "title": "github-actions-environment-variablesのアウトライン"
             }
           }
         ]
@@ -170,31 +168,31 @@
   },
   "active": "50a48c3030ef6ca0",
   "lastOpenFiles": [
-    "02-architecture/monorepo-migration-plan.md",
-    "03-design-specs/frontend-performance-optimization-plan.md",
-    "03-design-specs/frontend-code-review-comprehensive.md",
-    "03-design-specs/Backend-Code-Review-Report.md",
-    "03-design-specs/frontend-security-issues-detailed.md",
-    "03-design-specs/CUST-02-ANALYSIS-detailed-design.md",
-    "03-design-specs/CUST-01-DORMANT-detailed-design.md",
-    "01-project-management/01-planning/2025-07-20-rapid-development-plan.md",
-    "01-project-management/01-planning/2025-07-22-azure-cost-estimation-tickets.md",
-    "01-project-management/01-planning/2025-07-22-backlog-tickets.md",
-    "01-project-management/02-data-architecture/data-processing-architecture.md",
-    "03-design-specs/shopify-api-batch-processing-detailed-design.md",
-    "03-design-specs/screen-id-reference.md",
+    "05-operations/workflow-files-update-checklist.md",
+    "05-operations/workflow-dispatch-troubleshooting.md",
+    "05-operations/github-manual-deploy-guide.md",
+    "05-operations/github-environments-setup.md",
+    "05-operations/github-actions-environment-variables.md",
+    "05-operations/environment-naming-convention.md",
+    "05-operations/environment-configuration-guide.md",
+    "05-operations/build-time-environment-variables.md",
+    "05-operations/azure-app-service-environment-setup.md",
+    "05-operations/azure-app-service-deploy-error-troubleshooting.md",
+    "05-operations/api-error-troubleshooting.md",
+    "04-development/PURCH-02-COUNT-implementation-guide.md",
+    "04-development/PURCH-02-COUNT-api-testing.md",
+    "03-design-specs/dormant-customer-performance-quick-wins.md",
+    "03-design-specs/dormant-customer-performance-improvement-design.md",
     "05-operations/multi-environment-deployment-strategy.md",
-    "03-design-specs/shopify-api-batch-processing-basic-design.md",
-    "03-design-specs/shopify-azure-functions-detailed-design.md",
-    "05-operations/environment-urls-reference.md",
-    "05-operations/deployment-guide.md",
-    "05-operations/branch-strategy-and-deployment-plan.md",
-    "05-operations/azure-app-service-basic-auth-fix.md",
-    "04-development/setup-guide.md",
+    "06-infrastructure/01-azure-sql/azure-sql-performance-guide.md",
+    "06-infrastructure/01-azure-sql/azure-sql-setup-record.md",
+    "06-infrastructure/01-azure-sql/azure-sql-migration-guide.md",
     "04-development/development-environment-setup.md",
     "04-development/backend-foundation-setup.md",
     "04-development/azure-functions-setup-guide.md",
-    "03-design-specs/user-research-framework.md",
-    "03-design-specs/user-interview-guide.md"
+    "04-development/azure-functions-implementation-samples.md",
+    "06-infrastructure/02-cost-management/azure-cost-estimation-guide.md",
+    "06-infrastructure/01-azure-sql/azure-app-service-setup-record.md",
+    "06-infrastructure/01-azure-sql/sql-server-vs-sql-database-explanation.md"
   ]
 }

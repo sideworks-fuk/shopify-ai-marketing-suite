@@ -1,35 +1,36 @@
-feat: フロントエンド・バックエンドAPI統合完了
+feat: FinancialStatusカラム追加と環境設定システム実装
 
-## 🎯 主要な変更
-- フロントエンドからバックエンドAPIへの完全接続実装
-- CORS問題解決によるクロスオリジン通信確立
-- API接続テストコンポーネント作成・動作確認
+## 主な変更内容
 
-## ✅ 新規追加ファイル
-- frontend/src/lib/api-config.ts - API設定・エンドポイント定義
-- frontend/src/lib/api-client.ts - TypeScript型安全HTTPクライアント
-- frontend/src/components/test/ApiTestComponent.tsx - API接続テスト機能
-- frontend/src/app/api-test/page.tsx - テスト専用ページ
-- worklog/2025/07/2025-07-21-api-integration-success.md - 作業記録
+### バックエンド (ShopifyTestApi)
+- **FinancialStatusカラム追加**: OrdersテーブルにFinancialStatusカラムを追加
+  - 基本版とバッチ処理版のSQLスクリプトを提供
+  - マイグレーション実行手順書を追加
+- **パフォーマンス改善**: 休眠顧客分析用インデックスを追加
+  - 最終注文日の高速検索用インデックス
+  - 顧客の店舗別検索最適化
 
-## 🔧 修正内容
-- backend/ShopifyTestApi/Program.cs - CORS設定強化・環境別ポリシー追加
+### フロントエンド
+- **環境設定システム実装**: 
+  - 環境切り替え機能を追加 (development/staging/production)
+  - EnvironmentSelectorコンポーネントを実装
+  - useEnvironmentフックを追加
+  - 環境設定ページを追加 (/settings/environment)
+- **API設定の改善**:
+  - api-config.tsを環境対応に更新
+  - 動的API URL取得機能を実装
+- **開発用スクリプト追加**:
+  - dev-start.ps1で開発環境変数を自動設定
+- **既存ページの更新**:
+  - database-test, dev-bookmarks, dormant-api-testページを環境対応に更新
 
-## 📊 テスト結果
-- ✅ Health Check API: 成功
-- ✅ Customer Test API: 成功  
-- ✅ Customer Segments API: 成功
-- API成功率: 100% (3/3)
-- CORS エラー: 0件
+## 技術的詳細
+- Entity Framework Core マイグレーション対応
+- バッチ処理による大量データ更新の最適化
+- 環境変数による動的設定管理
+- localStorage による環境選択の永続化
 
-## 🚀 技術的成果
-- Next.js ↔ ASP.NET Core 完全通信
-- Azure Static Web Apps ↔ Azure App Service 接続確立
-- TypeScript型安全なAPI通信実装
-- エラーハンドリング・レスポンス表示機能
-
-## 🎉 マイルストーン
-Phase 2完了: フロントエンド・バックエンド統合
-次回: Phase 3 実データ統合準備
-
-Co-authored-by: AI Assistant 
+## 影響範囲
+- データベーススキーマ変更 (FinancialStatusカラム追加)
+- フロントエンドの環境設定機能
+- API接続設定の動的切り替え 

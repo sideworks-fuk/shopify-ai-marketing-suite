@@ -254,12 +254,17 @@ namespace ShopifyTestApi.Services
         public async Task<DormantSummaryStats> GetDormantSummaryStatsAsync(int storeId)
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
-            var totalCustomers = await _context.Customers.CountAsync(c => c.StoreId == storeId);
+            
+            // 購入経験のある顧客数を取得（分母として使用）
+            var customersWithPurchases = await _context.Customers
+                .Where(c => c.StoreId == storeId && c.Orders.Any())
+                .CountAsync();
 
+            // 休眠顧客クエリ（購入経験があり、90日以上購入がない顧客のみ）
             var dormantCustomersQuery = from customer in _context.Customers
                                       where customer.StoreId == storeId
                                       let lastOrder = customer.Orders.OrderByDescending(o => o.CreatedAt).FirstOrDefault()
-                                      where lastOrder == null || lastOrder.CreatedAt < cutoffDate
+                                      where lastOrder != null && lastOrder.CreatedAt < cutoffDate
                                       select new { Customer = customer, LastOrder = lastOrder };
 
             var dormantCustomers = await dormantCustomersQuery.ToListAsync();
@@ -287,7 +292,7 @@ namespace ShopifyTestApi.Services
             return new DormantSummaryStats
             {
                 TotalDormantCustomers = totalDormant,
-                DormantRate = totalCustomers > 0 ? (decimal)totalDormant / totalCustomers * 100 : 0,
+                DormantRate = customersWithPurchases > 0 ? (decimal)totalDormant / customersWithPurchases * 100 : 0,
                 AverageDormancyDays = averageDormancyDays,
                 EstimatedLostRevenue = estimatedLostRevenue,
                 ReactivationRate = 15.0m, // 固定値（今後、実際の復帰データから計算）
@@ -372,31 +377,30 @@ namespace ShopifyTestApi.Services
 
                 var results = new List<DetailedSegmentDistribution>();
 
+                // パフォーマンス最適化: 全顧客データを一度に取得してメモリで処理
+                _logger.LogInformation("休眠顧客データを一括取得開始. StoreId: {StoreId}", storeId);
+                
+                var allCustomersData = await _context.Customers
+                    .Where(c => c.StoreId == storeId)
+                    .Select(c => new {
+                        Customer = c,
+                        LastOrderDate = c.Orders.OrderByDescending(o => o.CreatedAt).Select(o => (DateTime?)o.CreatedAt).FirstOrDefault()
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation("顧客データ取得完了. 件数: {Count}", allCustomersData.Count);
+
+                // メモリ内でセグメント分類
                 foreach (var segment in segmentDefinitions)
                 {
-                    // 各セグメントの件数を計算
-                    var count = await _context.Customers
-                        .Where(c => c.StoreId == storeId)
-                        .Select(c => new {
-                            Customer = c,
-                            LastOrderDate = c.Orders.OrderByDescending(o => o.CreatedAt).Select(o => (DateTime?)o.CreatedAt).FirstOrDefault()
-                        })
-                        .Where(x => x.LastOrderDate.HasValue &&
-                            (DateTime.UtcNow - x.LastOrderDate.Value).Days >= segment.MinDays &&
-                            (DateTime.UtcNow - x.LastOrderDate.Value).Days <= segment.MaxDays)
-                        .CountAsync();
+                    var segmentCustomers = allCustomersData.Where(x => 
+                        x.LastOrderDate.HasValue &&
+                        (DateTime.UtcNow - x.LastOrderDate.Value).Days >= segment.MinDays &&
+                        (segment.MaxDays == int.MaxValue || (DateTime.UtcNow - x.LastOrderDate.Value).Days <= segment.MaxDays)
+                    ).ToList();
 
-                    // 各セグメントの総購入金額を計算
-                    var revenue = await _context.Customers
-                        .Where(c => c.StoreId == storeId)
-                        .Select(c => new {
-                            Customer = c,
-                            LastOrderDate = c.Orders.OrderByDescending(o => o.CreatedAt).Select(o => (DateTime?)o.CreatedAt).FirstOrDefault()
-                        })
-                        .Where(x => x.LastOrderDate.HasValue &&
-                            (DateTime.UtcNow - x.LastOrderDate.Value).Days >= segment.MinDays &&
-                            (DateTime.UtcNow - x.LastOrderDate.Value).Days <= segment.MaxDays)
-                        .SumAsync(x => x.Customer.TotalSpent);
+                    var count = segmentCustomers.Count;
+                    var revenue = segmentCustomers.Sum(x => x.Customer.TotalSpent);
 
                     results.Add(new DetailedSegmentDistribution
                     {
@@ -407,6 +411,9 @@ namespace ShopifyTestApi.Services
                         MinDays = segment.MinDays,
                         MaxDays = segment.MaxDays
                     });
+
+                    _logger.LogInformation("セグメント計算完了: {Label} = {Count}件, 売上: {Revenue:C}", 
+                        segment.Label, count, revenue);
                 }
 
                 // キャッシュに保存（10分間）
@@ -421,8 +428,19 @@ namespace ShopifyTestApi.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "詳細セグメント分布の取得に失敗. StoreId: {StoreId}", storeId);
-                throw;
+                _logger.LogError(ex, "詳細セグメント分布の取得に失敗. StoreId: {StoreId}, エラー詳細: {Message}", 
+                    storeId, ex.Message);
+                
+                // より詳細なエラー情報をログに出力
+                _logger.LogError("エラータイプ: {ExceptionType}, スタックトレース: {StackTrace}", 
+                    ex.GetType().Name, ex.StackTrace);
+                
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("内部例外: {InnerMessage}", ex.InnerException.Message);
+                }
+                
+                throw new Exception($"詳細セグメント分布の取得に失敗しました: {ex.Message}", ex);
             }
         }
 
@@ -592,7 +610,7 @@ namespace ShopifyTestApi.Services
                     Percentage = totalCount > 0 ? (decimal)g.Count() / totalCount * 100 : 0,
                     Revenue = g.Sum(x => x.Customer.TotalSpent)
                 })
-                .OrderBy(s => s.Segment)
+                .OrderBy(s => GetSegmentSortOrder(s.Segment))
                 .ToList();
 
             // ログ出力で各セグメントの件数を確認
@@ -644,6 +662,21 @@ namespace ShopifyTestApi.Services
 
             var churnProbability = factors.Sum(f => f.Value * weights[f.Key]);
             return Math.Round(churnProbability, 2);
+        }
+
+        /// <summary>
+        /// セグメントのソート順序を決定
+        /// </summary>
+        private int GetSegmentSortOrder(string segment)
+        {
+            return segment switch
+            {
+                "アクティブ" => 0,
+                "90-180日" => 1,
+                "180-365日" => 2,
+                "365日以上" => 3,
+                _ => 99
+            };
         }
 
         #endregion

@@ -12,7 +12,8 @@
       "Bash(dotnet build:*)",
       "Bash(npx tsc:*)",
       "Bash(git add:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }
