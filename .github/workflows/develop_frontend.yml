@@ -55,17 +55,33 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Verify package-lock.json exists
+        run: |
+          echo "📁 現在のディレクトリ: $(pwd)"
+          echo "📦 package-lock.json の存在確認:"
+          ls -la frontend/package-lock.json || echo "❌ package-lock.json が見つかりません"
+          echo "📦 package.json の存在確認:"
+          ls -la frontend/package.json || echo "❌ package.json が見つかりません"
 
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          echo "📦 npm キャッシュ情報:"
+          npm config get cache
+          echo "📦 依存関係のインストール開始..."
+          npm ci --verbose
+        env:
+          NODE_ENV: development
 
       - name: Build application
         run: |
           cd frontend
+          echo "🔨 アプリケーションのビルド開始..."
           npm run build
+        env:
+          NODE_ENV: development
 
       - name: Deploy to Azure Static Web Apps
         id: builddeploy
@@ -107,16 +123,30 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Verify package-lock.json exists
+        run: |
+          echo "📁 現在のディレクトリ: $(pwd)"
+          echo "📦 package-lock.json の存在確認:"
+          ls -la frontend/package-lock.json || echo "❌ package-lock.json が見つかりません"
+          echo "📦 package.json の存在確認:"
+          ls -la frontend/package.json || echo "❌ package.json が見つかりません"
 
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          echo "📦 npm キャッシュ情報:"
+          npm config get cache
+          echo "📦 依存関係のインストール開始..."
+          npm ci --verbose
+        env:
+          NODE_ENV: ${{ github.event.inputs.environment }}
 
       - name: Build application
         run: |
           cd frontend
+          echo "🔨 アプリケーションのビルド開始..."
           npm run build
         env:
           NODE_ENV: ${{ github.event.inputs.environment }}
