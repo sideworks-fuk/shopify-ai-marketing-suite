@@ -117,7 +117,7 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
                   {segment.range[0]}-{segment.range[1] === 9999 ? '∞' : segment.range[1]}日
                 </div>
                 <Badge variant="secondary" className="mt-2 text-xs">
-                  {segment.count}名
+                  {segment.count.toLocaleString()}名
                 </Badge>
               </Button>
             ))}

@@ -3,6 +3,7 @@
 import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
 import { AnalysisDescriptionCard } from "@/components/common/AnalysisDescriptionCard"
 import YearOverYearProductAnalysisImproved from "@/components/dashboards/YearOverYearProductAnalysisImproved"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // ローディングコンポーネント
 const LoadingComponent = () => (

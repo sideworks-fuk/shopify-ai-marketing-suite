@@ -149,6 +149,14 @@ const bookmarkItems: BookmarkItem[] = [
     category: 'dev'
   },
   {
+    title: "前年同月比API テスト",
+    description: "前年同月比分析【商品】APIの動作確認",
+    href: "/year-over-year-api-test",
+    icon: <TrendingUp className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
     title: "データベース テスト",
     description: "データベース接続テスト",
     href: "/database-test",

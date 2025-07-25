@@ -76,7 +76,7 @@ export default function DormantCustomerAnalysis() {
           segment,
           count: Number(count),
           percentage: summaryResponse.data?.totalDormantCustomers > 0 
-            ? (Number(count) / summaryResponse.data.totalDormantCustomers * 100) 
+            ? Number((Number(count) / summaryResponse.data.totalDormantCustomers * 100).toFixed(1))
             : 0,
           revenue: summaryResponse.data?.segmentRevenue?.[segment] || 0
         }))
@@ -444,38 +444,6 @@ export default function DormantCustomerAnalysis() {
           selectedSegment={filters.selectedSegment}
           dormantData={dormantData}
         />
-        
-        {/* もっと見るボタン */}
-        {hasMoreData && (
-          <div className="flex justify-center mt-6">
-            <Button
-              onClick={loadMoreData}
-              disabled={isLoadingMore}
-              variant="outline"
-              size="lg"
-              className="flex items-center gap-2"
-            >
-              {isLoadingMore ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  読み込み中...
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4" />
-                  もっと見る（20件追加）
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-        
-        {/* データの読み込み状況表示 */}
-        {!hasMoreData && filteredCustomers.length > 20 && (
-          <div className="text-center mt-4 text-sm text-gray-500">
-            全 {filteredCustomers.length} 件のデータを表示しています
-          </div>
-        )}
       </div>
 
       {/* フッター情報 - オプション機能として一時非表示 */}
