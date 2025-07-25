@@ -47,12 +47,20 @@ namespace ShopifyTestApi.Services
         /// </summary>
         public async Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request)
         {
+            // パフォーマンス改善: ページサイズの制限（最大50件）
+            request.PageSize = Math.Min(request.PageSize, 50);
+            if (request.PageSize <= 0)
+            {
+                request.PageSize = 20; // デフォルトに設定
+            }
+
             var logProperties = new Dictionary<string, object>
             {
                 ["RequestId"] = Guid.NewGuid().ToString(),
                 ["StoreId"] = request.StoreId,
                 ["Segment"] = request.Segment ?? "all",
-                ["PageNumber"] = request.PageNumber
+                ["PageNumber"] = request.PageNumber,
+                ["PageSize"] = request.PageSize
             };
             var cacheKey = $"dormant_{request.StoreId}_{request.Segment}_{request.RiskLevel}_{request.PageNumber}_{request.PageSize}";
 

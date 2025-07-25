@@ -21,6 +21,12 @@ export const API_CONFIG = {
     CUSTOMER_DORMANT: '/api/customer/dormant',
     CUSTOMER_DORMANT_SUMMARY: '/api/customer/dormant/summary',
     CUSTOMER_CHURN_PROBABILITY: '/api/customer', // + /{id}/churn-probability
+    
+    // Analytics API (分析API)
+    ANALYTICS_MONTHLY_SALES: '/api/analytics/monthly-sales',
+    ANALYTICS_MONTHLY_SALES_SUMMARY: '/api/analytics/monthly-sales/summary',
+    ANALYTICS_MONTHLY_SALES_CATEGORIES: '/api/analytics/monthly-sales/categories',
+    ANALYTICS_MONTHLY_SALES_TRENDS: '/api/analytics/monthly-sales/trends',
   },
   
   // リクエスト設定

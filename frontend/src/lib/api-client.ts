@@ -233,4 +233,103 @@ export const api = {
   // 顧客離脱確率取得
   customerChurnProbability: (customerId: number) =>
     apiClient.get<{ data: number }>(`${API_CONFIG.ENDPOINTS.CUSTOMER_CHURN_PROBABILITY}/${customerId}/churn-probability`),
+  
+  // 月別売上統計API
+  monthlySales: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES;
+    return apiClient.get<any>(url);
+  },
+  
+  // 月別売上サマリー取得
+  monthlySalesSummary: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY;
+    return apiClient.get<any>(url);
+  },
+  
+  // カテゴリ別売上統計取得
+  monthlySalesCategories: (params?: {
+    storeId?: number;
+    startYear?: number;
+    startMonth?: number;
+    endYear?: number;
+    endMonth?: number;
+    productIds?: string[];
+    displayMode?: string;
+    maxProducts?: number;
+    categoryFilter?: string;
+    minAmount?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            value.forEach(item => searchParams.append(key, item.toString()));
+          } else {
+            searchParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    const queryString = searchParams.toString();
+    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES;
+    return apiClient.get<any>(url);
+  },
+  
+  // 月別売上トレンド取得
+  monthlySalesTrends: (storeId: number = 1, year: number = new Date().getFullYear()) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('storeId', storeId.toString());
+    searchParams.append('year', year.toString());
+    const url = `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_TRENDS}?${searchParams.toString()}`;
+    return apiClient.get<any>(url);
+  },
 }; 

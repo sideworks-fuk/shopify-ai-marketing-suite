@@ -35,7 +35,10 @@ export default function DormantCustomerAnalysis() {
   const [summaryData, setSummaryData] = useState<any>(null)
   const [segmentDistributions, setSegmentDistributions] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMoreData, setHasMoreData] = useState(true)
   
   const { filters } = useDormantFilters()
 
@@ -64,6 +67,7 @@ export default function DormantCustomerAnalysis() {
         
         // APIレスポンスから顧客データを正しく取得
         const customersData = customersResponse.data?.customers || []
+        const pagination = customersResponse.data?.pagination
         
         // サマリーデータからセグメント分布を配列形式に変換
         const summarySegments = summaryResponse.data?.segmentCounts || {}
@@ -77,6 +81,7 @@ export default function DormantCustomerAnalysis() {
         }))
         
         console.log('📊 取得した顧客数:', customersData.length)
+        console.log('📊 ページネーション情報:', pagination)
         console.log('📊 変換前セグメントカウント:', summarySegments)
         console.log('📊 変換後セグメント分布:', segmentData)
         console.log('📊 合計休眠顧客数:', summaryResponse.data?.totalDormantCustomers)
@@ -84,6 +89,15 @@ export default function DormantCustomerAnalysis() {
         setDormantData(customersData)
         setSummaryData(summaryResponse.data)
         setSegmentDistributions(segmentData)
+        
+        // 初期ページネーション情報の設定
+        if (pagination) {
+          setCurrentPage(pagination.currentPage || 1)
+          setHasMoreData(pagination.hasNextPage || false)
+        } else {
+          // ページネーション情報がない場合は、データ数で判断
+          setHasMoreData(customersData.length === 20) // pageSize分だけ取得できた場合は続きがある可能性
+        }
         
       } catch (error) {
         console.error('❌ 休眠顧客データ取得エラー:', error);
@@ -103,6 +117,48 @@ export default function DormantCustomerAnalysis() {
 
     fetchDormantData()
   }, [])
+
+  // 追加データを読み込む関数（もっと見る機能）
+  const loadMoreData = async () => {
+    if (isLoadingMore || !hasMoreData) return
+    
+    try {
+      setIsLoadingMore(true)
+      const nextPage = currentPage + 1
+      
+      console.log('🔄 追加データの取得を開始...', { nextPage })
+      
+      const response = await api.dormantCustomers({
+        storeId: 1,
+        pageSize: 20,
+        pageNumber: nextPage,
+        sortBy: 'DaysSinceLastPurchase',
+        descending: true
+      })
+      
+      const newCustomers = response.data?.customers || []
+      console.log('✅ 追加データ取得成功:', { newCount: newCustomers.length })
+      
+      if (newCustomers.length === 0) {
+        setHasMoreData(false)
+        console.log('🔚 これ以上データがありません')
+      } else {
+        setDormantData(prev => [...prev, ...newCustomers])
+        setCurrentPage(nextPage)
+        
+        // ページネーション情報から残りページを確認
+        const pagination = response.data?.pagination
+        if (pagination && nextPage >= pagination.totalPages) {
+          setHasMoreData(false)
+        }
+      }
+    } catch (error) {
+      console.error('❌ 追加データ取得エラー:', error)
+      setError('追加データの取得に失敗しました')
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
@@ -341,6 +397,38 @@ export default function DormantCustomerAnalysis() {
           selectedSegment={filters.selectedSegment}
           dormantData={dormantData}
         />
+        
+        {/* もっと見るボタン */}
+        {hasMoreData && (
+          <div className="flex justify-center mt-6">
+            <Button
+              onClick={loadMoreData}
+              disabled={isLoadingMore}
+              variant="outline"
+              size="lg"
+              className="flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  読み込み中...
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  もっと見る（20件追加）
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        
+        {/* データの読み込み状況表示 */}
+        {!hasMoreData && filteredCustomers.length > 20 && (
+          <div className="text-center mt-4 text-sm text-gray-500">
+            全 {filteredCustomers.length} 件のデータを表示しています
+          </div>
+        )}
       </div>
 
       {/* フッター情報 - オプション機能として一時非表示 */}

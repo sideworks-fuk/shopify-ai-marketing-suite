@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useCallback } from "react"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -15,9 +15,12 @@ import {
   ChevronDown,
   Calendar,
   FileSpreadsheet,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
+import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
 
-// 型定義
+// 型定義（レガシーモック用 - 段階的移行のため保持）
 interface MonthlyProductData {
   productId: string
   productName: string
@@ -91,12 +94,94 @@ const YearOverYearProductAnalysisImproved = () => {
   // 前年を自動計算
   const previousYear = selectedYear - 1
 
-  // データ生成（年選択に対応）
-  const monthlyData = useMemo(() => generateMonthlyData(selectedYear), [selectedYear])
+  // 🔄 API状態管理
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
+  const [useApi, setUseApi] = useState(true) // APIとモックの切り替え
 
-  // フィルタリングロジック
+  // データ生成（年選択に対応） - フォールバック用
+  const mockData = useMemo(() => generateMonthlyData(selectedYear), [selectedYear])
+
+  // 🚀 API データ取得
+  const fetchYearOverYearData = useCallback(async () => {
+    if (!useApi) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await yearOverYearApi.getYearOverYearAnalysis({
+        storeId: 1,
+        year: selectedYear,
+        viewMode: viewMode,
+        sortBy: sortBy === "growth" ? "growth_rate" : sortBy === "total" ? "total_sales" : "name",
+        sortDescending: true,
+        searchTerm: filters.searchTerm || undefined,
+        growthRateFilter: filters.growthRate === "all" ? undefined : filters.growthRate as any,
+        category: filters.category === "all" ? undefined : filters.category,
+      })
+
+      if (response.success && response.data) {
+        setApiData(response.data.products)
+        
+        // カテゴリ一覧を更新
+        const uniqueCategories = Array.from(new Set(response.data.products.map(p => p.productType)))
+        setCategories(uniqueCategories)
+      } else {
+        throw new Error(response.message || 'データの取得に失敗しました')
+      }
+    } catch (err) {
+      console.error('年次比較データ取得エラー:', err)
+      setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+      // エラー時はモックデータにフォールバック
+      setUseApi(false)
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedYear, viewMode, sortBy, filters, useApi])
+
+  // 初期データ取得とフィルタ変更時の再取得
+  useEffect(() => {
+    fetchYearOverYearData()
+  }, [fetchYearOverYearData])
+
+  // 実際に使用するデータを決定
+  const activeData = useApi && apiData ? apiData : null
+
+  // APIデータをモック形式に変換する関数
+  const convertApiDataToMockFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
+    return apiProducts.map((product, index) => ({
+      productId: `api_${index}`,
+      productName: product.productTitle,
+      category: product.productType,
+      monthlyData: product.monthlyData.map(monthData => ({
+        month: monthData.monthName,
+        current: monthData.currentValue,
+        previous: monthData.previousValue,
+        growthRate: monthData.growthRate
+      }))
+    }))
+  }, [])
+
+  // 実際に表示するデータ（APIまたはモック）
+  const displayData = useMemo(() => {
+    if (activeData) {
+      return convertApiDataToMockFormat(activeData)
+    }
+    return mockData
+  }, [activeData, convertApiDataToMockFormat, mockData])
+
+  // フィルタリングロジック（APIデータの場合はサーバーサイドフィルタされているため、追加フィルタのみ）
   const filteredData = useMemo(() => {
-    return monthlyData.filter((product) => {
+    if (activeData) {
+      // APIデータの場合、基本的なフィルタは既に適用済み
+      // 追加のクライアントサイドフィルタが必要な場合のみ適用
+      return displayData
+    }
+    
+    return displayData.filter((product) => {
       const searchMatch = product.productName.toLowerCase().includes(filters.searchTerm.toLowerCase())
       const categoryMatch = filters.category === "all" || product.category === filters.category
       
@@ -111,10 +196,15 @@ const YearOverYearProductAnalysisImproved = () => {
 
       return searchMatch && categoryMatch && growthMatch
     })
-  }, [monthlyData, filters])
+  }, [displayData, filters, activeData])
 
-  // 並び替えロジック
+  // 並び替えロジック（APIデータの場合はサーバーサイドソート済み）
   const sortedData = useMemo(() => {
+    if (activeData) {
+      // APIデータは既にソート済み
+      return filteredData
+    }
+    
     const sorted = [...filteredData]
     switch (sortBy) {
       case "growth":
@@ -134,13 +224,18 @@ const YearOverYearProductAnalysisImproved = () => {
       default:
         return sorted
     }
-  }, [filteredData, sortBy])
+  }, [filteredData, sortBy, activeData])
 
-  // カテゴリ一覧
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(monthlyData.map(p => p.category)))
+  // カテゴリ一覧（APIまたはモック）
+  const allCategories = useMemo(() => {
+    if (categories.length > 0) {
+      // APIから取得したカテゴリを使用
+      return categories
+    }
+    // モックデータからカテゴリを抽出
+    const uniqueCategories = Array.from(new Set(displayData.map(p => p.category)))
     return uniqueCategories
-  }, [monthlyData])
+  }, [categories, displayData])
 
   // フィルタ変更ハンドラ
   const handleFilterChange = useCallback((newFilters: any) => {
@@ -318,7 +413,7 @@ const YearOverYearProductAnalysisImproved = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">全カテゴリ</SelectItem>
-                      {categories.map(category => (
+                      {allCategories.map(category => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -359,6 +454,55 @@ const YearOverYearProductAnalysisImproved = () => {
             </div>
           </CardContent>
         )}
+      </Card>
+
+      {/* API/モック切り替えとステータス表示 */}
+      <Card className="mb-6">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">データソース:</span>
+                <Badge variant={useApi && !error ? "default" : "secondary"}>
+                  {useApi && !error ? "API" : "モック"}
+                </Badge>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              </div>
+              
+              {error && (
+                <div className="flex items-center gap-2 text-orange-600">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setUseApi(!useApi)
+                  setError(null)
+                }}
+              >
+                {useApi ? "モック表示" : "API接続"}
+              </Button>
+              
+              {useApi && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={fetchYearOverYearData}
+                  disabled={loading}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  再読み込み
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
       {/* 条件サマリーバッジ（折りたたみ時に表示） */}

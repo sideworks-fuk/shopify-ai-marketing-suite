@@ -33,7 +33,7 @@ export default function DormantCustomersPage() {
         
         const response = await api.dormantCustomers({
           storeId: 1,
-          pageSize: 50, // パフォーマンス改善: Azure SQL Basic tierに対応
+          pageSize: 20, // パフォーマンス改善: 初期表示を軽量化
           sortBy: 'DaysSinceLastPurchase',
           descending: true
         })

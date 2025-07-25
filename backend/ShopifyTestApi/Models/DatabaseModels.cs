@@ -170,6 +170,9 @@ namespace ShopifyTestApi.Models
         [MaxLength(50)]
         public string Status { get; set; } = "pending";
         
+        [MaxLength(50)]
+        public string FinancialStatus { get; set; } = "pending";
+        
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
@@ -303,6 +306,9 @@ namespace ShopifyTestApi.Models
         public int OrderId { get; set; }
         
         // 商品情報のスナップショット（注文時の情報を保存）
+        [MaxLength(50)]
+        public string? ProductId { get; set; }  // Shopify Product ID for reference
+        
         [MaxLength(255)]
         public string ProductTitle { get; set; } = string.Empty;
         

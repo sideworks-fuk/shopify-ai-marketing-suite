@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useAppStore } from "../../stores/appStore"
+import { api } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -31,11 +32,16 @@ interface MonthlyStatsAnalysisProps {
 }
 
 export default function MonthlyStatsAnalysis({
-  useSampleData = true,
+  useSampleData = false, // Changed to false to use API by default
 }: MonthlyStatsAnalysisProps) {
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [displayMode, setDisplayMode] = useState<'quantity' | 'amount' | 'both'>('amount')
   const [showConditions, setShowConditions] = useState(true)
+  
+  // API data state
+  const [apiData, setApiData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
   // 期間選択の状態管理
   const currentYear = new Date().getFullYear()
@@ -113,8 +119,54 @@ export default function MonthlyStatsAnalysis({
     }
   ]
 
-  // 実際の商品データを使用（上位売上商品を取得）
-  const products: SampleProduct[] = getTopProducts(15)
+  // API データ取得関数
+  const fetchMonthlySalesData = async (dateRange: DateRangePeriod) => {
+    if (!validateDateRange(dateRange).isValid) {
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      console.log('🔍 Fetching monthly sales data:', dateRange)
+      
+      const response = await api.monthlySales({
+        storeId: 1,
+        startYear: dateRange.startYear,
+        startMonth: dateRange.startMonth,
+        endYear: dateRange.endYear,
+        endMonth: dateRange.endMonth,
+        displayMode: displayMode,
+        maxProducts: 20
+      })
+
+      console.log('✅ Monthly sales API response:', response)
+      setApiData(response.data)
+    } catch (err) {
+      console.error('❌ Monthly sales API error:', err)
+      setError(`データの取得に失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 初回ロード時とdateRange変更時にAPIデータを取得
+  useEffect(() => {
+    if (!useSampleData) {
+      fetchMonthlySalesData(dateRange)
+    }
+  }, [dateRange, displayMode, useSampleData])
+
+  // 実際の商品データを使用（上位売上商品を取得 or APIデータ）
+  const products: SampleProduct[] = useSampleData 
+    ? getTopProducts(15)
+    : (apiData?.products || []).map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        category: product.category || 'その他',
+        price: product.handle ? undefined : 0
+      }))
 
   // 期間バリデーション関数
   const validateDateRange = (newRange: DateRangePeriod): { isValid: boolean; message: string; monthCount: number } => {
@@ -271,9 +323,43 @@ export default function MonthlyStatsAnalysis({
     }
   }
 
-  // セル内容のレンダリング
+  // セル内容のレンダリング（API データまたはサンプルデータ）
   const renderCellContent = (productId: string, monthIndex: number) => {
-    const data = generateSampleData(productId, monthIndex)
+    let data: ProductMonthlyData
+    
+    if (useSampleData || !apiData) {
+      data = generateSampleData(productId, monthIndex)
+    } else {
+      // API データから該当する商品の月別データを取得
+      const product = apiData.products.find((p: any) => p.id === productId)
+      
+      // 月キーの生成: months[monthIndex] から年月を抽出
+      let monthKey = ''
+      if (months[monthIndex]) {
+        const monthStr = months[monthIndex] // "2025年1月" or "1月"
+        if (monthStr.includes('年')) {
+          // "2025年1月" -> "2025-01"
+          const parts = monthStr.split('年')
+          const year = parts[0]
+          const month = parts[1].replace('月', '').padStart(2, '0')
+          monthKey = `${year}-${month}`
+        } else {
+          // "1月" -> 現在の年を使用
+          const month = monthStr.replace('月', '').padStart(2, '0')
+          monthKey = `${dateRange.startYear === dateRange.endYear ? dateRange.startYear : new Date().getFullYear()}-${month}`
+        }
+      }
+      
+      if (product && product.monthlyData && product.monthlyData[monthKey]) {
+        const monthlyData = product.monthlyData[monthKey]
+        data = {
+          quantity: monthlyData.quantity || 0,
+          amount: monthlyData.amount || 0
+        }
+      } else {
+        data = { quantity: 0, amount: 0 }
+      }
+    }
 
     switch (displayMode) {
       case 'quantity':
@@ -292,9 +378,13 @@ export default function MonthlyStatsAnalysis({
     }
   }
 
-  // 統計計算（選択期間に基づく）
+  // 統計計算（選択期間に基づく、API データまたはサンプルデータ）
   const calculateTotalAmount = (): number => {
     if (!validateDateRange(dateRange).isValid) return 0
+    
+    if (!useSampleData && apiData?.summary) {
+      return apiData.summary.totalAmount || 0
+    }
     
     let total = 0
     products.forEach(product => {
@@ -309,6 +399,10 @@ export default function MonthlyStatsAnalysis({
   const calculateTotalQuantity = (): number => {
     if (!validateDateRange(dateRange).isValid) return 0
     
+    if (!useSampleData && apiData?.summary) {
+      return apiData.summary.totalQuantity || 0
+    }
+    
     let total = 0
     products.forEach(product => {
       months.forEach((_, monthIndex) => {
@@ -320,6 +414,10 @@ export default function MonthlyStatsAnalysis({
   }
 
   const calculateMonthlyAverage = (): number => {
+    if (!useSampleData && apiData?.summary) {
+      return Math.floor(apiData.summary.monthlyAverage || 0)
+    }
+    
     const totalAmount = calculateTotalAmount()
     return months.length > 0 ? Math.floor(totalAmount / months.length) : 0
   }
@@ -466,6 +564,14 @@ export default function MonthlyStatsAnalysis({
                       <AlertDescription>{validationError}</AlertDescription>
                     </Alert>
                   )}
+                  
+                  {/* API エラー表示 */}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               </div>
               
@@ -502,9 +608,13 @@ export default function MonthlyStatsAnalysis({
 
             {/* アクションボタン */}
             <div className="flex gap-2 pt-2 mt-4 border-t">
-              <Button onClick={() => alert('分析を実行します')} className="gap-2">
+              <Button 
+                onClick={() => fetchMonthlySalesData(dateRange)} 
+                disabled={isLoading || !validateDateRange(dateRange).isValid}
+                className="gap-2"
+              >
                 <Search className="h-4 w-4" />
-                分析実行
+                {isLoading ? '分析中...' : '分析実行'}
               </Button>
               <Button 
                 variant="outline" 
@@ -563,8 +673,23 @@ export default function MonthlyStatsAnalysis({
         </Card>
       </div>
 
+      {/* ローディング表示 */}
+      {isLoading && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-lg font-medium text-muted-foreground">月別売上データを取得中...</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                しばらくお待ちください
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* メインテーブル */}
-      {validateDateRange(dateRange).isValid ? (
+      {!isLoading && validateDateRange(dateRange).isValid ? (
         <Card>
           <CardHeader>
             <CardTitle>商品別月別売上マトリックス</CardTitle>
