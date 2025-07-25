@@ -52,7 +52,7 @@ export default function DormantCustomerAnalysis() {
         const [customersResponse, summaryResponse] = await Promise.all([
           api.dormantCustomers({
             storeId: 1,
-            pageSize: 50, // パフォーマンスを考慮して適切なサイズに変更
+            pageSize: 1000, // ページサイズを増やしてより多くのデータを取得
             sortBy: 'DaysSinceLastPurchase',
             descending: false // 昇順に変更して短期間の休眠から取得
           }),
@@ -157,6 +157,7 @@ export default function DormantCustomerAnalysis() {
       let matches = false
       
       if (customerSegment) {
+        // セグメント名の完全一致を確認
         matches = customerSegment === selectedSegment.label
         console.log('🔍 セグメントマッチング:', {
           customerId: customer.customerId,
@@ -183,7 +184,8 @@ export default function DormantCustomerAnalysis() {
     console.log('✅ フィルタリング結果:', {
       selectedSegment: selectedSegment.label,
       filteredCount: filtered.length,
-      totalCount: dormantData.length
+      totalCount: dormantData.length,
+      expectedCount: selectedSegment.count // フィルター欄に表示されている人数
     })
     
     return filtered

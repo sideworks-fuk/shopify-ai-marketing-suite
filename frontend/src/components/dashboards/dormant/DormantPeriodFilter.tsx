@@ -76,6 +76,12 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
     }).sort((a, b) => a.range[0] - b.range[0])
     
     console.log('✅ PeriodFilter - 最終セグメント:', segments)
+    
+    // デバッグ情報: 各セグメントの詳細を出力
+    segments.forEach(segment => {
+      console.log(`📊 セグメント詳細: ${segment.label} = ${segment.count}名 (範囲: ${segment.range[0]}-${segment.range[1]}日)`)
+    })
+    
     return segments
   }, [segmentDistributions])
 

@@ -386,14 +386,18 @@ namespace ShopifyTestApi.Services
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
+            // 休眠顧客の基本クエリ
             var dormantCustomersQuery = from customer in _context.Customers
                                       where customer.StoreId == storeId
                                       let lastOrder = customer.Orders.OrderByDescending(o => o.CreatedAt).FirstOrDefault()
                                       where lastOrder == null || lastOrder.CreatedAt < cutoffDate
                                       select new { Customer = customer, LastOrder = lastOrder };
 
+            // 全件取得してセグメント分布を計算
             var dormantCustomers = await dormantCustomersQuery.ToListAsync();
             var totalCount = dormantCustomers.Count;
+
+            _logger.LogInformation("休眠顧客セグメント分布計算開始. 総件数: {TotalCount}", totalCount);
 
             var segmentGroups = dormantCustomers
                 .GroupBy(x => CalculateDormancySegment(x.Customer, x.LastOrder))
@@ -406,6 +410,13 @@ namespace ShopifyTestApi.Services
                 })
                 .OrderBy(s => s.Segment)
                 .ToList();
+
+            // ログ出力で各セグメントの件数を確認
+            foreach (var segment in segmentGroups)
+            {
+                _logger.LogInformation("セグメント分布: {Segment} = {Count}件 ({Percentage:F1}%)", 
+                    segment.Segment, segment.Count, segment.Percentage);
+            }
 
             return segmentGroups;
         }

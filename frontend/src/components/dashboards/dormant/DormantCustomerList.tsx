@@ -94,6 +94,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
       const matchesSegment = !selectedSegment || (() => {
         const customerSegment = customer.dormancySegment
         if (customerSegment) {
+          // セグメント名の完全一致を確認
           const segmentMatch = customerSegment === selectedSegment.label
           console.log('🔍 セグメントマッチング（API値使用）:', {
             customerId: customer.customerId,
@@ -139,7 +140,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
     console.log('✅ DormantCustomerList - フィルタリング結果:', {
       originalCount: dormantData.length,
       filteredCount: result.length,
-      hasSelectedSegment: !!selectedSegment
+      hasSelectedSegment: !!selectedSegment,
+      expectedCount: selectedSegment?.count || 0 // フィルター欄に表示されている人数
     })
 
     return result
