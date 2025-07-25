@@ -7,15 +7,43 @@ on:
     paths:
       - 'backend/**'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'develop'
+        type: choice
+        options:
+          - develop
+          - staging
+      force_deploy:
+        description: 'Force deployment even if no changes'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
+      actions: read
+      workflows: write
+      deployments: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Debug - Workflow Information
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run ID: ${{ github.run_id }}"
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
@@ -50,6 +78,11 @@ jobs:
   deploy:
     runs-on: windows-latest
     needs: build
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
     
     steps:
       - name: Download artifact from build job
@@ -61,7 +94,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'shopifyapp-backend-develop'
+          app-name: 'shopifyapp-backend-${{ github.event.inputs.environment || 'develop' }}'
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
