@@ -4,6 +4,31 @@
 
 ---
 
+## 🌐 **開発環境 - ワンクリックアクセス**
+
+### **📱 フロントエンド (開発環境)**
+- [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
+- [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
+- [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
+- [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
+
+### **🔌 バックエンドAPI (開発環境)**
+- [❤️ **Health Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) - API稼働確認
+- [🔌 **Database Connection Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/test) - Azure SQL接続テスト ✅ **新機能**
+- [👥 **Database Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/customers) - 顧客データAPI ✅ **新機能**
+- [📦 **Database Orders**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/orders) - 注文データAPI ✅ **新機能**
+- [🏷️ **Database Products**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/products) - 商品データAPI ✅ **新機能**
+- [🔍 **Customer Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/test) - Shopify接続テスト
+- [👥 **Customer Segments**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/segments) - 顧客セグメント
+- [📊 **Customer Dashboard**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dashboard) - ダッシュボードデータ
+- [😴 **Dormant Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant) - 休眠顧客分析API ✅ **NEW!**
+- [📋 **Dormant Summary**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant/summary) - 休眠顧客サマリー統計 ✅ **NEW!**
+- [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
+- [🔍 **Health Ready Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/health/ready) - 詳細ヘルスチェック ✅ **新機能**
+- [ℹ️ **Environment Info**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/env-info) - 環境情報確認 ✅ **新機能**
+
+---
+
 ## 🎯 **各機能への直リンク集（開発環境）**
 
 ### **📦 商品分析機能**
@@ -28,31 +53,6 @@
 - [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
 - [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認
 - [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
-
----
-
-## 🌐 **開発環境 - ワンクリックアクセス**
-
-### **📱 フロントエンド (開発環境)**
-- [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
-- [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
-- [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
-- [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
-
-### **🔌 バックエンドAPI (開発環境)**
-- [❤️ **Health Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) - API稼働確認
-- [🔌 **Database Connection Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/test) - Azure SQL接続テスト ✅ **新機能**
-- [👥 **Database Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/customers) - 顧客データAPI ✅ **新機能**
-- [📦 **Database Orders**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/orders) - 注文データAPI ✅ **新機能**
-- [🏷️ **Database Products**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/database/products) - 商品データAPI ✅ **新機能**
-- [🔍 **Customer Test**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/test) - Shopify接続テスト
-- [👥 **Customer Segments**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/segments) - 顧客セグメント
-- [📊 **Customer Dashboard**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dashboard) - ダッシュボードデータ
-- [😴 **Dormant Customers**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant) - 休眠顧客分析API ✅ **NEW!**
-- [📋 **Dormant Summary**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/customer/dormant/summary) - 休眠顧客サマリー統計 ✅ **NEW!**
-- [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
-- [🔍 **Health Ready Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/health/ready) - 詳細ヘルスチェック ✅ **新機能**
-- [ℹ️ **Environment Info**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/env-info) - 環境情報確認 ✅ **新機能**
 
 ---
 

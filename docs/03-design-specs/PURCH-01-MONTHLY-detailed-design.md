@@ -806,6 +806,110 @@ public class SalesAnalyticsController : ControllerBase
 
 ---
 
+## ⚠️ 11. 設計上の注意事項・制約
+
+### 11.1 実装済み機能との調整 ✅ **優先度：高**
+
+#### **既存の休眠顧客機能との整合性**
+- **CUST-01-DORMANT**: 既に実装済みの機能
+- **連携ポイント**: 月次売上と顧客行動の相関分析
+- **データ共有**: 同一期間での売上・顧客データの整合性確保
+
+#### **設計統一の必要性**
+```csharp
+// 既存機能との統一が必要な要素
+public interface IAnalyticsCommonService
+{
+    // 期間指定の統一
+    Task<DateRange> ValidateDateRangeAsync(DateTime start, DateTime end);
+    
+    // エラーハンドリングの統一
+    void HandleAnalyticsException(AnalyticsException ex);
+    
+    // キャッシュキーの統一
+    string GenerateCacheKey(string prefix, object parameters);
+}
+```
+
+### 11.2 他機能との依存関係
+
+#### **前年同月比（PROD-01-YOY）との重複**
+- **売上データ**: 同じOrderItem集計を使用
+- **月次計算**: 類似した計算ロジック
+- **推奨**: 共通の売上集計サービスの実装
+
+#### **共通化が必要な処理**
+```csharp
+// 推奨: 売上集計の共通サービス
+public interface ISalesAggregationService
+{
+    Task<MonthlySalesData> GetMonthlySalesAsync(DateTime month);
+    Task<YearOverYearData> GetYearOverYearSalesAsync(int year, int month);
+    Task<ProductSalesData> GetProductSalesAsync(string productId, DateRange period);
+}
+```
+
+### 11.3 パフォーマンス制約の現実的評価
+
+#### **データ量による制約**
+- **月次集計**: 1000商品×24ヶ月 = 24,000レコード
+- **顧客別集計**: 10,000顧客での追加処理
+- **リアルタイム更新**: 大量データでの応答性能問題
+
+#### **推奨される対策**
+1. **段階的実装**: 基本機能 → 詳細分析 → 予測機能
+2. **データ制限**: 初期は過去12ヶ月に限定
+3. **バッチ処理**: 日次更新による事前計算
+
+### 11.4 API設計の標準化
+
+#### **命名規則の統一**
+```csharp
+// 現在の設計
+[Route("api/analytics/sales/monthly-stats")]
+
+// 推奨: 他機能との統一
+[Route("api/analytics/monthly-sales")]  // よりシンプルに
+public class MonthlySalesAnalyticsController
+```
+
+#### **レスポンス形式の統一**
+```csharp
+// 全分析機能で共通のレスポンス形式
+public class AnalyticsResponse<T>
+{
+    public T Data { get; set; }
+    public AnalyticsMetadata Metadata { get; set; }
+    public bool Success { get; set; }
+    public string ErrorMessage { get; set; }
+}
+```
+
+### 11.5 フロントエンドとの整合性
+
+#### **既存UI実装との確認**
+- **グラフライブラリ**: 他画面と同じライブラリ使用の確認
+- **フィルタUI**: 期間選択の統一されたコンポーネント
+- **エクスポート機能**: 共通のエクスポート処理
+
+### 11.6 実装順序の最適化
+
+#### **他機能との実装依存関係**
+1. **基盤機能**: PROD-01-YOY の安定稼働（売上集計の基盤）
+2. **共通サービス**: ISalesAggregationService の実装
+3. **本機能実装**: 共通基盤を活用した効率的実装
+4. **統合テスト**: 他分析機能との整合性確認
+
+#### **推奨実装スケジュール**
+- **Week 1**: 共通売上集計サービスの設計・実装
+- **Week 2**: 月次売上分析の基本機能実装
+- **Week 3**: 高度な分析機能（成長率、予測等）
+- **Week 4**: 他機能との統合テスト・調整
+
+**結論**: この機能は比較的実装しやすく、他機能の基盤としても活用できるため、Phase 2での優先実装を推奨
+
+---
+
 *作成日: 2025年7月21日*
-*最終更新: 2025年7月21日*
+*最終更新: 2025年7月24日*
 *次回更新: 実装完了時* 
