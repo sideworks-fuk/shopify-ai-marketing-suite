@@ -1,8 +1,7 @@
+import { getCurrentEnvironmentConfig, getCurrentEnvironment, ENVIRONMENTS, getBuildTimeEnvironmentInfo } from './config/environments';
+
 // API設定ファイル
 export const API_CONFIG = {
-  // バックエンドAPI URL - Azure Static Web Appsの場合は相対パスを使用
-  BASE_URL: '',
-  
   // エンドポイント
   ENDPOINTS: {
     // ヘルスチェック
@@ -37,16 +36,26 @@ export const API_CONFIG = {
   },
 } as const;
 
-// 環境別設定
+// 環境別設定を取得
 export const getApiUrl = () => {
+  const currentEnv = getCurrentEnvironment();
+  const config = getCurrentEnvironmentConfig();
+  const buildInfo = getBuildTimeEnvironmentInfo();
+  
   // デバッグ情報の出力
   console.log('🔍 Environment Check:');
+  console.log('  - Current Environment:', currentEnv);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
-  console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-  console.log('  - NEXT_PUBLIC_DEBUG_API:', process.env.NEXT_PUBLIC_DEBUG_API);
-  console.log('  - Window location:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+  console.log('  - NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
+  console.log('  - Build Environment:', buildInfo.buildEnvironment);
+  console.log('  - Deploy Environment:', buildInfo.deployEnvironment);
+  console.log('  - App Environment:', buildInfo.appEnvironment);
+  console.log('  - Is Build Time Set:', buildInfo.isBuildTimeSet);
+  console.log('  - API Base URL:', config.apiBaseUrl);
+  console.log('  - Environment Name:', config.name);
+  console.log('  - Is Production:', config.isProduction);
   
-  // 環境変数で明示的に設定されている場合はそれを優先
+  // 環境変数で明示的にAPI URLが指定されている場合はそれを優先
   if (process.env.NEXT_PUBLIC_API_URL) {
     console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     return process.env.NEXT_PUBLIC_API_URL;
@@ -54,25 +63,19 @@ export const getApiUrl = () => {
   
   // Azure Static Web Appsの検出（本番環境）
   if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
-    console.log('✅ Detected Azure Static Web Apps - using direct URL for debugging');
-    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
+    console.log('✅ Detected Azure Static Web Apps - using production environment');
+    return ENVIRONMENTS.production.apiBaseUrl;
   }
   
   // ローカル開発環境でのデバッグモード
   if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
     console.log('✅ Using direct Azure App Service URL (debug mode)');
-    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
+    return ENVIRONMENTS.production.apiBaseUrl;
   }
   
-  // ローカル開発環境
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ Development mode - using direct Azure App Service URL (proxy bypass)');
-    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
-  }
-  
-  // フォールバック: 相対パス
-  console.log('✅ Using relative paths');
-  return '';
+  // 環境設定から取得
+  console.log(`✅ Using ${config.name} API URL:`, config.apiBaseUrl);
+  return config.apiBaseUrl;
 };
 
 // フルURL生成ヘルパー
@@ -81,4 +84,20 @@ export const buildApiUrl = (endpoint: string) => {
   const fullUrl = `${baseUrl}${endpoint}`;
   console.log('🌐 Building API URL:', { baseUrl, endpoint, fullUrl });
   return fullUrl;
+};
+
+// 環境情報を取得するヘルパー関数
+export const getEnvironmentInfo = () => {
+  const currentEnv = getCurrentEnvironment();
+  const config = getCurrentEnvironmentConfig();
+  const buildInfo = getBuildTimeEnvironmentInfo();
+  
+  return {
+    currentEnvironment: currentEnv,
+    environmentName: config.name,
+    apiBaseUrl: config.apiBaseUrl,
+    isProduction: config.isProduction,
+    description: config.description,
+    buildTimeInfo: buildInfo,
+  };
 }; 
