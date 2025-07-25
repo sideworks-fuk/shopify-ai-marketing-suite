@@ -1,0 +1,140 @@
+name: Frontend Deploy with Environments
+
+on:
+  push:
+    branches: [ main, staging, develop ]
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches: [ main, staging, develop ]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy to environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - main
+        - staging
+        - develop
+
+jobs:
+  deploy-main:
+    runs-on: ubuntu-latest
+    environment: Production
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'main')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build application
+      working-directory: ./frontend
+      env:
+        NEXT_PUBLIC_BUILD_ENVIRONMENT: main
+        NEXT_PUBLIC_DEPLOY_ENVIRONMENT: main
+        NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
+        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./frontend
+        vercel-args: '--prod'
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: Staging
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build application
+      working-directory: ./frontend
+      env:
+        NEXT_PUBLIC_BUILD_ENVIRONMENT: staging
+        NEXT_PUBLIC_DEPLOY_ENVIRONMENT: staging
+        NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
+        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./frontend
+        vercel-args: '--prod'
+
+  deploy-develop:
+    runs-on: ubuntu-latest
+    environment: Development
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build application
+      working-directory: ./frontend
+      env:
+        NEXT_PUBLIC_BUILD_ENVIRONMENT: develop
+        NEXT_PUBLIC_DEPLOY_ENVIRONMENT: develop
+        NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
+        NEXT_PUBLIC_DEBUG_API: ${{ secrets.DEBUG_API }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./frontend
+        vercel-args: '--prod' 
