@@ -52,9 +52,9 @@ export default function DormantCustomerAnalysis() {
         const [customersResponse, summaryResponse] = await Promise.all([
           api.dormantCustomers({
             storeId: 1,
-            pageSize: 1000, // ページサイズを増やしてより多くのデータを取得
+            pageSize: 100, // パフォーマンス改善のため適切なサイズに調整
             sortBy: 'DaysSinceLastPurchase',
-            descending: false // 昇順に変更して短期間の休眠から取得
+            descending: false // 昇順で表示（休眠期間の短い順）
           }),
           api.dormantSummary(1)
         ])
@@ -85,44 +85,19 @@ export default function DormantCustomerAnalysis() {
         setSummaryData(summaryResponse.data)
         setSegmentDistributions(segmentData)
         
-      } catch (err) {
-        console.error('❌ 休眠顧客分析データの取得に失敗:', err)
+      } catch (error) {
+        console.error('❌ 休眠顧客データ取得エラー:', error);
         
-        // より詳細なエラー情報を構築
-        let errorMessage = 'データの取得に失敗しました'
-        let errorDetails = ''
-        
-        if (err instanceof Error) {
-          errorMessage = err.message
-          errorDetails = err.stack || ''
-          
-          // タイムアウトエラーの特別処理
-          if (err.message.includes('timeout')) {
-            errorMessage = 'リクエストがタイムアウトしました。データが多いため時間がかかっています。'
-            errorDetails = 'ページサイズを小さくするか、しばらく待ってから再試行してください。'
-          }
-          
-          // ネットワークエラーの特別処理
-          if (err.message.includes('fetch') || err.message.includes('network')) {
-            errorMessage = 'ネットワーク接続エラーが発生しました'
-            errorDetails = 'インターネット接続を確認してください'
-          }
-        } else if (typeof err === 'string') {
-          errorMessage = err
-        } else if (err && typeof err === 'object') {
-          errorMessage = JSON.stringify(err)
+        // タイムアウトエラーの特別処理
+        if (error instanceof Error && error.message.includes('timeout')) {
+          setError('データの取得に失敗しました。リクエストがタイムアウトしました。データが多いため時間がかかっています。詳細: ページサイズを小さくするか、しばらく待ってから再試行してください。');
+        } else if (error instanceof Error && error.message.includes('Invalid JSON')) {
+          setError('APIサーバーとの通信に問題があります。バックエンドAPIの状態を確認してください。');
+        } else {
+          setError(`データの取得に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
         }
         
-        console.error('📋 エラー詳細:', {
-          message: errorMessage,
-          details: errorDetails,
-          type: typeof err,
-          constructor: err?.constructor?.name
-        })
-        
-        setError(`${errorMessage}\n\n詳細: ${errorDetails}`)
-      } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
 

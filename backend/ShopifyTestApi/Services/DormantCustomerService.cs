@@ -73,10 +73,11 @@ namespace ShopifyTestApi.Services
                 // 休眠顧客の基本クエリ（最終注文日から90日以上経過）
                 var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
-                // 修正: LastOrderを正しく取得するクエリ
+                // 修正: LastOrderを正しく取得するクエリ（パフォーマンス最適化）
                 var query = from customer in _context.Customers
+                           .Include(c => c.Orders.OrderByDescending(o => o.CreatedAt).Take(1)) // 最新の注文のみ取得
                            where customer.StoreId == request.StoreId
-                           let lastOrder = customer.Orders.OrderByDescending(o => o.CreatedAt).FirstOrDefault()
+                           let lastOrder = customer.Orders.FirstOrDefault() // 既にOrderByDescending済み
                            where lastOrder == null || lastOrder.CreatedAt < cutoffDate
                            select new { Customer = customer, LastOrder = lastOrder };
 
