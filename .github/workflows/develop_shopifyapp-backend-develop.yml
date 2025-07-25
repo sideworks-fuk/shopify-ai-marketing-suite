@@ -7,20 +7,6 @@ on:
     paths:
       - 'backend/**'
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'develop'
-        type: choice
-        options:
-          - develop
-          - staging
-      force_deploy:
-        description: 'Force deployment even if no changes'
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   build:
