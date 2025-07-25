@@ -58,6 +58,9 @@ class ApiClient {
       // レスポンスの内容を確認
       const responseText = await response.text();
       console.log('📡 Response Text (first 500 chars):', responseText.substring(0, 500));
+      console.log('📡 Full Response URL:', response.url);
+      console.log('📡 Response Type:', response.type);
+      console.log('📡 Request URL:', url);
       
       if (!response.ok) {
         console.error('❌ HTTP Error:', response.status, response.statusText);

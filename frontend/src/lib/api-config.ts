@@ -48,8 +48,8 @@ export const getApiUrl = () => {
   
   // Azure Static Web Appsの検出（本番環境）
   if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
-    console.log('✅ Detected Azure Static Web Apps - using relative paths');
-    return '';
+    console.log('✅ Detected Azure Static Web Apps - using direct URL for debugging');
+    return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
   }
   
   // ローカル開発環境でのデバッグモード
