@@ -1,4 +1,4 @@
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (Development)
 
 on:
   push:
@@ -13,33 +13,11 @@ on:
     paths:
       - 'frontend/**'
 
-  # 手動デプロイ（GitHub画面上から実行可能）
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'デプロイ環境'
-        required: true
-        default: 'develop'
-        type: choice
-        options:
-          - main
-          - develop
-      force_rebuild:
-        description: '強制リビルド'
-        required: false
-        default: false
-        type: boolean      
-
 jobs:
   build_and_deploy_job:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      deployments: write
-      id-token: write
-    name: Build and Deploy Job
+    name: Build and Deploy Job (Development)
     steps:
       - uses: actions/checkout@v3
         with:
