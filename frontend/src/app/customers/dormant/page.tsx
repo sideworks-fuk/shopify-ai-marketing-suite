@@ -3,10 +3,7 @@
 import { useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Download, ChevronLeft, ChevronRight, Search, Filter, Mail, Gift } from "lucide-react"
+import { Download } from "lucide-react"
 import { format } from "date-fns"
 
 // 統一された休眠顧客分析コンポーネント
@@ -26,24 +23,9 @@ export default function DormantCustomersPage() {
   const [summaryData, setSummaryData] = useState<any>(null)
   const [dormantData, setDormantData] = useState<any[]>([])
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
-  const [isLoadingList, setIsLoadingList] = useState(true) // 初期状態をtrueに変更
+  const [isLoadingList, setIsLoadingList] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
-  const [hasInitialLoad, setHasInitialLoad] = useState(false) // 初回読み込み完了フラグ
-
-  // ページング状態管理
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [hasMoreData, setHasMoreData] = useState(false)
-  const pageSize = 20
-
-  // フィルタ状態管理
-  const [searchTerm, setSearchTerm] = useState('')
-  const [riskFilter, setRiskFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all')
-  const [purchaseCountFilter, setPurchaseCountFilter] = useState<'all' | '1+' | '3+' | '5+' | '10+'>('1+')
-  const [totalSpentFilter, setTotalSpentFilter] = useState<'all' | '10k+' | '50k+' | '100k+' | '500k+'>('all')
-  const [sortBy, setSortBy] = useState<'daysSince' | 'totalSpent' | 'name' | 'lastPurchase'>('daysSince')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // 詳細な期間別セグメント定義
   const [detailedSegments, setDetailedSegments] = useState<any[]>([])
@@ -86,46 +68,55 @@ export default function DormantCustomersPage() {
         const response = await api.dormantDetailedSegments(1)
         console.log('✅ 詳細セグメントデータ取得成功:', response)
         
-        if (response.success && response.data && Array.isArray(response.data)) {
-          // データベースからの実際の計算結果を使用
-          console.log('✅ データベースから実際のセグメントデータを取得:', response.data)
+        if (response.data) {
           setDetailedSegments(response.data)
         } else {
-          console.warn('⚠️ APIレスポンスが期待する形式ではありません:', response)
-          throw new Error('セグメントデータの形式が不正です')
+          // フォールバック: モックデータ
+          const mockSegments = [
+            { label: '1ヶ月', range: '30-59日', count: 12 },
+            { label: '2ヶ月', range: '60-89日', count: 18 },
+            { label: '3ヶ月', range: '90-119日', count: 25 },
+            { label: '4ヶ月', range: '120-149日', count: 22 },
+            { label: '5ヶ月', range: '150-179日', count: 19 },
+            { label: '6ヶ月', range: '180-209日', count: 16 },
+            { label: '7ヶ月', range: '210-239日', count: 14 },
+            { label: '8ヶ月', range: '240-269日', count: 12 },
+            { label: '9ヶ月', range: '270-299日', count: 10 },
+            { label: '10ヶ月', range: '300-329日', count: 8 },
+            { label: '11ヶ月', range: '330-359日', count: 7 },
+            { label: '12ヶ月', range: '360-389日', count: 6 },
+            { label: '15ヶ月', range: '450-479日', count: 5 },
+            { label: '18ヶ月', range: '540-569日', count: 4 },
+            { label: '21ヶ月', range: '630-659日', count: 3 },
+            { label: '24ヶ月+', range: '720日以上', count: 2 }
+          ]
+          setDetailedSegments(mockSegments)
+          console.warn('🚧 APIエラーのため、モックデータで動作確認を継続しています。')
         }
         
       } catch (err) {
         console.error('❌ 詳細セグメントデータの取得に失敗:', err)
-        
-        // エラーの詳細をユーザーに表示
-        let errorMessage = 'データベースからのセグメントデータ取得に失敗しました'
-        let errorDetails = ''
-        
-        if (err instanceof Error) {
-          errorMessage += `: ${err.message}`
-          errorDetails = err.stack || ''
-          
-          // 具体的なエラータイプに応じたメッセージ
-          if (err.message.includes('fetch')) {
-            errorMessage = 'APIサーバーへの接続に失敗しました。ネットワーク接続を確認してください。'
-          } else if (err.message.includes('timeout')) {
-            errorMessage = 'APIリクエストがタイムアウトしました。サーバーの負荷が高い可能性があります。'
-          } else if (err.message.includes('500')) {
-            errorMessage = 'サーバー内部エラーが発生しました。データベース接続を確認してください。'
-          }
-        }
-        
-        console.error('📋 詳細エラー情報:', {
-          message: errorMessage,
-          details: errorDetails,
-          type: typeof err,
-          constructor: err?.constructor?.name,
-          endpoint: '/api/customer/dormant/detailed-segments'
-        })
-        
-        setError(`${errorMessage}\n\nAPI: /api/customer/dormant/detailed-segments`)
-        setDetailedSegments([]) // モックデータではなく空配列を設定
+        // エラー時もモックデータを使用
+        const mockSegments = [
+          { label: '1ヶ月', range: '30-59日', count: 12 },
+          { label: '2ヶ月', range: '60-89日', count: 18 },
+          { label: '3ヶ月', range: '90-119日', count: 25 },
+          { label: '4ヶ月', range: '120-149日', count: 22 },
+          { label: '5ヶ月', range: '150-179日', count: 19 },
+          { label: '6ヶ月', range: '180-209日', count: 16 },
+          { label: '7ヶ月', range: '210-239日', count: 14 },
+          { label: '8ヶ月', range: '240-269日', count: 12 },
+          { label: '9ヶ月', range: '270-299日', count: 10 },
+          { label: '10ヶ月', range: '300-329日', count: 8 },
+          { label: '11ヶ月', range: '330-359日', count: 7 },
+          { label: '12ヶ月', range: '360-389日', count: 6 },
+          { label: '15ヶ月', range: '450-479日', count: 5 },
+          { label: '18ヶ月', range: '540-569日', count: 4 },
+          { label: '21ヶ月', range: '630-659日', count: 3 },
+          { label: '24ヶ月+', range: '720日以上', count: 2 }
+        ]
+        setDetailedSegments(mockSegments)
+        console.warn('🚧 APIエラーのため、モックデータで動作確認を継続しています。')
       } finally {
         setIsLoadingSegments(false)
       }
@@ -135,18 +126,17 @@ export default function DormantCustomersPage() {
   }, [])
 
   // Step 2: 顧客リストは選択後に遅延読み込み
-  const loadCustomerList = useCallback(async (segment?: string, page: number = 1) => {
+  const loadCustomerList = useCallback(async (segment?: string) => {
     try {
       setIsLoadingList(true)
       setError(null)
       
-      console.log('🔄 休眠顧客リストの取得を開始...', { segment, page })
+      console.log('🔄 休眠顧客リストの取得を開始...', { segment })
       
       const response = await api.dormantCustomers({
         storeId: 1,
         segment,
-        pageNumber: page,
-        pageSize: pageSize,
+        pageSize: 20, // 初期は20件のみ（パフォーマンス改善）
         sortBy: 'DaysSinceLastPurchase',
         descending: true
       })
@@ -154,25 +144,10 @@ export default function DormantCustomersPage() {
       console.log('✅ 顧客リスト取得成功:', response)
       
       const customersData = response.data?.customers || []
-      const pagination = response.data?.pagination
-      
       console.log('📊 取得された顧客データ数:', customersData.length)
-      console.log('📊 ページング情報:', pagination)
       
       setDormantData(customersData)
       setSelectedSegment(segment || null)
-      
-      // ページング情報を設定
-      if (pagination) {
-        setCurrentPage(pagination.currentPage || page)
-        setTotalCount(pagination.totalCount || 0)
-        setHasMoreData(pagination.currentPage < pagination.totalPages)
-      } else {
-        // ページング情報がない場合のフォールバック
-        setCurrentPage(page)
-        setTotalCount(customersData.length)
-        setHasMoreData(customersData.length === pageSize)
-      }
       
     } catch (err) {
       console.error('❌ 顧客リストの取得に失敗:', err)
@@ -200,125 +175,8 @@ export default function DormantCustomersPage() {
       console.warn('🚧 APIエラーのため、モックデータで動作確認を継続しています。')
     } finally {
       setIsLoadingList(false)
-      setHasInitialLoad(true) // 初回読み込み完了をマーク
     }
   }, [])
-
-  // ページング操作関数
-  const goToPage = useCallback((page: number) => {
-    if (page >= 1 && page <= Math.ceil(totalCount / pageSize)) {
-      loadCustomerList(selectedSegment || undefined, page)
-    }
-  }, [selectedSegment, totalCount, pageSize, loadCustomerList])
-
-  const goToNextPage = useCallback(() => {
-    if (hasMoreData) {
-      goToPage(currentPage + 1)
-    }
-  }, [hasMoreData, currentPage, goToPage])
-
-  const goToPrevPage = useCallback(() => {
-    if (currentPage > 1) {
-      goToPage(currentPage - 1)
-    }
-  }, [currentPage, goToPage])
-
-  // セグメント選択時の関数（ページを1にリセット）
-  const selectSegment = useCallback((segment?: string) => {
-    setCurrentPage(1)
-    loadCustomerList(segment, 1)
-  }, [loadCustomerList])
-
-  // フィルタリングされた顧客データ
-  const filteredAndSortedCustomers = useMemo(() => {
-    let filtered = dormantData.filter(customer => {
-      // 検索フィルタ
-      const matchesSearch = !searchTerm || 
-        customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.customerId?.toString().includes(searchTerm)
-
-      // リスクレベルフィルタ
-      const matchesRisk = riskFilter === 'all' || customer.riskLevel === riskFilter
-      
-      // 購入回数フィルタ
-      const matchesPurchaseCount = purchaseCountFilter === 'all' || (() => {
-        const totalOrders = customer.totalOrders || 0
-        switch (purchaseCountFilter) {
-          case '1+': return totalOrders >= 1
-          case '3+': return totalOrders >= 3
-          case '5+': return totalOrders >= 5
-          case '10+': return totalOrders >= 10
-          default: return true
-        }
-      })()
-      
-      // 購入金額フィルタ
-      const matchesTotalSpent = totalSpentFilter === 'all' || (() => {
-        const totalSpent = customer.totalSpent || 0
-        switch (totalSpentFilter) {
-          case '10k+': return totalSpent >= 10000
-          case '50k+': return totalSpent >= 50000
-          case '100k+': return totalSpent >= 100000
-          case '500k+': return totalSpent >= 500000
-          default: return true
-        }
-      })()
-
-      return matchesSearch && matchesRisk && matchesPurchaseCount && matchesTotalSpent
-    })
-
-    // ソート
-    filtered.sort((a, b) => {
-      let aValue, bValue
-      
-      switch (sortBy) {
-        case 'daysSince':
-          aValue = a.daysSinceLastPurchase || 0
-          bValue = b.daysSinceLastPurchase || 0
-          break
-        case 'totalSpent':
-          aValue = a.totalSpent || 0
-          bValue = b.totalSpent || 0
-          break
-        case 'name':
-          aValue = a.name || ''
-          bValue = b.name || ''
-          break
-        case 'lastPurchase':
-          aValue = a.lastPurchaseDate ? new Date(a.lastPurchaseDate).getTime() : 0
-          bValue = b.lastPurchaseDate ? new Date(b.lastPurchaseDate).getTime() : 0
-          break
-        default:
-          return 0
-      }
-
-      if (sortOrder === 'desc') {
-        return bValue > aValue ? 1 : bValue < aValue ? -1 : 0
-      } else {
-        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
-      }
-    })
-
-    return filtered
-  }, [dormantData, searchTerm, riskFilter, purchaseCountFilter, totalSpentFilter, sortBy, sortOrder])
-
-  // フィルタ変更時にページを1にリセット
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, riskFilter, purchaseCountFilter, totalSpentFilter, sortBy, sortOrder])
-
-  // リスクレベル表示用ヘルパー
-  const getRiskBadge = (level: string) => {
-    const riskConfig: Record<string, { label: string; color: string; variant: "secondary" | "outline" | "destructive" }> = {
-      low: { label: "低", color: "bg-green-100 text-green-800", variant: "secondary" as const },
-      medium: { label: "中", color: "bg-yellow-100 text-yellow-800", variant: "outline" as const },
-      high: { label: "高", color: "bg-orange-100 text-orange-800", variant: "destructive" as const },
-      critical: { label: "危険", color: "bg-red-100 text-red-800", variant: "destructive" as const }
-    }
-    return riskConfig[level] || riskConfig.medium
-  }
 
   // 初期表示時は全セグメントのデータを取得
   useEffect(() => {
@@ -380,7 +238,7 @@ export default function DormantCustomersPage() {
         currentAnalysis={{
           title: "期間別休眠顧客セグメント分析",
           description: "90日以上購入のない顧客を期間別に分析し、復帰可能性を評価します",
-          targetCount: filteredAndSortedCustomers.length
+          targetCount: dormantData.length
         }}
         badges={[
           { label: `${dormantData.length}名`, variant: "outline" },
@@ -395,7 +253,7 @@ export default function DormantCustomersPage() {
         {!isLoadingSummary && summaryData && (
           <div className="mb-6">
             <h2 className="text-lg font-semibold mb-4">休眠顧客サマリー</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-lg shadow">
                 <div className="text-sm text-gray-600">総休眠顧客数</div>
                 <div className="text-2xl font-bold">{summaryData.totalDormantCustomers?.toLocaleString() || 0}</div>
@@ -407,6 +265,10 @@ export default function DormantCustomersPage() {
               <div className="bg-white p-4 rounded-lg shadow">
                 <div className="text-sm text-gray-600">平均休眠日数</div>
                 <div className="text-2xl font-bold">{summaryData.averageDormancyDays || 0}日</div>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow">
+                <div className="text-sm text-gray-600">推定損失額</div>
+                <div className="text-2xl font-bold">¥{(summaryData.estimatedLostRevenue || 0).toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -424,37 +286,58 @@ export default function DormantCustomersPage() {
             <div className="mb-4">
               <Button
                 variant={selectedSegment === null ? "default" : "outline"}
-                onClick={() => selectSegment()}
+                onClick={() => loadCustomerList()}
                 className="text-sm"
               >
                 全件表示
               </Button>
             </div>
 
+            {/* 詳細な期間別セグメント */}
+            {isLoadingSegments ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">セグメントデータを読み込み中...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                {detailedSegments.map((segment) => (
+                  <div
+                    key={segment.label}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedSegment === segment.range
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                    onClick={() => loadCustomerList(segment.range)}
+                  >
+                    <div className="text-xs font-medium text-gray-600 mb-1">
+                      {segment.label}
+                    </div>
+                    <div className="text-xs text-gray-500 mb-2">
+                      {segment.range}
+                    </div>
+                    <div className="text-sm font-bold">
+                      {segment.count}名
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 従来のAPIセグメント（フォールバック） */}
             {summaryData.segmentCounts && Object.keys(summaryData.segmentCounts).length > 0 && (
               <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">API連携セグメント</h4>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(summaryData.segmentCounts)
-                    .sort(([segmentA], [segmentB]) => {
-                      // 期間の短い順にソート
-                      const order: Record<string, number> = {
-                        'アクティブ': 0,
-                        '90-180日': 1,
-                        '180-365日': 2,
-                        '365日以上': 3
-                      };
-                      return (order[segmentA] || 99) - (order[segmentB] || 99);
-                    })
-                    .map(([segment, count]) => (
+                  {Object.entries(summaryData.segmentCounts).map(([segment, count]) => (
                     <Button
                       key={segment}
                       variant={selectedSegment === segment ? "default" : "outline"}
-                      onClick={() => selectSegment(segment)}
+                      onClick={() => loadCustomerList(segment)}
                       className="text-sm"
                     >
-                      {segment} ({Number(count).toLocaleString()}名)
+                      {segment} ({String(count)}名)
                     </Button>
                   ))}
                 </div>
@@ -471,25 +354,9 @@ export default function DormantCustomersPage() {
                 休眠顧客リスト
                 {selectedSegment && <span className="text-sm text-gray-500 ml-2">({selectedSegment})</span>}
               </h3>
-              <div className="text-sm text-gray-600">
-                <div>▼表示: {filteredAndSortedCustomers.length}件 / 全 {dormantData.length}件
-                  {(searchTerm || riskFilter !== 'all' || purchaseCountFilter !== '1+' || totalSpentFilter !== 'all') && (
-                    <span className="text-blue-600 ml-2">
-                      (フィルタ適用中)
-                    </span>
-                  )}
-                </div>
-                {totalCount > 0 && (
-                  <div>
-                    総件数: {totalCount.toLocaleString()}件 
-                    {totalCount > pageSize && (
-                      <span className="ml-2">
-                        (ページ {currentPage} / {Math.ceil(totalCount / pageSize)})
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+              <p className="text-sm text-gray-600">
+                ▼対象: {dormantData.length}件
+              </p>
             </div>
             <Button
               variant="outline"
@@ -505,343 +372,49 @@ export default function DormantCustomersPage() {
           {isLoadingList ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">休眠顧客データを読み込み中...</p>
-              <p className="text-sm text-gray-500 mt-2">
-                {selectedSegment 
-                  ? `${selectedSegment}のデータを取得しています` 
-                  : currentPage > 1 
-                    ? `ページ ${currentPage} のデータを取得しています`
-                    : '全件データを取得しています'
-                }
-              </p>
-              <div className="mt-3 text-xs text-gray-400">
-                データベースから最新の情報を取得中です...
-              </div>
+              <p className="text-gray-600">分析データを読み込み中...</p>
             </div>
           ) : (
             <div className="p-4">
               {dormantData.length > 0 ? (
-                <div>
-                {/* フィルタ操作 */}
-                <div className="mb-4 space-y-3 bg-gray-50 p-4 rounded-lg">
-                  <div className="space-y-3">
-                    {/* 1行目: 検索フィルタ */}
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <Input
-                          placeholder="顧客名、メール、会社名で検索..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* 2行目: 各種フィルタ */}
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {/* リスクレベルフィルタ */}
-                      <div className="min-w-0 w-36">
-                        <Select value={riskFilter} onValueChange={(value: any) => setRiskFilter(value)}>
-                          <SelectTrigger className="text-sm">
-                            <Filter className="h-3 w-3 mr-1" />
-                            <SelectValue placeholder="リスク" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">全てのリスク</SelectItem>
-                            <SelectItem value="low">低リスク</SelectItem>
-                            <SelectItem value="medium">中リスク</SelectItem>
-                            <SelectItem value="high">高リスク</SelectItem>
-                            <SelectItem value="critical">危険</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* 購入回数フィルタ */}
-                      <div className="min-w-0 w-32">
-                        <Select value={purchaseCountFilter} onValueChange={(value: any) => setPurchaseCountFilter(value)}>
-                          <SelectTrigger className="text-sm">
-                            <SelectValue placeholder="購入回数" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">全ての回数</SelectItem>
-                            <SelectItem value="1+">1回以上</SelectItem>
-                            <SelectItem value="3+">3回以上</SelectItem>
-                            <SelectItem value="5+">5回以上</SelectItem>
-                            <SelectItem value="10+">10回以上</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* 購入金額フィルタ */}
-                      <div className="min-w-0 w-32">
-                        <Select value={totalSpentFilter} onValueChange={(value: any) => setTotalSpentFilter(value)}>
-                          <SelectTrigger className="text-sm">
-                            <SelectValue placeholder="購入金額" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">全ての金額</SelectItem>
-                            <SelectItem value="10k+">1万円以上</SelectItem>
-                            <SelectItem value="50k+">5万円以上</SelectItem>
-                            <SelectItem value="100k+">10万円以上</SelectItem>
-                            <SelectItem value="500k+">50万円以上</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* フィルタクリアボタン */}
-                      {(searchTerm || riskFilter !== 'all' || purchaseCountFilter !== '1+' || totalSpentFilter !== 'all') && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            setSearchTerm('')
-                            setRiskFilter('all')
-                            setPurchaseCountFilter('1+')
-                            setTotalSpentFilter('all')
-                          }}
-                          className="text-xs"
-                        >
-                          フィルタクリア
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* テーブル表示 */}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => {
-                          if (sortBy === 'name') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('name');
-                            setSortOrder('asc');
-                          }
-                        }}
-                      >
-                        顧客情報
-                        {sortBy === 'name' && (
-                          <span className="ml-1">
-                            {sortOrder === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => {
-                          if (sortBy === 'lastPurchase') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('lastPurchase');
-                            setSortOrder('desc');
-                          }
-                        }}
-                      >
-                        休眠状況
-                        {sortBy === 'lastPurchase' && (
-                          <span className="ml-1">
-                            {sortOrder === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </TableHead>
-                      <TableHead>リスク</TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => {
-                          if (sortBy === 'totalSpent') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('totalSpent');
-                            setSortOrder('desc');
-                          }
-                        }}
-                      >
-                        購入実績
-                        {sortBy === 'totalSpent' && (
-                          <span className="ml-1">
-                            {sortOrder === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </TableHead>
-                      <TableHead>アクション</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAndSortedCustomers.map((customer, index) => {
-                      const riskConfig = getRiskBadge(customer.riskLevel || 'medium');
-                      const lastPurchaseDate = customer.lastPurchaseDate 
-                        ? format(new Date(customer.lastPurchaseDate), 'yyyy年MM月dd日')
-                        : '購入履歴なし';
-                      
-                      return (
-                        <TableRow key={customer.customerId || index} className="hover:bg-gray-50">
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="font-medium">{customer.name}</div>
-                              <div className="text-sm text-gray-600">{customer.email}</div>
-                              {customer.company && (
-                                <Badge variant="outline" className="text-xs">
-                                  {customer.company}
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="text-sm font-medium">{lastPurchaseDate}</div>
-                              <div className="text-xs text-gray-500">
-                                {customer.daysSinceLastPurchase}日前
-                              </div>
+                <div className="space-y-4">
+                  {dormantData.map((customer, index) => (
+                    <div key={customer.customerId || index} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium">{customer.name}</h4>
+                            {customer.company && (
                               <Badge variant="outline" className="text-xs">
-                                {customer.dormancySegment}
+                                {customer.company}
                               </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={riskConfig.variant}
-                              className={`text-xs ${riskConfig.color}`}
-                            >
-                              {riskConfig.label}
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{customer.email}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant={
+                              customer.riskLevel === 'critical' ? 'destructive' :
+                              customer.riskLevel === 'high' ? 'default' :
+                              customer.riskLevel === 'medium' ? 'secondary' : 'outline'
+                            }>
+                              {customer.riskLevel}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1 text-sm">
-                              <div className="font-medium">
-                                ¥{customer.totalSpent?.toLocaleString()}
-                              </div>
-                              <div className="text-gray-500">
-                                {customer.totalOrders}回購入
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                平均¥{customer.averageOrderValue?.toLocaleString()}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="outline" size="sm" className="text-xs">
-                                <Mail className="h-3 w-3 mr-1" />
-                                連絡
-                              </Button>
-                              <Button variant="outline" size="sm" className="text-xs">
-                                <Gift className="h-3 w-3 mr-1" />
-                                オファー
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                </div>
-              ) : hasInitialLoad ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-500 mb-2">
-                    😔 該当する休眠顧客が見つかりませんでした
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    {selectedSegment 
-                      ? `「${selectedSegment}」の期間に該当する顧客がいません` 
-                      : '選択した条件に該当する顧客がいません'
-                    }
-                  </p>
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectSegment()}
-                      className="text-sm"
-                    >
-                      全件表示に戻る
-                    </Button>
-                  </div>
+                            <Badge variant="outline">{customer.dormancySegment}</Badge>
+                          </div>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="font-medium">¥{customer.totalSpent?.toLocaleString()}</p>
+                          <p className="text-gray-600">{customer.daysSinceLastPurchase}日前</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <div className="animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded mb-2 w-1/2 mx-auto"></div>
-                    <div className="h-3 bg-gray-200 rounded mb-4 w-1/3 mx-auto"></div>
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-16 bg-gray-100 rounded"></div>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-4">
-                    休眠顧客データを準備中...
-                  </p>
+                <div className="text-center py-8 text-gray-500">
+                  該当する休眠顧客が見つかりませんでした。
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ページング操作 */}
-          {!isLoadingList && totalCount > pageSize && (
-            <div className="p-4 border-t bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} 件 / 全 {totalCount.toLocaleString()} 件
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToPrevPage}
-                    disabled={currentPage <= 1 || isLoadingList}
-                    className="flex items-center gap-1"
-                  >
-                    ← 前のページ
-                  </Button>
-                  
-                  <div className="flex items-center gap-1 mx-2">
-                    {/* 現在のページ周辺のページ番号を表示 */}
-                    {Array.from({ length: Math.min(5, Math.ceil(totalCount / pageSize)) }, (_, i) => {
-                      const totalPages = Math.ceil(totalCount / pageSize);
-                      let pageNum;
-                      
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => goToPage(pageNum)}
-                          disabled={isLoadingList}
-                          className="w-8 h-8 p-0"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToNextPage}
-                    disabled={!hasMoreData || isLoadingList}
-                    className="flex items-center gap-1"
-                  >
-                    次のページ →
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -849,31 +422,7 @@ export default function DormantCustomersPage() {
         {/* エラー表示 */}
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="text-red-800 font-medium mb-2">エラーが発生しました</div>
-            <p className="text-red-700 text-sm">{error}</p>
-            <div className="mt-3 text-xs text-red-600">
-              <p>トラブルシューティング:</p>
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>ブラウザの開発者ツールでネットワークタブを確認</li>
-                <li>コンソールタブでAPIエラーログを確認</li>
-                <li>バックエンドAPIサーバーが正常に動作しているか確認</li>
-                <li>詳細セグメントAPI: /api/customer/dormant/detailed-segments</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* デバッグ情報表示（開発時のみ） */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <div className="text-gray-800 font-medium mb-2">デバッグ情報</div>
-            <div className="text-xs text-gray-600 space-y-1">
-              <div>セグメントデータ取得状況: {isLoadingSegments ? '読み込み中' : '完了'}</div>
-              <div>取得されたセグメント数: {detailedSegments.length}</div>
-              <div>サマリーデータ: {summaryData ? 'あり' : 'なし'}</div>
-              <div>選択中のセグメント: {selectedSegment || '全件'}</div>
-              <div>表示中の顧客数: {dormantData.length}</div>
-            </div>
+            <p className="text-red-800">{error}</p>
           </div>
         )}
       </div>
