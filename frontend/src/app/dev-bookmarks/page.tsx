@@ -509,7 +509,7 @@ export default function DevBookmarksPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              環境情報 ver{VERSION_INFO.version}.{VERSION_INFO.buildNumber}　※250726
+              環境情報 ver{VERSION_INFO.version}.{VERSION_INFO.buildNumber}　※2507262000
             </CardTitle>
           </CardHeader>
           <CardContent>
