@@ -12,14 +12,42 @@
 - **説明**: 開発者がローカルでバックエンドを起動して使用
 
 ### 2. ステージング環境 (Staging)
-- **URL**: `https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net`
+- **URL**: `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net`
 - **用途**: テスト・検証用
 - **説明**: 本番リリース前の最終テスト環境
 
 ### 3. 本番環境 (Production)
-- **URL**: `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net`
+- **URL**: `https://shopifyapp-backend-production.japanwest-01.azurewebsites.net`
 - **用途**: 本番運用環境
 - **説明**: 実際のユーザーが使用する環境
+
+## GitHub Environmentsとの連携
+
+### 環境名の統一
+- **production**: 本番環境
+- **staging**: ステージング環境  
+- **development**: 開発環境
+
+### ワークフローでの環境変数設定
+```yaml
+# production環境
+NODE_ENV: production
+NEXT_PUBLIC_BUILD_ENVIRONMENT: production
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: production
+NEXT_PUBLIC_APP_ENVIRONMENT: production
+
+# staging環境
+NODE_ENV: staging
+NEXT_PUBLIC_BUILD_ENVIRONMENT: staging
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: staging
+NEXT_PUBLIC_APP_ENVIRONMENT: staging
+
+# development環境
+NODE_ENV: development
+NEXT_PUBLIC_BUILD_ENVIRONMENT: development
+NEXT_PUBLIC_DEPLOY_ENVIRONMENT: development
+NEXT_PUBLIC_APP_ENVIRONMENT: development
+```
 
 ## 環境切り替え方法
 
@@ -186,4 +214,5 @@ NEXT_PUBLIC_API_URL=https://your-custom-api-url.com
 
 ## 関連ドキュメント
 
+- [GitHub Environments設定ガイド](./github-environments-setup.md) - GitHub Environmentsの設定について詳細
 - [ビルド時環境変数設定ガイド](./build-time-environment-variables.md) - ビルド時の環境変数について詳細 
