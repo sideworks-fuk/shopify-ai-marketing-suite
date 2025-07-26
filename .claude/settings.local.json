@@ -14,7 +14,12 @@
       "Bash(git add:*)",
       "Bash(git config:*)",
       "Bash(npm run build:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npm run lint)",
+      "Bash(rg:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

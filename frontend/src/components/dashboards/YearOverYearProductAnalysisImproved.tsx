@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
 
-// 型定義（レガシーモック用 - 段階的移行のため保持）
+// APIデータ用の統一型定義
 interface MonthlyProductData {
   productId: string
   productName: string
@@ -31,47 +31,6 @@ interface MonthlyProductData {
     previous: number
     growthRate: number
   }>
-}
-
-// 月別データ生成
-const generateMonthlyData = (selectedYear: number): MonthlyProductData[] => {
-  const products = [
-    { id: "1", name: "【サンプル】カラートレースリム 150 ホワイト", category: "食品包装容器" },
-    { id: "2", name: "【サンプル】カラートレー 165 ブラウン", category: "食品包装容器" },
-    { id: "3", name: "【サンプル】IKトレースリム 150 黒", category: "食品包装容器" },
-    { id: "4", name: "【サンプル】nwクリスマスデコ箱4号H130", category: "ギフトボックス" },
-    { id: "5", name: "【サンプル】Criollo-Bitter-デコ箱4号H130", category: "ギフトボックス" },
-    { id: "6", name: "パピエール #47 アメリカンレッド", category: "食品包装容器" },
-    { id: "7", name: "カラーココット 65角(レッド)", category: "食品包装容器" },
-    { id: "8", name: "【サンプル】エコクラフトロールケーキ箱", category: "エコ包装材" },
-    { id: "9", name: "ペーパーココットシート 160角(茶).1500入", category: "ベーキング用品" },
-    { id: "10", name: "【サンプル】ペーパーココット 75角(ホワイト)", category: "ベーキング用品" },
-  ]
-
-  const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-  
-  return products.map(product => {
-    const monthlyDataEntries = months.map((month, index) => {
-      const baseValuePrevious = 20000 + Math.floor(Math.random() * 40000)
-      const seasonalFactor = 1 + Math.sin((index * Math.PI) / 6) * 0.3
-      const growthRate = (Math.random() - 0.3) * 50
-      const currentValue = Math.floor(baseValuePrevious * seasonalFactor * (1 + growthRate / 100))
-
-      return {
-        month,
-        previous: Math.floor(baseValuePrevious * seasonalFactor),
-        current: currentValue,
-        growthRate: Number(growthRate.toFixed(1))
-      }
-    })
-
-    return {
-      productId: product.id,
-      productName: product.name,
-      category: product.category,
-      monthlyData: monthlyDataEntries
-    }
-  })
 }
 
 const YearOverYearProductAnalysisImproved = () => {
@@ -95,19 +54,14 @@ const YearOverYearProductAnalysisImproved = () => {
   const previousYear = selectedYear - 1
 
   // 🔄 API状態管理
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // 初期ロード時はtrue
   const [error, setError] = useState<string | null>(null)
   const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
   const [categories, setCategories] = useState<string[]>([])
-  const [useApi, setUseApi] = useState(true) // APIとモックの切り替え
-
-  // データ生成（年選択に対応） - フォールバック用
-  const mockData = useMemo(() => generateMonthlyData(selectedYear), [selectedYear])
+  const [initialized, setInitialized] = useState(false) // 初期化フラグ
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
-    if (!useApi) return
-
     setLoading(true)
     setError(null)
 
@@ -135,23 +89,20 @@ const YearOverYearProductAnalysisImproved = () => {
     } catch (err) {
       console.error('年次比較データ取得エラー:', err)
       setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
-      // エラー時はモックデータにフォールバック
-      setUseApi(false)
+      setApiData([]) // エラー時は空配列に設定
     } finally {
       setLoading(false)
+      setInitialized(true) // 初期化完了
     }
-  }, [selectedYear, viewMode, sortBy, filters, useApi])
+  }, [selectedYear, viewMode, sortBy, filters])
 
   // 初期データ取得とフィルタ変更時の再取得
   useEffect(() => {
     fetchYearOverYearData()
   }, [fetchYearOverYearData])
 
-  // 実際に使用するデータを決定
-  const activeData = useApi && apiData ? apiData : null
-
-  // APIデータをモック形式に変換する関数
-  const convertApiDataToMockFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
+  // APIデータを表示形式に変換する関数
+  const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
     return apiProducts.map((product, index) => ({
       productId: `api_${index}`,
       productName: product.productTitle,
@@ -165,46 +116,41 @@ const YearOverYearProductAnalysisImproved = () => {
     }))
   }, [])
 
-  // 実際に表示するデータ（APIまたはモック）
+  // 実際に表示するデータ（APIデータのみ）
   const displayData = useMemo(() => {
-    if (activeData) {
-      return convertApiDataToMockFormat(activeData)
+    if (apiData) {
+      return convertApiDataToDisplayFormat(apiData)
     }
-    return mockData
-  }, [activeData, convertApiDataToMockFormat, mockData])
+    return []
+  }, [apiData, convertApiDataToDisplayFormat])
 
-  // フィルタリングロジック（APIデータの場合はサーバーサイドフィルタされているため、追加フィルタのみ）
+  // フィルタリングロジック（クライアントサイドで追加フィルタリング）
   const filteredData = useMemo(() => {
-    if (activeData) {
-      // APIデータの場合、基本的なフィルタは既に適用済み
-      // 追加のクライアントサイドフィルタが必要な場合のみ適用
-      return displayData
-    }
-    
     return displayData.filter((product) => {
-      const searchMatch = product.productName.toLowerCase().includes(filters.searchTerm.toLowerCase())
-      const categoryMatch = filters.category === "all" || product.category === filters.category
+      // パフォーマンス最適化: 短絡評価を活用
+      if (filters.searchTerm && !product.productName.toLowerCase().includes(filters.searchTerm.toLowerCase())) {
+        return false
+      }
+      
+      if (filters.category !== "all" && product.category !== filters.category) {
+        return false
+      }
       
       // 年間平均成長率を計算
       const avgGrowthRate = product.monthlyData.reduce((sum, month) => sum + month.growthRate, 0) / 12
       
-      let growthMatch = true
-      if (filters.growthRate === "positive") growthMatch = avgGrowthRate > 0
-      else if (filters.growthRate === "negative") growthMatch = avgGrowthRate < 0
-      else if (filters.growthRate === "high_growth") growthMatch = avgGrowthRate > 20
-      else if (filters.growthRate === "high_decline") growthMatch = avgGrowthRate < -20
-
-      return searchMatch && categoryMatch && growthMatch
+      switch (filters.growthRate) {
+        case "positive": return avgGrowthRate > 0
+        case "negative": return avgGrowthRate < 0
+        case "high_growth": return avgGrowthRate > 20
+        case "high_decline": return avgGrowthRate < -20
+        default: return true
+      }
     })
-  }, [displayData, filters, activeData])
+  }, [displayData, filters])
 
-  // 並び替えロジック（APIデータの場合はサーバーサイドソート済み）
+  // 並び替えロジック（クライアントサイドソート）
   const sortedData = useMemo(() => {
-    if (activeData) {
-      // APIデータは既にソート済み
-      return filteredData
-    }
-    
     const sorted = [...filteredData]
     switch (sortBy) {
       case "growth":
@@ -224,15 +170,14 @@ const YearOverYearProductAnalysisImproved = () => {
       default:
         return sorted
     }
-  }, [filteredData, sortBy, activeData])
+  }, [filteredData, sortBy])
 
-  // カテゴリ一覧（APIまたはモック）
+  // カテゴリ一覧（APIデータから取得）
   const allCategories = useMemo(() => {
     if (categories.length > 0) {
-      // APIから取得したカテゴリを使用
       return categories
     }
-    // モックデータからカテゴリを抽出
+    // APIデータからカテゴリを抽出
     const uniqueCategories = Array.from(new Set(displayData.map(p => p.category)))
     return uniqueCategories
   }, [categories, displayData])
@@ -256,11 +201,14 @@ const YearOverYearProductAnalysisImproved = () => {
     }
   }, [])
 
-  // 成長率バッジ色
+  // 成長率バッジ色（強化版）
   const getGrowthBadgeColor = useCallback((growth: number) => {
+    if (growth >= 25) return "bg-emerald-100 text-emerald-800 border-emerald-200"
     if (growth >= 15) return "bg-green-100 text-green-800 border-green-200"
-    if (growth >= 0) return "bg-blue-100 text-blue-800 border-blue-200"
+    if (growth >= 5) return "bg-blue-100 text-blue-800 border-blue-200"
+    if (growth >= 0) return "bg-slate-100 text-slate-700 border-slate-200"
     if (growth >= -10) return "bg-yellow-100 text-yellow-800 border-yellow-200"
+    if (growth >= -20) return "bg-orange-100 text-orange-800 border-orange-200"
     return "bg-red-100 text-red-800 border-red-200"
   }, [])
 
@@ -301,6 +249,27 @@ const YearOverYearProductAnalysisImproved = () => {
     link.click()
     document.body.removeChild(link)
   }, [sortedData, selectedYear, previousYear, viewMode, formatValue])
+
+  // 初期化中の全画面ローディング
+  if (!initialized) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-12">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+              <div className="text-lg font-medium text-gray-700">
+                前年同月比分析データを読み込み中...
+              </div>
+              <div className="text-sm text-gray-500">
+                {selectedYear}年と{previousYear}年のデータを取得しています
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -456,40 +425,27 @@ const YearOverYearProductAnalysisImproved = () => {
         )}
       </Card>
 
-      {/* API/モック切り替えとステータス表示 */}
-      <Card className="mb-6">
-        <CardContent className="pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">データソース:</span>
-                <Badge variant={useApi && !error ? "default" : "secondary"}>
-                  {useApi && !error ? "API" : "モック"}
-                </Badge>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+      {/* APIステータス表示 */}
+      {(loading || error) && (
+        <Card className="mb-6">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">データソース:</span>
+                  <Badge variant="default">API</Badge>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
+                
+                {error && (
+                  <div className="flex items-center gap-2 text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">{error}</span>
+                  </div>
+                )}
               </div>
               
-              {error && (
-                <div className="flex items-center gap-2 text-orange-600">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-sm">{error}</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setUseApi(!useApi)
-                  setError(null)
-                }}
-              >
-                {useApi ? "モック表示" : "API接続"}
-              </Button>
-              
-              {useApi && (
+              <div className="flex items-center gap-2">
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -499,11 +455,11 @@ const YearOverYearProductAnalysisImproved = () => {
                   <BarChart3 className="h-4 w-4 mr-2" />
                   再読み込み
                 </Button>
-              )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 条件サマリーバッジ（折りたたみ時に表示） */}
       {!showConditions && (
@@ -524,60 +480,200 @@ const YearOverYearProductAnalysisImproved = () => {
         </Card>
       )}
 
-      {/* データテーブル */}
+      {/* サマリー統計カード */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{sortedData.length}</div>
+            <div className="text-sm text-blue-700 mt-1">対象商品数</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-green-50 to-green-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {sortedData.filter(p => {
+                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                return avgGrowth > 0
+              }).length}
+            </div>
+            <div className="text-sm text-green-700 mt-1">成長商品数</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-red-50 to-red-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">
+              {sortedData.filter(p => {
+                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                return avgGrowth < 0
+              }).length}
+            </div>
+            <div className="text-sm text-red-700 mt-1">減少商品数</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {sortedData.length > 0 ? 
+                (sortedData.reduce((sum, p) => {
+                  const avgGrowth = p.monthlyData.reduce((s, m) => s + m.growthRate, 0) / 12
+                  return sum + avgGrowth
+                }, 0) / sortedData.length).toFixed(1) : "0"}%
+            </div>
+            <div className="text-sm text-purple-700 mt-1">平均成長率</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* データテーブル（改良版） */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            商品別月次推移データ
-          </CardTitle>
-          <CardDescription>
-            {selectedYear}年と{previousYear}年の月別比較データ（{sortedData.length}件の商品を表示中）
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                商品別月次推移データ
+              </CardTitle>
+              <CardDescription>
+                {selectedYear}年と{previousYear}年の月別比較データ（{sortedData.length}件の商品を表示中）
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+                <Download className="h-4 w-4 mr-1" />
+                CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Excel
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {/* 月別詳細表示 */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-4 px-3 font-medium text-gray-900 sticky left-0 bg-white">商品名</th>
-                  {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
-                    <th key={month} className="text-center py-4 px-2 font-medium text-gray-900 min-w-[80px]">
-                      {month}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedData.map((product) => (
-                  <tr key={product.productId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-3 sticky left-0 bg-white">
-                      <div className="font-medium text-gray-900 text-xs">{product.productName}</div>
-                      <div className="text-xs text-gray-500">{product.category}</div>
-                    </td>
-                    {product.monthlyData.map((monthData, index) => (
-                      <td key={index} className="py-3 px-2 text-center">
-                        <div className="text-xs font-mono text-gray-900">
-                          {formatValue(monthData.current, viewMode)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          ({formatValue(monthData.previous, viewMode)})
-                        </div>
-                        <Badge className={getGrowthBadgeColor(monthData.growthRate)}>
-                          {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
-                        </Badge>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {sortedData.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              検索条件に該当する商品が見つかりませんでした
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <span className="ml-2 text-gray-600">データを読み込み中...</span>
             </div>
+          ) : (
+            <>
+              {/* 月別詳細表示（改良版） */}
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-gray-50">
+                    <tr className="border-b-2 border-gray-200">
+                      <th className="text-left py-4 px-3 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[250px] border-r">
+                        商品情報
+                      </th>
+                      {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
+                        <th key={month} className="text-center py-4 px-2 font-semibold text-gray-900 min-w-[120px] border-r">
+                          <div className="text-sm">{month}</div>
+                          <div className="text-xs text-gray-500 font-normal">
+                            {selectedYear} / {previousYear}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {sortedData.map((product, productIndex) => {
+                      const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                      return (
+                        <tr key={product.productId} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+                          <td className="py-4 px-3 sticky left-0 bg-white z-10 border-r">
+                            <div className="space-y-2">
+                              <div className="font-medium text-gray-900 text-sm leading-tight">
+                                {product.productName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {product.category}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={getGrowthBadgeColor(avgGrowth)}>
+                                  平均: {avgGrowth > 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </div>
+                          </td>
+                          {product.monthlyData.map((monthData, index) => (
+                            <td key={index} className="py-4 px-2 text-center border-r">
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {formatValue(monthData.current, viewMode)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  前年: {formatValue(monthData.previous, viewMode)}
+                                </div>
+                                <Badge 
+                                  size="sm" 
+                                  className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
+                                >
+                                  {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {sortedData.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    {error ? (
+                      <AlertCircle className="h-12 w-12 mx-auto" />
+                    ) : (
+                      <Search className="h-12 w-12 mx-auto" />
+                    )}
+                  </div>
+                  {error ? (
+                    <>
+                      <div className="text-lg font-medium text-red-500 mb-2">
+                        データの取得に失敗しました
+                      </div>
+                      <div className="text-sm text-gray-500 mb-4">
+                        {error}
+                      </div>
+                      <Button onClick={fetchYearOverYearData} disabled={loading}>
+                        再読み込み
+                      </Button>
+                    </>
+                  ) : apiData && apiData.length === 0 ? (
+                    <>
+                      <div className="text-lg font-medium text-gray-500 mb-2">
+                        データが存在しません
+                      </div>
+                      <div className="text-sm text-gray-400 mb-4">
+                        選択した年度（{selectedYear}年）のデータがありません。<br/>
+                        他の年度を選択するか、データの登録状況を確認してください。
+                      </div>
+                      <Button variant="outline" onClick={fetchYearOverYearData} disabled={loading}>
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        再読み込み
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-medium text-gray-500 mb-2">
+                        検索条件に該当する商品が見つかりませんでした
+                      </div>
+                      <div className="text-sm text-gray-400 mb-4">
+                        フィルター条件を変更して再度お試しください
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}
+                      >
+                        フィルターをクリア
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
