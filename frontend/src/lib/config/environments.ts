@@ -9,13 +9,13 @@ export interface EnvironmentConfig {
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   development: {
     name: '開発環境',
-    apiBaseUrl: 'https://localhost:7088',
+    apiBaseUrl: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net',
     description: 'ローカル開発',
     isProduction: false,
   },
   staging: {
     name: 'ステージング環境',
-    apiBaseUrl: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net',
+    apiBaseUrl: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net',
     description: 'テスト・検証用',
     isProduction: false,
   },
