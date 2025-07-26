@@ -29,7 +29,7 @@ on:
         options:
           - development
           - staging
-          - production
+          - Production
       force_rebuild:
         description: '強制リビルド'
         required: false
@@ -47,7 +47,7 @@ jobs:
       deployments: write
       id-token: write    
     name: Build and Deploy Job
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    environment: ${{ github.ref == 'refs/heads/main' && 'Production' || 'development' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,11 +66,11 @@ jobs:
         id: env
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "deployment_environment=production" >> $GITHUB_OUTPUT
-            echo "node_env=production" >> $GITHUB_OUTPUT
-            echo "build_environment=production" >> $GITHUB_OUTPUT
-            echo "deploy_environment=production" >> $GITHUB_OUTPUT
-            echo "app_environment=production" >> $GITHUB_OUTPUT
+            echo "deployment_environment=Production" >> $GITHUB_OUTPUT
+            echo "node_env=Production" >> $GITHUB_OUTPUT
+            echo "build_environment=Production" >> $GITHUB_OUTPUT
+            echo "deploy_environment=Production" >> $GITHUB_OUTPUT
+            echo "app_environment=Production" >> $GITHUB_OUTPUT
           else
             echo "deployment_environment=development" >> $GITHUB_OUTPUT
             echo "node_env=development" >> $GITHUB_OUTPUT
@@ -128,7 +128,7 @@ jobs:
       - name: Environment validation
         run: |
           echo "🔍 環境検証中..."
-          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          if [ "${{ github.event.inputs.environment }}" = "Production" ]; then
             echo "⚠️ 本番環境へのデプロイを確認中..."
             echo "🔒 本番環境へのデプロイには特別な権限が必要です"
             # 本番環境へのデプロイは手動確認が必要

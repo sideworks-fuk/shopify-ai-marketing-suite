@@ -230,6 +230,19 @@ export default function DevBookmarksPage() {
     try {
       const envInfo = getEnvironmentInfo()
       setEnvironmentInfo(envInfo)
+      
+      // デバッグ情報を出力
+      console.log('🔍 DevBookmarks Debug Info:')
+      console.log('  - VERSION_INFO:', VERSION_INFO)
+      console.log('  - environmentInfo:', envInfo)
+      console.log('  - NODE_ENV:', process.env.NODE_ENV)
+      console.log('  - NEXT_PUBLIC_BUILD_ENVIRONMENT:', process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT)
+      console.log('  - NEXT_PUBLIC_DEPLOY_ENVIRONMENT:', process.env.NEXT_PUBLIC_DEPLOY_ENVIRONMENT)
+      console.log('  - NEXT_PUBLIC_APP_ENVIRONMENT:', process.env.NEXT_PUBLIC_APP_ENVIRONMENT)
+      console.log('  - NEXT_PUBLIC_BUILD_NUMBER:', process.env.NEXT_PUBLIC_BUILD_NUMBER)
+      console.log('  - NEXT_PUBLIC_GIT_COMMIT:', process.env.NEXT_PUBLIC_GIT_COMMIT)
+      console.log('  - NEXT_PUBLIC_GIT_BRANCH:', process.env.NEXT_PUBLIC_GIT_BRANCH)
+      console.log('  - NEXT_PUBLIC_BUILD_DATE:', process.env.NEXT_PUBLIC_BUILD_DATE)
     } catch (error) {
       console.error('環境情報の取得に失敗:', error)
     }
@@ -496,7 +509,7 @@ export default function DevBookmarksPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              環境情報 ver0.1.0250726
+              環境情報 ver{VERSION_INFO.version}.{VERSION_INFO.buildNumber}
             </CardTitle>
           </CardHeader>
           <CardContent>
