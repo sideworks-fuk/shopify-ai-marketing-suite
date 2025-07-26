@@ -7,7 +7,7 @@
 ## 対応環境
 
 ### 1. 開発環境 (Development)
-- **URL**: `https://localhost:7088`
+- **URL**: `https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net`
 - **用途**: ローカル開発用
 - **説明**: 開発者がローカルでバックエンドを起動して使用
 
@@ -211,6 +211,125 @@ NEXT_PUBLIC_API_URL=https://your-custom-api-url.com
 1. ビルド時に環境変数が正しく設定されているか確認
 2. デプロイ後にキャッシュをクリア
 3. 環境変数の優先順位を確認
+
+### Azure Static Web Apps デプロイ環境の問題
+
+#### 問題: プレビュー環境にデプロイされてしまう
+**症状**: `main`ブランチでデプロイしたのに、プレビュー環境にデプロイされる
+
+**原因**: `deployment_environment`パラメータの設定ミス
+
+**解決方法**:
+```yaml
+# ❌ 間違った設定（プレビュー環境が作成される）
+deployment_environment: Production
+
+# ✅ 正しい設定（本番環境にデプロイ）
+deployment_environment: ""  # 空にする
+```
+
+#### 問題: "No matching Static Web App environment was found"
+**症状**: デプロイ時に環境が見つからないエラー
+
+**原因**: 環境名の大文字小文字の不一致
+
+**解決方法**:
+```yaml
+# Azure Portalの環境名と一致させる
+# Azure Portal: Production → ワークフロー: Production
+# Azure Portal: development → ワークフロー: development
+```
+
+#### 問題: 複数のURLが作成される
+**症状**: 
+- `https://app-name.1.azurestaticapps.net/` (本番環境)
+- `https://app-name-production.1.azurestaticapps.net/` (プレビュー環境)
+
+**原因**: `deployment_environment`に値を設定している
+
+**解決方法**:
+```yaml
+# mainブランチの場合
+if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+  echo "deployment_environment=" >> $GITHUB_OUTPUT  # 空にする
+else
+  echo "deployment_environment=development" >> $GITHUB_OUTPUT
+fi
+```
+
+#### 問題: Azure Portalでブランチ設定を変更できない
+**症状**: Azure Portalで運用環境の分岐を変更できない
+
+**解決方法**:
+1. **GitHub Actionsワークフローで強制指定**:
+```yaml
+deployment_environment: ${{ github.ref == 'refs/heads/main' && '' || 'development' }}
+```
+
+2. **新しいStatic Web Appsリソースを作成**:
+```bash
+az staticwebapp create \
+  --name new-app-name \
+  --resource-group <resource-group> \
+  --source https://github.com/user/repo \
+  --branch main \
+  --app-location /frontend \
+  --output-location out
+```
+
+#### 問題: デプロイ内容が反映されない
+**症状**: GitHub Actionsでデプロイ成功だが、実際のサイトに反映されない
+
+**原因**: 
+1. キャッシュの問題
+2. 環境変数が正しく設定されていない
+3. デプロイ先環境の間違い
+
+**解決方法**:
+1. **キャッシュクリア**:
+   - ブラウザのハードリフレッシュ（Ctrl+F5）
+   - CDNキャッシュのクリア
+
+2. **環境変数の確認**:
+```yaml
+app_settings: |
+  NODE_ENV=${{ steps.env.outputs.node_env }}
+  NEXT_PUBLIC_BUILD_ENVIRONMENT=${{ steps.env.outputs.build_environment }}
+  NEXT_PUBLIC_DEPLOY_ENVIRONMENT=${{ steps.env.outputs.deploy_environment }}
+  NEXT_PUBLIC_APP_ENVIRONMENT=${{ steps.env.outputs.app_environment }}
+```
+
+3. **デプロイ先環境の確認**:
+```yaml
+# デバッグ情報を追加
+- name: Deploy Status
+  run: |
+    echo "🔧 デプロイ先環境: ${{ steps.env.outputs.deployment_environment == '' && 'Production (本番環境)' || format('Preview ({0})', steps.env.outputs.deployment_environment) }}"
+```
+
+#### Azure Static Web Apps環境の仕組み
+
+**本番環境（Operational）**:
+- 1つだけ存在
+- 100%のトラフィックを受け取る
+- `deployment_environment`を空または未指定
+
+**プレビュー環境（Preview）**:
+- 複数作成可能
+- トラフィックを受け取らない
+- `deployment_environment`に任意の名前を指定
+
+**正しい設定例**:
+```yaml
+# mainブランチ → 本番環境
+if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+  echo "deployment_environment=" >> $GITHUB_OUTPUT  # 空
+  echo "environment_name=Production" >> $GITHUB_OUTPUT
+else
+  echo "deployment_environment=development" >> $GITHUB_OUTPUT  # プレビュー環境
+  echo "environment_name=development" >> $GITHUB_OUTPUT
+fi
+```
 
 ## 関連ドキュメント
 
