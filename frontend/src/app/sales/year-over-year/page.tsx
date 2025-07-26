@@ -2,7 +2,8 @@
 
 import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
 import { AnalysisDescriptionCard } from "@/components/common/AnalysisDescriptionCard"
-import YearOverYearProductAnalysisImproved from "@/components/dashboards/YearOverYearProductAnalysisImproved"
+import YearOverYearProductAnalysis from "@/components/dashboards/YearOverYearProductAnalysis"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // ローディングコンポーネント
 const LoadingComponent = () => (
@@ -52,7 +53,7 @@ export default function YearOverYearPage() {
       />
 
       {/* メインコンテンツ - 年選択と表示モード切り替え機能付き */}
-      <YearOverYearProductAnalysisImproved />
+      <YearOverYearProductAnalysis />
     </div>
   )
 } 

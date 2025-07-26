@@ -10,25 +10,15 @@ export interface MenuItem {
 }
 
 export const menuStructure: MenuItem[] = [
-  // 一時的に非表示 - 休眠顧客分析のみ表示
-  // {
-  //   id: "sales-overview",
-  //   label: "売上ダッシュボード【概要】",
-  //   icon: "📊",
-  //   href: "/sales/dashboard",
-  //   category: "sales",
-  //   isImplemented: true,
-  //   description: "売上の全体像と主要KPIをリアルタイム確認"
-  // },
-  // {
-  //   id: "year-over-year",
-  //   label: "前年同月比較【商品別】",
-  //   icon: "📈",
-  //   href: "/sales/year-over-year",
-  //   category: "sales",
-  //   isImplemented: true,
-  //   description: "商品別の売上トレンドを前年と詳細比較"
-  // },
+  {
+    id: "year-over-year",
+    label: "前年同月比分析【商品】",
+    icon: "📈",
+    href: "/sales/year-over-year",
+    category: "sales",
+    isImplemented: true,
+    description: "商品別の売上トレンドを前年と詳細比較"
+  },
   // {
   //   id: "purchase-frequency",
   //   label: "リピート購入分析【商品】",
@@ -60,7 +50,7 @@ export const menuStructure: MenuItem[] = [
     id: "purchase-count",
     label: "購入回数分析【購買】",
     icon: "🔢",
-    href: "/purchase/count-analysis",
+    href: "/purchase/frequency-detail",
     category: "purchase",
     isImplemented: true,
     description: "顧客の購入回数別詳細分析とリピート促進インサイト"

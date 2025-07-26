@@ -2,10 +2,11 @@
 
 import React from "react"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
 import { useAppStore } from "../../stores/appStore"
-import { getRandomProducts, getCategoryName } from "../../lib/sample-products"
+import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
+import { handleApiError, handleError } from "../../lib/error-handler"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -20,6 +21,9 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  Loader2,
+  AlertCircle,
+  Calendar,
 } from "lucide-react"
 import {
   LineChart,
@@ -35,10 +39,13 @@ import {
 } from "recharts"
 
 // 型定義
+type ViewMode = 'sales' | 'quantity' | 'orders'
+
 interface MonthlyData {
   sales: number
   quantity: number
   orders: number
+  [key: string]: number // インデックスシグネチャを追加
 }
 
 interface ProductYearData {
@@ -63,7 +70,7 @@ const EnhancedDataCell = ({
 }: {
   currentValue: number
   previousValue: number
-  viewMode: string
+  viewMode: ViewMode
 }) => {
   const growthRate = previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0
 
@@ -101,7 +108,7 @@ const EnhancedDataCell = ({
 }
 
 // 改善3: 商品別成長率サマリー追加
-const ProductGrowthRanking = ({ data, viewMode }: { data: ProductYearData[]; viewMode: string }) => {
+const ProductGrowthRanking = ({ data, viewMode }: { data: ProductYearData[]; viewMode: ViewMode }) => {
   const calculateAverageGrowthRate = (product: ProductYearData) => {
     const growthValues = Object.values(product.yearOverYearGrowth)
     return growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length
@@ -398,126 +405,42 @@ const AdvancedFilters = ({
   )
 }
 
-// サンプルデータ生成（統一商品リストを使用）
-const generateSampleData = (): ProductYearData[] => {
-  // 統一商品リストからランダムに30商品を選択
-  const randomProducts = getRandomProducts(30).map(product => ({
-    id: product.id,
-    name: product.name,
-    category: getCategoryName(product.category)
-  }))
-
-  return randomProducts.map((product) => {
+// APIデータ変換関数
+const convertApiDataToProductYearData = (apiData: YearOverYearProductData[], currentYear: number): ProductYearData[] => {
+  const previousYear = currentYear - 1
+  
+  return apiData.map((product, index) => {
     const monthlyData: { [key: string]: MonthlyData } = {}
     const yearOverYearGrowth: { [month: string]: number } = {}
 
-    // 商品特性に応じた売上パターンを設定
-    const getSeasonalMultiplier = (month: number, productName: string) => {
-      if (productName.includes("クリスマス") || productName.includes("バレンタイン")) {
-        return month === 12 ? 3.0 : month === 11 ? 2.0 : month === 1 ? 1.5 : month === 2 ? 2.5 : 0.8
+    // APIデータから月別データを変換
+    product.monthlyData.forEach((monthData) => {
+      const monthStr = monthData.month.toString().padStart(2, "0")
+      
+      // 現在年と前年のデータを設定
+      monthlyData[`${currentYear}-${monthStr}`] = {
+        sales: monthData.currentValue,
+        quantity: monthData.currentValue, // API側で適切な数量データが提供される予定
+        orders: monthData.currentValue, // API側で適切な注文数データが提供される予定
       }
-      if (productName.includes("デコ箱") || productName.includes("ギフトボックス")) {
-        // ギフト商品は11-12月、3-4月（卒業・新年度）、6月（結婚式）にピーク
-        return month === 12 ? 2.5 : month === 11 ? 1.8 : month === 3 ? 1.5 : month === 4 ? 1.3 : month === 6 ? 1.4 : 0.9
-      }
-      if (productName.includes("パウンドケーキ箱") || productName.includes("カットケーキ箱")) {
-        // ケーキ関連は年末年始、春の行事シーズンが高い
-        return month === 12 ? 2.2 : month === 1 ? 1.6 : month === 3 ? 1.4 : month === 4 ? 1.3 : month === 5 ? 1.2 : 0.9
-      }
-      if (productName.includes("保冷") || productName.includes("保冷剤")) {
-        // 保冷材は夏季にピーク
-        return month >= 6 && month <= 9 ? 2.0 + (month === 7 || month === 8 ? 0.5 : 0) : 0.6
-      }
-      if (productName.includes("ダンボール") || productName.includes("hacobo")) {
-        // 配送用ダンボールは年末年始の配送需要でピーク
-        return month === 12 ? 2.8 : month === 1 ? 1.5 : month === 11 ? 1.3 : 0.95
-      }
-      if (productName.includes("プラトレー") || productName.includes("紙トレー")) {
-        // トレー系は比較的安定した需要
-        return 0.9 + Math.sin((month - 1) * Math.PI / 6) * 0.2
-      }
-      // その他の商品は標準的な季節変動
-      return 0.8 + Math.sin((month - 1) * Math.PI / 6) * 0.3
-    }
-
-    const getProductPriceRange = (productName: string) => {
-      if (productName.includes("ダンボール") || productName.includes("hacobo")) return { min: 250, max: 500 }
-      if (productName.includes("デコ箱") && productName.includes("7号")) return { min: 1400, max: 1800 }
-      if (productName.includes("デコ箱") && productName.includes("6号")) return { min: 1200, max: 1600 }
-      if (productName.includes("デコ箱") && productName.includes("5号")) return { min: 1000, max: 1400 }
-      if (productName.includes("デコ箱") && productName.includes("4号")) return { min: 800, max: 1200 }
-      if (productName.includes("パウンドケーキ箱")) return { min: 500, max: 700 }
-      if (productName.includes("カットケーキ箱")) return { min: 400, max: 900 }
-      if (productName.includes("ギフトボックス")) return { min: 700, max: 1100 }
-      if (productName.includes("プラトレー")) return { min: 250, max: 400 }
-      if (productName.includes("紙トレー")) return { min: 200, max: 300 }
-      if (productName.includes("紙袋")) return { min: 150, max: 250 }
-      if (productName.includes("透明バッグ")) return { min: 100, max: 200 }
-      if (productName.includes("イーグリップ")) return { min: 80, max: 200 }
-      if (productName.includes("保冷")) return { min: 80, max: 700 }
-      if (productName.includes("シール")) return { min: 100, max: 500 }
-      return { min: 300, max: 800 }
-    }
-
-    const priceRange = getProductPriceRange(product.name)
-    const basePrice = Math.floor(Math.random() * (priceRange.max - priceRange.min) + priceRange.min)
-
-    for (let month = 1; month <= 12; month++) {
-      const monthStr = month.toString().padStart(2, "0")
-      const seasonalMultiplier = getSeasonalMultiplier(month, product.name)
-
-      const baseQuantity = Math.floor((Math.random() * 200 + 50) * seasonalMultiplier)
-      const baseOrders = Math.floor(baseQuantity * (0.3 + Math.random() * 0.4))
-      const baseSales = baseQuantity * basePrice
-
-      monthlyData[`2024-${monthStr}`] = {
-        sales: baseSales,
-        quantity: baseQuantity,
-        orders: baseOrders,
+      
+      monthlyData[`${previousYear}-${monthStr}`] = {
+        sales: monthData.previousValue,
+        quantity: monthData.previousValue,
+        orders: monthData.previousValue,
       }
 
-      let growthRate: number
-      if (product.category === "デコ箱・ケーキ箱") {
-        growthRate = 0.05 + Math.random() * 0.3
-      } else if (product.category === "パウンドケーキ箱") {
-        growthRate = 0.1 + Math.random() * 0.25
-      } else if (product.category === "ギフトボックス") {
-        growthRate = -0.05 + Math.random() * 0.4
-      } else if (product.category === "包装材・バッグ") {
-        growthRate = 0.05 + Math.random() * 0.25
-      } else if (product.category === "ダンボール・配送") {
-        growthRate = 0.15 + Math.random() * 0.3
-      } else {
-        growthRate = -0.1 + Math.random() * 0.4
-      }
+      yearOverYearGrowth[monthStr] = monthData.growthRate
+    })
 
-      if (product.name.includes("クリスマス") && month === 12) {
-        growthRate += 0.2
-      }
-      if (product.name.includes("母の日") && month === 5) {
-        growthRate += 0.3
-      }
-
-      const sales2025 = Math.floor(baseSales * (1 + growthRate))
-      const quantity2025 = Math.floor(baseQuantity * (1 + growthRate))
-      const orders2025 = Math.floor(baseOrders * (1 + growthRate))
-
-      monthlyData[`2025-${monthStr}`] = {
-        sales: Math.max(0, sales2025),
-        quantity: Math.max(0, quantity2025),
-        orders: Math.max(0, orders2025),
-      }
-
-      yearOverYearGrowth[monthStr] = growthRate * 100
-    }
-
+    // 平均成長率を計算
     const growthValues = Object.values(yearOverYearGrowth)
-    const avgGrowth = growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length
+    const avgGrowth = growthValues.length > 0 ? growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length : 0
 
     return {
-      productId: product.id,
-      productName: product.name,
-      category: product.category,
+      productId: `api_${index}`,
+      productName: product.productTitle,
+      category: product.productType,
       monthlyData,
       yearOverYearGrowth,
       totalGrowth: avgGrowth,
@@ -539,8 +462,27 @@ const YearOverYearProductAnalysis = () => {
   const setLoading = useAppStore((state) => state.setLoading)
   const showToast = useAppStore((state) => state.showToast)
   
+  // エラーハンドラーの初期化
+  useEffect(() => {
+    const { errorHandler } = require('../../lib/error-handler')
+    errorHandler.setToastHandler(showToast)
+  }, [showToast])
+  
+  // ✅ 年選択機能
+  const currentYear = new Date().getFullYear()
+  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  
+  // 🔄 API状態管理
+  const [loading, setLoadingState] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
+  const [initialized, setInitialized] = useState(false)
+  
+  // 前年を自動計算
+  const previousYear = selectedYear - 1
+  
   // ✅ データとビューモード状態をZustandから取得
-  const [data] = useState<ProductYearData[]>(generateSampleData())
   const viewMode = filters.viewMode === "sales" ? "sales" : filters.viewMode === "quantity" ? "quantity" : "orders"
   
   // ✅ ローカル状態を一時的に維持（段階的移行）
@@ -548,12 +490,67 @@ const YearOverYearProductAnalysis = () => {
   const [sortBy, setSortBy] = useState<"name" | "growth" | "total">("growth")
   
   // ✅ フィルター状態をZustandから取得
-  const appliedFilters = {
+  const appliedFilters = useMemo(() => ({
     growthRate: "all", // TODO: filters.appliedFiltersから取得予定
     salesRange: "all",
-    category: filters.productFilters.category,
-    searchTerm: filters.productFilters.searchTerm,
-  }
+    category: filters.productFilters.category || "all",
+    searchTerm: filters.productFilters.searchTerm || "",
+  }), [filters.productFilters.category, filters.productFilters.searchTerm])
+  
+  // 🚀 API データ取得
+  const fetchYearOverYearData = useCallback(async () => {
+    setLoadingState(true)
+    setError(null)
+
+    try {
+      const response = await yearOverYearApi.getYearOverYearAnalysis({
+        storeId: 1,
+        year: selectedYear,
+        viewMode: viewMode,
+        sortBy: sortBy === "growth" ? "growth_rate" : sortBy === "total" ? "total_sales" : "name",
+        sortDescending: true,
+        searchTerm: appliedFilters.searchTerm || undefined,
+        category: appliedFilters.category === "all" ? undefined : appliedFilters.category,
+      })
+
+      if (response.success && response.data) {
+        setApiData(response.data.products)
+      } else {
+        throw new Error(response.message || 'データの取得に失敗しました')
+      }
+    } catch (err) {
+      // 統一エラーハンドラーでAPI取得エラーを処理
+      await handleApiError(err, '/api/year-over-year', 'GET', {
+        context: 'YearOverYearProductAnalysis',
+        severity: 'error',
+        userMessage: '前年同月比データの取得に失敗しました',
+        showToUser: true,
+        fallback: { 
+          enabled: true,
+          customHandler: () => {
+            setApiData([])
+            setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+          }
+        }
+      })
+    } finally {
+      setLoadingState(false)
+      setInitialized(true)
+    }
+  }, [selectedYear, viewMode, sortBy, appliedFilters])
+
+  // 初期データ取得とフィルタ変更時の再取得
+  useEffect(() => {
+    fetchYearOverYearData()
+  }, [fetchYearOverYearData])
+  
+  // 実際に表示するデータ（APIデータを変換）
+  const data = useMemo(() => {
+    if (apiData) {
+      return convertApiDataToProductYearData(apiData, selectedYear)
+    }
+    return []
+  }, [apiData, selectedYear])
 
   // フィルタリングとソート
   const filteredAndSortedData = useMemo(() => {
@@ -654,56 +651,77 @@ const YearOverYearProductAnalysis = () => {
 
   // サマリー統計計算
   const summary = useMemo(() => {
-    let total2024 = 0,
-      total2025 = 0
+    let totalPrevious = 0,
+      totalCurrent = 0
     let growingProducts = 0,
       decliningProducts = 0
 
     filteredAndSortedData.forEach((product) => {
       for (let month = 1; month <= 12; month++) {
         const monthStr = month.toString().padStart(2, "0")
-        const data2024 = product.monthlyData[`2024-${monthStr}`]?.[viewMode] || 0
-        const data2025 = product.monthlyData[`2025-${monthStr}`]?.[viewMode] || 0
-        total2024 += data2024
-        total2025 += data2025
+        const dataPrevious = product.monthlyData[`${previousYear}-${monthStr}`]?.[viewMode] || 0
+        const dataCurrent = product.monthlyData[`${selectedYear}-${monthStr}`]?.[viewMode] || 0
+        totalPrevious += dataPrevious
+        totalCurrent += dataCurrent
       }
 
       if (product.avgGrowth > 0) growingProducts++
       else if (product.avgGrowth < 0) decliningProducts++
     })
 
-    const overallGrowth = total2024 > 0 ? ((total2025 - total2024) / total2024) * 100 : 0
+    const overallGrowth = totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : 0
 
     return {
-      total2024,
-      total2025,
+      totalPrevious,
+      totalCurrent,
       overallGrowth,
       growingProducts,
       decliningProducts,
       totalProducts: filteredAndSortedData.length,
     }
-  }, [filteredAndSortedData, viewMode])
+  }, [filteredAndSortedData, viewMode, selectedYear, previousYear])
 
   // チャート用データ生成
   const chartData = useMemo(() => {
-    const months = []
+    const months: Array<{ month: string; [key: string]: string | number }> = []
     for (let month = 1; month <= 12; month++) {
       const monthStr = month.toString().padStart(2, "0")
-      const monthData = { month: `${month}月` }
+      const monthData: { month: string; [key: string]: string | number } = { month: `${month}月` }
 
       const topProducts = filteredAndSortedData.slice(0, 5)
       topProducts.forEach((product) => {
-        const data2024 = product.monthlyData[`2024-${monthStr}`]?.[viewMode] || 0
-        const data2025 = product.monthlyData[`2025-${monthStr}`]?.[viewMode] || 0
+        const dataPrevious = product.monthlyData[`${previousYear}-${monthStr}`]?.[viewMode] || 0
+        const dataCurrent = product.monthlyData[`${selectedYear}-${monthStr}`]?.[viewMode] || 0
 
-        monthData[`${product.productName}_2024`] = data2024
-        monthData[`${product.productName}_2025`] = data2025
+        monthData[`${product.productName}_${previousYear}`] = dataPrevious
+        monthData[`${product.productName}_${selectedYear}`] = dataCurrent
       })
 
       months.push(monthData)
     }
     return months
-  }, [filteredAndSortedData, viewMode])
+  }, [filteredAndSortedData, viewMode, selectedYear, previousYear])
+
+  // 初期化中の全画面ローディング
+  if (!initialized) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-12">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="text-lg font-medium text-gray-700">
+                前年同月比分析データを読み込み中...
+              </div>
+              <div className="text-sm text-gray-500">
+                {selectedYear}年と{previousYear}年のデータを取得しています
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -714,10 +732,23 @@ const YearOverYearProductAnalysis = () => {
             <BarChart3 className="h-5 w-5" />
             前年同月比【商品】分析
           </CardTitle>
-          <CardDescription>商品別の2024年/2025年月次データ比較と成長率分析</CardDescription>
+          <CardDescription>商品別の{selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map(year => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}年 vs {year - 1}年
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
               <SelectTrigger>
                 <SelectValue />
@@ -773,15 +804,15 @@ const YearOverYearProductAnalysis = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{formatValue(summary.total2024, viewMode)}</div>
-            <div className="text-sm text-gray-600 mt-1">2024年合計</div>
+            <div className="text-2xl font-bold text-blue-600">{formatValue(summary.totalPrevious, viewMode)}</div>
+            <div className="text-sm text-gray-600 mt-1">{previousYear}年合計</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">{formatValue(summary.total2025, viewMode)}</div>
-            <div className="text-sm text-gray-600 mt-1">2025年合計</div>
+            <div className="text-2xl font-bold text-green-600">{formatValue(summary.totalCurrent, viewMode)}</div>
+            <div className="text-sm text-gray-600 mt-1">{selectedYear}年合計</div>
           </CardContent>
         </Card>
 
@@ -880,10 +911,10 @@ const YearOverYearProductAnalysis = () => {
                       {Array.from({ length: 12 }, (_, i) => (
                         <React.Fragment key={i}>
                           <th className="text-center py-2 px-1 text-xs font-medium text-blue-800 border-r border-gray-100 bg-blue-100 min-w-[70px]">
-                            2024年
+                            {previousYear}年
                           </th>
                           <th className="text-center py-2 px-1 text-xs font-medium text-green-800 border-r border-gray-200 bg-green-100 min-w-[70px]">
-                            2025年
+                            {selectedYear}年
                           </th>
                         </React.Fragment>
                       ))}
@@ -905,22 +936,22 @@ const YearOverYearProductAnalysis = () => {
                       {comparisonMode === "sideBySide"
                         ? Array.from({ length: 12 }, (_, i) => {
                             const month = (i + 1).toString().padStart(2, "0")
-                            const data2024 = product.monthlyData[`2024-${month}`]?.[viewMode] || 0
-                            const data2025 = product.monthlyData[`2025-${month}`]?.[viewMode] || 0
+                            const dataPrevious = product.monthlyData[`${previousYear}-${month}`]?.[viewMode] || 0
+                            const dataCurrent = product.monthlyData[`${selectedYear}-${month}`]?.[viewMode] || 0
 
                             return (
                               <React.Fragment key={month}>
                                 <td className="py-1 px-1 text-center border-r border-gray-100">
                                   <EnhancedDataCell
-                                    currentValue={data2024}
-                                    previousValue={data2024}
+                                    currentValue={dataPrevious}
+                                    previousValue={dataPrevious}
                                     viewMode={viewMode}
                                   />
                                 </td>
                                 <td className="py-1 px-1 text-center border-r border-gray-200">
                                   <EnhancedDataCell
-                                    currentValue={data2025}
-                                    previousValue={data2024}
+                                    currentValue={dataCurrent}
+                                    previousValue={dataPrevious}
                                     viewMode={viewMode}
                                   />
                                 </td>
@@ -977,22 +1008,22 @@ const YearOverYearProductAnalysis = () => {
 
                   return [
                     <Line
-                      key={`${product.productId}_2024`}
+                      key={`${product.productId}_${previousYear}`}
                       type="monotone"
-                      dataKey={`${product.productName}_2024`}
+                      dataKey={`${product.productName}_${previousYear}`}
                       stroke={colors[index]}
                       strokeDasharray="5 5"
                       strokeWidth={2}
-                      name={`${product.productName} (2024)`}
+                      name={`${product.productName} (${previousYear})`}
                       dot={{ r: 3 }}
                     />,
                     <Line
-                      key={`${product.productId}_2025`}
+                      key={`${product.productId}_${selectedYear}`}
                       type="monotone"
-                      dataKey={`${product.productName}_2025`}
+                      dataKey={`${product.productName}_${selectedYear}`}
                       stroke={colors[index]}
                       strokeWidth={3}
-                      name={`${product.productName} (2025)`}
+                      name={`${product.productName} (${selectedYear})`}
                       dot={{ r: 4 }}
                     />,
                   ]

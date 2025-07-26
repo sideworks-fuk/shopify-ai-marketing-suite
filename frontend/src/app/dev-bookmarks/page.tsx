@@ -41,7 +41,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "売上・商品の統合分析ダッシュボード",
     href: "/sales/dashboard",
     icon: <BarChart3 className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'sales'
   },
   {
@@ -49,15 +49,15 @@ const bookmarkItems: BookmarkItem[] = [
     description: "商品別の前年同月比較分析",
     href: "/sales/year-over-year",
     icon: <TrendingUp className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'in-progress',
     category: 'sales'
   },
   {
     title: "購入頻度【商品】",
     description: "商品の購入頻度分析",
-    href: "/purchase/frequency-detail",
+    href: "/sales/purchase-frequency",
     icon: <ShoppingCart className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'sales'
   },
   {
@@ -65,7 +65,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "商品の組み合わせ分析",
     href: "/sales/market-basket",
     icon: <Package className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'sales'
   },
   {
@@ -73,7 +73,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "月別の売上統計分析",
     href: "/sales/monthly-stats",
     icon: <Calendar className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'sales'
   },
 
@@ -81,9 +81,9 @@ const bookmarkItems: BookmarkItem[] = [
   {
     title: "購入回数【購買】",
     description: "顧客の購入回数分析",
-    href: "/purchase/purchase-frequency",
+    href: "/purchase/frequency-detail",
     icon: <ShoppingBag className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'in-progress',
     category: 'purchase'
   },
   {
@@ -91,7 +91,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "購買頻度階層の傾向分析",
     href: "/purchase/f-tier-trend",
     icon: <Target className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'purchase'
   },
 
@@ -101,7 +101,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "顧客セグメント統合分析",
     href: "/customers/dashboard",
     icon: <Users className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'customer'
   },
   {
@@ -109,7 +109,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "顧客の購買行動分析",
     href: "/customers/profile",
     icon: <UserCheck className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'planned',
     category: 'customer'
   },
   {
@@ -117,7 +117,7 @@ const bookmarkItems: BookmarkItem[] = [
     description: "休眠顧客の分析と復帰施策（パフォーマンス改善済み）",
     href: "/customers/dormant",
     icon: <UserX className="h-5 w-5" />,
-    status: 'implemented',
+    status: 'in-progress',
     category: 'customer'
   },
 
@@ -149,6 +149,22 @@ const bookmarkItems: BookmarkItem[] = [
     category: 'dev'
   },
   {
+    title: "前年同月比API テスト",
+    description: "前年同月比分析【商品】APIの動作確認",
+    href: "/year-over-year-api-test",
+    icon: <TrendingUp className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "購入回数APIテスト",
+    description: "購入回数分析【購買】のAPI接続テスト",
+    href: "/dev/purchase-frequency-api-test",
+    icon: <ShoppingBag className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
     title: "データベース テスト",
     description: "データベース接続テスト",
     href: "/database-test",
@@ -169,11 +185,11 @@ const bookmarkItems: BookmarkItem[] = [
 const getStatusBadge = (status: BookmarkItem['status']) => {
   switch (status) {
     case 'implemented':
-      return <Badge variant="default" className="bg-green-100 text-green-800">実装済み</Badge>
+      return <Badge variant="default" className="bg-green-100 text-green-800">✅ 実装済み</Badge>
     case 'in-progress':
-      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">開発中</Badge>
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">🟡 実装中</Badge>
     case 'planned':
-      return <Badge variant="outline" className="bg-gray-100 text-gray-800">実装予定</Badge>
+      return <Badge variant="outline" className="bg-gray-100 text-gray-600">⚪ 実装予定</Badge>
   }
 }
 
@@ -470,7 +486,7 @@ export default function DevBookmarksPage() {
               <div className="text-2xl font-bold text-yellow-600">
                 {bookmarkItems.filter(item => item.status === 'in-progress').length}
               </div>
-              <div className="text-sm text-gray-600">開発中</div>
+              <div className="text-sm text-gray-600">実装中</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-600">
