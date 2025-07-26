@@ -512,8 +512,12 @@ namespace ShopifyDataAnonymizer.Services
                                 var orderItem = new OrderItem
                                 {
                                     Quantity = record.LineitemQuantity ?? 1,
+                                    Name = record.LineitemName, // ✅ CSVの商品名を設定
                                     Price = record.LineitemPrice ?? 0m,
-                                    SKU = record.LineitemSku ?? string.Empty
+                                    CompareAtPrice = record.LineitemCompareAtPrice,
+                                    SKU = record.LineitemSku ?? string.Empty,
+                                    RequiresShipping = record.LineitemRequiresShipping,
+                                    Taxable = record.LineitemTaxable
                                 };
 
                                 await InsertOrderItem(connection, transaction, currentOrderId, orderItem);
@@ -624,16 +628,23 @@ namespace ShopifyDataAnonymizer.Services
             return financialStatus.ToLower() switch
             {
                 "paid" => "completed",
-                "pending" => "pending",
+                "pending" => "pending", 
+                "partially_paid" => "partially_paid",
                 "refunded" => "refunded",
+                "partially_refunded" => "partially_refunded",
                 "cancelled" => "cancelled",
+                "voided" => "voided",
+                "authorized" => "authorized",
                 _ => "pending"
             };
         }
 
         private async Task InsertOrderItem(SqlConnection connection, SqlTransaction transaction, int orderId, OrderItem item)
         {
-            // 商品情報を取得（SKUで検索）
+            // 商品タイトルの優先順位
+            // 1. CSVの"Lineitem name"（最優先）
+            // 2. データベースから取得した商品タイトル（SKU検索）
+            // 3. "不明な商品"（フォールバック）
             string productTitle = "不明な商品";
             string? productHandle = null;
             string? productVendor = null;
@@ -649,6 +660,14 @@ namespace ShopifyDataAnonymizer.Services
             bool requiresShipping = true;
             bool taxable = true;
             
+            // まずCSVの"Lineitem name"をチェック（最優先）
+            if (!string.IsNullOrWhiteSpace(item.Name))
+            {
+                productTitle = item.Name;
+                Console.WriteLine($"✅ CSVから商品名を取得: {productTitle}");
+            }
+            
+            // SKUが存在する場合は、データベースから詳細情報を取得
             if (!string.IsNullOrWhiteSpace(item.SKU))
             {
                 var productCmd = new SqlCommand(@"
@@ -664,7 +683,13 @@ namespace ShopifyDataAnonymizer.Services
                 using var reader = await productCmd.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
                 {
-                    productTitle = reader.GetString(0);
+                    // CSVに商品名がない場合のみ、データベースの商品タイトルを使用
+                    if (string.IsNullOrWhiteSpace(item.Name))
+                    {
+                        productTitle = reader.GetString(0);
+                        Console.WriteLine($"✅ データベースから商品名を取得: {productTitle}");
+                    }
+                    
                     productHandle = reader.IsDBNull(1) ? null : reader.GetString(1);
                     productVendor = reader.IsDBNull(2) ? null : reader.GetString(2);
                     productType = reader.IsDBNull(3) ? null : reader.GetString(3);
@@ -687,14 +712,26 @@ namespace ShopifyDataAnonymizer.Services
                 }
                 reader.Close();
             }
-            else
+            
+            // 追加の設定（CSVデータを優先）
+            if (item.CompareAtPrice.HasValue && compareAtPrice == null)
             {
-                // SKUが見つからない場合は、Lineitemの情報を使用
-                productTitle = item.Name ?? "不明な商品";
-                variantTitle = null;
                 compareAtPrice = item.CompareAtPrice;
+            }
+            if (item.RequiresShipping == "true" || item.RequiresShipping == "false")
+            {
                 requiresShipping = item.RequiresShipping == "true";
+            }
+            if (item.Taxable == "true" || item.Taxable == "false")
+            {
                 taxable = item.Taxable == "true";
+            }
+            
+            // 最終確認
+            if (string.IsNullOrWhiteSpace(productTitle))
+            {
+                productTitle = "不明な商品";
+                Console.WriteLine("⚠️ 商品名を取得できませんでした。フォールバック値を使用します。");
             }
 
             var sql = @"
