@@ -132,7 +132,7 @@ jobs:
             echo "⚠️ 本番環境へのデプロイを確認中..."
             echo "🔒 本番環境へのデプロイには特別な権限が必要です"
             # 本番環境へのデプロイは手動確認が必要
-            if [ "${{ github.actor }}" != "fukuda1207" ]; then
+            if [ "${{ github.actor }}" != "h.fukdua" ]; then
               echo "❌ 本番環境へのデプロイ権限がありません"
               exit 1
             fi
