@@ -9,6 +9,8 @@ import { RefreshCw, AlertCircle, Download, Settings, ChevronUp, ChevronDown, Sea
 import { Label } from "@/components/ui/label"
 import { DataService } from "@/lib/data-service"
 import PeriodSelector, { type DateRangePeriod } from "@/components/common/PeriodSelector"
+import { useAppStore } from "@/stores/appStore"
+import { handleError, handleApiError } from "@/lib/error-handler"
 
 // 購入回数詳細分析データの型定義
 interface PurchaseFrequencyDetailData {
@@ -79,6 +81,14 @@ export default function PurchaseFrequencyDetailAnalysis({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConditions, setShowConditions] = useState(true)
+  
+  const showToast = useAppStore((state) => state.showToast)
+
+  // エラーハンドラーの初期化
+  useEffect(() => {
+    const { errorHandler } = require('@/lib/error-handler')
+    errorHandler.setToastHandler(showToast)
+  }, [showToast])
   // ✅ 期間フィルター管理（統一UI）
   const [dateRange, setDateRange] = useState<DateRangePeriod>(() => {
     const today = new Date()
@@ -220,9 +230,20 @@ export default function PurchaseFrequencyDetailAnalysis({
       // TODO: 実際のAPIが利用可能になったら実装
       setPurchaseData(getSamplePurchaseFrequencyDetailData())
     } catch (err) {
-      console.error("Failed to fetch purchase frequency detail data:", err)
-      setError("データの取得に失敗しました。サンプルデータを表示します。")
-      setPurchaseData(getSamplePurchaseFrequencyDetailData())
+      // 統一エラーハンドラーで処理 - サンプルデータフォールバック付き
+      await handleApiError(err, '/api/purchase-frequency', 'GET', {
+        context: 'PurchaseFrequencyDetailAnalysis',
+        severity: 'warning', // データ取得失敗だが、サンプルデータで代替可能
+        userMessage: 'APIエラーのためサンプルデータを表示しています',
+        fallback: { 
+          enabled: true, 
+          useMockData: true,
+          customHandler: () => {
+            setPurchaseData(getSamplePurchaseFrequencyDetailData())
+            setError("APIデータの取得に失敗したため、サンプルデータを表示中です。")
+          }
+        }
+      })
     } finally {
       setIsLoading(false)
     }

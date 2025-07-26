@@ -6,6 +6,7 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
 import { useAppStore } from "../../stores/appStore"
 import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
+import { handleApiError, handleError } from "../../lib/error-handler"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -38,10 +39,13 @@ import {
 } from "recharts"
 
 // 型定義
+type ViewMode = 'sales' | 'quantity' | 'orders'
+
 interface MonthlyData {
   sales: number
   quantity: number
   orders: number
+  [key: string]: number // インデックスシグネチャを追加
 }
 
 interface ProductYearData {
@@ -66,7 +70,7 @@ const EnhancedDataCell = ({
 }: {
   currentValue: number
   previousValue: number
-  viewMode: string
+  viewMode: ViewMode
 }) => {
   const growthRate = previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0
 
@@ -104,7 +108,7 @@ const EnhancedDataCell = ({
 }
 
 // 改善3: 商品別成長率サマリー追加
-const ProductGrowthRanking = ({ data, viewMode }: { data: ProductYearData[]; viewMode: string }) => {
+const ProductGrowthRanking = ({ data, viewMode }: { data: ProductYearData[]; viewMode: ViewMode }) => {
   const calculateAverageGrowthRate = (product: ProductYearData) => {
     const growthValues = Object.values(product.yearOverYearGrowth)
     return growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length
@@ -458,6 +462,12 @@ const YearOverYearProductAnalysis = () => {
   const setLoading = useAppStore((state) => state.setLoading)
   const showToast = useAppStore((state) => state.showToast)
   
+  // エラーハンドラーの初期化
+  useEffect(() => {
+    const { errorHandler } = require('../../lib/error-handler')
+    errorHandler.setToastHandler(showToast)
+  }, [showToast])
+  
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
@@ -509,9 +519,20 @@ const YearOverYearProductAnalysis = () => {
         throw new Error(response.message || 'データの取得に失敗しました')
       }
     } catch (err) {
-      console.error('年次比較データ取得エラー:', err)
-      setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
-      setApiData([])
+      // 統一エラーハンドラーでAPI取得エラーを処理
+      await handleApiError(err, '/api/year-over-year', 'GET', {
+        context: 'YearOverYearProductAnalysis',
+        severity: 'error',
+        userMessage: '前年同月比データの取得に失敗しました',
+        showToUser: true,
+        fallback: { 
+          enabled: true,
+          customHandler: () => {
+            setApiData([])
+            setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+          }
+        }
+      })
     } finally {
       setLoadingState(false)
       setInitialized(true)
@@ -662,10 +683,10 @@ const YearOverYearProductAnalysis = () => {
 
   // チャート用データ生成
   const chartData = useMemo(() => {
-    const months = []
+    const months: Array<{ month: string; [key: string]: string | number }> = []
     for (let month = 1; month <= 12; month++) {
       const monthStr = month.toString().padStart(2, "0")
-      const monthData = { month: `${month}月` }
+      const monthData: { month: string; [key: string]: string | number } = { month: `${month}月` }
 
       const topProducts = filteredAndSortedData.slice(0, 5)
       topProducts.forEach((product) => {

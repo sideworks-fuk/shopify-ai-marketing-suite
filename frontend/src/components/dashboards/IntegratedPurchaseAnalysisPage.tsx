@@ -71,7 +71,7 @@ const IntegratedPurchaseAnalysisPage = () => {
       </Card>
 
       {/* タブ分割コンテンツ */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+      <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as typeof selectedTab)}>
         <TabsList className="grid w-full max-w-2xl grid-cols-3">
           {tabs.map((tab) => (
             <TabsTrigger value={tab.id} className="flex items-center text-sm" key={tab.id}>

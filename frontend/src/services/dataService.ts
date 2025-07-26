@@ -8,8 +8,9 @@ import {
   calculateSalesMetrics,
 } from "../lib/shopify"
 
-// TODO: 統一エラーハンドリング統合 - Phase 2で対応
-// import { errorHandler, AppError, ErrorCode, ErrorSeverity } from "../utils/errorHandling"
+// 統一エラーハンドリング統合
+import { handleError, handleApiError } from "../lib/error-handler"
+import { AppError } from "../types/error"
 
 // モックデータのインポート
 import { 
@@ -112,6 +113,7 @@ export interface IDataService {
   // 分析データ取得
   getAnalyticsData(period?: string): Promise<ApiResponse<AnalyticsData>>;
   getPurchaseFrequencyAnalysis(params?: PurchaseFrequencyParams): Promise<ApiResponse<any[]>>;
+  getPurchaseCountAnalysis(currentPeriod: string, comparisonPeriod: string): Promise<ApiResponse<any[]>>;
   getFHierarchyData(params?: FHierarchyParams): Promise<ApiResponse<FLayerTrend[]>>;
   
   // 休眠顧客データ
@@ -149,7 +151,12 @@ export class DataService implements IDataService {
 
   private async fetchShopifyData(endpoint: string, params: Record<string, string> = {}) {
     if (this.useMockData) {
-      throw new Error('API calls not available in mock mode');
+      throw new AppError('API calls not available in mock mode', {
+        type: 'validation',
+        severity: 'info',
+        context: 'DataService - mock mode',
+        userMessage: 'モックデータモードでAPIが呼び出されました'
+      });
     }
 
     const searchParams = new URLSearchParams({
@@ -158,13 +165,33 @@ export class DataService implements IDataService {
       ...params,
     });
 
-    const response = await fetch(`/api/shopify${endpoint}?${searchParams}`);
+    try {
+      const response = await fetch(`/api/shopify${endpoint}?${searchParams}`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data from ${endpoint}: ${response.statusText}`);
+      if (!response.ok) {
+        throw new AppError(`Failed to fetch data from ${endpoint}`, {
+          type: 'server',
+          severity: 'error',
+          context: `DataService - ${endpoint}`,
+          userMessage: `${endpoint}からのデータ取得に失敗しました`
+        });
+      }
+
+      return response.json();
+    } catch (error) {
+      // ネットワークエラーなどの処理
+      if (error instanceof AppError) {
+        throw error;
+      }
+      
+      await handleApiError(error, endpoint, 'GET', {
+        context: 'DataService - fetchShopifyData',
+        severity: 'error',
+        userMessage: 'Shopifyからのデータ取得中にエラーが発生しました'
+      });
+      
+      throw error;
     }
-
-    return response.json();
   }
 
   private createResponse<T>(data: T, source: 'api' | 'mock' = this.useMockData ? 'mock' : 'api'): ApiResponse<T> {
@@ -327,6 +354,36 @@ export class DataService implements IDataService {
     return this.createResponse(analysis);
   }
 
+  async getPurchaseCountAnalysis(currentPeriod: string, comparisonPeriod: string): Promise<ApiResponse<any[]>> {
+    if (this.useMockData) {
+      // モック購入回数分析データ
+      const mockAnalysis = [
+        {
+          purchaseCount: 1,
+          label: "初回購入者",
+          current: { orderCount: 1250, totalAmount: 2500000 },
+          previous: { orderCount: 1180, totalAmount: 2360000 },
+          countGrowth: 5.9,
+          amountGrowth: 5.9,
+        },
+        {
+          purchaseCount: 2,
+          label: "2回目",
+          current: { orderCount: 812, totalAmount: 3248000 },
+          previous: { orderCount: 767, totalAmount: 3068000 },
+          countGrowth: 5.9,
+          amountGrowth: 5.9,
+        }
+        // 他のデータ...
+      ];
+      return this.createResponse(mockAnalysis);
+    }
+
+    // API実装
+    const analysis: any[] = [];
+    return this.createResponse(analysis);
+  }
+
   async getFHierarchyData(params: FHierarchyParams = {}): Promise<ApiResponse<FLayerTrend[]>> {
     if (this.useMockData) {
       let data = [...fLayerTrendData];
@@ -430,7 +487,14 @@ export class DataService implements IDataService {
       // API健全性チェック
       await this.fetchShopifyData('/products', { limit: '1' });
       return true;
-    } catch {
+    } catch (error) {
+      // 健全性チェックエラーはログのみ（ユーザー通知なし）
+      await handleError(error, {
+        context: 'DataService - health check',
+        severity: 'warning',
+        showToUser: false,
+        silent: true // ログ出力も抑制
+      });
       return false;
     }
   }

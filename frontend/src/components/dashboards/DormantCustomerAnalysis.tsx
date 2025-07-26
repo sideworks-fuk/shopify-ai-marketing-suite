@@ -28,6 +28,8 @@ import { ReactivationInsights } from "@/components/dashboards/dormant/Reactivati
 
 import { api } from "@/lib/api-client"
 import { useDormantFilters } from "@/contexts/FilterContext"
+import { useAppStore } from "@/stores/appStore"
+import { handleApiError, handleError } from "@/lib/error-handler"
 
 export default function DormantCustomerAnalysis() {
   const [showConditions, setShowConditions] = useState(true)
@@ -41,6 +43,14 @@ export default function DormantCustomerAnalysis() {
   const [hasMoreData, setHasMoreData] = useState(true)
   
   const { filters } = useDormantFilters()
+  const showToast = useAppStore((state) => state.showToast)
+
+  // エラーハンドラーの初期化
+  useEffect(() => {
+    // 統一エラーハンドラーにトースト機能を設定
+    const { errorHandler } = require('@/lib/error-handler')
+    errorHandler.setToastHandler(showToast)
+  }, [showToast])
 
   // API からデータを取得
   useEffect(() => {
@@ -101,64 +111,78 @@ export default function DormantCustomerAnalysis() {
         }
         
         } catch (apiError) {
-          console.error('❌ API呼び出しエラー、モックデータを使用:', apiError);
-          
-          // API エラー時のモックデータフォールバック
-          const mockCustomersData = Array.from({ length: 10 }, (_, index) => ({
-            customerId: `mock-${index + 1}`,
-            name: `モック顧客 ${index + 1}`,
-            email: `mock${index + 1}@example.com`,
-            lastPurchaseDate: new Date(2024, 0, 1 + index).toISOString(),
-            daysSinceLastPurchase: 90 + index * 15,
-            dormancySegment: index < 3 ? '90-180日' : index < 7 ? '180-365日' : '365日以上',
-            riskLevel: ['low', 'medium', 'high', 'critical'][index % 4],
-            churnProbability: 0.2 + (index * 0.1),
-            totalSpent: 50000 + index * 10000,
-            totalOrders: 2 + index,
-            averageOrderValue: 25000 + index * 2000
-          }))
-          
-          const mockSummaryData = {
-            totalDormantCustomers: 1500,
-            segmentCounts: {
-              '90-180日': 600,
-              '180-365日': 500,
-              '365日以上': 400
-            },
-            segmentRevenue: {
-              '90-180日': 30000000,
-              '180-365日': 25000000,
-              '365日以上': 20000000
+          // 統一エラーハンドラーで処理 - モックデータフォールバック付き
+          await handleApiError(apiError, '/api/dormant', 'GET', {
+            context: 'DormantCustomerAnalysis',
+            severity: 'error',
+            userMessage: 'APIエラーのためモックデータで表示しています',
+            fallback: { 
+              enabled: true, 
+              useMockData: true,
+              customHandler: () => {
+                // モックデータの設定
+                const mockCustomersData = Array.from({ length: 10 }, (_, index) => ({
+                  customerId: `mock-${index + 1}`,
+                  name: `モック顧客 ${index + 1}`,
+                  email: `mock${index + 1}@example.com`,
+                  lastPurchaseDate: new Date(2024, 0, 1 + index).toISOString(),
+                  daysSinceLastPurchase: 90 + index * 15,
+                  dormancySegment: index < 3 ? '90-180日' : index < 7 ? '180-365日' : '365日以上',
+                  riskLevel: ['low', 'medium', 'high', 'critical'][index % 4],
+                  churnProbability: 0.2 + (index * 0.1),
+                  totalSpent: 50000 + index * 10000,
+                  totalOrders: 2 + index,
+                  averageOrderValue: 25000 + index * 2000
+                }))
+                
+                const mockSummaryData = {
+                  totalDormantCustomers: 1500,
+                  segmentCounts: {
+                    '90-180日': 600,
+                    '180-365日': 500,
+                    '365日以上': 400
+                  },
+                  segmentRevenue: {
+                    '90-180日': 30000000,
+                    '180-365日': 25000000,
+                    '365日以上': 20000000
+                  }
+                }
+                
+                const mockSegmentData = [
+                  { segment: '90-180日', count: 600, percentage: 40, revenue: 30000000 },
+                  { segment: '180-365日', count: 500, percentage: 33.3, revenue: 25000000 },
+                  { segment: '365日以上', count: 400, percentage: 26.7, revenue: 20000000 }
+                ]
+                
+                setDormantData(mockCustomersData)
+                setSummaryData(mockSummaryData)
+                setSegmentDistributions(mockSegmentData)
+                setHasMoreData(false)
+              }
             }
-          }
-          
-          const mockSegmentData = [
-            { segment: '90-180日', count: 600, percentage: 40, revenue: 30000000 },
-            { segment: '180-365日', count: 500, percentage: 33.3, revenue: 25000000 },
-            { segment: '365日以上', count: 400, percentage: 26.7, revenue: 20000000 }
-          ]
-          
-          setDormantData(mockCustomersData)
-          setSummaryData(mockSummaryData)
-          setSegmentDistributions(mockSegmentData)
-          setHasMoreData(false) // モックデータは固定なので追加読み込みなし
-          
-          console.warn('🚧 APIエラーによりモックデータを表示中')
+          })
         }
         
       } catch (error) {
-        console.error('❌ 休眠顧客データ取得エラー:', error);
+        // 統一エラーハンドラーで最終エラー処理
+        await handleError(error, {
+          context: 'DormantCustomerAnalysis - fetchDormantData',
+          severity: 'error',
+          showToUser: true,
+          notifyType: 'inline' // インライン表示用
+        })
         
-        // 最終的なエラー処理
+        // エラー状態を設定（コンポーネントで表示用）
         if (error instanceof Error && error.message.includes('timeout')) {
-          setError('データの取得に失敗しました。リクエストがタイムアウトしました。データが多いため時間がかかっています。詳細: ページサイズを小さくするか、しばらく待ってから再試行してください。');
+          setError('リクエストがタイムアウトしました。ページサイズを小さくするか、しばらく待ってから再試行してください。')
         } else if (error instanceof Error && error.message.includes('Invalid JSON')) {
-          setError('APIサーバーとの通信に問題があります。バックエンドAPIの状態を確認してください。');
+          setError('APIサーバーとの通信に問題があります。')
         } else {
-          setError(`データの取得に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+          setError(error instanceof Error ? error.message : '予期しないエラーが発生しました')
         }
         
-        setIsLoading(false);
+        setIsLoading(false)
       }
     }
 
@@ -200,8 +224,14 @@ export default function DormantCustomerAnalysis() {
         }
       }
     } catch (error) {
-      console.error('❌ 追加データ取得エラー:', error)
-      setError('追加データの取得に失敗しました')
+      // 統一エラーハンドラーで追加データ取得エラーを処理
+      await handleApiError(error, '/api/dormant/more', 'GET', {
+        context: 'DormantCustomerAnalysis - loadMoreData',
+        severity: 'warning', // 追加データなので警告レベル
+        userMessage: '追加データの取得に失敗しました。再度お試しください。',
+        showToUser: true,
+        notifyType: 'toast'
+      })
     } finally {
       setIsLoadingMore(false)
     }
