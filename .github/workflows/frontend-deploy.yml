@@ -9,6 +9,22 @@ on:
     branches: [ main, develop ]
     paths:
       - 'frontend/**'
+  # 手動実行機能を追加
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'Production'
+        type: choice
+        options:
+          - Production
+          - development
+      force_rebuild:
+        description: '強制リビルド'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -29,7 +45,15 @@ jobs:
     - name: Set deployment environment
       id: env
       run: |
-        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+        # 手動実行の場合は指定された環境を使用
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "node_env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "build_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "deploy_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "app_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+        # 自動実行の場合はブランチに基づいて判定
+        elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
           # Azure Portalで確認した実際の環境名を指定
           echo "deployment_environment=Production" >> $GITHUB_OUTPUT
           echo "node_env=production" >> $GITHUB_OUTPUT
