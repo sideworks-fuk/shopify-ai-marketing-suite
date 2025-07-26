@@ -2,8 +2,8 @@
 
 ## 作業情報
 - 開始日時: 2025-07-26 09:00:00
-- 完了日時: 2025-07-26 16:30:00
-- 所要時間: 7時間30分
+- 完了日時: 2025-07-26 16:45:00
+- 所要時間: 7時間45分
 - 担当: 福田＋AI Assistant
 
 ## 作業概要
@@ -12,6 +12,7 @@
 - 古いドキュメントの整理・統廃合
 - 実態に基づいた正確な情報への更新
 - 新体系での管理開始
+- Azure Static Web Appsのトラブルシューティング情報をドキュメントに追加
 
 ---
 
@@ -59,6 +60,12 @@
 - 実装状況の詳細分類
 - リリース戦略の更新
 - ドキュメント整理計画の更新
+
+### 8. Azure Static Web Apps トラブルシューティング情報追加（16:30-16:45）
+- Azure Static Web Appsの`deployment_environment`設定に関する問題を分析
+- 環境設定ガイドとAzure デプロイガイドにトラブルシューティングセクションを追加
+- 本番環境とプレビュー環境の仕組みを詳細に説明
+- 正しい設定方法とYAMLコード例を提供
 
 ---
 
@@ -130,6 +137,21 @@
 - **`docs/03-design-specs/screen-id-reference.md`** (画面ID参照)
 - **`worklog/main-todo.md`** (メインタスク管理)
 
+### Azure Static Web Apps トラブルシューティング情報追加
+- **`docs/05-operations/environment-configuration-guide.md`**
+  - Azure Static Web Apps デプロイ環境の問題セクションを追加
+  - プレビュー環境にデプロイされてしまう問題の解決方法
+  - "No matching Static Web App environment was found"エラーの対処法
+  - 複数のURLが作成される問題の原因と解決策
+  - Azure Portalでブランチ設定を変更できない場合の代替手段
+  - デプロイ内容が反映されない問題の診断方法
+  - Azure Static Web Apps環境の仕組み説明
+
+- **`docs/05-operations/azure-deployment-guide.md`**
+  - トラブルシューティングセクション全体を追加
+  - Azure Static Web Apps デプロイ環境の問題
+  - 一般的なデプロイ問題（ビルドエラー、環境変数、ルーティングエラー）
+
 ---
 
 ## 🎯 主要変更点
@@ -154,6 +176,12 @@
 - 古いドキュメントのアーカイブ
 - 新体系での管理開始
 
+### 5. Azure Static Web Apps トラブルシューティング情報の追加
+- **重要な発見**: `deployment_environment`パラメータを空にすることで本番環境にデプロイされる仕組みを明確化
+- **問題の症状と原因の明確化**: 各問題について具体的な症状を記載し、根本原因を技術的に説明
+- **解決方法の具体化**: YAML設定例を提供し、ステップバイステップの解決手順を提示
+- **Azure Static Web Apps環境の仕組み説明**: 本番環境（Operational）とプレビュー環境（Preview）の違いを明確化
+
 ---
 
 ## 📊 成果物
@@ -165,6 +193,8 @@
 - `docs/03-design-specs/screen-design.md` (画面設計書)
 - `docs/03-design-specs/screen-id-reference.md` (画面ID参照)
 - `worklog/main-todo.md` (メインタスク管理)
+- `docs/05-operations/environment-configuration-guide.md` (環境設定ガイド)
+- `docs/05-operations/azure-deployment-guide.md` (Azure デプロイガイド)
 
 ### アーカイブファイル
 - `/archive/2025/06/` に2ファイル
@@ -174,6 +204,7 @@
 - `worklog/2025/07/2025-07-26-090000-project-documentation-update.md`
 - `worklog/2025/07/2025-07-26-150000-current-status-analysis-update.md`
 - `worklog/2025/07/2025-07-26-160000-document-reorganization-completion.md`
+- `worklog/2025/01/2025-01-25-143000-azure-static-web-apps-troubleshooting-update.md` (統合済み)
 
 ---
 
@@ -183,6 +214,7 @@
 - ✅ ドキュメントの最終更新日が2025年7月で古い → 現状分析完了
 - ✅ 実装状況とドキュメントの整合性確認が必要 → 乖離確認完了
 - ✅ 技術的負債の残存状況の詳細確認が必要 → 95%解消済み確認
+- ✅ Azure Static Web Appsの`deployment_environment`設定問題 → トラブルシューティング情報追加完了
 
 ### 今後の注意点
 - 他のドキュメントとの整合性確保が必要
@@ -190,6 +222,8 @@
 - ステークホルダーへの正確な状況報告が重要
 - 今後の開発計画の再調整が必要
 - アーカイブファイルの参照関係確認
+- **本番環境へのデプロイ時は必ず`deployment_environment`を空にする**
+- **この問題は他の開発者も遭遇する可能性が高いため、詳細なドキュメント化が重要**
 
 ---
 
@@ -238,6 +272,7 @@
 - 開発チームの作業効率向上
 - プロジェクト透明性の確保
 - 品質保証の徹底
+- Azure Static Web Apps デプロイ問題の未然防止
 
 ---
 
@@ -249,6 +284,8 @@
 - `docs/03-design-specs/screen-design.md`
 - `docs/03-design-specs/screen-id-reference.md`
 - `worklog/main-todo.md`
+- `docs/05-operations/environment-configuration-guide.md`
+- `docs/05-operations/azure-deployment-guide.md`
 
 ### 作業ログ
 - `worklog/2025/07/2025-07-26-090000-project-documentation-update.md`
