@@ -21,7 +21,7 @@ export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   },
   production: {
     name: '本番環境',
-    apiBaseUrl: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net',
+    apiBaseUrl: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net',
     description: '本番運用環境',
     isProduction: true,
   },
