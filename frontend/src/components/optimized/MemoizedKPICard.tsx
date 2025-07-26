@@ -30,11 +30,10 @@ export const MemoizedKPICard = memo<KPICardProps>((props) => {
     prevProps.value === nextProps.value &&
     prevProps.change === nextProps.change &&
     prevProps.variant === nextProps.variant &&
-    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.loadingState === nextProps.loadingState &&
     prevProps.error === nextProps.error &&
-    prevProps.trend === nextProps.trend &&
     // アクション系は毎回新しい関数なので深い比較
-    JSON.stringify(prevProps.action) === JSON.stringify(nextProps.action)
+    JSON.stringify(prevProps.actions) === JSON.stringify(nextProps.actions)
   )
 })
 
