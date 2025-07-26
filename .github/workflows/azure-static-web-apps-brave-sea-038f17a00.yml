@@ -47,20 +47,24 @@ jobs:
       run: |
         # mainブランチの場合は常にProduction環境にデプロイ
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "deployment_environment=Production" >> $GITHUB_OUTPUT
+          echo "deployment_environment=" >> $GITHUB_OUTPUT
+          echo "environment_name=Production" >> $GITHUB_OUTPUT
           echo "node_env=production" >> $GITHUB_OUTPUT
           echo "build_environment=production" >> $GITHUB_OUTPUT
           echo "deploy_environment=production" >> $GITHUB_OUTPUT
           echo "app_environment=production" >> $GITHUB_OUTPUT
         # 手動実行の場合は指定された環境を使用
         elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
           if [ "${{ github.event.inputs.environment }}" = "Production" ]; then
+            echo "deployment_environment=" >> $GITHUB_OUTPUT
+            echo "environment_name=Production" >> $GITHUB_OUTPUT
             echo "node_env=production" >> $GITHUB_OUTPUT
             echo "build_environment=production" >> $GITHUB_OUTPUT
             echo "deploy_environment=production" >> $GITHUB_OUTPUT
             echo "app_environment=production" >> $GITHUB_OUTPUT
           else
+            echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "environment_name=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
             echo "node_env=development" >> $GITHUB_OUTPUT
             echo "build_environment=development" >> $GITHUB_OUTPUT
             echo "deploy_environment=development" >> $GITHUB_OUTPUT
@@ -69,6 +73,7 @@ jobs:
         # その他のブランチはdevelopment環境
         else
           echo "deployment_environment=development" >> $GITHUB_OUTPUT
+          echo "environment_name=development" >> $GITHUB_OUTPUT
           echo "node_env=development" >> $GITHUB_OUTPUT
           echo "build_environment=development" >> $GITHUB_OUTPUT
           echo "deploy_environment=development" >> $GITHUB_OUTPUT
@@ -85,8 +90,9 @@ jobs:
         app_location: "/frontend"
         api_location: ""
         output_location: "out"
-        # mainブランチの場合は強制的にProduction環境にデプロイ
-        deployment_environment: ${{ github.ref == 'refs/heads/main' && 'Production' || steps.env.outputs.deployment_environment }}
+        # 修正: mainブランチの場合はdeployment_environmentを空にして本番環境にデプロイ
+        # その他のブランチはプレビュー環境にデプロイ
+        deployment_environment: ${{ steps.env.outputs.deployment_environment }}
         # 環境変数をAzure Static Web Appsに渡す
         app_build_command: "npm run build"
         api_build_command: ""
@@ -104,11 +110,10 @@ jobs:
     - name: Deploy Status
       run: |
         echo "✅ デプロイ完了: ${{ steps.builddeploy.outputs.app_url }}"
-        echo "🌐 環境: ${{ steps.env.outputs.deployment_environment }}"
-        echo "🔧 強制指定環境: ${{ github.ref == 'refs/heads/main' && 'Production' || steps.env.outputs.deployment_environment }}"
+        echo "🌐 環境: ${{ steps.env.outputs.environment_name }}"
+        echo "🔧 デプロイ先環境: ${{ steps.env.outputs.deployment_environment == '' && 'Production (本番環境)' || format('Preview ({0})', steps.env.outputs.deployment_environment) }}"
         echo "📦 ビルドID: ${{ steps.builddeploy.outputs.build_id }}"
         echo "🔢 ビルド番号: ${{ steps.build_info.outputs.build_number }}"
         echo "📅 ビルド日時: ${{ steps.build_info.outputs.build_date }}"
         echo "🌿 ブランチ: ${{ github.ref_name }}"
         echo "🔍 イベントタイプ: ${{ github.event_name }}"
-        echo "🎯 デプロイ先環境: ${{ github.ref == 'refs/heads/main' && 'Production' || steps.env.outputs.deployment_environment }}" 
