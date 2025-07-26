@@ -1,6 +1,6 @@
 # Shopify AIマーケティングスイート - 環境・URL情報リファレンス
 
-## 📅 最終更新日: 2025年7月21日 (13:15 本番環境統合完了)
+## 📅 最終更新日: 2025年7月26日
 
 ---
 
@@ -187,6 +187,7 @@ dotnet run
 - [ ] セキュリティ更新確認 (月1回)
 
 ### **更新履歴**
+- **2025-07-26**: ディレクトリ整理時に更新日付を修正 - AIアシスタントケンジ
 - **2025-07-21 13:15**: 実際のURL確認・本番環境統合完了 - 全URL動作確認済み
 - **2025-07-21 12:00**: 初版作成 - フロントエンド・バックエンド統合完了
 - **2025-07-20**: バックエンドAPI実装・デプロイ完了
@@ -196,10 +197,10 @@ dotnet run
 
 ## 🔗 **関連ドキュメント**
 
-- [デプロイガイド](./deployment-guide.md)
-- [開発環境セットアップ](../04-development/development-environment-setup.md)
-- [API仕様書](./backend-api-test-guide.md)
-- [作業ログ](../../worklog/2025/07/)
+- [統合デプロイメントガイド](../01-deployment/DEPLOYMENT-MASTER-GUIDE.md)
+- [開発環境セットアップ](../../04-development/development-environment-setup.md)
+- [API統合マッピング](../../03-design-specs/api-documentation/API-INTEGRATION-MAP.md)
+- [トラブルシューティング](../03-troubleshooting/)
 
 ---
 
