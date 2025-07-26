@@ -1,23 +1,33 @@
 # PURCH-02-COUNT API テスト手順書
 
-## 1. テスト概要
+## 📋 テスト概要
 
-### 1.1 テスト対象
+### 🎯 テスト対象
 - **API名**: 購入回数分析【購買】API
 - **機能ID**: PURCH-02-COUNT  
 - **エンドポイント**: `/api/purchase/*`
-- **実装日**: 2024-07-25
+- **実装状況**: ✅ バックエンド実装完了 / 🔧 フロントエンド統合待ち
 
-### 1.2 テスト環境
+### 🌐 テスト環境
 - **本番URL**: `https://shopifytestapi20250720173320.azurewebsites.net`
 - **ローカルURL**: `http://localhost:5000` (開発時)
-- **認証**: なし（内部API）
+- **フロントエンドテストツール**: `/dev/purchase-frequency-api-test`
+
+> **注意**: このAPIは実装完了済みですが、フロントエンドから実際のデータ取得は未実装です。現在はモックデータを使用しています。
 
 ## 2. 事前準備
 
-### 2.1 必要ツール
+### 🛠️ 必要ツール
+- **フロントエンドテストツール**: `/dev/purchase-frequency-api-test` (推奨)
 - **REST Client**: VS Code拡張機能、Postman、または curl
 - **HTTPファイル**: `backend/ShopifyTestApi/ShopifyTestApi-PurchaseCount.http`
+
+### 🎨 フロントエンドAPIテストツールの使用
+**推奨方法**: ブラウザベースのテストツール
+1. 開発サーバー起動後、`http://localhost:3000/dev/purchase-frequency-api-test` にアクセス
+2. 視覚的なAPIテスト画面でテスト実行
+3. リアルタイムでレスポンス確認
+4. エラー詳細とデバッグ情報の表示
 
 ### 2.2 データベース状態確認
 APIテスト前に、データベースに注文データが存在することを確認してください：
