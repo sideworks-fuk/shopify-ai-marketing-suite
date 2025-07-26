@@ -1,4 +1,4 @@
-name: Build and deploy ShopifyTestApi
+name: バックエンド開発環境　Azure Web App CI/CD (Development)
 
 on:
   # 自動デプロイ（developブランチへのプッシュ時）
