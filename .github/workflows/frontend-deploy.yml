@@ -30,12 +30,14 @@ jobs:
       id: env
       run: |
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "deployment_environment=production" >> $GITHUB_OUTPUT
+          # Azure Portalで確認した実際の環境名を指定
+          echo "deployment_environment=Production" >> $GITHUB_OUTPUT
           echo "node_env=production" >> $GITHUB_OUTPUT
           echo "build_environment=production" >> $GITHUB_OUTPUT
           echo "deploy_environment=production" >> $GITHUB_OUTPUT
           echo "app_environment=production" >> $GITHUB_OUTPUT
         else
+          # Azure Portalで確認した実際の環境名を指定
           echo "deployment_environment=development" >> $GITHUB_OUTPUT
           echo "node_env=development" >> $GITHUB_OUTPUT
           echo "build_environment=development" >> $GITHUB_OUTPUT
