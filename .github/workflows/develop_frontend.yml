@@ -51,6 +51,14 @@ jobs:
         with:
           submodules: true
 
+      - name: Get build info
+        id: build_info
+        run: |
+          echo "build_number=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Build and Deploy to Azure Static Web Apps
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -71,12 +79,18 @@ jobs:
             NEXT_PUBLIC_BUILD_ENVIRONMENT=development
             NEXT_PUBLIC_DEPLOY_ENVIRONMENT=development
             NEXT_PUBLIC_APP_ENVIRONMENT=development
+            NEXT_PUBLIC_BUILD_NUMBER=${{ steps.build_info.outputs.build_number }}
+            NEXT_PUBLIC_GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
+            NEXT_PUBLIC_GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
+            NEXT_PUBLIC_BUILD_DATE=${{ steps.build_info.outputs.build_date }}
 
       - name: Deploy Status
         run: |
           echo "✅ デプロイ完了: ${{ steps.builddeploy.outputs.app_url }}"
           echo "🌐 環境: development"
           echo "📦 ビルドID: ${{ steps.builddeploy.outputs.build_id }}"
+          echo "🔢 ビルド番号: ${{ steps.build_info.outputs.build_number }}"
+          echo "📅 ビルド日時: ${{ steps.build_info.outputs.build_date }}"
 
   # 手動デプロイジョブ
   manual_deploy_job:
@@ -111,6 +125,14 @@ jobs:
         with:
           submodules: true
 
+      - name: Get build info
+        id: build_info
+        run: |
+          echo "build_number=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Build and Deploy to Azure Static Web Apps
         id: manualdeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -131,6 +153,10 @@ jobs:
             NEXT_PUBLIC_BUILD_ENVIRONMENT=${{ github.event.inputs.environment }}
             NEXT_PUBLIC_DEPLOY_ENVIRONMENT=${{ github.event.inputs.environment }}
             NEXT_PUBLIC_APP_ENVIRONMENT=${{ github.event.inputs.environment }}
+            NEXT_PUBLIC_BUILD_NUMBER=${{ steps.build_info.outputs.build_number }}
+            NEXT_PUBLIC_GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
+            NEXT_PUBLIC_GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
+            NEXT_PUBLIC_BUILD_DATE=${{ steps.build_info.outputs.build_date }}
 
       - name: Deploy Status
         run: |
@@ -138,6 +164,8 @@ jobs:
           echo "🌐 環境: ${{ github.event.inputs.environment }}"
           echo "🔗 URL: ${{ steps.manualdeploy.outputs.app_url }}"
           echo "📦 ビルドID: ${{ steps.manualdeploy.outputs.build_id }}"
+          echo "🔢 ビルド番号: ${{ steps.build_info.outputs.build_number }}"
+          echo "📅 ビルド日時: ${{ steps.build_info.outputs.build_date }}"
           echo "👤 実行者: ${{ github.actor }}"
           echo "📅 実行日時: $(date)"
 

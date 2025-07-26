@@ -19,7 +19,11 @@ import {
   ShoppingBag,
   UserCheck,
   UserX,
-  Zap
+  Zap,
+  GitBranch,
+  CalendarDays,
+  Clock,
+  Hash
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -32,6 +36,15 @@ interface BookmarkItem {
   icon: React.ReactNode
   status: 'implemented' | 'in-progress' | 'planned'
   category: 'sales' | 'purchase' | 'customer' | 'ai' | 'dev'
+}
+
+// バージョン情報
+const VERSION_INFO = {
+  version: "1.0.0",
+  buildDate: process.env.NEXT_PUBLIC_BUILD_DATE || new Date().toISOString(),
+  buildNumber: process.env.NEXT_PUBLIC_BUILD_NUMBER || "dev",
+  gitCommit: process.env.NEXT_PUBLIC_GIT_COMMIT || "local",
+  gitBranch: process.env.NEXT_PUBLIC_GIT_BRANCH || "develop"
 }
 
 const bookmarkItems: BookmarkItem[] = [
@@ -210,6 +223,7 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 
 export default function DevBookmarksPage() {
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
   
   useEffect(() => {
     // 環境情報を取得
@@ -219,6 +233,13 @@ export default function DevBookmarksPage() {
     } catch (error) {
       console.error('環境情報の取得に失敗:', error)
     }
+
+    // 現在時刻を1秒ごとに更新
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
   }, [])
 
   return (
@@ -237,6 +258,59 @@ export default function DevBookmarksPage() {
           <Badge variant="outline">機能確認</Badge>
         </div>
       </div>
+
+      {/* バージョン情報 */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <Hash className="h-5 w-5" />
+            バージョン情報
+          </CardTitle>
+          <CardDescription>
+            デプロイテスト用 - この情報でデプロイの成功を確認できます
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                v{VERSION_INFO.version}
+              </Badge>
+              <span className="text-sm font-medium">バージョン</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium">{VERSION_INFO.gitBranch}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Hash className="h-4 w-4 text-gray-500" />
+              <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                {VERSION_INFO.gitCommit.substring(0, 8)}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-gray-500" />
+              <span className="text-sm">
+                {new Date(VERSION_INFO.buildDate).toLocaleDateString('ja-JP')}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-white rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium">現在時刻:</span>
+                <span className="text-sm font-mono">
+                  {currentTime.toLocaleString('ja-JP')}
+                </span>
+              </div>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                ビルド #{VERSION_INFO.buildNumber}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* カテゴリ別ブックマーク */}
       <div className="space-y-8">
