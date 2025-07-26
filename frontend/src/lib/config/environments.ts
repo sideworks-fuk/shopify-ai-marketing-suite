@@ -55,20 +55,31 @@ export const getCurrentEnvironment = (): string => {
   // 1. ビルド時の環境変数（最優先）
   const buildTimeEnv = getBuildTimeEnvironment();
   if (buildTimeEnv) {
+    console.log('🔍 Using build time environment:', buildTimeEnv);
     return buildTimeEnv;
   }
   
   // 2. 実行時の環境変数
   if (process.env.NEXT_PUBLIC_ENVIRONMENT) {
+    console.log('🔍 Using NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
     return process.env.NEXT_PUBLIC_ENVIRONMENT;
   }
   
-  // 3. NODE_ENVに基づく自動判定
+  // 3. NODE_ENVに基づく自動判定（修正）
   if (process.env.NODE_ENV === 'production') {
+    console.log('🔍 Using NODE_ENV production');
     return 'production';
   }
   
-  // 4. 開発環境でのローカルストレージ（本番環境の場合は無視）
+  // 4. ビルド時の環境変数でproductionが設定されている場合
+  if (process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT === 'production' ||
+      process.env.NEXT_PUBLIC_DEPLOY_ENVIRONMENT === 'production' ||
+      process.env.NEXT_PUBLIC_APP_ENVIRONMENT === 'production') {
+    console.log('🔍 Using production from build environment variables');
+    return 'production';
+  }
+  
+  // 5. 開発環境でのローカルストレージ（本番環境の場合は無視）
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const storedEnvironment = localStorage.getItem('selectedEnvironment');
     if (storedEnvironment && ENVIRONMENTS[storedEnvironment]) {
@@ -81,7 +92,8 @@ export const getCurrentEnvironment = (): string => {
     }
   }
   
-  // 5. デフォルトは開発環境
+  // 6. デフォルトは開発環境
+  console.log('🔍 Using default development environment');
   return 'development';
 };
 

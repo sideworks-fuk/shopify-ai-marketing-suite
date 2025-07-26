@@ -74,8 +74,15 @@ export const getApiUrl = () => {
     return ENVIRONMENTS.production.apiBaseUrl;
   }
   
-  // 環境設定から取得
+  // 環境設定から取得（修正）
   console.log(`✅ Using ${config.name} API URL:`, config.apiBaseUrl);
+  
+  // production環境の場合は確実にproductionのAPI URLを使用
+  if (currentEnv === 'production' || config.isProduction) {
+    console.log('✅ Force using production API URL for production environment');
+    return ENVIRONMENTS.production.apiBaseUrl;
+  }
+  
   return config.apiBaseUrl;
 };
 
