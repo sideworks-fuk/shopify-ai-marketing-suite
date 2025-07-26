@@ -27,6 +27,7 @@ on:
         options:
           - development
           - staging
+          - production
       force_rebuild:
         description: '強制リビルド'
         required: false
@@ -50,38 +51,7 @@ jobs:
         with:
           submodules: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Verify frontend directory structure
-        run: |
-          echo "📁 現在のディレクトリ: $(pwd)"
-          echo "📦 ディレクトリ構造確認:"
-          ls -la
-          echo "📦 frontend ディレクトリ確認:"
-          ls -la frontend/ || echo "❌ frontend ディレクトリが見つかりません"
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          echo "📦 npm バージョン確認:"
-          npm --version
-          echo "📦 依存関係のインストール開始..."
-          npm install --no-optional
-        env:
-          NODE_ENV: development
-
-      - name: Build application
-        run: |
-          cd frontend
-          echo "🔨 アプリケーションのビルド開始..."
-          npm run build
-        env:
-          NODE_ENV: development
-
-      - name: Deploy to Azure Static Web Apps
+      - name: Build and Deploy to Azure Static Web Apps
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -92,6 +62,15 @@ jobs:
           api_location: ""
           output_location: "out"
           deployment_environment: development
+          # 環境変数をAzure Static Web Appsに渡す
+          app_build_command: "npm run build"
+          api_build_command: ""
+          # 環境変数の設定
+          app_settings: |
+            NODE_ENV=development
+            NEXT_PUBLIC_BUILD_ENVIRONMENT=development
+            NEXT_PUBLIC_DEPLOY_ENVIRONMENT=development
+            NEXT_PUBLIC_APP_ENVIRONMENT=development
 
       - name: Deploy Status
         run: |
@@ -111,43 +90,28 @@ jobs:
     name: Manual Deploy Job
     environment: ${{ github.event.inputs.environment }}
     steps:
+      - name: Environment validation
+        run: |
+          echo "🔍 環境検証中..."
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "⚠️ 本番環境へのデプロイを確認中..."
+            echo "🔒 本番環境へのデプロイには特別な権限が必要です"
+            # 本番環境へのデプロイは手動確認が必要
+            if [ "${{ github.actor }}" != "fukuda1207" ]; then
+              echo "❌ 本番環境へのデプロイ権限がありません"
+              exit 1
+            fi
+            echo "✅ 本番環境へのデプロイが承認されました"
+          else
+            echo "✅ 環境: ${{ github.event.inputs.environment }}"
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Verify frontend directory structure
-        run: |
-          echo "📁 現在のディレクトリ: $(pwd)"
-          echo "📦 ディレクトリ構造確認:"
-          ls -la
-          echo "📦 frontend ディレクトリ確認:"
-          ls -la frontend/ || echo "❌ frontend ディレクトリが見つかりません"
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          echo "📦 npm バージョン確認:"
-          npm --version
-          echo "📦 依存関係のインストール開始..."
-          npm install --no-optional
-        env:
-          NODE_ENV: ${{ github.event.inputs.environment }}
-
-      - name: Build application
-        run: |
-          cd frontend
-          echo "🔨 アプリケーションのビルド開始..."
-          npm run build
-        env:
-          NODE_ENV: ${{ github.event.inputs.environment }}
-
-      - name: Deploy to Azure Static Web Apps
+      - name: Build and Deploy to Azure Static Web Apps
         id: manualdeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -158,6 +122,15 @@ jobs:
           api_location: ""
           output_location: "out"
           deployment_environment: ${{ github.event.inputs.environment }}
+          # 環境変数をAzure Static Web Appsに渡す
+          app_build_command: "npm run build"
+          api_build_command: ""
+          # 環境変数の設定
+          app_settings: |
+            NODE_ENV=${{ github.event.inputs.environment }}
+            NEXT_PUBLIC_BUILD_ENVIRONMENT=${{ github.event.inputs.environment }}
+            NEXT_PUBLIC_DEPLOY_ENVIRONMENT=${{ github.event.inputs.environment }}
+            NEXT_PUBLIC_APP_ENVIRONMENT=${{ github.event.inputs.environment }}
 
       - name: Deploy Status
         run: |
