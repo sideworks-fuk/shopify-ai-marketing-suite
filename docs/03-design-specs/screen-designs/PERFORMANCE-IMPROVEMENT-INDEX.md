@@ -23,7 +23,7 @@
 - **📊 既存の包括分析**: `/product-analysis/performance-improvement/performance-improvement-analysis.md`
 
 ### 🛠️ 実装ガイド
-- **⚡ クイック実装ガイド**: `/performance-improvement/performance-quick-implementation-guide.md`
+- **⚡ クイック実装ガイド**: `/performance/performance-quick-implementation-guide.md`
 
 ### 📁 アーカイブ
 - **🗂️ 混在していた元提案書**: `/archive/2025-07/performance-improvement-proposal-2025-07-mixed-screens.md`
