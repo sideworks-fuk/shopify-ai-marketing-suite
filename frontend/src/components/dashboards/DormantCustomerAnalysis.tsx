@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { 
   Settings, 
   ChevronUp, 
@@ -16,7 +17,8 @@ import {
   Users,
   Clock,
   TrendingDown,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react"
 
 // 休眠顧客分析コンポーネントのインポート
@@ -31,6 +33,25 @@ import { useDormantFilters } from "@/contexts/FilterContext"
 import { useAppStore } from "@/stores/appStore"
 import { handleApiError, handleError } from "@/lib/error-handler"
 
+// デバウンス用のユーティリティ関数
+function debounce<T extends (...args: any[]) => Promise<any>>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => Promise<void> {
+  let timeout: NodeJS.Timeout | null = null
+  
+  return (...args: Parameters<T>) => {
+    return new Promise<void>((resolve) => {
+      if (timeout) clearTimeout(timeout)
+      
+      timeout = setTimeout(async () => {
+        await func(...args)
+        resolve()
+      }, wait)
+    })
+  }
+}
+
 export default function DormantCustomerAnalysis() {
   const [showConditions, setShowConditions] = useState(true)
   const [dormantData, setDormantData] = useState<any[]>([])
@@ -44,6 +65,25 @@ export default function DormantCustomerAnalysis() {
   
   const { filters } = useDormantFilters()
   const showToast = useAppStore((state) => state.showToast)
+  
+  // 無限スクロール用のRef
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  
+  // パフォーマンスメトリクス
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    totalLoaded: 0,
+    loadTime: 0,
+    memoryUsage: 0,
+    lastLoadTime: 0
+  })
+  
+  // グローバルローディング状態
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  const [progressValue, setProgressValue] = useState(0)
+  
+  // キャンセル機能用のAbortController
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // エラーハンドラーの初期化
   useEffect(() => {
@@ -60,6 +100,9 @@ export default function DormantCustomerAnalysis() {
         setError(null)
         
         console.log('🔄 休眠顧客分析データの取得を開始...')
+        
+        // パフォーマンス計測開始
+        const startTime = performance.now()
         
         try {
           // 並行して両方のAPIを呼び出し
@@ -101,13 +144,23 @@ export default function DormantCustomerAnalysis() {
         setSummaryData(summaryResponse.data)
         setSegmentDistributions(segmentData)
         
+        // パフォーマンス計測終了と初期メトリクス設定
+        const endTime = performance.now()
+        const loadTime = endTime - startTime
+        setPerformanceMetrics({
+          totalLoaded: customersData.length,
+          loadTime: loadTime,
+          lastLoadTime: loadTime,
+          memoryUsage: (performance as any).memory?.usedJSHeapSize || 0
+        })
+        
         // 初期ページネーション情報の設定
         if (pagination) {
           setCurrentPage(pagination.currentPage || 1)
           setHasMoreData(pagination.hasNextPage || false)
         } else {
           // ページネーション情報がない場合は、データ数で判断
-          setHasMoreData(customersData.length === 20) // pageSize分だけ取得できた場合は続きがある可能性
+          setHasMoreData(customersData.length === 100) // pageSize分だけ取得できた場合は続きがある可能性
         }
         
         } catch (apiError) {
@@ -190,13 +243,15 @@ export default function DormantCustomerAnalysis() {
   }, [])
 
   // 追加データを読み込む関数（もっと見る機能）
-  const loadMoreData = async () => {
+  const loadMoreData = useCallback(async () => {
     if (isLoadingMore || !hasMoreData) return
     
     try {
       setIsLoadingMore(true)
       const nextPage = currentPage + 1
       
+      // パフォーマンス計測開始
+      const startTime = performance.now()
       console.log('🔄 追加データの取得を開始...', { nextPage })
       
       const response = await api.dormantCustomers({
@@ -204,17 +259,33 @@ export default function DormantCustomerAnalysis() {
         pageSize: 20,
         pageNumber: nextPage,
         sortBy: 'DaysSinceLastPurchase',
-        descending: true
+        descending: false // 初期データと同じ昇順に統一
       })
       
       const newCustomers = response.data?.customers || []
       console.log('✅ 追加データ取得成功:', { newCount: newCustomers.length })
       
+      // パフォーマンス計測終了
+      const endTime = performance.now()
+      const loadTime = endTime - startTime
+      
       if (newCustomers.length === 0) {
         setHasMoreData(false)
         console.log('🔚 これ以上データがありません')
       } else {
-        setDormantData(prev => [...prev, ...newCustomers])
+        setDormantData(prev => {
+          const newTotal = [...prev, ...newCustomers]
+          
+          // パフォーマンスメトリクス更新
+          setPerformanceMetrics(prevMetrics => ({
+            totalLoaded: newTotal.length,
+            loadTime: prevMetrics.loadTime + loadTime,
+            lastLoadTime: loadTime,
+            memoryUsage: (performance as any).memory?.usedJSHeapSize || 0
+          }))
+          
+          return newTotal
+        })
         setCurrentPage(nextPage)
         
         // ページネーション情報から残りページを確認
@@ -235,7 +306,201 @@ export default function DormantCustomerAnalysis() {
     } finally {
       setIsLoadingMore(false)
     }
-  }
+  }, [isLoadingMore, hasMoreData, currentPage])
+
+  // タイムアウト付きフェッチ関数
+  const fetchWithTimeout = useCallback(async (
+    fetchFunction: () => Promise<any>, 
+    timeout = 30000
+  ) => {
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, timeout)
+    
+    try {
+      const result = await fetchFunction()
+      clearTimeout(timeoutId)
+      return result
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      
+      if (error.name === 'AbortError') {
+        throw new Error('データ取得がタイムアウトしました。処理を中止しました。')
+      }
+      throw error
+    } finally {
+      abortControllerRef.current = null
+    }
+  }, [])
+
+  // 処理のキャンセル機能
+  const cancelProcessing = useCallback(() => {
+    if (abortControllerRef.current) {
+      console.log('🛑 処理をキャンセルしています...')
+      abortControllerRef.current.abort()
+      setIsProcessing(false)
+      setProcessingMessage("")
+      setProgressValue(0)
+      showToast('処理をキャンセルしました。', 'info')
+    }
+  }, [showToast])
+
+  // 365日以上データの特別処理（大量データ対応）
+  const fetchLargeDataset = useCallback(async (segment: string) => {
+    console.log('🔄 大量データセット取得開始:', segment)
+    const BATCH_SIZE = 50 // バッチサイズを小さくしてUIの応答性を向上
+    let allData: any[] = []
+    let page = 1
+    let hasMore = true
+    
+    while (hasMore) {
+      // プログレス更新（推定進捗）
+      const estimatedProgress = Math.min((page - 1) * 10, 80)
+      setProgressValue(estimatedProgress)
+      setProcessingMessage(
+        `大量データを処理中... ${allData.length}件取得済み (ページ${page})`
+      )
+      
+      try {
+        const batch = await api.dormantCustomers({
+          storeId: 1,
+          pageNumber: page,
+          pageSize: BATCH_SIZE,
+          segment: segment,
+          sortBy: 'DaysSinceLastPurchase',
+          descending: false
+        })
+        
+        const newCustomers = batch.data?.customers || []
+        allData = [...allData, ...newCustomers]
+        
+        hasMore = newCustomers.length === BATCH_SIZE
+        page++
+        
+        console.log(`📊 バッチ${page-1}完了: ${newCustomers.length}件追加, 合計${allData.length}件`)
+        
+        // UIの更新を許可（フリーズ防止）
+        await new Promise(resolve => setTimeout(resolve, 10))
+        
+        // 1000件以上の場合は制限
+        if (allData.length >= 1000) {
+          console.log('⚠️ 1000件制限に達しました')
+          hasMore = false
+        }
+        
+      } catch (error) {
+        console.error('❌ バッチ処理エラー:', error)
+        throw error
+      }
+    }
+    
+    setProgressValue(100)
+    console.log('✅ 大量データ取得完了:', allData.length, '件')
+    return allData
+  }, [])
+
+  // セグメント選択時のデータ取得処理
+  const handleSegmentSelect = useCallback(async (segment: any) => {
+    if (!segment) {
+      // セグメントクリア時はリセット
+      console.log('🔄 セグメントクリア - 全データ表示')
+      return
+    }
+    
+    try {
+      setIsProcessing(true)
+      setProgressValue(0)
+      
+      // 365日以上の場合は特別な処理（タイムアウト対応）
+      if (segment.label === "365日以上") {
+        setProcessingMessage("大量のデータを処理しています。キャンセル可能です...")
+        
+        const largeData = await fetchWithTimeout(
+          () => fetchLargeDataset(segment.label),
+          60000 // 60秒タイムアウト（大量データのため長め）
+        )
+        
+        // バッチで表示データを更新（UIの応答性向上）
+        setDormantData(largeData)
+        
+      } else {
+        setProcessingMessage("データを取得しています...")
+        setProgressValue(50)
+        
+        // 通常のセグメントデータ取得（タイムアウト対応）
+        const response = await fetchWithTimeout(
+          () => api.dormantCustomers({
+            storeId: 1,
+            pageSize: 200, // 365日以上以外は200件程度で十分
+            segment: segment.label,
+            sortBy: 'DaysSinceLastPurchase',
+            descending: false
+          }),
+          15000 // 15秒タイムアウト
+        )
+        
+        const customersData = response.data?.customers || []
+        setDormantData(customersData)
+        setProgressValue(100)
+      }
+      
+      console.log('✅ セグメント選択完了:', segment.label)
+      
+    } catch (error) {
+      console.error('❌ セグメント選択エラー:', error)
+      await handleApiError(error, '/api/dormant/segment', 'GET', {
+        context: 'DormantCustomerAnalysis - handleSegmentSelect',
+        severity: 'error',
+        userMessage: 'セグメントデータの取得に失敗しました。',
+        showToUser: true,
+        notifyType: 'toast'
+      })
+    } finally {
+      setIsProcessing(false)
+      setProcessingMessage("")
+      setProgressValue(0)
+    }
+  }, [fetchLargeDataset, fetchWithTimeout])
+
+  // デバウンスされたセグメント選択関数（連続クリック防止）
+  const debouncedSegmentSelect = useMemo(
+    () => debounce(async (segment: any) => {
+      console.log('🔄 デバウンス処理実行:', segment?.label || 'クリア')
+      await handleSegmentSelect(segment)
+    }, 300), // 300ms の遅延
+    [handleSegmentSelect]
+  )
+
+  // 無限スクロール用のIntersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && hasMoreData && !isLoadingMore) {
+          console.log('🔄 無限スクロール: 自動読み込み開始')
+          loadMoreData()
+        }
+      },
+      {
+        threshold: 0,
+        rootMargin: '100px' // 100px前に発火
+      }
+    )
+
+    const currentRef = loadMoreRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasMoreData, isLoadingMore, loadMoreData])
 
   // フィルタリングされた顧客データ
   const filteredCustomers = useMemo(() => {
@@ -368,6 +633,36 @@ export default function DormantCustomerAnalysis() {
 
   return (
     <div className="space-y-6">
+      {/* グローバルプログレスバー */}
+      {isProcessing && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">{processingMessage}</span>
+                </div>
+                {/* キャンセルボタン */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelProcessing}
+                  className="text-xs"
+                >
+                  キャンセル
+                </Button>
+              </div>
+              <Progress value={progressValue} className="mt-2 h-2" />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>進捗: {progressValue.toFixed(0)}%</span>
+                <span>処理中... 長時間かかる場合はキャンセルしてください</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 分析条件設定エリア */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between px-6 py-3">
@@ -451,7 +746,11 @@ export default function DormantCustomerAnalysis() {
       {/* 期間別セグメントフィルター */}
       <div>
         <h2 className="text-xl font-semibold mb-4">期間別セグメント</h2>
-        <DormantPeriodFilter segmentDistributions={segmentDistributions} />
+        <DormantPeriodFilter 
+          segmentDistributions={segmentDistributions}
+          onSegmentSelect={debouncedSegmentSelect}
+          isDataLoading={isLoading || isProcessing}
+        />
       </div>
 
       {/* 分析チャート - オプション機能として一時非表示 */}
@@ -472,8 +771,79 @@ export default function DormantCustomerAnalysis() {
         </h2>
         <DormantCustomerList 
           selectedSegment={filters.selectedSegment}
-          dormantData={dormantData}
+          dormantData={filteredCustomers}
         />
+        
+        {/* さらに表示ボタン */}
+        {hasMoreData && dormantData.length >= 100 && (
+          <div className="mt-6 text-center">
+            <Button
+              onClick={loadMoreData}
+              disabled={isLoadingMore}
+              variant="outline"
+              size="lg"
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  読み込み中...
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="mr-2 h-4 w-4" />
+                  さらに表示
+                </>
+              )}
+            </Button>
+            <p className="mt-2 text-sm text-muted-foreground">
+              全{dormantData.length}件のうち{filteredCustomers.length}件を表示中
+              {hasMoreData && ' / さらにデータがあります'}
+            </p>
+          </div>
+        )}
+        
+        {/* 無限スクロール用の参照要素 */}
+        <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
+          {isLoadingMore && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              追加データを読み込んでいます...
+            </div>
+          )}
+        </div>
+        
+        {/* パフォーマンスメトリクス表示（開発環境のみ） */}
+        {process.env.NODE_ENV === 'development' && performanceMetrics.totalLoaded > 0 && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 border">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="font-medium">パフォーマンスメトリクス</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <div className="font-medium">読み込み件数</div>
+                <div className="text-blue-600">{performanceMetrics.totalLoaded}件</div>
+              </div>
+              <div>
+                <div className="font-medium">累積読み込み時間</div>
+                <div className="text-green-600">{performanceMetrics.loadTime.toFixed(1)}ms</div>
+              </div>
+              <div>
+                <div className="font-medium">最終読み込み時間</div>
+                <div className="text-orange-600">{performanceMetrics.lastLoadTime.toFixed(1)}ms</div>
+              </div>
+              <div>
+                <div className="font-medium">メモリ使用量</div>
+                <div className="text-purple-600">
+                  {performanceMetrics.memoryUsage ? 
+                    `${(performanceMetrics.memoryUsage / 1024 / 1024).toFixed(1)}MB` : 
+                    'N/A'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* フッター情報 - オプション機能として一時非表示 */}

@@ -605,7 +605,6 @@ const YearOverYearProductAnalysisImproved = () => {
                                   前年: {formatValue(monthData.previous, viewMode)}
                                 </div>
                                 <Badge 
-                                  size="sm" 
                                   className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
                                 >
                                   {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%

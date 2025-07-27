@@ -196,4 +196,3 @@ export const MemoizedCustomerItem = memo<CustomerItemProps>(({
 MemoizedCustomerItem.displayName = 'MemoizedCustomerItem'
 
 export default MemoizedCustomerItem
-export type { CustomerItemProps }

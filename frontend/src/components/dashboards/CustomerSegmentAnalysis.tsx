@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, AlertCircle, TrendingUp, TrendingDown } from "lucide-react"
-import { DataService } from "@/lib/data-service"
+import { DataService } from "@/services/dataService"
 
 // 購入回数別分析データの型定義
 interface PurchaseCountAnalysisData {
@@ -160,8 +160,8 @@ export default function CustomerSegmentAnalysis({
 
     try {
       const dataService = new DataService(shopDomain, accessToken)
-      const data = await dataService.getPurchaseCountAnalysis(currentPeriod, comparisonPeriod)
-      setPurchaseCountData(data)
+      const response = await dataService.getPurchaseCountAnalysis(currentPeriod, comparisonPeriod)
+      setPurchaseCountData(response.data)
     } catch (err) {
       console.error("Failed to fetch purchase count data:", err)
       setError("データの取得に失敗しました。サンプルデータを表示します。")

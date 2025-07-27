@@ -13,7 +13,6 @@ import type {
 } from '../types/api';
 import { getCurrentDataSource } from '../config/environment';
 import { defaultApiClient } from '../clients/api-client';
-
 // 既存のモックデータをインポート
 import { 
   customerSegmentData,
@@ -34,7 +33,7 @@ const convertMockToApiData = (mockCustomer: CustomerDetail): CustomerApiData => 
         productId: `product_${Math.floor(Math.random() * 100)}`,
         amount: mockCustomer.totalAmount,
         currency: 'JPY',
-        date: mockCustomer.lastOrderDate,
+        date: mockCustomer.lastOrderDate.toISOString(),
         status: 'completed' as const
       }
     ],
@@ -51,7 +50,7 @@ const convertMockToApiData = (mockCustomer: CustomerDetail): CustomerApiData => 
       totalSpent: mockCustomer.totalAmount,
       orderCount: mockCustomer.purchaseCount,
       averageOrderValue: mockCustomer.totalAmount / Math.max(mockCustomer.purchaseCount, 1),
-      lastOrderDate: mockCustomer.lastOrderDate,
+      lastOrderDate: mockCustomer.lastOrderDate.toISOString(),
       lifetimeValue: mockCustomer.totalAmount * 1.2, // 予測LTV
       riskScore: mockCustomer.status === '休眠' ? 0.8 : 0.2
     },
@@ -70,8 +69,12 @@ const convertApiToMockData = (apiCustomer: CustomerApiData): CustomerDetail => {
     frequency: apiCustomer.metrics.orderCount / 12, // 年間頻度の推定
     avgInterval: 30, // デフォルト値
     topProduct: '商品A', // デフォルト値
-    lastOrderDate: apiCustomer.metrics.lastOrderDate,
-    status: apiCustomer.segment.name as CustomerDetail['status']
+    lastOrderDate: new Date(apiCustomer.metrics.lastOrderDate),
+    status: apiCustomer.segment.name as CustomerDetail['status'],
+    // Phase 2: 商品情報を追加
+    topProducts: [], // デフォルト値
+    productCategories: [], // デフォルト値
+    repeatProducts: 0 // デフォルト値
   };
 };
 
@@ -156,11 +159,11 @@ class MockCustomerDataProvider implements DataProvider<CustomerApiData> {
       sortOrder = 'desc'
     } = params;
     
-    let data = CUSTOMER_DETAILS.map(convertMockToApiData);
+    let data = customerDetailData.map(convertMockToApiData);
     
     // ソート処理
     if (sortBy && sortBy in data[0]) {
-      data.sort((a, b) => {
+      data.sort((a: CustomerApiData, b: CustomerApiData) => {
         const aVal = (a as any)[sortBy];
         const bVal = (b as any)[sortBy];
         
@@ -197,12 +200,12 @@ class MockCustomerDataProvider implements DataProvider<CustomerApiData> {
   async getFiltered(filters: FilterParams<CustomerApiData>): Promise<ApiResponse<CustomerApiData[]>> {
     await this.simulateDelay();
     
-    let data = CUSTOMER_DETAILS.map(convertMockToApiData);
+    let data = customerDetailData.map(convertMockToApiData);
     
     // 簡易フィルタリング実装
     if (filters.name) {
       const nameFilter = Array.isArray(filters.name) ? filters.name : [filters.name];
-      data = data.filter(customer => 
+      data = data.filter((customer: CustomerApiData) => 
         nameFilter.some(name => customer.name.includes(name as string))
       );
     }

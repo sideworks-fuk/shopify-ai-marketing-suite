@@ -193,7 +193,7 @@ export class ApiClient {
         });
 
         log('info', `リクエスト成功: ${method} ${url}`, { duration, retryCount });
-        return response;
+        return response as ApiResponse<T>;
 
       } catch (error) {
         lastError = error as Error;

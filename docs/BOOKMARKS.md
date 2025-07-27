@@ -1,6 +1,6 @@
 # 🔖 Shopify AIマーケティングスイート - ブックマークリンク集
 
-## 📅 最終更新: 2025年7月24日 [[memory:3773065]]
+## 📅 最終更新: 2025年7月27日 [[memory:3773065]]
 
 ---
 
@@ -8,6 +8,7 @@
 
 ### **📱 フロントエンド (開発環境)**
 - [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
+- [🔍 **プレビュー環境**](https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net/dev-bookmarks/) - 開発環境プレビューサイト ✅ **NEW!**
 - [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
 - [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
 - [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**

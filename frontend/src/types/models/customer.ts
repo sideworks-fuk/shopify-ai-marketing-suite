@@ -285,7 +285,10 @@ export function isCustomerDetail(obj: any): obj is CustomerDetail {
 
 export function isDormantCustomerDetail(obj: any): obj is DormantCustomerDetail {
   try {
-    return isCustomerDetail(obj) && 
+    return obj && 
+      typeof obj === 'object' &&
+      typeof obj.customerId === 'string' &&
+      typeof obj.name === 'string' &&
       obj.dormancy !== undefined &&
       obj.analytics !== undefined &&
       obj.reactivation !== undefined;

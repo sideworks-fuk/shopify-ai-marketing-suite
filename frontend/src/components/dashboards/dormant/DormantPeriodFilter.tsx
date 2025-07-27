@@ -3,10 +3,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Filter } from "lucide-react"
+import { Filter, Loader2 } from "lucide-react"
 import { type DormantSegment } from "@/types/models/customer"
 import { useDormantFilters } from "@/contexts/FilterContext"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { cn } from "@/lib/utils"
 
 interface ApiSegmentDistribution {
   segment: string;
@@ -17,10 +18,20 @@ interface ApiSegmentDistribution {
 
 interface DormantPeriodFilterProps {
   segmentDistributions?: ApiSegmentDistribution[];
+  onSegmentSelect?: (segment: DormantSegment | null) => Promise<void>;
+  isDataLoading?: boolean;
 }
 
-export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriodFilterProps) {
+export function DormantPeriodFilter({ 
+  segmentDistributions = [], 
+  onSegmentSelect,
+  isDataLoading = false 
+}: DormantPeriodFilterProps) {
   const { filters, setSelectedSegment } = useDormantFilters()
+  
+  // ローディング状態の管理
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadingSegment, setLoadingSegment] = useState<string | null>(null)
   
   // APIデータからセグメント情報を生成
   const periodSegments = useMemo(() => {
@@ -85,9 +96,40 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
     return segments
   }, [segmentDistributions])
 
-  const handleSegmentClick = (segment: DormantSegment) => {
+  const handleSegmentClick = async (segment: DormantSegment) => {
+    // 既にローディング中の場合は何もしない
+    if (isLoading) return
+    
     const newSelection = filters.selectedSegment?.id === segment.id ? null : segment
-    setSelectedSegment(newSelection)
+    
+    // 即座にローディング状態を表示
+    setIsLoading(true)
+    setLoadingSegment(segment.id)
+    
+    try {
+      // フィルター状態を即座に更新（UI反応の向上）
+      setSelectedSegment(newSelection)
+      
+      // 365日以上の場合は特別なメッセージ
+      if (segment.label === "365日以上") {
+        console.log('🔄 365日以上データの処理を開始...')
+      }
+      
+      // 親コンポーネントのコールバックがある場合は実行
+      if (onSegmentSelect) {
+        await onSegmentSelect(newSelection)
+      }
+      
+      console.log('✅ セグメント選択完了:', newSelection?.label || 'クリア')
+      
+    } catch (error) {
+      console.error('❌ セグメント選択エラー:', error)
+      // エラー時は元の状態に戻す
+      setSelectedSegment(filters.selectedSegment)
+    } finally {
+      setIsLoading(false)
+      setLoadingSegment(null)
+    }
   }
 
   return (
@@ -101,26 +143,54 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
       <CardContent>
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {periodSegments.map((segment) => (
-              <Button
-                key={segment.id}
-                variant={filters.selectedSegment?.id === segment.id ? "default" : "outline"}
-                onClick={() => handleSegmentClick(segment)}
-                className={`h-auto flex-col p-4 ${
-                  filters.selectedSegment?.id === segment.id ? 'ring-2 ring-blue-500' : ''
-                }`}
-              >
-                <div className="text-sm font-semibold mb-1">
-                  {segment.label}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {segment.range[0]}-{segment.range[1] === 9999 ? '∞' : segment.range[1]}日
-                </div>
-                <Badge variant="secondary" className="mt-2 text-xs">
-                  {segment.count.toLocaleString()}名
-                </Badge>
-              </Button>
-            ))}
+            {periodSegments.map((segment) => {
+              const isSegmentLoading = loadingSegment === segment.id
+              const isSelected = filters.selectedSegment?.id === segment.id
+              
+              return (
+                <Button
+                  key={segment.id}
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => handleSegmentClick(segment)}
+                  disabled={isLoading || isDataLoading}
+                  className={cn(
+                    "h-auto flex-col p-4 relative transition-all",
+                    isSelected && "ring-2 ring-blue-500",
+                    isSegmentLoading && "opacity-60",
+                    (isLoading || isDataLoading) && "cursor-not-allowed"
+                  )}
+                >
+                  {/* ローディングオーバーレイ */}
+                  {isSegmentLoading && (
+                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10 rounded-md">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                  
+                  {/* セグメント情報 */}
+                  <div className="text-sm font-semibold mb-1">
+                    {segment.label}
+                    {segment.label === "365日以上" && isSegmentLoading && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        大量データ処理中...
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {segment.range[0]}-{segment.range[1] === 9999 ? '∞' : segment.range[1]}日
+                  </div>
+                  <Badge 
+                    variant="secondary" 
+                    className={cn(
+                      "mt-2 text-xs",
+                      isSegmentLoading && "opacity-50"
+                    )}
+                  >
+                    {segment.count.toLocaleString()}名
+                  </Badge>
+                </Button>
+              )
+            })}
           </div>
         </div>
 
@@ -135,15 +205,32 @@ export function DormantPeriodFilter({ segmentDistributions = [] }: DormantPeriod
                 <span className="text-sm font-medium">
                   {filters.selectedSegment.label}（{filters.selectedSegment.count}名）
                 </span>
+                {isLoading && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    処理中...
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedSegment(null)}
-                className="text-blue-600 hover:text-blue-800"
+                disabled={isLoading || isDataLoading}
+                className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
               >
                 クリア
               </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* 全体のローディング状態表示 */}
+        {(isDataLoading && !isLoading) && (
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>データを読み込んでいます...</span>
             </div>
           </div>
         )}
