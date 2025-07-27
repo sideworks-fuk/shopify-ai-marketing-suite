@@ -84,10 +84,10 @@ export const getCurrentEnvironment = (): string => {
     return process.env.NEXT_PUBLIC_ENVIRONMENT;
   }
   
-  // 3. 本番環境では明示的な環境設定を必須とする
+  // 3. 本番環境では明示的な環境設定を必須とする（NEXT_PUBLIC_ENVIRONMENTが設定されていない場合のみ）
   if (process.env.NODE_ENV === 'production') {
-    console.error('🚨 NODE_ENV is production but no explicit environment configuration found');
-    console.error('🚨 This is a critical security issue - production must have explicit environment settings');
+    console.warn('⚠️ NODE_ENV is production but no explicit NEXT_PUBLIC_ENVIRONMENT found');
+    console.warn('⚠️ Falling back to production environment for security');
     // 本番環境では明示的な設定を必須とし、デフォルトでproductionを返す
     return 'production';
   }
