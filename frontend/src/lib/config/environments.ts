@@ -48,24 +48,23 @@ export const validateEnvironmentConfig = (
   env: string,
   config: EnvironmentConfig
 ): void => {
-  // 本番環境での安全性チェック
-  if (process.env.NODE_ENV === 'production' && env !== 'production') {
-    console.error(`🚨 Invalid environment configuration: NODE_ENV=production but environment=${env}`);
-    throw new Error(`Production safety violation: NODE_ENV=production but environment=${env}`);
-  }
-
   // API URLの存在チェック
   if (!config.apiBaseUrl) {
     console.error(`🚨 Missing API URL for environment: ${env}`);
     throw new Error(`Missing API URL for environment: ${env}`);
   }
 
-  // 本番環境でのdevelopment API接続チェック
-  if (process.env.NODE_ENV === 'production' && config.apiBaseUrl.includes('develop')) {
-    console.error(`🚨 Production environment cannot use development API: ${config.apiBaseUrl}`);
-    throw new Error(`Production environment cannot use development API: ${config.apiBaseUrl}`);
+  // 本番環境（production）として明示的に指定されている場合のみ厳格なチェックを行う
+  if (env === 'production') {
+    // 本番環境でのdevelopment API接続チェック
+    if (config.apiBaseUrl.includes('develop')) {
+      console.error(`🚨 Production environment cannot use development API: ${config.apiBaseUrl}`);
+      throw new Error(`Production environment cannot use development API: ${config.apiBaseUrl}`);
+    }
   }
 
+  // NODE_ENVはNext.jsがビルド時に自動的にproductionに設定するため、
+  // NEXT_PUBLIC_ENVIRONMENTを信頼できる環境設定として使用する
   console.log(`✅ Environment configuration validated: ${env} -> ${config.apiBaseUrl}`);
 };
 
@@ -84,11 +83,12 @@ export const getCurrentEnvironment = (): string => {
     return process.env.NEXT_PUBLIC_ENVIRONMENT;
   }
   
-  // 3. 本番環境では明示的な環境設定を必須とする（NEXT_PUBLIC_ENVIRONMENTが設定されていない場合のみ）
-  if (process.env.NODE_ENV === 'production') {
+  // 3. NODE_ENVがproductionの場合の処理
+  // Next.jsはビルド時に常にNODE_ENV=productionを設定するため、
+  // NEXT_PUBLIC_ENVIRONMENTが未設定の場合のみproductionにフォールバック
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_ENVIRONMENT) {
     console.warn('⚠️ NODE_ENV is production but no explicit NEXT_PUBLIC_ENVIRONMENT found');
     console.warn('⚠️ Falling back to production environment for security');
-    // 本番環境では明示的な設定を必須とし、デフォルトでproductionを返す
     return 'production';
   }
   
@@ -180,7 +180,7 @@ export const getEnvironmentDebugInfo = () => {
     isProduction: config.isProduction,
     buildTimeInfo: getBuildTimeEnvironmentInfo(),
     securityChecks: {
-      isProductionSafe: process.env.NODE_ENV !== 'production' || env === 'production',
+      isProductionSafe: env !== 'production' || !config.apiBaseUrl.includes('develop'),
       isDevelopmentApiBlocked: !config.apiBaseUrl.includes('develop') || !config.isProduction,
       configurationValid: (() => {
         try {

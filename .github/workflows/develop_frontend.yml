@@ -49,44 +49,38 @@ jobs:
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
           echo "deployment_environment=" >> $GITHUB_OUTPUT
           echo "environment_name=Production" >> $GITHUB_OUTPUT
-          echo "node_env=production" >> $GITHUB_OUTPUT
           echo "next_public_environment=production" >> $GITHUB_OUTPUT
         # 手動実行の場合は指定された環境を使用
         elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           if [ "${{ github.event.inputs.environment }}" = "Production" ]; then
             echo "deployment_environment=" >> $GITHUB_OUTPUT
             echo "environment_name=Production" >> $GITHUB_OUTPUT
-            echo "node_env=production" >> $GITHUB_OUTPUT
             echo "next_public_environment=production" >> $GITHUB_OUTPUT
           else
             echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
             echo "environment_name=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-            echo "node_env=development" >> $GITHUB_OUTPUT
             echo "next_public_environment=development" >> $GITHUB_OUTPUT
           fi
         # その他のブランチはdevelopment環境
         else
           echo "deployment_environment=development" >> $GITHUB_OUTPUT
           echo "environment_name=development" >> $GITHUB_OUTPUT
-          echo "node_env=development" >> $GITHUB_OUTPUT
           echo "next_public_environment=development" >> $GITHUB_OUTPUT
         fi
         
         # 環境設定の整合性確認（変数を直接参照）
         echo "🔍 Environment Configuration:"
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "  NODE_ENV: production"
           echo "  NEXT_PUBLIC_ENVIRONMENT: production"
           echo "  Deployment Target: Production"
         elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.environment }}" = "Production" ]; then
-          echo "  NODE_ENV: production"
           echo "  NEXT_PUBLIC_ENVIRONMENT: production"
           echo "  Deployment Target: Production"
         else
-          echo "  NODE_ENV: development"
           echo "  NEXT_PUBLIC_ENVIRONMENT: development"
           echo "  Deployment Target: development"
         fi
+        echo "  Note: Next.js will automatically set NODE_ENV=production during build"
 
     - name: Deploy to Azure Static Web Apps
       id: builddeploy
@@ -136,5 +130,5 @@ jobs:
       run: |
         echo "🔧 開発環境設定情報:"
         echo "  - 環境: ${{ steps.env.outputs.next_public_environment }}"
-        echo "  - NODE_ENV: ${{ steps.env.outputs.node_env }}"
         echo "  - デプロイ先: ${{ steps.env.outputs.deployment_environment }}"
+        echo "  - Note: NODE_ENV is automatically set to 'production' by Next.js during build"
