@@ -53,6 +53,7 @@ jobs:
           echo "build_environment=production" >> $GITHUB_OUTPUT
           echo "deploy_environment=production" >> $GITHUB_OUTPUT
           echo "app_environment=production" >> $GITHUB_OUTPUT
+          echo "next_public_environment=production" >> $GITHUB_OUTPUT
         # 手動実行の場合は指定された環境を使用
         elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           if [ "${{ github.event.inputs.environment }}" = "Production" ]; then
@@ -62,6 +63,7 @@ jobs:
             echo "build_environment=production" >> $GITHUB_OUTPUT
             echo "deploy_environment=production" >> $GITHUB_OUTPUT
             echo "app_environment=production" >> $GITHUB_OUTPUT
+            echo "next_public_environment=production" >> $GITHUB_OUTPUT
           else
             echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
             echo "environment_name=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
@@ -69,6 +71,7 @@ jobs:
             echo "build_environment=development" >> $GITHUB_OUTPUT
             echo "deploy_environment=development" >> $GITHUB_OUTPUT
             echo "app_environment=development" >> $GITHUB_OUTPUT
+            echo "next_public_environment=development" >> $GITHUB_OUTPUT
           fi
         # その他のブランチはdevelopment環境
         else
@@ -78,6 +81,7 @@ jobs:
           echo "build_environment=development" >> $GITHUB_OUTPUT
           echo "deploy_environment=development" >> $GITHUB_OUTPUT
           echo "app_environment=development" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
         fi
 
     - name: Deploy to Azure Static Web Apps
@@ -96,9 +100,10 @@ jobs:
         # 環境変数をAzure Static Web Appsに渡す
         app_build_command: "npm run build"
         api_build_command: ""
-        # 環境変数の設定
+        # 環境変数の設定（修正版）
         app_settings: |
           NODE_ENV=${{ steps.env.outputs.node_env }}
+          NEXT_PUBLIC_ENVIRONMENT=${{ steps.env.outputs.next_public_environment }}
           NEXT_PUBLIC_BUILD_ENVIRONMENT=${{ steps.env.outputs.build_environment }}
           NEXT_PUBLIC_DEPLOY_ENVIRONMENT=${{ steps.env.outputs.deploy_environment }}
           NEXT_PUBLIC_APP_ENVIRONMENT=${{ steps.env.outputs.app_environment }}
@@ -117,3 +122,9 @@ jobs:
         echo "📅 ビルド日時: ${{ steps.build_info.outputs.build_date }}"
         echo "🌿 ブランチ: ${{ github.ref_name }}"
         echo "🔍 イベントタイプ: ${{ github.event_name }}"
+        echo "🔧 設定された環境変数:"
+        echo "  - NODE_ENV: ${{ steps.env.outputs.node_env }}"
+        echo "  - NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}"
+        echo "  - NEXT_PUBLIC_BUILD_ENVIRONMENT: ${{ steps.env.outputs.build_environment }}"
+        echo "  - NEXT_PUBLIC_DEPLOY_ENVIRONMENT: ${{ steps.env.outputs.deploy_environment }}"
+        echo "  - NEXT_PUBLIC_APP_ENVIRONMENT: ${{ steps.env.outputs.app_environment }}"
