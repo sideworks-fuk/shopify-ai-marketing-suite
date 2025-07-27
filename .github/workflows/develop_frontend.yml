@@ -106,7 +106,6 @@ jobs:
         api_build_command: ""
         # 環境変数の設定（セキュリティ強化版）
         app_settings: |
-          NODE_ENV=${{ steps.env.outputs.node_env }}
           NEXT_PUBLIC_ENVIRONMENT=${{ steps.env.outputs.next_public_environment }}
           NEXT_PUBLIC_BUILD_NUMBER=${{ steps.build_info.outputs.build_number }}
           NEXT_PUBLIC_GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
@@ -114,7 +113,6 @@ jobs:
           NEXT_PUBLIC_BUILD_DATE=${{ steps.build_info.outputs.build_date }}
       # ビルド時の環境変数を設定
       env:
-        NODE_ENV: ${{ steps.env.outputs.node_env }}
         NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
         NEXT_PUBLIC_BUILD_NUMBER: ${{ steps.build_info.outputs.build_number }}
         NEXT_PUBLIC_GIT_COMMIT: ${{ steps.build_info.outputs.git_commit }}
