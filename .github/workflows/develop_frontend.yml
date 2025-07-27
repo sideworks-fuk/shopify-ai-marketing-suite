@@ -72,11 +72,21 @@ jobs:
           echo "next_public_environment=development" >> $GITHUB_OUTPUT
         fi
         
-        # 環境設定の整合性確認
+        # 環境設定の整合性確認（変数を直接参照）
         echo "🔍 Environment Configuration:"
-        echo "  NODE_ENV: ${{ steps.env.outputs.node_env }}"
-        echo "  NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}"
-        echo "  Deployment Target: ${{ steps.env.outputs.deployment_environment || 'Production' }}"
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "  NODE_ENV: production"
+          echo "  NEXT_PUBLIC_ENVIRONMENT: production"
+          echo "  Deployment Target: Production"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.environment }}" = "Production" ]; then
+          echo "  NODE_ENV: production"
+          echo "  NEXT_PUBLIC_ENVIRONMENT: production"
+          echo "  Deployment Target: Production"
+        else
+          echo "  NODE_ENV: development"
+          echo "  NEXT_PUBLIC_ENVIRONMENT: development"
+          echo "  Deployment Target: development"
+        fi
 
     - name: Deploy to Azure Static Web Apps
       id: builddeploy
