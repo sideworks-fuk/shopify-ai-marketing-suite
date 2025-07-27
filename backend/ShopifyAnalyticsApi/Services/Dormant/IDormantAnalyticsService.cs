@@ -131,6 +131,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         public DateTime AnalysisStartDate { get; set; }
         public DateTime AnalysisEndDate { get; set; }
         public bool IncludeProjections { get; set; } = true;
+        public int? PeriodMonths { get; set; }
+        public int? ProjectionMonths { get; set; }
     }
 
     /// <summary>
@@ -139,8 +141,11 @@ namespace ShopifyAnalyticsApi.Services.Dormant
     public class DormantRevenueImpact
     {
         public decimal HistoricalRevenueLoss { get; set; }
+        public decimal MonthlyRevenueLoss { get; set; }
         public decimal ProjectedRevenueLoss { get; set; }
+        public decimal ProjectedMonthlyLoss { get; set; }
         public decimal RecoverablePotential { get; set; }
+        public decimal RecoveryRate { get; set; }
         public List<SegmentRevenueImpact> SegmentBreakdown { get; set; } = new();
     }
 

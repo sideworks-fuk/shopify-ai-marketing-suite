@@ -45,6 +45,10 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IDormantCustomerService,
 // Register New Dormant Services (新しい分割されたサービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerQueryService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerQueryService>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IChurnAnalysisService, ShopifyAnalyticsApi.Services.Dormant.ChurnAnalysisService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantStatisticsService, ShopifyAnalyticsApi.Services.Dormant.DormantStatisticsService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantSegmentationService, ShopifyAnalyticsApi.Services.Dormant.DormantSegmentationService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantTrendAnalysisService, ShopifyAnalyticsApi.Services.Dormant.DormantTrendAnalysisService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantReactivationService, ShopifyAnalyticsApi.Services.Dormant.DormantReactivationService>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantAnalyticsService, ShopifyAnalyticsApi.Services.Dormant.DormantAnalyticsService>();
 
 // Register Year Over Year Analysis Service (前年同月比分析サービス)
