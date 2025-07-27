@@ -28,13 +28,13 @@ namespace ShopifyAnalyticsApi.Models
         /// 分析開始月（1-12）
         /// </summary>
         [Range(1, 12)]
-        public int StartMonth { get; set; } = 1;
+        public int? StartMonth { get; set; } = 1;
 
         /// <summary>
         /// 分析終了月（1-12）
         /// </summary>
         [Range(1, 12)]
-        public int EndMonth { get; set; } = 12;
+        public int? EndMonth { get; set; } = 12;
 
         /// <summary>
         /// 表示モード（sales: 売上額, quantity: 数量, orders: 注文数）  
@@ -75,6 +75,56 @@ namespace ShopifyAnalyticsApi.Models
         /// カテゴリフィルタ
         /// </summary>
         public string? Category { get; set; }
+
+        /// <summary>
+        /// 商品タイプフィルタ
+        /// </summary>
+        public string? ProductType { get; set; }
+
+        /// <summary>
+        /// ベンダーフィルタ
+        /// </summary>
+        public string? Vendor { get; set; }
+
+        /// <summary>
+        /// 現在年（計算用）
+        /// </summary>
+        public int CurrentYear => Year;
+
+        /// <summary>
+        /// 前年（計算用）
+        /// </summary>
+        public int PreviousYear => Year - 1;
+
+        /// <summary>
+        /// 最小成長率フィルタ
+        /// </summary>
+        public decimal? MinGrowthRate { get; set; }
+
+        /// <summary>
+        /// 最大成長率フィルタ
+        /// </summary>
+        public decimal? MaxGrowthRate { get; set; }
+
+        /// <summary>
+        /// 最小現在年値フィルタ
+        /// </summary>
+        public decimal? MinCurrentValue { get; set; }
+
+        /// <summary>
+        /// 成長カテゴリフィルタ
+        /// </summary>
+        public string? GrowthCategory { get; set; }
+
+        /// <summary>
+        /// 取得件数制限
+        /// </summary>
+        public int? Limit { get; set; }
+
+        /// <summary>
+        /// オフセット
+        /// </summary>
+        public int? Offset { get; set; }
     }
 
     /// <summary>
@@ -93,6 +143,11 @@ namespace ShopifyAnalyticsApi.Models
         public YearOverYearSummary Summary { get; set; } = new();
 
         /// <summary>
+        /// 月次比較データ
+        /// </summary>
+        public List<MonthlyComparisonData> MonthlyComparisons { get; set; } = new();
+
+        /// <summary>
         /// レスポンスメタデータ
         /// </summary>
         public ResponseMetadata Metadata { get; set; } = new();
@@ -106,6 +161,11 @@ namespace ShopifyAnalyticsApi.Models
         /// <summary>
         /// 商品名
         /// </summary>
+        public string ProductName { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// 商品タイトル（ProductNameと同義）
+        /// </summary>
         public string ProductTitle { get; set; } = string.Empty;
 
         /// <summary>
@@ -116,7 +176,7 @@ namespace ShopifyAnalyticsApi.Models
         /// <summary>
         /// ベンダー名
         /// </summary>
-        public string? ProductVendor { get; set; }
+        public string Vendor { get; set; } = string.Empty;
 
         /// <summary>
         /// 月次比較データ（12ヶ月分）
@@ -124,24 +184,24 @@ namespace ShopifyAnalyticsApi.Models
         public List<MonthlyComparisonData> MonthlyData { get; set; } = new();
 
         /// <summary>
-        /// 現在年総計
+        /// 現在年値
         /// </summary>
-        public decimal CurrentYearTotal { get; set; }
+        public decimal CurrentYearValue { get; set; }
 
         /// <summary>
-        /// 前年総計
+        /// 前年値
         /// </summary>
-        public decimal PreviousYearTotal { get; set; }
+        public decimal PreviousYearValue { get; set; }
 
         /// <summary>
-        /// 総合成長率（%）
+        /// 成長率
         /// </summary>
-        public decimal OverallGrowthRate { get; set; }
+        public decimal GrowthRate { get; set; }
 
         /// <summary>
-        /// 平均月次成長率（%）
+        /// 成長カテゴリ
         /// </summary>
-        public decimal AverageMonthlyGrowthRate { get; set; }
+        public string GrowthCategory { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -239,6 +299,41 @@ namespace ShopifyAnalyticsApi.Models
         /// 最高売上商品
         /// </summary>
         public TopPerformingProduct? TopSalesProduct { get; set; }
+
+        /// <summary>
+        /// 表示モード
+        /// </summary>
+        public string ViewMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 現在年総額
+        /// </summary>
+        public decimal TotalCurrentValue { get; set; }
+
+        /// <summary>
+        /// 前年総額
+        /// </summary>
+        public decimal TotalPreviousValue { get; set; }
+
+        /// <summary>
+        /// 平均成長率
+        /// </summary>
+        public decimal AverageGrowthRate { get; set; }
+
+        /// <summary>
+        /// トップパフォーマー
+        /// </summary>
+        public List<TopProductData> TopPerformers { get; set; } = new();
+
+        /// <summary>
+        /// ワーストパフォーマー
+        /// </summary>
+        public List<TopProductData> WorstPerformers { get; set; } = new();
+
+        /// <summary>
+        /// カテゴリ別内訳
+        /// </summary>
+        public Dictionary<string, CategoryStats> CategoryBreakdown { get; set; } = new();
     }
 
     /// <summary>
@@ -301,5 +396,42 @@ namespace ShopifyAnalyticsApi.Models
         /// 警告メッセージ
         /// </summary>
         public List<string>? Warnings { get; set; }
+    }
+
+    /// <summary>
+    /// トップ商品データ
+    /// </summary>
+    public class TopProductData
+    {
+        public string ProductName { get; set; } = string.Empty;
+        public decimal CurrentValue { get; set; }
+        public decimal PreviousValue { get; set; }
+        public decimal GrowthRate { get; set; }
+        public string GrowthCategory { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// 前年同月比メタデータ
+    /// </summary>
+    public class YearOverYearMetaData
+    {
+        public int TotalProductsBeforeFilter { get; set; }
+        public int TotalProductsAfterFilter { get; set; }
+        public DateTime AnalysisDate { get; set; }
+        public int CurrentYear { get; set; }
+        public int PreviousYear { get; set; }
+        public string ViewMode { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// カテゴリ統計
+    /// </summary>
+    public class CategoryStats
+    {
+        public int ProductCount { get; set; }
+        public decimal TotalCurrentValue { get; set; }
+        public decimal TotalPreviousValue { get; set; }
+        public decimal AverageGrowthRate { get; set; }
+        public decimal CategoryPercentage { get; set; }
     }
 }

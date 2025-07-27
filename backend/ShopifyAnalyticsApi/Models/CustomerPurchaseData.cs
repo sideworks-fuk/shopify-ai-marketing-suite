@@ -1,9 +1,9 @@
-namespace ShopifyAnalyticsApi.Services
+namespace ShopifyAnalyticsApi.Models
 {
     /// <summary>
-    /// 顧客購入データクラス（内部使用）
+    /// 顧客購入データクラス
     /// </summary>
-    internal class CustomerPurchaseData
+    public class CustomerPurchaseData
     {
         public int CustomerId { get; set; }
         public int PurchaseCount { get; set; }

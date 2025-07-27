@@ -189,7 +189,7 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     ProductTitle = productGroup.Key.ProductTitle,
                     ProductType = productGroup.Key.ProductType,
-                    ProductVendor = productGroup.Key.ProductVendor,
+                    Vendor = productGroup.Key.ProductVendor,
                     MonthlyData = CreateMonthlyData(productGroup.ToList(), request, currentYear, previousYear)
                 })
                 .ToList();
@@ -211,7 +211,7 @@ namespace ShopifyAnalyticsApi.Services
         {
             var monthlyData = new List<MonthlyComparisonData>();
 
-            for (int month = request.StartMonth; month <= request.EndMonth; month++)
+            for (int month = request.StartMonth ?? 1; month <= (request.EndMonth ?? 12); month++)
             {
                 var currentData = productData.FirstOrDefault(x => x.Year == currentYear && x.Month == month);
                 var previousData = productData.FirstOrDefault(x => x.Year == previousYear && x.Month == month);
@@ -255,19 +255,12 @@ namespace ShopifyAnalyticsApi.Services
         /// </summary>
         private void CalculateProductTotals(YearOverYearProductData product, string viewMode)
         {
-            product.CurrentYearTotal = product.MonthlyData.Sum(m => m.CurrentValue);
-            product.PreviousYearTotal = product.MonthlyData.Sum(m => m.PreviousValue);
-            product.OverallGrowthRate = CalculateGrowthRate(product.CurrentYearTotal, product.PreviousYearTotal);
+            product.CurrentYearValue = product.MonthlyData.Sum(m => m.CurrentValue);
+            product.PreviousYearValue = product.MonthlyData.Sum(m => m.PreviousValue);
+            product.GrowthRate = CalculateGrowthRate(product.CurrentYearValue, product.PreviousYearValue);
             
-            // 月次成長率の平均を計算（0以外のデータのみ）
-            var validGrowthRates = product.MonthlyData
-                .Where(m => m.CurrentValue > 0 || m.PreviousValue > 0)
-                .Select(m => m.GrowthRate)
-                .ToList();
-            
-            product.AverageMonthlyGrowthRate = validGrowthRates.Any() 
-                ? validGrowthRates.Average() 
-                : 0;
+            // 成長カテゴリを設定
+            product.GrowthCategory = DetermineGrowthCategory(product.GrowthRate);
         }
 
         /// <summary>
@@ -307,10 +300,10 @@ namespace ShopifyAnalyticsApi.Services
             // 成長率フィルタ
             filtered = request.GrowthRateFilter switch
             {
-                "positive" => filtered.Where(p => p.OverallGrowthRate > 0),
-                "negative" => filtered.Where(p => p.OverallGrowthRate < 0),
-                "high_growth" => filtered.Where(p => p.OverallGrowthRate >= 20),
-                "high_decline" => filtered.Where(p => p.OverallGrowthRate <= -20),
+                "positive" => filtered.Where(p => p.GrowthRate > 0),
+                "negative" => filtered.Where(p => p.GrowthRate < 0),
+                "high_growth" => filtered.Where(p => p.GrowthRate >= 20),
+                "high_decline" => filtered.Where(p => p.GrowthRate <= -20),
                 _ => filtered
             };
 
@@ -318,15 +311,15 @@ namespace ShopifyAnalyticsApi.Services
             filtered = request.SortBy switch
             {
                 "growth_rate" => request.SortDescending 
-                    ? filtered.OrderByDescending(p => p.OverallGrowthRate)
-                    : filtered.OrderBy(p => p.OverallGrowthRate),
+                    ? filtered.OrderByDescending(p => p.GrowthRate)
+                    : filtered.OrderBy(p => p.GrowthRate),
                 "total_sales" => request.SortDescending 
-                    ? filtered.OrderByDescending(p => p.CurrentYearTotal)
-                    : filtered.OrderBy(p => p.CurrentYearTotal),
+                    ? filtered.OrderByDescending(p => p.CurrentYearValue)
+                    : filtered.OrderBy(p => p.CurrentYearValue),
                 "name" => request.SortDescending 
-                    ? filtered.OrderByDescending(p => p.ProductTitle)
-                    : filtered.OrderBy(p => p.ProductTitle),
-                _ => filtered.OrderByDescending(p => p.OverallGrowthRate)
+                    ? filtered.OrderByDescending(p => p.ProductName)
+                    : filtered.OrderBy(p => p.ProductName),
+                _ => filtered.OrderByDescending(p => p.GrowthRate)
             };
 
             return filtered.ToList();
@@ -339,21 +332,21 @@ namespace ShopifyAnalyticsApi.Services
             List<YearOverYearProductData> products, int currentYear, int previousYear, string viewMode)
         {
             var totalProducts = products.Count;
-            var growingProducts = products.Count(p => p.OverallGrowthRate > 0);
-            var decliningProducts = products.Count(p => p.OverallGrowthRate < 0);
-            var newProducts = products.Count(p => p.PreviousYearTotal == 0 && p.CurrentYearTotal > 0);
+            var growingProducts = products.Count(p => p.GrowthRate > 0);
+            var decliningProducts = products.Count(p => p.GrowthRate < 0);
+            var newProducts = products.Count(p => p.PreviousYearValue == 0 && p.CurrentYearValue > 0);
 
-            var currentYearTotal = products.Sum(p => p.CurrentYearTotal);
-            var previousYearTotal = products.Sum(p => p.PreviousYearTotal);
+            var currentYearTotal = products.Sum(p => p.CurrentYearValue);
+            var previousYearTotal = products.Sum(p => p.PreviousYearValue);
             var overallGrowthRate = CalculateGrowthRate(currentYearTotal, previousYearTotal);
 
             var topGrowthProduct = products
-                .Where(p => p.OverallGrowthRate > 0)
-                .OrderByDescending(p => p.OverallGrowthRate)
+                .Where(p => p.GrowthRate > 0)
+                .OrderByDescending(p => p.GrowthRate)
                 .FirstOrDefault();
 
             var topSalesProduct = products
-                .OrderByDescending(p => p.CurrentYearTotal)
+                .OrderByDescending(p => p.CurrentYearValue)
                 .FirstOrDefault();
 
             return new YearOverYearSummary
@@ -369,17 +362,17 @@ namespace ShopifyAnalyticsApi.Services
                 PreviousYearTotalSales = previousYearTotal,
                 TopGrowthProduct = topGrowthProduct != null ? new TopPerformingProduct
                 {
-                    ProductTitle = topGrowthProduct.ProductTitle,
+                    ProductTitle = topGrowthProduct.ProductName,
                     ProductType = topGrowthProduct.ProductType,
-                    Value = topGrowthProduct.CurrentYearTotal,
-                    GrowthRate = topGrowthProduct.OverallGrowthRate
+                    Value = topGrowthProduct.CurrentYearValue,
+                    GrowthRate = topGrowthProduct.GrowthRate
                 } : null,
                 TopSalesProduct = topSalesProduct != null ? new TopPerformingProduct
                 {
-                    ProductTitle = topSalesProduct.ProductTitle,
+                    ProductTitle = topSalesProduct.ProductName,
                     ProductType = topSalesProduct.ProductType,
-                    Value = topSalesProduct.CurrentYearTotal,
-                    GrowthRate = topSalesProduct.OverallGrowthRate
+                    Value = topSalesProduct.CurrentYearValue,
+                    GrowthRate = topSalesProduct.GrowthRate
                 } : null
             };
         }

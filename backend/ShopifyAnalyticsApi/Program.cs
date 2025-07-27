@@ -44,11 +44,25 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IDormantCustomerService,
 
 // Register New Dormant Services (新しい分割されたサービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerQueryService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerQueryService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IChurnAnalysisService, ShopifyAnalyticsApi.Services.Dormant.ChurnAnalysisService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantAnalyticsService, ShopifyAnalyticsApi.Services.Dormant.DormantAnalyticsService>();
 
 // Register Year Over Year Analysis Service (前年同月比分析サービス)
 builder.Services.AddScoped<IYearOverYearService, YearOverYearService>();
 
-// Register Purchase Count Analysis Service (購入回数分析サービス)
+// Register New Year Over Year Services (新しい分割されたサービス)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.YearOverYear.IYearOverYearDataService, ShopifyAnalyticsApi.Services.YearOverYear.YearOverYearDataService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.YearOverYear.IYearOverYearCalculationService, ShopifyAnalyticsApi.Services.YearOverYear.YearOverYearCalculationService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.YearOverYear.IYearOverYearFilterService, ShopifyAnalyticsApi.Services.YearOverYear.YearOverYearFilterService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.YearOverYear.IYearOverYearOrchestrationService, ShopifyAnalyticsApi.Services.YearOverYear.YearOverYearOrchestrationService>();
+
+// Register Purchase Count Analysis Services (購入回数分析サービス)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.PurchaseCount.IPurchaseCountDataService, ShopifyAnalyticsApi.Services.PurchaseCount.PurchaseCountDataService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.PurchaseCount.IPurchaseCountCalculationService, ShopifyAnalyticsApi.Services.PurchaseCount.PurchaseCountCalculationService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.PurchaseCount.IPurchaseCountAnalysisService, ShopifyAnalyticsApi.Services.PurchaseCount.PurchaseCountAnalysisService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.PurchaseCount.IPurchaseCountOrchestrationService, ShopifyAnalyticsApi.Services.PurchaseCount.PurchaseCountOrchestrationService>();
+
+// Register legacy Purchase Count Analysis Service for backward compatibility
 builder.Services.AddScoped<IPurchaseCountAnalysisService, PurchaseCountAnalysisService>();
 
 // Register Monthly Sales Service (月別売上統計サービス)
