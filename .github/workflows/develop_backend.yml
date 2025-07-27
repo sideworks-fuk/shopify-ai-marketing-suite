@@ -45,24 +45,24 @@ jobs:
 
       - name: Restore dependencies
         run: |
-          cd backend/ShopifyTestApi
+          cd backend/ShopifyAnalyticsApi
           dotnet restore
 
       - name: Build with dotnet
         run: |
-          cd backend/ShopifyTestApi
+          cd backend/ShopifyAnalyticsApi
           dotnet build --configuration Release --no-restore
 
       - name: Publish with dotnet
         run: |
-          cd backend/ShopifyTestApi
+          cd backend/ShopifyAnalyticsApi
           dotnet publish -c Release -o ./publish --no-build
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-app
-          path: backend/ShopifyTestApi/publish
+          path: backend/ShopifyAnalyticsApi/publish
 
   deploy:
     runs-on: windows-latest
