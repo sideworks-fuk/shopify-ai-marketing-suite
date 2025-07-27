@@ -55,7 +55,7 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'ShopifyAnalyticsApi20250720173320'
+          app-name: 'ShopifyTestApi20250720173320'
           # slot-name: 'Production'  # 新しいプランでは不要またはサポートされていない可能性
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: . 
