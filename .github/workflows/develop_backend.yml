@@ -1,4 +1,4 @@
-name: バックエンド開発環境　Azure Web App CI/CD (Development)
+name: バックエンド開発環境　Azure Web App CI/CD (プレビュー)
 
 on:
   # 自動デプロイ（developブランチへのプッシュ時）
