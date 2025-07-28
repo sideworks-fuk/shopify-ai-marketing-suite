@@ -10,6 +10,7 @@ namespace ShopifyAnalyticsApi.Models
         public string? Description { get; set; }
         public string DataType { get; set; } = "production";
         public bool IsActive { get; set; }
+        public string ShopDomain { get; set; } = string.Empty;
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.EntityFrameworkCore;
 using ShopifyAnalyticsApi.Data;
@@ -10,6 +11,7 @@ using Microsoft.Data.SqlClient;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     [EnableCors("AllowAll")]

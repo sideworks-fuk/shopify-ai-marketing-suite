@@ -1,5 +1,6 @@
 import { ApiResponse } from '../data-access/types/api';
 import { getCurrentEnvironmentConfig } from '../config/environments';
+import { authClient } from '../auth-client';
 
 // API用の型定義
 export interface YearOverYearRequest {
@@ -118,7 +119,7 @@ export class YearOverYearApiClient {
       
       console.log('API Request URL:', url);
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +146,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/product-types?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +173,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/vendors?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +204,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/date-range?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +235,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/test`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Database, Users, Package, ShoppingCart, AlertCircle, CheckCircle } from 'lucide-react'
 import { useStore } from '@/contexts/StoreContext'
 import { getApiUrl, getCurrentStoreId } from '@/lib/api-config'
+import { authClient } from '@/lib/auth-client'
 
 export default function Store2DebugPage() {
   const { currentStore } = useStore()
@@ -27,7 +28,7 @@ export default function Store2DebugPage() {
       const debugUrl = `${getApiUrl()}/api/customer/debug/store-data?storeId=${storeId}`
       console.log('📡 Debug API URL:', debugUrl)
       
-      const response = await fetch(debugUrl)
+      const response = await authClient.request(debugUrl)
       const result = await response.json()
       
       console.log('📊 Debug API Response:', result)
@@ -42,7 +43,7 @@ export default function Store2DebugPage() {
       const dormantUrl = `${getApiUrl()}/api/customer/dormant?storeId=${storeId}&pageSize=5`
       console.log('📡 Dormant API URL:', dormantUrl)
       
-      const dormantResponse = await fetch(dormantUrl)
+      const dormantResponse = await authClient.request(dormantUrl)
       const dormantResult = await dormantResponse.json()
       
       console.log('📊 Dormant API Response:', dormantResult)

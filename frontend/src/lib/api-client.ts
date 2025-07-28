@@ -1,4 +1,5 @@
 import { API_CONFIG, buildApiUrl, getApiUrl, getCurrentStoreId } from './api-config';
+import { authClient } from './auth-client';
 
 // API レスポンス型定義
 export interface ApiResponse<T> {
@@ -47,6 +48,8 @@ class ApiClient {
     const defaultOptions: RequestInit = {
       headers: {
         ...API_CONFIG.HEADERS,
+        ...authClient.getAuthHeaders(),
+        ...options.headers,
       },
       signal: controller.signal,
       ...options,
@@ -59,7 +62,7 @@ class ApiClient {
       console.log('🔍 Base URL from config:', getApiUrl());
       console.log('🔍 Endpoint:', endpoint);
       
-      const response = await fetch(url, defaultOptions);
+      const response = await authClient.request(url, defaultOptions);
       
       // タイムアウトをクリア
       clearTimeout(timeoutId);
@@ -348,4 +351,22 @@ export const api = {
     const url = `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_TRENDS}?${searchParams.toString()}`;
     return apiClient.get<any>(url);
   },
+  
+  // Authentication API
+  generateToken: (request: { storeId: number; shopDomain: string }) =>
+    apiClient.post<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }>(
+      API_CONFIG.ENDPOINTS.AUTH_TOKEN,
+      request
+    ),
+  
+  refreshToken: (request: { accessToken: string; refreshToken: string }) =>
+    apiClient.post<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }>(
+      API_CONFIG.ENDPOINTS.AUTH_REFRESH,
+      request
+    ),
+  
+  validateToken: () =>
+    apiClient.post<{ valid: boolean; storeId: string; shopDomain: string }>(
+      API_CONFIG.ENDPOINTS.AUTH_VALIDATE
+    ),
 }; 

@@ -10,6 +10,7 @@ import type {
   LogLevel 
 } from '../types/api';
 import { getDataAccessConfig, getLoggingConfig } from '../config/environment';
+import { authClient } from '../../auth-client';
 
 // HTTPメソッド型
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -256,7 +257,7 @@ export class ApiClient {
         ...options
       };
 
-      const response = await fetch(url, requestInit);
+      const response = await authClient.request(url, requestInit);
       clearTimeout(timeoutId);
 
       if (!response.ok) {

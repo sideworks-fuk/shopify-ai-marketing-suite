@@ -8,6 +8,11 @@ export const API_CONFIG = {
     HEALTH: '/api/health',
     HEALTH_DETAILED: '/api/health/detailed',
     
+    // Authentication API
+    AUTH_TOKEN: '/api/auth/token',
+    AUTH_REFRESH: '/api/auth/refresh',
+    AUTH_VALIDATE: '/api/auth/validate',
+    
     // Customer API
     CUSTOMER_TEST: '/api/customer/test',
     CUSTOMER_DASHBOARD: '/api/customer/dashboard',
