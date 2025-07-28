@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Helpers;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class PurchaseController : ControllerBase

@@ -1,6 +1,6 @@
 # 🔖 Shopify AIマーケティングスイート - ブックマークリンク集
 
-## 📅 最終更新: 2025年1月25日 [[memory:3773065]]
+## 📅 最終更新: 2025年7月27日 [[memory:3773065]]
 
 ---
 
@@ -9,7 +9,6 @@
 ### **📱 フロントエンド (開発環境)**
 - [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - 開発環境フロントエンド
 - [🔍 **プレビュー環境**](https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net/dev-bookmarks/) - 開発環境プレビューサイト ✅ **NEW!**
-- [🎭 **ステージング環境**](https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net/) - プレビュー環境（staging） ✅ **NEW!**
 - [🧪 **API接続テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) - Shopify API動作確認
 - [🗄️ **Database API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) - Azure SQL統合確認 ✅ **新機能**
 - [🔍 **休眠顧客API テスト**](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) - 休眠顧客分析API専用テスト画面 ✅ **NEW!**
@@ -140,13 +139,13 @@ URL: 未定（後日決定）
 ## 🎯 **クイックアクション**
 
 ### **⚡ 即座に確認**
-| 項目 | 開発環境 | ステージング | ローカル |
-|------|----------|-------------|----------|
-| サイト表示 | [🌐 開発サイト](https://brave-sea-038f17a00.1.azurestaticapps.net) | [🎭 ステージング](https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net/) | [🖥️ ローカル](http://localhost:3000) |
-| Database API | [🗄️ DB統合テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) | [🗄️ ステージングDBテスト](https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net/database-test) | [🗄️ ローカルDBテスト](http://localhost:3000/database-test) |
-| 休眠顧客API | [🔍 休眠顧客テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) | [🔍 ステージング休眠テスト](https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net/dormant-api-test) | [🔍 ローカル休眠テスト](http://localhost:3000/dormant-api-test) |
-| API動作 | [❤️ Health Check](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | [❤️ Health Check](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | [❤️ Local Health](https://localhost:7177/api/health) |
-| Shopify連携 | [🧪 API接続テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) | [🧪 ステージングAPIテスト](https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net/api-test) | [🧪 ローカルテスト](http://localhost:3000/api-test) |
+| 項目 | 開発環境 | ローカル |
+|------|----------|----------|
+| サイト表示 | [🌐 開発サイト](https://brave-sea-038f17a00.1.azurestaticapps.net) | [🖥️ ローカル](http://localhost:3000) |
+| Database API | [🗄️ DB統合テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) | [🗄️ ローカルDBテスト](http://localhost:3000/database-test) |
+| 休眠顧客API | [🔍 休眠顧客テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/dormant-api-test) | [🔍 ローカル休眠テスト](http://localhost:3000/dormant-api-test) |
+| API動作 | [❤️ Health Check](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | [❤️ Local Health](https://localhost:7177/api/health) |
+| Shopify連携 | [🧪 API接続テスト](https://brave-sea-038f17a00.1.azurestaticapps.net/api-test) | [🧪 ローカルテスト](http://localhost:3000/api-test) |
 
 ### **🗄️ Database API クイックテスト**
 | エンドポイント | 開発環境 | 説明 |

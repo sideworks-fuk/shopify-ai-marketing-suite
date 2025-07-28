@@ -493,26 +493,31 @@ namespace ShopifyDataAnonymizer.Services
                     int processedCount = 0;
                     int currentOrderId = 0;
                     Order? currentOrder = null;
+                    string? currentOrderNumber = null;
 
                     foreach (var record in records)
                     {
-                        // Idが空でない場合は新しい注文
-                        if (!string.IsNullOrWhiteSpace(record.OrderId))
+                        // 新しい注文かどうかを判定（注文番号が変わった場合）
+                        bool isNewOrder = !string.IsNullOrWhiteSpace(record.OrderId) && record.OrderId != currentOrderNumber;
+
+                        if (isNewOrder)
                         {
                             // 新しい注文を開始
                             currentOrder = record;
+                            currentOrderNumber = record.OrderId;
                             currentOrderId = await InsertOrder(connection, transaction, record, storeId);
                             processedCount++;
                         }
-                        else if (currentOrder != null)
+
+                        // 常にOrderItemを作成（注文ごとに商品明細を作成）
+                        if (currentOrder != null && !string.IsNullOrWhiteSpace(record.LineitemName))
                         {
-                            // Idが空の場合は前の注文の明細として処理
                             try
                             {
                                 var orderItem = new OrderItem
                                 {
                                     Quantity = record.LineitemQuantity ?? 1,
-                                    Name = record.LineitemName, // ✅ CSVの商品名を設定
+                                    Name = record.LineitemName,
                                     Price = record.LineitemPrice ?? 0m,
                                     CompareAtPrice = record.LineitemCompareAtPrice,
                                     SKU = record.LineitemSku ?? string.Empty,
@@ -524,15 +529,8 @@ namespace ShopifyDataAnonymizer.Services
                             }
                             catch (Exception ex)
                             {
-                                // 注文明細の挿入に失敗した場合は警告を出力して続行
                                 Console.WriteLine($"警告: 注文明細の挿入に失敗しました。OrderId: {currentOrderId}, エラー: {ex.Message}");
                             }
-                        }
-                        else
-                        {
-                            // 最初の行がIdを持っていない場合はスキップ
-                            Console.WriteLine($"警告: Idが空の行をスキップします。");
-                            continue;
                         }
                         
                         // 進捗状況の表示（10%ごと）
@@ -847,9 +845,10 @@ namespace ShopifyDataAnonymizer.Services
                         // ShopifyTestApiのテーブル構造に合わせてパラメータを設定
                         command.Parameters.AddWithValue("@StoreId", storeId);
                         command.Parameters.AddWithValue("@ShopifyCustomerId", (object?)customer.CustomerId ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@FirstName", (object?)customer.FirstName ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@LastName", (object?)customer.LastName ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@Email", (object?)customer.Email ?? DBNull.Value);
+                        // 必須フィールドのデフォルト値設定
+                        command.Parameters.AddWithValue("@FirstName", string.IsNullOrEmpty(customer.FirstName) ? "Unknown" : customer.FirstName);
+                        command.Parameters.AddWithValue("@LastName", string.IsNullOrEmpty(customer.LastName) ? "Customer" : customer.LastName);
+                        command.Parameters.AddWithValue("@Email", string.IsNullOrEmpty(customer.Email) ? $"unknown{customer.CustomerId}@example.com" : customer.Email);
                         command.Parameters.AddWithValue("@Phone", (object?)customer.Phone ?? DBNull.Value);
                         command.Parameters.AddWithValue("@Company", (object?)customer.DefaultAddressCompany ?? DBNull.Value);
                         command.Parameters.AddWithValue("@City", (object?)customer.DefaultAddressCity ?? DBNull.Value);
@@ -864,21 +863,28 @@ namespace ShopifyDataAnonymizer.Services
                         
                         command.Parameters.AddWithValue("@AcceptsEmailMarketing", acceptsEmail);
                         command.Parameters.AddWithValue("@AcceptsSMSMarketing", acceptsSMS);
-                        command.Parameters.AddWithValue("@TotalSpent", (object?)customer.TotalSpent ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@TotalOrders", (object?)customer.TotalOrders ?? DBNull.Value);
-                        command.Parameters.AddWithValue("@OrdersCount", (object?)customer.TotalOrders ?? DBNull.Value); // 互換性のため
+                        // TotalSpentもデフォルト値0を設定
+                        command.Parameters.AddWithValue("@TotalSpent", customer.TotalSpent ?? 0m);
+                        // TotalOrdersはNOT NULL制約があるため、nullの場合は0を設定
+                        command.Parameters.AddWithValue("@TotalOrders", customer.TotalOrders ?? 0);
+                        // OrdersCountも同様に0をデフォルト値として設定
+                        command.Parameters.AddWithValue("@OrdersCount", customer.TotalOrders ?? 0); // 互換性のため
                         command.Parameters.AddWithValue("@TaxExempt", taxExempt);
                         command.Parameters.AddWithValue("@Tags", (object?)customer.Tags ?? DBNull.Value);
                         command.Parameters.AddWithValue("@CompanyStoreName", (object?)customer.CompanyStoreName ?? DBNull.Value);
                         command.Parameters.AddWithValue("@Industry", (object?)customer.Industry ?? DBNull.Value);
                         
                         // CustomerSegmentを計算（購買行動に基づく分類）
+                        // nullセーフな計算
+                        int totalOrders = customer.TotalOrders ?? 0;
+                        decimal totalSpent = customer.TotalSpent ?? 0m;
+                        
                         string customerSegment = "新規顧客";
-                        if (customer.TotalOrders >= 10 || customer.TotalSpent >= 100000)
+                        if (totalOrders >= 10 || totalSpent >= 100000)
                         {
                             customerSegment = "VIP顧客";
                         }
-                        else if (customer.TotalOrders >= 2)
+                        else if (totalOrders >= 2)
                         {
                             customerSegment = "リピーター";
                         }

@@ -35,7 +35,8 @@ namespace ShopifyAnalyticsApi.Services
                         Name = s.Name,
                         Description = s.Description,
                         DataType = s.DataType,
-                        IsActive = s.IsActive
+                        IsActive = s.IsActive,
+                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com"
                     })
                     .ToListAsync();
 
@@ -61,7 +62,8 @@ namespace ShopifyAnalyticsApi.Services
                         Name = s.Name,
                         Description = s.Description,
                         DataType = s.DataType,
-                        IsActive = s.IsActive
+                        IsActive = s.IsActive,
+                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com"
                     })
                     .FirstOrDefaultAsync();
 
@@ -129,7 +131,8 @@ namespace ShopifyAnalyticsApi.Services
                     Name = "本番ストア",
                     Description = "実データを使用したメイン分析環境",
                     DataType = "production",
-                    IsActive = true
+                    IsActive = true,
+                    ShopDomain = "production-store.myshopify.com"
                 },
                 new StoreDto
                 {
@@ -137,7 +140,8 @@ namespace ShopifyAnalyticsApi.Services
                     Name = "テストストア",
                     Description = "2020-2025年のテストデータ環境",
                     DataType = "test",
-                    IsActive = true
+                    IsActive = true,
+                    ShopDomain = "test-store.myshopify.com"
                 }
             };
         }

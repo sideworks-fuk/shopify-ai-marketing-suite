@@ -1,6 +1,7 @@
 import { ApiResponse } from '../data-access/types/api';
 import { YearOverYearRequest, YearOverYearSummary, YearOverYearProductData, ResponseMetadata } from './year-over-year';
 import { getCurrentEnvironmentConfig } from '../config/environments';
+import { authClient } from '../auth-client';
 
 /**
  * 前年同月比API - パフォーマンス最適化版
@@ -104,7 +105,7 @@ export class YearOverYearOptimizedApiClient {
       console.log('📊 Fetching summary:', url);
       
       const startTime = performance.now();
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -173,7 +174,7 @@ export class YearOverYearOptimizedApiClient {
       console.log('📦 Fetching detail page:', request.page);
       
       const startTime = performance.now();
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
