@@ -26,6 +26,7 @@ import { DormantPeriodFilter } from "@/components/dashboards/dormant/DormantPeri
 import { DormantKPICards } from "@/components/dashboards/dormant/DormantKPICards"
 import { DormantAnalysisChart } from "@/components/dashboards/dormant/DormantAnalysisChart"
 import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCustomerList"
+import { DormantCustomerTableVirtual } from "@/components/dashboards/dormant/DormantCustomerTableVirtual"
 import { ReactivationInsights } from "@/components/dashboards/dormant/ReactivationInsights"
 import { DormantCustomerTableSkeleton, DormantKPISkeleton, DormantTableSkeleton } from "@/components/dashboards/dormant/DormantCustomerTableSkeleton"
 
@@ -64,6 +65,7 @@ export default function DormantCustomerAnalysis() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMoreData, setHasMoreData] = useState(true)
+  const [useVirtualScroll, setUseVirtualScroll] = useState(false)
   
   const { filters } = useDormantFilters()
   const showToast = useAppStore((state) => state.showToast)
@@ -750,22 +752,47 @@ export default function DormantCustomerAnalysis() {
 
       {/* 休眠顧客一覧 */}
       <div>
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          休眠顧客一覧
-          {filters.selectedSegment && (
-            <Badge variant="outline" className="ml-2">
-              {filters.selectedSegment.label}フィルター適用中
-            </Badge>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            休眠顧客一覧
+            {filters.selectedSegment && (
+              <Badge variant="outline" className="ml-2">
+                {filters.selectedSegment.label}フィルター適用中
+              </Badge>
+            )}
+          </h2>
+          {/* 仮想スクロール切り替えボタン（100件以上のデータの場合に表示） */}
+          {filteredCustomers.length > 100 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUseVirtualScroll(!useVirtualScroll)}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              {useVirtualScroll ? '通常表示に切替' : '高速表示に切替'}
+              <Badge variant="secondary" className="ml-1">
+                {useVirtualScroll ? 'Virtual' : 'Normal'}
+              </Badge>
+            </Button>
           )}
-        </h2>
+        </div>
         {/* 期間選択中はスケルトンローダーを表示 */}
         {isProcessing ? (
           <DormantTableSkeleton />
         ) : (
-          <DormantCustomerList 
-            selectedSegment={filters.selectedSegment}
-            dormantData={filteredCustomers}
-          />
+          useVirtualScroll ? (
+            <DormantCustomerTableVirtual 
+              selectedSegment={filters.selectedSegment}
+              dormantData={filteredCustomers}
+              containerHeight={800}
+            />
+          ) : (
+            <DormantCustomerList 
+              selectedSegment={filters.selectedSegment}
+              dormantData={filteredCustomers}
+            />
+          )
         )}
         
         {/* さらに表示ボタン */}

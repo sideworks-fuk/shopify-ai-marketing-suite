@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getApiUrl } from "@/lib/api-config"
+import { authClient } from "@/lib/auth-client"
 import { CheckCircleIcon, XCircleIcon, LoaderIcon } from "lucide-react"
 
 export default function PurchaseCountApiTestPage() {
@@ -18,7 +19,7 @@ export default function PurchaseCountApiTestPage() {
 
   const runTest = async (testName: string, endpoint: string) => {
     try {
-      const response = await fetch(`${getApiUrl()}${endpoint}`)
+      const response = await authClient.request(`${getApiUrl()}${endpoint}`)
       const data = await response.json()
       
       return {

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { getApiUrl } from '@/lib/api-config'
+import { authClient } from '@/lib/auth-client'
 
 interface StoreInfo {
   id: number
@@ -63,7 +64,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(`${getApiUrl()}/api/store`)
+      const response = await authClient.request(`${getApiUrl()}/api/store`)
       if (!response.ok) {
         throw new Error('ストア一覧の取得に失敗しました')
       }

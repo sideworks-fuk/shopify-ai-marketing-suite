@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Helpers;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class StoreController : ControllerBase
@@ -25,6 +27,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// GET: api/store
         /// </summary>
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse<StoreListResponse>>> GetActiveStores()
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
@@ -73,6 +76,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// GET: api/store/{id}
         /// </summary>
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse<StoreDetailResponse>>> GetStore(int id)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);

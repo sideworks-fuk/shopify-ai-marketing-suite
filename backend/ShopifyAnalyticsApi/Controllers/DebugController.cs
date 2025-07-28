@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Models;
@@ -9,6 +10,7 @@ namespace ShopifyAnalyticsApi.Controllers
     /// <summary>
     /// デバッグ用コントローラー - 商品数問題の調査用
     /// </summary>
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DebugController : ControllerBase
