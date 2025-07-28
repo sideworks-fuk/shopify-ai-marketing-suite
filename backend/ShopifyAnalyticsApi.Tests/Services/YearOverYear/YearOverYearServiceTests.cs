@@ -37,6 +37,19 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
             var store = new Store { Id = 1, Name = "Test Store" };
             context.Stores.Add(store);
 
+            // Add test customer
+            var customer = new Customer
+            {
+                Id = 1,
+                StoreId = 1,
+                FirstName = "Test",
+                LastName = "Customer",
+                Email = "test@example.com",
+                TotalSpent = 0,
+                TotalOrders = 0
+            };
+            context.Customers.Add(customer);
+
             // Add 10 test products
             for (int i = 1; i <= 10; i++)
             {
@@ -44,7 +57,6 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                 {
                     Id = i,
                     StoreId = 1,
-                    ShopifyProductId = $"product{i}",
                     Title = $"Test Product {i}",
                     ProductType = "Test Category",
                     Vendor = "Test Vendor",
@@ -63,8 +75,8 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                     {
                         Id = month * 100 + productId,
                         StoreId = 1,
-                        ShopifyOrderId = $"order-2024-{month}-{productId}",
-                        OrderNumber = month * 100 + productId,
+                        CustomerId = 1,
+                        OrderNumber = (month * 100 + productId).ToString(),
                         CreatedAt = new DateTime(2024, month, 15),
                         TotalPrice = 10000m,
                         Currency = "JPY"
@@ -75,7 +87,7 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                     {
                         Id = month * 100 + productId,
                         OrderId = order2024.Id,
-                        ProductId = productId,
+                        ProductId = productId.ToString(),
                         ProductTitle = $"Test Product {productId}",
                         ProductType = "Test Category",
                         ProductVendor = "Test Vendor",
@@ -90,8 +102,8 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                     {
                         Id = 10000 + month * 100 + productId,
                         StoreId = 1,
-                        ShopifyOrderId = $"order-2025-{month}-{productId}",
-                        OrderNumber = 10000 + month * 100 + productId,
+                        CustomerId = 1,
+                        OrderNumber = (10000 + month * 100 + productId).ToString(),
                         CreatedAt = new DateTime(2025, month, 15),
                         TotalPrice = 12000m,
                         Currency = "JPY"
@@ -102,7 +114,7 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                     {
                         Id = 10000 + month * 100 + productId,
                         OrderId = order2025.Id,
-                        ProductId = productId,
+                        ProductId = productId.ToString(),
                         ProductTitle = $"Test Product {productId}",
                         ProductType = "Test Category",
                         ProductVendor = "Test Vendor",
@@ -168,7 +180,6 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                 {
                     Id = i,
                     StoreId = 1,
-                    ShopifyProductId = $"product{i}",
                     Title = $"Test Product {i}",
                     ProductType = "Test Category",
                     Vendor = "Test Vendor",
@@ -180,8 +191,8 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                 {
                     Id = i,
                     StoreId = 1,
-                    ShopifyOrderId = $"order-{i}",
-                    OrderNumber = i,
+                    CustomerId = 1,
+                    OrderNumber = i.ToString(),
                     CreatedAt = new DateTime(2025, 1, 15),
                     TotalPrice = 10000m * i,
                     Currency = "JPY"
@@ -192,7 +203,7 @@ namespace ShopifyAnalyticsApi.Tests.Services.YearOverYear
                 {
                     Id = i,
                     OrderId = order.Id,
-                    ProductId = i,
+                    ProductId = i.ToString(),
                     ProductTitle = $"Test Product {i}",
                     ProductType = "Test Category",
                     ProductVendor = "Test Vendor",
