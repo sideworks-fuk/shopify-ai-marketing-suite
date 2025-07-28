@@ -14,6 +14,18 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
         private readonly ShopifyDbContext _context;
         private readonly ILogger<YearOverYearDataService> _logger;
 
+        // サービス項目キーワード
+        private static readonly string[] ServiceItemKeywords = new[]
+        {
+            "代引き手数料",
+            "送料",
+            "手数料",
+            "サービス料",
+            "配送料",
+            "決済手数料",
+            "包装料"
+        };
+
         public YearOverYearDataService(
             ShopifyDbContext context,
             ILogger<YearOverYearDataService> logger)
@@ -54,6 +66,13 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 {
                     query = query.Where(oi => oi.Order!.CreatedAt.Month >= request.StartMonth.Value &&
                                             oi.Order.CreatedAt.Month <= request.EndMonth.Value);
+                }
+
+                // サービス項目除外フィルター
+                if (request.ExcludeServiceItems)
+                {
+                    _logger.LogDebug("サービス項目除外フィルターを適用: Keywords={Keywords}", string.Join(", ", ServiceItemKeywords));
+                    query = query.Where(oi => !ServiceItemKeywords.Any(keyword => oi.ProductTitle.Contains(keyword)));
                 }
 
                 var data = await query

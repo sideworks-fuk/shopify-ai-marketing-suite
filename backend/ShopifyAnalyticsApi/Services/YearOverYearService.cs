@@ -20,6 +20,18 @@ namespace ShopifyAnalyticsApi.Services
         private const string CACHE_KEY_PREFIX = "YearOverYear";
         private const int CACHE_DURATION_MINUTES = 30;
 
+        // サービス項目キーワード
+        private static readonly string[] ServiceItemKeywords = new[]
+        {
+            "代引き手数料",
+            "送料",
+            "手数料",
+            "サービス料",
+            "配送料",
+            "決済手数料",
+            "包装料"
+        };
+
         // 月名マッピング
         private static readonly Dictionary<int, string> MonthNames = new()
         {
@@ -48,8 +60,8 @@ namespace ShopifyAnalyticsApi.Services
 
             try
             {
-                _logger.LogInformation("前年同月比分析開始: StoreId={StoreId}, Year={Year}, ViewMode={ViewMode}",
-                    request.StoreId, request.Year, request.ViewMode);
+                _logger.LogInformation("前年同月比分析開始: StoreId={StoreId}, Year={Year}, ViewMode={ViewMode}, ExcludeServiceItems={ExcludeServiceItems}",
+                    request.StoreId, request.Year, request.ViewMode, request.ExcludeServiceItems);
 
                 // キャッシュ確認
                 if (_cache.TryGetValue(cacheKey, out YearOverYearResponse? cachedResponse))
@@ -155,6 +167,13 @@ namespace ShopifyAnalyticsApi.Services
             if (!string.IsNullOrWhiteSpace(request.Category) && request.Category != "all")
             {
                 query = query.Where(x => x.ProductType == request.Category);
+            }
+
+            // サービス項目除外フィルタ
+            if (request.ExcludeServiceItems)
+            {
+                _logger.LogDebug("サービス項目除外フィルターを適用: Keywords={Keywords}", string.Join(", ", ServiceItemKeywords));
+                query = query.Where(x => !ServiceItemKeywords.Any(keyword => x.ProductTitle.Contains(keyword)));
             }
 
             return await query.ToListAsync();
@@ -474,7 +493,8 @@ namespace ShopifyAnalyticsApi.Services
                 request.Category ?? "all",
                 string.Join(",", request.ProductTypes ?? new List<string>()),
                 string.Join(",", request.ProductVendors ?? new List<string>()),
-                request.SearchTerm ?? ""
+                request.SearchTerm ?? "",
+                request.ExcludeServiceItems.ToString()
             };
 
             return string.Join("_", keyParts);

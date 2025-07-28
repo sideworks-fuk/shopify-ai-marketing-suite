@@ -4,6 +4,7 @@ import PurchaseFrequencyDetailAnalysis from "@/components/dashboards/PurchaseFre
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
 import { AnalysisDescriptionCard } from "@/components/common/AnalysisDescriptionCard"
+import { AlertCircle } from "lucide-react"
 
 
 export default function FrequencyDetailPage() {
@@ -37,12 +38,39 @@ export default function FrequencyDetailPage() {
         variant="usage"
       />
 
-      {/* 購入回数分析コンポーネント */}
+      {/* 新しい実装への案内 */}
+      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-blue-100 p-2 rounded-full">
+            <AlertCircle className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-blue-900">新しい購入回数分析が利用可能です</h3>
+            <p className="text-blue-700 text-sm">実データを使用したシンプル版実装が完成しました</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <a 
+            href="/purchase/count-analysis" 
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            新しい購入回数分析を開く
+          </a>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="inline-flex items-center px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-100 transition-colors"
+          >
+            このページを続行（サンプルデータ）
+          </button>
+        </div>
+      </div>
+
+      {/* 既存の購入回数分析コンポーネント（サンプルデータ） */}
       <ErrorBoundaryWrapper
         fallbackTitle="購入回数分析でエラーが発生しました"
         fallbackDescription="購入回数分析の読み込み中にエラーが発生しました。サイドメニューは正常に動作しています。"
       >
-        <PurchaseFrequencyDetailAnalysis />
+        <PurchaseFrequencyDetailAnalysis useSampleData={true} />
       </ErrorBoundaryWrapper>
     </div>
   )

@@ -114,5 +114,63 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             }
         }
 
+        /// <summary>
+        /// 詳細な期間別セグメントの件数を取得
+        /// </summary>
+        public async Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId)
+        {
+            try
+            {
+                _logger.LogDebug("詳細セグメント分布を取得開始: StoreId={StoreId}", storeId);
+
+                // 簡素化された3つのセグメント定義
+                var segmentDefinitions = new[]
+                {
+                    new { Label = "90-180日", Range = "90-180日", MinDays = 90, MaxDays = 179 },
+                    new { Label = "180-365日", Range = "180-365日", MinDays = 180, MaxDays = 364 },
+                    new { Label = "365日以上", Range = "365日以上", MinDays = 365, MaxDays = int.MaxValue }
+                };
+
+                var results = new List<DetailedSegmentDistribution>();
+                var dormantCustomers = await _statisticsService.GetDormantCustomersAsync(storeId);
+
+                foreach (var segment in segmentDefinitions)
+                {
+                    // 各セグメントの顧客を抽出
+                    var segmentCustomers = _segmentationService.GetCustomersInDormancyRange(dormantCustomers, segment.MinDays, segment.MaxDays);
+                    
+                    var count = segmentCustomers.Count;
+                    var revenue = segmentCustomers.Sum(c => c.TotalSpent);
+
+                    results.Add(new DetailedSegmentDistribution
+                    {
+                        Label = segment.Label,
+                        Range = segment.Range,
+                        Count = count,
+                        Revenue = revenue,
+                        MinDays = segment.MinDays,
+                        MaxDays = segment.MaxDays
+                    });
+                }
+
+                _logger.LogInformation("詳細セグメント分布を取得完了. StoreId: {StoreId}, セグメント数: {SegmentCount}", 
+                    storeId, results.Count);
+                
+                // 各セグメントの詳細ログ
+                foreach (var result in results)
+                {
+                    _logger.LogInformation("詳細セグメント: {Label} = {Count}件, 売上: {Revenue:C}", 
+                        result.Label, result.Count, result.Revenue);
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "詳細セグメント分布の取得に失敗. StoreId: {StoreId}", storeId);
+                throw;
+            }
+        }
+
     }
 }

@@ -10,7 +10,7 @@ import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCust
 import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
 
 import { api } from "@/lib/api-client"
-import { API_CONFIG } from "@/lib/api-config"
+import { API_CONFIG, getCurrentStoreId } from "@/lib/api-config"
 import { useDormantFilters } from "@/contexts/FilterContext"
 import { useState, useEffect, useCallback } from "react"
 
@@ -101,7 +101,7 @@ export default function DormantCustomersPage() {
         
         console.log('🔄 休眠顧客サマリーデータの取得を開始...')
         
-        const response = await api.dormantSummary(1)
+        const response = await api.dormantSummary(getCurrentStoreId())
         console.log('✅ サマリーデータ取得成功:', response)
         console.log('📊 サマリーデータの内容:', {
           success: response.success,
@@ -136,9 +136,10 @@ export default function DormantCustomersPage() {
         setError(null)
         
         console.log('🔄 主要期間区分データの取得を開始...')
-        console.log('🔍 APIエンドポイント:', '/api/customer/dormant/detailed-segments?storeId=1')
+        const storeId = getCurrentStoreId()
+        console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
         
-        const response = await api.dormantDetailedSegments(1)
+        const response = await api.dormantDetailedSegments(storeId)
         console.log('✅ 主要期間区分データ取得成功:', response)
         console.log('📊 レスポンスデータ構造:', {
           success: response.success,
@@ -242,7 +243,7 @@ export default function DormantCustomersPage() {
       console.log('🔄 休眠顧客リストの取得を開始...', { segment })
       
       const response = await api.dormantCustomers({
-        storeId: 1,
+        storeId: getCurrentStoreId(),
         segment,
         pageSize: 200, // ページング機能のため十分なデータを取得
         sortBy: 'DaysSinceLastPurchase',
