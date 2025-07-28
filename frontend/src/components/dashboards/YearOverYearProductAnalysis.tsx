@@ -443,6 +443,16 @@ const convertApiDataToProductYearData = (apiData: YearOverYearProductData[], cur
     const growthValues = Object.values(yearOverYearGrowth)
     const avgGrowth = growthValues.length > 0 ? growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length : 0
 
+    // デバッグ用: 最初の商品の成長率をログ出力
+    if (index === 0) {
+      console.log('🔍 First product growth rates:', {
+        productName: product.productTitle,
+        yearOverYearGrowth,
+        avgGrowth,
+        monthlyData: product.monthlyData.slice(0, 3) // 最初の3ヶ月分
+      })
+    }
+
     return {
       productId: `api_${index}`,
       productName: product.productTitle,

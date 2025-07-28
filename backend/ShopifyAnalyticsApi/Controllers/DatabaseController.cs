@@ -393,5 +393,93 @@ namespace ShopifyAnalyticsApi.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Customer.TotalOrdersを更新
+        /// POST: api/database/update-customer-totals
+        /// </summary>
+        [HttpPost("update-customer-totals")]
+        public async Task<IActionResult> UpdateCustomerTotals([FromQuery] int? storeId = null)
+        {
+            try
+            {
+                _logger.LogInformation("Customer totals update requested for StoreId: {StoreId}", storeId);
+
+                // CustomerDataMaintenanceServiceがDIに登録されていない場合は、直接実装
+                var customersQuery = _context.Customers.AsQueryable();
+                if (storeId.HasValue)
+                {
+                    customersQuery = customersQuery.Where(c => c.StoreId == storeId.Value);
+                }
+
+                var customers = await customersQuery.ToListAsync();
+                var updatedCount = 0;
+
+                foreach (var customer in customers)
+                {
+                    var orderStats = await _context.Orders
+                        .Where(o => o.CustomerId == customer.Id)
+                        .GroupBy(o => o.CustomerId)
+                        .Select(g => new
+                        {
+                            OrderCount = g.Count(),
+                            TotalSpent = g.Sum(o => o.TotalPrice)
+                        })
+                        .FirstOrDefaultAsync();
+
+                    if (orderStats != null)
+                    {
+                        customer.TotalOrders = orderStats.OrderCount;
+                        customer.TotalSpent = orderStats.TotalSpent;
+                        customer.UpdatedAt = DateTime.UtcNow;
+
+                        // CustomerSegmentも更新
+                        if (customer.TotalOrders >= 10 || customer.TotalSpent >= 100000)
+                        {
+                            customer.CustomerSegment = "VIP顧客";
+                        }
+                        else if (customer.TotalOrders >= 2)
+                        {
+                            customer.CustomerSegment = "リピーター";
+                        }
+                        else
+                        {
+                            customer.CustomerSegment = "新規顧客";
+                        }
+
+                        updatedCount++;
+                    }
+                    else
+                    {
+                        customer.TotalOrders = 0;
+                        customer.TotalSpent = 0;
+                        customer.CustomerSegment = "新規顧客";
+                        customer.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Customer totals updated successfully. Updated: {Count} customers", updatedCount);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Customer totals updated successfully for {updatedCount} customers",
+                    storeId = storeId,
+                    updatedCount = updatedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating customer totals");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while updating customer totals",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }
