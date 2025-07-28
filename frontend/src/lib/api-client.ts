@@ -1,4 +1,4 @@
-import { API_CONFIG, buildApiUrl, getApiUrl } from './api-config';
+import { API_CONFIG, buildApiUrl, getApiUrl, getCurrentStoreId } from './api-config';
 
 // API レスポンス型定義
 export interface ApiResponse<T> {
@@ -20,13 +20,25 @@ export class ApiError extends Error {
   }
 }
 
+// URLにstoreIdを追加するヘルパー関数
+function ensureStoreIdInUrl(url: string): string {
+  const urlObj = new URL(url);
+  if (!urlObj.searchParams.has('storeId')) {
+    const storeId = getCurrentStoreId();
+    urlObj.searchParams.set('storeId', storeId.toString());
+    console.log(`🏪 Auto-added storeId=${storeId} to URL: ${urlObj.toString()}`);
+  }
+  return urlObj.toString();
+}
+
 // HTTP クライアント実装
 class ApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const url = buildApiUrl(endpoint);
+    const baseUrl = buildApiUrl(endpoint);
+    const url = ensureStoreIdInUrl(baseUrl);
     
     // タイムアウト制御
     const controller = new AbortController();

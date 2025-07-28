@@ -1,0 +1,36 @@
+### 購入回数分析API - 簡易版（5階層）テスト
+
+@baseUrl = https://localhost:7088
+@storeId = 1
+
+### 1. 簡易版購入回数分析（5階層） - 過去12ヶ月
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=12months&segment=all&includeComparison=true&tierMode=simplified
+Accept: application/json
+
+### 2. 簡易版購入回数分析（5階層） - 過去6ヶ月
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=6months&segment=all&includeComparison=true&tierMode=simplified
+Accept: application/json
+
+### 3. 簡易版購入回数分析（5階層） - 過去3ヶ月
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=3months&segment=all&includeComparison=false&tierMode=simplified
+Accept: application/json
+
+### 4. 簡易版購入回数分析（5階層） - 新規顧客セグメント
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=12months&segment=new&includeComparison=true&tierMode=simplified
+Accept: application/json
+
+### 5. 簡易版購入回数分析（5階層） - 既存顧客セグメント
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=12months&segment=existing&includeComparison=true&tierMode=simplified
+Accept: application/json
+
+### 6. 通常版購入回数分析（20階層） - 比較用
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=12months&segment=all&includeComparison=true
+Accept: application/json
+
+### 7. 購入回数サマリー（共通）
+GET {{baseUrl}}/api/purchase/count-summary?storeId={{storeId}}&days=365
+Accept: application/json
+
+### 8. 購入回数トレンド（共通）
+GET {{baseUrl}}/api/purchase/count-trends?storeId={{storeId}}&months=6
+Accept: application/json

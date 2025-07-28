@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
+using ShopifyAnalyticsApi.Services.Dormant;
 using ShopifyAnalyticsApi.Helpers;
 
 namespace ShopifyAnalyticsApi.Controllers
@@ -283,7 +284,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// GET: api/customer/dormant/summary
         /// </summary>
         [HttpGet("dormant/summary")]
-        public async Task<ActionResult<ApiResponse<DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
+        public async Task<ActionResult<ApiResponse<Models.DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
             logProperties["StoreId"] = storeId;
@@ -299,7 +300,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("Dormant customer summary retrieved successfully. StoreId: {StoreId}, TotalDormant: {TotalDormant}",
                     storeId, summary.TotalDormantCustomers);
 
-                return Ok(new ApiResponse<DormantSummaryStats>
+                return Ok(new ApiResponse<Models.DormantSummaryStats>
                 {
                     Success = true,
                     Data = summary,
@@ -309,7 +310,7 @@ namespace ShopifyAnalyticsApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving dormant customer summary. StoreId: {StoreId}", storeId);
-                return StatusCode(500, new ApiResponse<DormantSummaryStats>
+                return StatusCode(500, new ApiResponse<Models.DormantSummaryStats>
                 {
                     Success = false,
                     Data = null,

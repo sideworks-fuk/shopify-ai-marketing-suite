@@ -3,6 +3,8 @@
  * 休眠顧客分析・前年同月比画面のパフォーマンス測定用
  */
 
+import React from 'react'
+
 interface PerformanceMetric {
   name: string
   duration: number

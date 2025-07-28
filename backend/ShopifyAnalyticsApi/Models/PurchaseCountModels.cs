@@ -23,6 +23,8 @@ namespace ShopifyAnalyticsApi.Models
         public string? Segment { get; set; } // "all", "new", "existing", "returning"
         public bool IncludeComparison { get; set; } = true;
         public int MaxPurchaseCount { get; set; } = 20; // 20回以上は「20+」として集約
+        public string? TierMode { get; set; } // "simplified" for 5-tier mode, null for detailed mode
+        public string? Period { get; set; } // "3months", "6months", "12months", "24months"
     }
 
     /// <summary>

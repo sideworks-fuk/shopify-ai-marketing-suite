@@ -24,6 +24,17 @@ namespace ShopifyAnalyticsApi.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
+        // 動的ストア選択用の追加プロパティ
+        [MaxLength(500)]
+        public string? Description { get; set; }
+        
+        [MaxLength(50)]
+        public string DataType { get; set; } = "production"; // production or test
+        
+        public bool IsActive { get; set; } = true;
+        
+        public string? Settings { get; set; } // JSON形式の追加設定
+        
         // ナビゲーションプロパティ
         public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();

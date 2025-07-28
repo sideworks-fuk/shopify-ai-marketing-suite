@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ZustandProvider } from "@/components/providers/ZustandProvider"
 import { FilterProvider } from "@/contexts/FilterContext"
+import { StoreProvider } from "@/contexts/StoreContext"
 import MainLayout from "@/components/layout/MainLayout"
 import "./globals.css"
 
@@ -37,13 +38,15 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <ZustandProvider>
-          <FilterProvider>
-            <MainLayout>
-              {children}
-            </MainLayout>
-          </FilterProvider>
-        </ZustandProvider>
+        <StoreProvider>
+          <ZustandProvider>
+            <FilterProvider>
+              <MainLayout>
+                {children}
+              </MainLayout>
+            </FilterProvider>
+          </ZustandProvider>
+        </StoreProvider>
       </body>
     </html>
   )

@@ -39,8 +39,8 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
-// Register Dormant Customer Service (休眠顧客分析サービス)
-builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IDormantCustomerService, ShopifyAnalyticsApi.Services.DormantCustomerService>();
+// Register Dormant Customer Service (休眠顧客分析サービス) - 新しいモジュラー版を使用
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerService>();
 
 // Register New Dormant Services (新しい分割されたサービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerQueryService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerQueryService>();
@@ -71,6 +71,9 @@ builder.Services.AddScoped<IPurchaseCountAnalysisService, PurchaseCountAnalysisS
 
 // Register Monthly Sales Service (月別売上統計サービス)
 builder.Services.AddScoped<IMonthlySalesService, MonthlySalesService>();
+
+// Register Store Service (ストア管理サービス)
+builder.Services.AddScoped<IStoreService, StoreService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
