@@ -182,11 +182,9 @@ export const YearOverYearProductTable: React.FC<YearOverYearProductTableProps> =
             return (
               <React.Fragment key={month}>
                 <td className="py-1 px-1 text-center border-r border-gray-100">
-                  <EnhancedDataCell
-                    currentValue={dataPrevious}
-                    previousValue={dataPrevious}
-                    viewMode={viewMode}
-                  />
+                  <div className="p-2 text-center">
+                    <div className="font-bold text-sm">{formatValue(dataPrevious, viewMode)}</div>
+                  </div>
                 </td>
                 <td className="py-1 px-1 text-center border-r border-gray-200">
                   <EnhancedDataCell
