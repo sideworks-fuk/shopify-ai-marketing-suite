@@ -50,7 +50,7 @@ export const menuStructure: MenuItem[] = [
     id: "purchase-count",
     label: "購入回数分析【購買】",
     icon: "🔢",
-    href: "/purchase/frequency-detail",
+    href: "/purchase/count-analysis",
     category: "purchase",
     isImplemented: true,
     description: "顧客の購入回数別詳細分析とリピート促進インサイト"
