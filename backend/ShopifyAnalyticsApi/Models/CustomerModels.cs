@@ -119,7 +119,7 @@ namespace ShopifyAnalyticsApi.Models
         public decimal? MinTotalSpent { get; set; }
         public decimal? MaxTotalSpent { get; set; }
         public int PageNumber { get; set; } = 1;
-        public int PageSize { get; set; } = 50; // 一時的に元に戻す
+        public int PageSize { get; set; } = 30; // パフォーマンス改善: 初期ページサイズを30に削減
         public string SortBy { get; set; } = "DaysSinceLastPurchase";
         public bool Descending { get; set; } = true;
     }
@@ -171,6 +171,10 @@ namespace ShopifyAnalyticsApi.Models
         public decimal RecoveredRevenue { get; set; }
         public Dictionary<string, int> SegmentCounts { get; set; } = new();
         public Dictionary<string, decimal> SegmentRevenue { get; set; } = new();
+        public decimal AverageChurnProbability { get; set; }
+        public decimal TotalLostRevenue { get; set; }
+        public decimal PotentialRecoverableRevenue { get; set; }
+        public DateTime AnalysisDate { get; set; } = DateTime.UtcNow;
     }
 
     /// <summary>

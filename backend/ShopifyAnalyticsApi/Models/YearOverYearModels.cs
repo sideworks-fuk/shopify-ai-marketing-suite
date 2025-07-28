@@ -125,6 +125,11 @@ namespace ShopifyAnalyticsApi.Models
         /// オフセット
         /// </summary>
         public int? Offset { get; set; }
+
+        /// <summary>
+        /// サービス項目を除外するかどうか
+        /// </summary>
+        public bool ExcludeServiceItems { get; set; } = false;
     }
 
     /// <summary>

@@ -1,0 +1,27 @@
+### ストアAPI テスト
+
+@baseUrl = https://localhost:7088
+
+### 1. API接続テスト
+GET {{baseUrl}}/api/store/test
+Accept: application/json
+
+### 2. アクティブなストア一覧を取得
+GET {{baseUrl}}/api/store
+Accept: application/json
+
+### 3. ストアID 1の詳細情報を取得（本番ストア）
+GET {{baseUrl}}/api/store/1
+Accept: application/json
+
+### 4. ストアID 2の詳細情報を取得（テストストア）
+GET {{baseUrl}}/api/store/2
+Accept: application/json
+
+### 5. ストアID 3の詳細情報を取得（デモストア）
+GET {{baseUrl}}/api/store/3
+Accept: application/json
+
+### 6. 存在しないストアIDを指定（エラーテスト）
+GET {{baseUrl}}/api/store/999
+Accept: application/json

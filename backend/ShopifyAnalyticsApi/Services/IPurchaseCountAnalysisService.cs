@@ -37,5 +37,12 @@ namespace ShopifyAnalyticsApi.Services
         /// <param name="segment">セグメント</param>
         /// <returns>セグメント分析データ</returns>
         Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment);
+
+        /// <summary>
+        /// 簡易版購入回数分析データを取得（5階層）
+        /// </summary>
+        /// <param name="request">分析リクエスト</param>
+        /// <returns>購入回数分析レスポンス（5階層）</returns>
+        Task<PurchaseCountAnalysisResponse> GetSimplifiedPurchaseCountAnalysisAsync(PurchaseCountAnalysisRequest request);
     }
 }
