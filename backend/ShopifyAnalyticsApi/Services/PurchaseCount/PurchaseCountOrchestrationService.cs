@@ -272,5 +272,196 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         }
 
         #endregion
+
+        /// <summary>
+        /// 簡易版購入回数分析を実行（5階層）
+        /// </summary>
+        public async Task<PurchaseCountAnalysisResponse> GetSimplifiedPurchaseCountAnalysisAsync(PurchaseCountAnalysisRequest request)
+        {
+            try
+            {
+                _logger.LogInformation("簡易版購入回数分析(5階層)開始 - StoreId: {StoreId}, Period: {StartDate} - {EndDate}",
+                    request.StoreId, request.StartDate, request.EndDate);
+
+                var response = new PurchaseCountAnalysisResponse();
+
+                // 1. サマリーデータ取得
+                var days = (int)(request.EndDate - request.StartDate).TotalDays;
+                response.Summary = await _analysisService.GetPurchaseCountSummaryAsync(request.StoreId, days);
+
+                // 2. 5階層の詳細データ取得
+                response.Details = await GetSimplified5TierDetailsAsync(request);
+
+                // 3. トレンドデータ取得（簡易版）
+                response.Trends = await _analysisService.GetPurchaseCountTrendsAsync(request.StoreId, 6); // 6ヶ月分
+
+                // 4. セグメント分析は簡易版では省略可能
+                if (request.Segment == "all" || string.IsNullOrEmpty(request.Segment))
+                {
+                    response.SegmentAnalysis = new List<SegmentAnalysisData>();
+                }
+
+                // 5. 簡易版用のインサイト生成
+                response.Insights = GenerateSimplifiedInsights(response);
+
+                _logger.LogInformation("簡易版購入回数分析完了 - DetailCount: {DetailCount}(5階層), TrendCount: {TrendCount}",
+                    response.Details.Count, response.Trends.Count);
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "簡易版購入回数分析エラー - StoreId: {StoreId}", request.StoreId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 5階層の詳細データを取得
+        /// </summary>
+        private async Task<List<PurchaseCountDetail>> GetSimplified5TierDetailsAsync(PurchaseCountAnalysisRequest request)
+        {
+            // 全ての詳細データを取得
+            var allDetails = await _analysisService.GetPurchaseCountDetailsAsync(request);
+
+            // 5階層に集約
+            var simplifiedDetails = new List<PurchaseCountDetail>
+            {
+                CreateSimplifiedTier(allDetails, 1, 1, "1回"),
+                CreateSimplifiedTier(allDetails, 2, 2, "2回"),
+                CreateSimplifiedTier(allDetails, 3, 5, "3-5回"),
+                CreateSimplifiedTier(allDetails, 6, 10, "6-10回"),
+                CreateSimplifiedTier(allDetails, 11, int.MaxValue, "11回以上")
+            };
+
+            // 全体に対する割合を再計算
+            var totalCustomers = simplifiedDetails.Sum(d => d.Current.CustomerCount);
+            var totalAmount = simplifiedDetails.Sum(d => d.Current.TotalAmount);
+
+            foreach (var detail in simplifiedDetails)
+            {
+                detail.Percentage = new PercentageMetrics
+                {
+                    CustomerPercentage = totalCustomers > 0 
+                        ? (decimal)detail.Current.CustomerCount / totalCustomers * 100 : 0,
+                    AmountPercentage = totalAmount > 0 
+                        ? detail.Current.TotalAmount / totalAmount * 100 : 0
+                };
+            }
+
+            return simplifiedDetails;
+        }
+
+        /// <summary>
+        /// 簡易階層を作成
+        /// </summary>
+        private PurchaseCountDetail CreateSimplifiedTier(List<PurchaseCountDetail> allDetails, 
+            int minCount, int maxCount, string label)
+        {
+            var tierDetails = allDetails.Where(d => d.PurchaseCount >= minCount && d.PurchaseCount <= maxCount).ToList();
+            
+            var simplifiedDetail = new PurchaseCountDetail
+            {
+                PurchaseCount = minCount,
+                PurchaseCountLabel = label,
+                Current = new BasicMetrics
+                {
+                    CustomerCount = tierDetails.Sum(d => d.Current.CustomerCount),
+                    OrderCount = tierDetails.Sum(d => d.Current.OrderCount),
+                    TotalAmount = tierDetails.Sum(d => d.Current.TotalAmount)
+                },
+                Analysis = new DetailedAnalysisMetrics()
+            };
+
+            // 平均値の計算
+            if (simplifiedDetail.Current.CustomerCount > 0)
+            {
+                simplifiedDetail.Current.AverageCustomerValue = 
+                    simplifiedDetail.Current.TotalAmount / simplifiedDetail.Current.CustomerCount;
+            }
+            if (simplifiedDetail.Current.OrderCount > 0)
+            {
+                simplifiedDetail.Current.AverageOrderValue = 
+                    simplifiedDetail.Current.TotalAmount / simplifiedDetail.Current.OrderCount;
+            }
+
+            // 前年同期データがある場合は集約
+            if (tierDetails.Any(d => d.Previous != null))
+            {
+                simplifiedDetail.Previous = new BasicMetrics
+                {
+                    CustomerCount = tierDetails.Sum(d => d.Previous?.CustomerCount ?? 0),
+                    OrderCount = tierDetails.Sum(d => d.Previous?.OrderCount ?? 0),
+                    TotalAmount = tierDetails.Sum(d => d.Previous?.TotalAmount ?? 0)
+                };
+
+                // 成長率計算
+                if (simplifiedDetail.Previous.CustomerCount > 0)
+                {
+                    simplifiedDetail.GrowthRate = new GrowthRateMetrics
+                    {
+                        CustomerCountGrowth = ((decimal)simplifiedDetail.Current.CustomerCount / simplifiedDetail.Previous.CustomerCount - 1) * 100,
+                        OrderCountGrowth = ((decimal)simplifiedDetail.Current.OrderCount / simplifiedDetail.Previous.OrderCount - 1) * 100,
+                        AmountGrowth = (simplifiedDetail.Current.TotalAmount / simplifiedDetail.Previous.TotalAmount - 1) * 100
+                    };
+                }
+            }
+
+            return simplifiedDetail;
+        }
+
+        /// <summary>
+        /// 簡易版用のインサイト生成
+        /// </summary>
+        private PurchaseCountInsights GenerateSimplifiedInsights(PurchaseCountAnalysisResponse response)
+        {
+            var insights = new PurchaseCountInsights
+            {
+                KeyFindings = new List<string>(),
+                Recommendations = new List<RecommendationItem>(),
+                Risk = new RiskAnalysis { RiskFactors = new List<string>() },
+                Opportunity = new OpportunityAnalysis { GrowthOpportunities = new List<string>() }
+            };
+
+            // 1回購入顧客の分析
+            var oneTimeTier = response.Details.FirstOrDefault(d => d.PurchaseCountLabel == "1回");
+            if (oneTimeTier != null)
+            {
+                if (oneTimeTier.Percentage.CustomerPercentage > 60)
+                {
+                    insights.KeyFindings.Add($"初回購入のみの顧客が{oneTimeTier.Percentage.CustomerPercentage:F1}%を占めています");
+                    insights.Recommendations.Add(new RecommendationItem
+                    {
+                        Category = "リピート促進",
+                        Title = "初回購入者のリピート化",
+                        Description = "初回購入後のフォローアップを強化しましょう",
+                        Priority = "高",
+                        Action = "購入後メール、特別クーポン、商品レビュー依頼"
+                    });
+                }
+            }
+
+            // 高頻度購入層（11回以上）の分析
+            var loyalTier = response.Details.FirstOrDefault(d => d.PurchaseCountLabel == "11回以上");
+            if (loyalTier != null && loyalTier.Percentage.CustomerPercentage > 10)
+            {
+                insights.KeyFindings.Add($"11回以上購入のロイヤル顧客が{loyalTier.Percentage.CustomerPercentage:F1}%存在します");
+                insights.Recommendations.Add(new RecommendationItem
+                {
+                    Category = "顧客維持",
+                    Title = "ロイヤル顧客の維持強化",
+                    Description = "最優良顧客への特別対応を実施しましょう",
+                    Priority = "中",
+                    Action = "VIPプログラム、限定商品、優先サポート"
+                });
+            }
+
+            // リスクレベルの簡易判定
+            var oneTimeRate = oneTimeTier?.Percentage.CustomerPercentage ?? 0;
+            insights.Risk.OneTimeCustomerRate = oneTimeRate;
+            insights.Risk.OverallRiskLevel = oneTimeRate > 70 ? "高" : oneTimeRate > 50 ? "中" : "低";
+
+            return insights;
+        }
     }
 }

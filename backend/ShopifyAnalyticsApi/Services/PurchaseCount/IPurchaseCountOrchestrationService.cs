@@ -21,5 +21,12 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// <param name="response">分析レスポンス</param>
         /// <returns>購入回数インサイト</returns>
         PurchaseCountInsights GenerateInsights(PurchaseCountAnalysisResponse response);
+
+        /// <summary>
+        /// 簡易版購入回数分析を実行（5階層）
+        /// </summary>
+        /// <param name="request">分析リクエスト</param>
+        /// <returns>購入回数分析レスポンス（5階層）</returns>
+        Task<PurchaseCountAnalysisResponse> GetSimplifiedPurchaseCountAnalysisAsync(PurchaseCountAnalysisRequest request);
     }
 }

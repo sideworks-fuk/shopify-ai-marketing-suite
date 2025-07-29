@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Helpers;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
@@ -8,6 +9,7 @@ namespace ShopifyAnalyticsApi.Controllers
     /// <summary>
     /// 分析・レポート機能用のAPIコントローラー
     /// </summary>
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class AnalyticsController : ControllerBase

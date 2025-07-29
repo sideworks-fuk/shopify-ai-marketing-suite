@@ -14,6 +14,7 @@ import {
   ErrorHandlerConfig,
   getErrorTypeFromStatus 
 } from '../types/error'
+import { authClient } from './auth-client'
 
 // デフォルト設定
 const DEFAULT_CONFIG: ErrorHandlerConfig = {
@@ -66,12 +67,18 @@ class ErrorHandler {
     }
 
     try {
-      // 1. ログ出力
+      // 1. 401エラー（認証エラー）の特別処理
+      if (appError.type === 'authentication') {
+        await this.handle401Error(appError, errorReport)
+        return
+      }
+
+      // 2. ログ出力
       if (this.config.enableLogging && !options.silent) {
         this.logError(errorReport)
       }
 
-      // 2. ユーザー通知
+      // 3. ユーザー通知
       if (this.config.enableUserNotification && (options.showToUser !== false)) {
         await this.notifyUser(appError, options.notifyType || this.config.defaultNotificationType)
       }
@@ -108,6 +115,72 @@ class ErrorHandler {
       
       // 最終的なフォールバック
       console.error('❌ Critical Error Handler Failure:', handlingError)
+    }
+  }
+
+  /**
+   * 401エラー（認証エラー）の特別処理
+   */
+  private async handle401Error(error: AppError, errorReport: ErrorReport): Promise<void> {
+    console.log('🔐 401認証エラーを検出、自動認証を試行します...')
+    
+    try {
+      // 現在のストアIDを取得
+      const currentStoreId = this.getCurrentStoreId()
+      
+      if (currentStoreId) {
+        // 自動再認証を試行
+        await authClient.authenticate(currentStoreId)
+        
+        console.log('✅ 自動再認証が成功しました')
+        
+        // 成功の通知
+        if (this.toastHandler) {
+          this.toastHandler('認証を更新しました', 'success')
+        }
+        
+        errorReport.handled = true
+        return
+      } else {
+        throw new Error('Store IDが見つかりません')
+      }
+      
+    } catch (authError: any) {
+      console.error('❌ 自動再認証に失敗:', authError)
+      
+      // 認証失敗時のエラー処理
+      if (this.config.enableLogging) {
+        this.logError({
+          ...errorReport,
+          error: new AppError('認証の自動復旧に失敗しました', {
+            type: 'authentication',
+            severity: 'error',
+            context: error.context,
+            userMessage: 'ログインが必要です。ページを再読み込みしてください。'
+          }, authError)
+        })
+      }
+      
+      // ユーザーに通知
+      if (this.toastHandler) {
+        this.toastHandler('認証に失敗しました。ページを再読み込みしてください。', 'error')
+      }
+      
+      errorReport.handled = true
+    }
+  }
+
+  /**
+   * 現在のストアIDを取得
+   */
+  private getCurrentStoreId(): number | null {
+    if (typeof window === 'undefined') return null
+    
+    try {
+      const storeId = localStorage.getItem('currentStoreId')
+      return storeId ? parseInt(storeId, 10) : 1
+    } catch {
+      return 1
     }
   }
 
@@ -173,6 +246,17 @@ class ErrorHandler {
       if (error.name === 'ApiError' && 'statusCode' in error) {
         const statusCode = error.statusCode as number
         const errorType = getErrorTypeFromStatus(statusCode)
+        
+        // 401エラー（認証エラー）の特別処理
+        if (statusCode === 401) {
+          return new AppError(error.message, {
+            type: 'authentication',
+            severity: 'warning',
+            context: options.context,
+            userMessage: '認証が必要です。自動的にログインを試行します。',
+            ...options
+          }, error)
+        }
         
         return new AppError(error.message, {
           type: errorType,

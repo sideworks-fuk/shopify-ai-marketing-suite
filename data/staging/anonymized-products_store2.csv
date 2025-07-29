@@ -1,0 +1,28 @@
+Handle,Title,Body (HTML),Vendor,Product Category,Type,Tags,Published,Option1 Name,Option1 Value,Option1 Linked To,Option2 Name,Option2 Value,Option2 Linked To,Option3 Name,Option3 Value,Option3 Linked To,Variant SKU,Variant Grams,Variant Inventory Tracker,Variant Inventory Policy,Variant Fulfillment Service,Variant Price,Variant Compare At Price,Variant Requires Shipping,Variant Taxable,Variant Barcode,Image Src,Image Position,Image Alt Text,Gift Card,SEO Title,SEO Description,Status
+premium-gift-box,プレミアムギフトボックスセット,<p>特別な日にふさわしい高級ギフトセット</p>,ギフト工房,Gift & Flowers,ギフトボックス,"ギフト,プレミアム,高級",true,サイズ,L,,,,,,,PRD-2001-L,500,shopify,continue,manual,15000,18000,true,true,,,,,false,プレミアムギフトボックス,特別な贈り物に最適な高級ギフトボックス,active
+premium-gift-box,,,,,,,,,M,,,,,,,PRD-2001-M,350,shopify,continue,manual,12000,15000,true,true,,,,,,,,,
+premium-gift-box,,,,,,,,,S,,,,,,,PRD-2001-S,200,shopify,continue,manual,8000,10000,true,true,,,,,,,,,
+seasonal-collection,季節限定コレクション,<p>四季をテーマにした限定商品</p>,季節工房,Seasonal,限定商品,"季節,限定,コレクション",true,シーズン,春,,,,,,,PRD-2002-SP,300,shopify,continue,manual,5000,6000,true,true,,,,,false,季節限定コレクション,四季の美しさを表現した限定商品,active
+seasonal-collection,,,,,,,,,夏,,,,,,,PRD-2002-SU,300,shopify,continue,manual,5500,6500,true,true,,,,,,,,,
+seasonal-collection,,,,,,,,,秋,,,,,,,PRD-2002-AU,300,shopify,continue,manual,6000,7000,true,true,,,,,,,,,
+seasonal-collection,,,,,,,,,冬,,,,,,,PRD-2002-WI,300,shopify,continue,manual,6500,7500,true,true,,,,,,,,,
+daily-essentials,デイリーエッセンシャル,<p>毎日使える実用的なアイテム</p>,生活工房,Home & Garden,日用品,"日用品,実用,毎日",true,タイプ,ベーシック,,,,,,,PRD-2003-BA,150,shopify,continue,manual,2000,2500,true,true,,,,,false,デイリーエッセンシャル,毎日の生活を豊かにする実用的なアイテム,active
+daily-essentials,,,,,,,,,スタンダード,,,,,,,PRD-2003-ST,200,shopify,continue,manual,3000,3500,true,true,,,,,,,,,
+daily-essentials,,,,,,,,,プレミアム,,,,,,,PRD-2003-PR,250,shopify,continue,manual,4000,4500,true,true,,,,,,,,,
+luxury-items,ラグジュアリーアイテム,<p>上質な素材を使用した贅沢品</p>,高級工房,Luxury,高級品,"高級,ラグジュアリー,上質",true,グレード,ゴールド,,,,,,,PRD-2004-GO,800,shopify,continue,manual,25000,30000,true,true,,,,,false,ラグジュアリーアイテム,最高級の素材と職人技が生み出す逸品,active
+luxury-items,,,,,,,,,プラチナ,,,,,,,PRD-2004-PL,1000,shopify,continue,manual,35000,42000,true,true,,,,,,,,,
+tech-gadgets,テックガジェット,<p>最新技術を活用した便利グッズ</p>,テック工房,Electronics,ガジェット,"テック,ガジェット,便利",true,機能,ベーシック,,,,,,,PRD-2005-BA,100,shopify,continue,manual,8000,10000,true,true,,,,,false,テックガジェット,最新技術で生活を便利にするガジェット,active
+tech-gadgets,,,,,,,,,アドバンス,,,,,,,PRD-2005-AD,150,shopify,continue,manual,12000,15000,true,true,,,,,,,,,
+health-wellness,ヘルス＆ウェルネス,<p>健康と美容をサポートするアイテム</p>,ウェルネス工房,Health & Beauty,健康美容,"健康,美容,ウェルネス",true,効果,リラックス,,,,,,,PRD-2006-RE,200,shopify,continue,manual,6000,7500,true,true,,,,,false,ヘルス＆ウェルネス,健康と美容をトータルサポート,active
+health-wellness,,,,,,,,,エナジー,,,,,,,PRD-2006-EN,200,shopify,continue,manual,7000,8500,true,true,,,,,,,,,
+holiday-specials,ホリデースペシャル,<p>特別な休日のための限定商品</p>,ホリデー工房,Holiday,特別商品,"ホリデー,特別,限定",true,イベント,クリスマス,,,,,,,PRD-2007-XM,400,shopify,continue,manual,9000,11000,true,true,,,,,false,ホリデースペシャル,特別な休日を彩る限定商品,active
+holiday-specials,,,,,,,,,バレンタイン,,,,,,,PRD-2007-VD,350,shopify,continue,manual,8000,10000,true,true,,,,,,,,,
+holiday-specials,,,,,,,,,母の日,,,,,,,PRD-2007-MD,300,shopify,continue,manual,7000,9000,true,true,,,,,,,,,
+eco-friendly,エコフレンドリー,<p>環境に配慮したサステナブル商品</p>,エコ工房,Eco,環境商品,"エコ,環境,サステナブル",true,素材,リサイクル,,,,,,,PRD-2008-RC,250,shopify,continue,manual,4500,5500,true,true,,,,,false,エコフレンドリー,地球に優しいサステナブル商品,active
+eco-friendly,,,,,,,,,オーガニック,,,,,,,PRD-2008-OR,300,shopify,continue,manual,5500,6500,true,true,,,,,,,,,
+kids-collection,キッズコレクション,<p>お子様向けの安全で楽しいアイテム</p>,キッズ工房,Kids & Baby,子供用品,"キッズ,子供,安全",true,年齢,3-6歳,,,,,,,PRD-2009-36,180,shopify,continue,manual,3500,4200,true,true,,,,,false,キッズコレクション,お子様の成長をサポートする安全なアイテム,active
+kids-collection,,,,,,,,,7-12歳,,,,,,,PRD-2009-712,200,shopify,continue,manual,4000,4800,true,true,,,,,,,,,
+sports-outdoor,スポーツ＆アウトドア,<p>アクティブなライフスタイルをサポート</p>,スポーツ工房,Sports & Recreation,スポーツ用品,"スポーツ,アウトドア,アクティブ",true,用途,ランニング,,,,,,,PRD-2010-RU,300,shopify,continue,manual,6500,8000,true,true,,,,,false,スポーツ＆アウトドア,アクティブなライフスタイルをサポート,active
+sports-outdoor,,,,,,,,,ハイキング,,,,,,,PRD-2010-HI,400,shopify,continue,manual,8000,10000,true,true,,,,,,,,,
+artisan-crafts,職人クラフト,<p>熟練職人による手作りの逸品</p>,職人工房,Art & Crafts,工芸品,"職人,手作り,工芸",true,技法,伝統,,,,,,,PRD-2011-TR,600,shopify,continue,manual,12000,15000,true,true,,,,,false,職人クラフト,熟練職人の技が光る手作り工芸品,active
+artisan-crafts,,,,,,,,,モダン,,,,,,,PRD-2011-MO,500,shopify,continue,manual,10000,12500,true,true,,,,,,,,,

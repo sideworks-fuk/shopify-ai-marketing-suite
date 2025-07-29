@@ -16,6 +16,7 @@ import {
   type ApiEndpointConfig
 } from "@/lib/api-test-utils";
 import { DataService } from "@/services/dataService";
+import { getCurrentEnvironmentConfig } from "@/lib/config/environments";
 
 export default function PurchaseFrequencyApiTestPage() {
   const [testResults, setTestResults] = useState<Map<string, ApiTestResult>>(new Map());
@@ -27,7 +28,11 @@ export default function PurchaseFrequencyApiTestPage() {
 
   // API設定の初期化
   useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin;
+    // environments.tsの設定を使用
+    const envConfig = getCurrentEnvironmentConfig();
+    const baseUrl = envConfig.apiBaseUrl;
+    console.log('🔗 Purchase Frequency API Test initialized with baseUrl:', baseUrl);
+    
     const tester = new ApiTester({
       baseUrl,
       headers: {
@@ -459,7 +464,8 @@ export default function PurchaseFrequencyApiTestPage() {
         <CardContent>
           <div className="space-y-2">
             <div><strong>現在のデータソース:</strong> {dataService?.getCurrentDataSource() || 'Unknown'}</div>
-            <div><strong>API Base URL:</strong> {process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin}</div>
+            <div><strong>API Base URL:</strong> {getCurrentEnvironmentConfig().apiBaseUrl}</div>
+            <div><strong>環境:</strong> {getCurrentEnvironmentConfig().name}</div>
             <div><strong>モックデータ使用:</strong> {process.env.NEXT_PUBLIC_USE_MOCK === 'true' ? 'Yes' : 'No'}</div>
           </div>
         </CardContent>

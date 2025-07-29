@@ -3,6 +3,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { StoreSelector } from '@/components/common/StoreSelector'
+import { useStore } from '@/contexts/StoreContext'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -23,7 +26,9 @@ import {
   GitBranch,
   CalendarDays,
   Clock,
-  Hash
+  Hash,
+  Store,
+  Info
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -222,6 +227,7 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 }
 
 export default function DevBookmarksPage() {
+  const { currentStore, availableStores } = useStore()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   
@@ -271,6 +277,57 @@ export default function DevBookmarksPage() {
           <Badge variant="outline">機能確認</Badge>
         </div>
       </div>
+
+      {/* ストア切り替えセクション */}
+      <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-900">
+            <Store className="h-5 w-5" />
+            ストア切り替え
+          </CardTitle>
+          <CardDescription>
+            開発・テスト用のストアを切り替えます
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <StoreSelector />
+            <div className="space-y-2">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">現在のストア:</span> {currentStore?.name || '未選択'}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">ストアID:</span> {currentStore?.id || '-'}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">データタイプ:</span> {currentStore?.dataType || '-'}
+              </p>
+              {currentStore?.description && (
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">説明:</span> {currentStore.description}
+                </p>
+              )}
+            </div>
+            <Alert className="border-amber-200 bg-amber-50">
+              <Info className="h-4 w-4 text-amber-700" />
+              <AlertDescription className="text-amber-800">
+                ストアを切り替えると、ページがリロードされます。
+                変更は全ての分析画面に反映されます。
+              </AlertDescription>
+            </Alert>
+            <div className="mt-4 p-3 bg-white rounded-lg border">
+              <h4 className="text-sm font-medium mb-2">利用可能なストア</h4>
+              <div className="space-y-1">
+                {availableStores.map(store => (
+                  <div key={store.id} className="text-sm text-gray-600">
+                    • {store.name} (ID: {store.id}, {store.dataType})
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* バージョン情報 */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">

@@ -2,9 +2,12 @@
 
 import React from 'react';
 import { getCurrentEnvironment, getCurrentEnvironmentConfig, getEnvironmentDebugInfo } from '@/lib/config/environments';
+import { useAuth } from '@/components/providers/AuthProvider';
+import { authClient } from '@/lib/auth-client';
 
 export default function DebugEnvPage() {
   const [info, setInfo] = React.useState<any>({});
+  const auth = useAuth();
   
   React.useEffect(() => {
     const env = getCurrentEnvironment();
@@ -24,9 +27,22 @@ export default function DebugEnvPage() {
       buildInfo: {
         buildId: (window as any).__NEXT_DATA__?.buildId || 'unknown',
         query: (window as any).__NEXT_DATA__?.query || {},
+      },
+      auth: {
+        status: {
+          ...authClient.getAuthStatus(),
+          providerState: {
+            isAuthenticated: auth.isAuthenticated,
+            isInitializing: auth.isInitializing,
+            currentStoreId: auth.currentStoreId,
+            authError: auth.authError
+          }
+        },
+        token: authClient.getAccessToken()?.substring(0, 50) + '...' || 'No token',
+        headers: authClient.getAuthHeaders()
       }
     });
-  }, []);
+  }, [auth]);
 
   return (
     <div style={{ padding: '20px', fontFamily: 'monospace' }}>
@@ -44,6 +60,34 @@ export default function DebugEnvPage() {
         <strong>API Connection: </strong>
         {info.urls?.isCorrect ? '✅ Correct (Development)' : '❌ Incorrect (Production)'}
       </div>
+
+      <h2>Authentication Status</h2>
+      <div style={{ 
+        padding: '10px', 
+        background: info.auth?.status?.providerState?.isAuthenticated ? '#d4edda' : '#f8d7da',
+        border: '1px solid',
+        borderColor: info.auth?.status?.providerState?.isAuthenticated ? '#c3e6cb' : '#f5c6cb',
+        borderRadius: '4px',
+        marginBottom: '20px'
+      }}>
+        <strong>Auth Status: </strong>
+        {info.auth?.status?.providerState?.isAuthenticated ? '✅ Authenticated' : '❌ Not Authenticated'}
+        <br />
+        <strong>Store ID: </strong>{auth.currentStoreId || 'N/A'}
+        <br />
+        <strong>Token Preview: </strong>{info.auth?.token || 'No token'}
+        {auth.authError && (
+          <>
+            <br />
+            <strong style={{ color: 'red' }}>Error: </strong>{auth.authError}
+          </>
+        )}
+      </div>
+
+      <h2>Authentication Headers</h2>
+      <pre style={{ background: '#f5f5f5', padding: '10px', overflow: 'auto', marginBottom: '20px' }}>
+        {JSON.stringify(info.auth?.headers || {}, null, 2)}
+      </pre>
 
       <h2>Current Environment</h2>
       <pre style={{ background: '#f5f5f5', padding: '10px', overflow: 'auto' }}>

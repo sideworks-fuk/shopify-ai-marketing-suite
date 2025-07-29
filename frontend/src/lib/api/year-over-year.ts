@@ -1,4 +1,6 @@
 import { ApiResponse } from '../data-access/types/api';
+import { getCurrentEnvironmentConfig } from '../config/environments';
+import { authClient } from '../auth-client';
 
 // API用の型定義
 export interface YearOverYearRequest {
@@ -14,6 +16,7 @@ export interface YearOverYearRequest {
   searchTerm?: string;
   growthRateFilter?: 'all' | 'positive' | 'negative' | 'high_growth' | 'high_decline';
   category?: string;
+  excludeServiceItems?: boolean;
 }
 
 export interface MonthlyComparisonData {
@@ -76,8 +79,10 @@ export interface YearOverYearResponse {
 export class YearOverYearApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    // environments.tsの設定を使用
+    this.baseUrl = baseUrl || getCurrentEnvironmentConfig().apiBaseUrl;
+    console.log('🔗 YearOverYearApiClient initialized with baseUrl:', this.baseUrl);
   }
 
   /**
@@ -100,6 +105,7 @@ export class YearOverYearApiClient {
       if (request.searchTerm) params.append('searchTerm', request.searchTerm);
       if (request.growthRateFilter) params.append('growthRateFilter', request.growthRateFilter);
       if (request.category) params.append('category', request.category);
+      if (request.excludeServiceItems !== undefined) params.append('excludeServiceItems', request.excludeServiceItems.toString());
       
       // 配列パラメータ
       if (request.productTypes?.length) {
@@ -113,7 +119,7 @@ export class YearOverYearApiClient {
       
       console.log('API Request URL:', url);
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +146,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/product-types?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +173,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/vendors?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +204,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/date-range?storeId=${storeId}`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +235,7 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/test`;
       
-      const response = await fetch(url, {
+      const response = await authClient.request(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

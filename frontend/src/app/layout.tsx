@@ -2,9 +2,12 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ZustandProvider } from "@/components/providers/ZustandProvider"
+import { AuthProvider } from "@/components/providers/AuthProvider"
 import { FilterProvider } from "@/contexts/FilterContext"
-import MainLayout from "@/components/layout/MainLayout"
+import { StoreProvider } from "@/contexts/StoreContext"
+import ConditionalLayout from "@/components/layout/ConditionalLayout"
 import "./globals.css"
+import "@shopify/polaris/build/esm/styles.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -37,13 +40,17 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <ZustandProvider>
-          <FilterProvider>
-            <MainLayout>
-              {children}
-            </MainLayout>
-          </FilterProvider>
-        </ZustandProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <ZustandProvider>
+              <FilterProvider>
+                <ConditionalLayout>
+                  {children}
+                </ConditionalLayout>
+              </FilterProvider>
+            </ZustandProvider>
+          </StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   )

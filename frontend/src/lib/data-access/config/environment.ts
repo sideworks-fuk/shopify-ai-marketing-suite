@@ -9,6 +9,7 @@ import type {
   LoggingConfig,
   EnvironmentConfig 
 } from '../types/api';
+import { getCurrentEnvironmentConfig } from '../../config/environments';
 
 // 環境変数の型安全な取得
 const getEnvBoolean = (key: string, defaultValue: boolean = false): boolean => {
@@ -32,7 +33,7 @@ const getEnvString = (key: string, defaultValue: string): string => {
 export const environmentConfig: EnvironmentConfig = {
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
   NEXT_PUBLIC_USE_API: getEnvBoolean('NEXT_PUBLIC_USE_API', false),
-  NEXT_PUBLIC_API_BASE_URL: getEnvString('NEXT_PUBLIC_API_BASE_URL', 'http://localhost:3000/api'),
+  NEXT_PUBLIC_API_BASE_URL: getEnvString('NEXT_PUBLIC_API_BASE_URL', getCurrentEnvironmentConfig().apiBaseUrl),
   NEXT_PUBLIC_ENABLE_CACHE: getEnvBoolean('NEXT_PUBLIC_ENABLE_CACHE', true),
   NEXT_PUBLIC_CACHE_TTL: getEnvNumber('NEXT_PUBLIC_CACHE_TTL', 300), // 5分
 };
