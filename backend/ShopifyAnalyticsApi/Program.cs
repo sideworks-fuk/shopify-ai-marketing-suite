@@ -27,6 +27,9 @@ builder.Host.UseSerilog();
 // Add services to the container.
 builder.Services.AddControllers();
 
+// HTTPクライアントファクトリーを追加（Shopify API呼び出し用）
+builder.Services.AddHttpClient();
+
 // JWT認証の設定
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -261,6 +264,9 @@ app.UseCors("AllowAll");
 
 // グローバル例外ハンドラーを最初に配置
 app.UseGlobalExceptionHandler();
+
+// Shopify Webhook用のHMAC検証ミドルウェア
+app.UseHmacValidation();
 
 // Rate Limitingを有効化
 app.UseRateLimiter();
