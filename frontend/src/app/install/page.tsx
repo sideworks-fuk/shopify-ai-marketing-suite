@@ -14,6 +14,7 @@ import {
   Box,
   InlineStack,
 } from '@shopify/polaris';
+import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 
 /**
  * Shopifyアプリインストールページ（Polaris版）
@@ -61,11 +62,12 @@ export default function InstallPolarisPage() {
 
       console.log('🚀 Shopifyインストール開始:', fullDomain);
 
-      // バックエンドの認証エンドポイントへリダイレクト
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5137';
-      const installUrl = `${apiUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
+      // 環境設定からAPI URLを取得
+      const config = getCurrentEnvironmentConfig();
+      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
       
       console.log('📍 リダイレクト先:', installUrl);
+      console.log('🌍 現在の環境:', config.name);
       
       // Shopify OAuth フローへリダイレクト
       window.location.href = installUrl;
@@ -135,7 +137,7 @@ export default function InstallPolarisPage() {
                     loading={loading}
                     disabled={!shopDomain.trim()}
                   >
-                    アプリをインストール
+                    {loading ? 'インストール中...' : 'アプリをインストール'}
                   </Button>
                 </BlockStack>
               </Card>
@@ -179,6 +181,29 @@ export default function InstallPolarisPage() {
                   に同意したものとみなされます。
                 </Text>
               </div>
+
+              {/* 開発環境でのデバッグ情報 */}
+              {process.env.NODE_ENV === 'development' && (
+                <Card>
+                  <BlockStack gap="400">
+                    <Text as="h3" variant="headingMd">
+                      デバッグ情報（開発環境のみ）
+                    </Text>
+                    <div style={{ 
+                      backgroundColor: '#f6f6f7', 
+                      padding: '12px', 
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontFamily: 'monospace'
+                    }}>
+                      <div>環境: {getCurrentEnvironmentConfig().name}</div>
+                      <div>API URL: {getCurrentEnvironmentConfig().apiBaseUrl}</div>
+                      <div>入力値: {shopDomain || '(未入力)'}</div>
+                      <div>検証結果: {shopDomain ? (validateShopDomain(shopDomain) ? '✅ 有効' : '❌ 無効') : '未検証'}</div>
+                    </div>
+                  </BlockStack>
+                </Card>
+              )}
             </BlockStack>
           </Page>
         </div>
