@@ -5,7 +5,7 @@ import { ZustandProvider } from "@/components/providers/ZustandProvider"
 import { AuthProvider } from "@/components/providers/AuthProvider"
 import { FilterProvider } from "@/contexts/FilterContext"
 import { StoreProvider } from "@/contexts/StoreContext"
-import MainLayout from "@/components/layout/MainLayout"
+import ConditionalLayout from "@/components/layout/ConditionalLayout"
 import "./globals.css"
 import "@shopify/polaris/build/esm/styles.css"
 
@@ -44,9 +44,9 @@ export default function RootLayout({
           <StoreProvider>
             <ZustandProvider>
               <FilterProvider>
-                <MainLayout>
+                <ConditionalLayout>
                   {children}
-                </MainLayout>
+                </ConditionalLayout>
               </FilterProvider>
             </ZustandProvider>
           </StoreProvider>
