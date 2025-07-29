@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Middleware;
@@ -8,6 +11,8 @@ using Serilog.Events;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +27,26 @@ builder.Host.UseSerilog();
 // Add services to the container.
 builder.Services.AddControllers();
 
+// HTTPクライアントファクトリーを追加（Shopify API呼び出し用）
+builder.Services.AddHttpClient();
+
+// JWT認証の設定
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")))
+        };
+    });
+
 // Add Entity Framework
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -31,7 +56,40 @@ builder.Services.AddMemoryCache();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Shopify Analytics API",
+        Version = "v1",
+        Description = "Shopify AI Marketing Suite - Analytics API"
+    });
+
+    // JWT認証の設定
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // Register Mock Data Service
 builder.Services.AddScoped<IMockDataService, MockDataService>();
@@ -39,8 +97,8 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
-// Register Dormant Customer Service (休眠顧客分析サービス)
-builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IDormantCustomerService, ShopifyAnalyticsApi.Services.DormantCustomerService>();
+// Register Dormant Customer Service (休眠顧客分析サービス) - 新しいモジュラー版を使用
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerService>();
 
 // Register New Dormant Services (新しい分割されたサービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerQueryService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerQueryService>();
@@ -71,6 +129,12 @@ builder.Services.AddScoped<IPurchaseCountAnalysisService, PurchaseCountAnalysisS
 
 // Register Monthly Sales Service (月別売上統計サービス)
 builder.Services.AddScoped<IMonthlySalesService, MonthlySalesService>();
+
+// Register Store Service (ストア管理サービス)
+builder.Services.AddScoped<IStoreService, StoreService>();
+
+// Register Token Service (トークンサービス)
+builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
@@ -150,6 +214,20 @@ builder.Services.AddCors(options =>
     }
 });
 
+// Rate Limiting設定
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+        httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User?.Identity?.Name ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -171,11 +249,30 @@ else
 
 app.UseHttpsRedirection();
 
+// セキュリティヘッダーを追加
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Add("X-Frame-Options", "DENY");
+    context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Add("Strict-Transport-Security", "max-age=31536000");
+    await next();
+});
+
 // Use CORS
 app.UseCors("AllowAll");
 
 // グローバル例外ハンドラーを最初に配置
 app.UseGlobalExceptionHandler();
+
+// Shopify Webhook用のHMAC検証ミドルウェア
+app.UseHmacValidation();
+
+// Rate Limitingを有効化
+app.UseRateLimiter();
+
+// 認証を有効化
+app.UseAuthentication();
 
 app.UseAuthorization();
 

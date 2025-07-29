@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Helpers;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class PurchaseController : ControllerBase
@@ -37,10 +39,35 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetPurchaseCountAnalysis", logProperties);
 
-                var result = await _purchaseCountAnalysisService.GetPurchaseCountAnalysisAsync(request);
+                // 期間パラメータがある場合は日付を設定
+                if (!string.IsNullOrEmpty(request.Period))
+                {
+                    request.EndDate = DateTime.Now;
+                    request.StartDate = request.Period switch
+                    {
+                        "3months" => DateTime.Now.AddMonths(-3),
+                        "6months" => DateTime.Now.AddMonths(-6),
+                        "12months" => DateTime.Now.AddMonths(-12),
+                        "24months" => DateTime.Now.AddMonths(-24),
+                        _ => DateTime.Now.AddMonths(-12)
+                    };
+                }
 
-                _logger.LogInformation("購入回数分析データ取得完了. DetailCount: {DetailCount}, TrendCount: {TrendCount}, RequestId: {RequestId}",
-                    result.Details.Count, result.Trends.Count, logProperties["RequestId"]);
+                // tierModeがsimplifiedの場合は簡易版を呼び出す
+                PurchaseCountAnalysisResponse result;
+                if (request.TierMode == "simplified")
+                {
+                    _logger.LogInformation("簡易版購入回数分析(5階層)を実行. StoreId: {StoreId}, RequestId: {RequestId}", 
+                        request.StoreId, logProperties["RequestId"]);
+                    result = await _purchaseCountAnalysisService.GetSimplifiedPurchaseCountAnalysisAsync(request);
+                }
+                else
+                {
+                    result = await _purchaseCountAnalysisService.GetPurchaseCountAnalysisAsync(request);
+                }
+
+                _logger.LogInformation("購入回数分析データ取得完了. DetailCount: {DetailCount}, TrendCount: {TrendCount}, TierMode: {TierMode}, RequestId: {RequestId}",
+                    result.Details.Count, result.Trends.Count, request.TierMode ?? "detailed", logProperties["RequestId"]);
 
                 return Ok(new ApiResponse<PurchaseCountAnalysisResponse>
                 {

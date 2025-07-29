@@ -29,6 +29,13 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         /// <param name="customerId">顧客ID</param>
         /// <returns>チャーン確率</returns>
         Task<decimal> CalculateChurnProbabilityAsync(int customerId);
+
+        /// <summary>
+        /// 詳細な期間別セグメントの件数を取得（既存API互換）
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <returns>詳細セグメント分布リスト</returns>
+        Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId);
     }
 
     /// <summary>
@@ -117,6 +124,34 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
             // チャーン分析サービスに委譲
             return await _churnService.CalculateChurnProbabilityAsync(customerId);
+        }
+
+        public async Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId)
+        {
+            _logger.LogInformation("詳細セグメント分布取得開始 StoreId: {StoreId}", storeId);
+
+            try
+            {
+                // 分析サービスから詳細セグメント分布を取得
+                var detailedSegments = await _analyticsService.GetDetailedSegmentDistributionsAsync(storeId);
+                
+                // 全体の件数を計算して各セグメントに設定
+                var totalCount = detailedSegments.Sum(s => s.Count);
+                foreach (var segment in detailedSegments)
+                {
+                    segment.TotalCount = totalCount;
+                }
+
+                _logger.LogInformation("詳細セグメント分布取得完了 StoreId: {StoreId}, SegmentCount: {Count}", 
+                    storeId, detailedSegments.Count);
+
+                return detailedSegments;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "詳細セグメント分布取得中にエラーが発生 StoreId: {StoreId}", storeId);
+                throw;
+            }
         }
 
         private static DormantCustomerFilters? ConvertToFilters(DormantCustomerRequest request)

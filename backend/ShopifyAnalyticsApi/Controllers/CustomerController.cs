@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
+using ShopifyAnalyticsApi.Services.Dormant;
 using ShopifyAnalyticsApi.Helpers;
+using ShopifyAnalyticsApi.Data;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class CustomerController : ControllerBase
@@ -12,15 +17,18 @@ namespace ShopifyAnalyticsApi.Controllers
         private readonly IMockDataService _mockDataService;
         private readonly IDormantCustomerService _dormantCustomerService;
         private readonly ILogger<CustomerController> _logger;
+        private readonly ShopifyDbContext _context;
 
         public CustomerController(
             IMockDataService mockDataService,
             IDormantCustomerService dormantCustomerService,
-            ILogger<CustomerController> logger)
+            ILogger<CustomerController> logger,
+            ShopifyDbContext context)
         {
             _mockDataService = mockDataService;
             _dormantCustomerService = dormantCustomerService;
             _logger = logger;
+            _context = context;
         }
 
         /// <summary>
@@ -283,7 +291,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// GET: api/customer/dormant/summary
         /// </summary>
         [HttpGet("dormant/summary")]
-        public async Task<ActionResult<ApiResponse<DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
+        public async Task<ActionResult<ApiResponse<Models.DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
             logProperties["StoreId"] = storeId;
@@ -299,7 +307,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("Dormant customer summary retrieved successfully. StoreId: {StoreId}, TotalDormant: {TotalDormant}",
                     storeId, summary.TotalDormantCustomers);
 
-                return Ok(new ApiResponse<DormantSummaryStats>
+                return Ok(new ApiResponse<Models.DormantSummaryStats>
                 {
                     Success = true,
                     Data = summary,
@@ -309,7 +317,7 @@ namespace ShopifyAnalyticsApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving dormant customer summary. StoreId: {StoreId}", storeId);
-                return StatusCode(500, new ApiResponse<DormantSummaryStats>
+                return StatusCode(500, new ApiResponse<Models.DormantSummaryStats>
                 {
                     Success = false,
                     Data = null,
@@ -400,6 +408,158 @@ namespace ShopifyAnalyticsApi.Controllers
                     Success = false,
                     Data = 0,
                     Message = "離脱確率計算中にエラーが発生しました。"
+                });
+            }
+        }
+        /// <summary>
+        /// Store 2のデータ存在確認用デバッグエンドポイント
+        /// GET: api/customer/debug/store-data
+        /// </summary>
+        [HttpGet("debug/store-data")]
+        public async Task<IActionResult> GetStoreDataSummary([FromQuery] int storeId)
+        {
+            var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            try
+            {
+                _logger.LogInformation("Store data debug requested. StoreId: {StoreId}, RequestId: {RequestId}", 
+                    storeId, logProperties["RequestId"]);
+                
+                // Storeの存在確認
+                var store = await _context.Stores.FindAsync(storeId);
+                var storeInfo = store != null ? new
+                {
+                    store.Id,
+                    store.Name,
+                    store.DataType,
+                    store.IsActive,
+                    store.Description
+                } : null;
+                
+                // 各テーブルのレコード数を取得
+                var customerCount = await _context.Customers.CountAsync(c => c.StoreId == storeId);
+                var productCount = await _context.Products.CountAsync(p => p.StoreId == storeId);
+                var orderCount = await _context.Orders.CountAsync(o => o.StoreId == storeId);
+                
+                // サンプルデータ取得
+                var sampleCustomers = await _context.Customers
+                    .Where(c => c.StoreId == storeId)
+                    .Take(5)
+                    .Select(c => new { c.Id, c.FirstName, c.LastName, c.Email, c.TotalOrders, c.CreatedAt })
+                    .ToListAsync();
+                    
+                var sampleOrders = await _context.Orders
+                    .Where(o => o.StoreId == storeId)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .Take(5)
+                    .Join(_context.Customers,
+                        o => o.CustomerId,
+                        c => c.Id,
+                        (o, c) => new 
+                        { 
+                            o.Id, 
+                            o.OrderNumber, 
+                            CustomerName = c.DisplayName,
+                            o.TotalPrice, 
+                            o.CreatedAt 
+                        })
+                    .ToListAsync();
+                
+                // 休眠顧客の計算（90日以上購入なし）
+                var cutoffDate = DateTime.UtcNow.AddDays(-90);
+                
+                // デバッグ用：最新注文日の分布を確認
+                var orderDateDistribution = await _context.Customers
+                    .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
+                    .Select(c => new
+                    {
+                        CustomerId = c.Id,
+                        CustomerName = c.DisplayName,
+                        LastOrderDate = _context.Orders
+                            .Where(o => o.CustomerId == c.Id)
+                            .OrderByDescending(o => o.CreatedAt)
+                            .Select(o => (DateTime?)o.CreatedAt)
+                            .FirstOrDefault()
+                    })
+                    .Take(10) // 上位10件のみ
+                    .ToListAsync();
+                
+                var dormantQuery = from customer in _context.Customers
+                                  where customer.StoreId == storeId && customer.TotalOrders > 0
+                                  let lastOrderDate = _context.Orders
+                                      .Where(o => o.CustomerId == customer.Id)
+                                      .OrderByDescending(o => o.CreatedAt)
+                                      .Select(o => (DateTime?)o.CreatedAt)
+                                      .FirstOrDefault()
+                                  where lastOrderDate.HasValue && lastOrderDate < cutoffDate
+                                  select customer;
+                                  
+                var dormantCount = await dormantQuery.CountAsync();
+                
+                // 購入履歴のある顧客で最新注文日を持つ顧客数
+                var customersWithOrders = await _context.Customers
+                    .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
+                    .CountAsync();
+                
+                var summary = new
+                {
+                    StoreId = storeId,
+                    Store = storeInfo,
+                    DataCounts = new
+                    {
+                        Customers = customerCount,
+                        Products = productCount,
+                        Orders = orderCount,
+                        DormantCustomers = dormantCount,
+                        CustomersWithOrders = customersWithOrders
+                    },
+                    SampleData = new
+                    {
+                        Customers = sampleCustomers,
+                        Orders = sampleOrders,
+                        OrderDateDistribution = orderDateDistribution.Select(o => new
+                        {
+                            o.CustomerId,
+                            o.CustomerName,
+                            o.LastOrderDate,
+                            DaysSinceLastOrder = o.LastOrderDate.HasValue 
+                                ? (int)(DateTime.UtcNow - o.LastOrderDate.Value).TotalDays 
+                                : -1,
+                            IsDormant = o.LastOrderDate.HasValue && o.LastOrderDate < cutoffDate
+                        })
+                    },
+                    DebugInfo = new
+                    {
+                        CurrentUtcTime = DateTime.UtcNow,
+                        CutoffDateFor90Days = cutoffDate,
+                        RequestId = logProperties["RequestId"],
+                        OrderYearDistribution = await _context.Orders
+                            .Where(o => o.StoreId == storeId)
+                            .GroupBy(o => o.CreatedAt.Year)
+                            .Select(g => new { Year = g.Key, Count = g.Count() })
+                            .OrderBy(x => x.Year)
+                            .ToListAsync()
+                    }
+                };
+                
+                _logger.LogInformation("Store data debug completed. Summary: {@Summary}", summary);
+                
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Data = summary,
+                    Message = $"Store {storeId} のデータサマリーを取得しました。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Store data debug error. StoreId: {StoreId}, RequestId: {RequestId}", 
+                    storeId, logProperties["RequestId"]);
+                    
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = $"エラーが発生しました: {ex.Message}"
                 });
             }
         }

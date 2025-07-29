@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Services.Dormant;
 using ShopifyAnalyticsApi.Models;
 
@@ -8,6 +9,7 @@ namespace ShopifyAnalyticsApi.Controllers
     /// 新しい分割されたDormantCustomerQueryServiceのテスト用コントローラー
     /// 本格運用前の動作確認とA/Bテスト用
     /// </summary>
+    [Authorize]
     [ApiController]
     [Route("api/dormant-test")]
     public class DormantTestController : ControllerBase

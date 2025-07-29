@@ -72,7 +72,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
   const [sortField, setSortField] = useState<string>("daysSinceLastPurchase")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
   const [isLoading, setIsLoading] = useState(false)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
+  const [itemsPerPage, setItemsPerPage] = useState(30) // パフォーマンス改善: 初期表示数を30に設定
 
   // 購入履歴なし顧客を判定するヘルパー関数
   const hasNoPurchaseHistory = (customer: ApiDormantCustomer): boolean => {
@@ -689,6 +689,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
                   <SelectContent>
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="30">30</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
                   </SelectContent>

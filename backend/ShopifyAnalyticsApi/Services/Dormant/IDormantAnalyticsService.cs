@@ -42,21 +42,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         /// <param name="request">収益分析リクエスト</param>
         /// <returns>収益影響統計</returns>
         Task<DormantRevenueImpact> GetRevenueImpactAnalysisAsync(RevenueImpactRequest request);
+
+        /// <summary>
+        /// 詳細な期間別セグメントの件数を取得
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <returns>詳細セグメント分布リスト</returns>
+        Task<List<DetailedSegmentDistribution>> GetDetailedSegmentDistributionsAsync(int storeId);
     }
 
-    /// <summary>
-    /// 休眠顧客サマリー統計
-    /// </summary>
-    public class DormantSummaryStats
-    {
-        public int TotalDormantCustomers { get; set; }
-        public Dictionary<string, int> SegmentCounts { get; set; } = new();
-        public Dictionary<string, decimal> SegmentRevenue { get; set; } = new();
-        public decimal AverageChurnProbability { get; set; }
-        public decimal TotalLostRevenue { get; set; }
-        public decimal PotentialRecoverableRevenue { get; set; }
-        public DateTime AnalysisDate { get; set; }
-    }
 
     /// <summary>
     /// 休眠セグメント分布

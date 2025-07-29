@@ -1,0 +1,41 @@
+### Year Over Year Analysis API Tests
+
+@baseUrl = http://localhost:5168
+
+### Test 1: Basic Year-Over-Year Analysis (Without Service Item Exclusion)
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales
+Accept: application/json
+
+### Test 2: Year-Over-Year Analysis with Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=true
+Accept: application/json
+
+### Test 3: Year-Over-Year Analysis with Multiple Filters and Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=true&startMonth=1&endMonth=6&sortBy=growth_rate&sortDescending=true
+Accept: application/json
+
+### Test 4: Year-Over-Year Analysis - Quantity View with Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=quantity&excludeServiceItems=true
+Accept: application/json
+
+### Test 5: Year-Over-Year Analysis - Orders View with Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=orders&excludeServiceItems=true
+Accept: application/json
+
+### Test 6: Compare Results With and Without Service Item Exclusion
+# First request without exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=false
+Accept: application/json
+
+###
+# Second request with exclusion - should have fewer items
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=true
+Accept: application/json
+
+### Test 7: Year-Over-Year Analysis with Product Type Filter and Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=true&productType=Electronics
+Accept: application/json
+
+### Test 8: Year-Over-Year Analysis with Search Term and Service Item Exclusion
+GET {{baseUrl}}/api/analytics/year-over-year?storeId=1&year=2024&viewMode=sales&excludeServiceItems=true&searchTerm=iPhone
+Accept: application/json

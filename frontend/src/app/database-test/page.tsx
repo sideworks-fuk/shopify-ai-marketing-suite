@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../../lib/api-config';
+import { authClient } from '../../lib/auth-client';
 
 // シンプルなレイアウトコンポーネント
 function PageLayout({ title, description, children }: { 
@@ -77,10 +78,8 @@ export default function DatabaseTestPage() {
 
     const testConnection = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/database/test`, {
+        const response = await authClient.request(`${apiBaseUrl}/api/database/test`, {
           method: 'GET',
-          mode: 'cors',
-          credentials: 'omit',
           headers: {
             'Accept': 'application/json',
           },
@@ -114,10 +113,8 @@ export default function DatabaseTestPage() {
 
     try {
       setCorsTestLoading(true);
-      const response = await fetch(`${apiBaseUrl}/api/database/cors-test`, {
+      const response = await authClient.request(`${apiBaseUrl}/api/database/cors-test`, {
         method: 'GET',
-        mode: 'cors',
-        credentials: 'omit',
         headers: {
           'Accept': 'application/json',
         },
@@ -148,10 +145,8 @@ export default function DatabaseTestPage() {
     const fetchCustomers = async () => {
       try {
         setCustomersLoading(true);
-        const response = await fetch(`${apiBaseUrl}/api/database/customers`, {
+        const response = await authClient.request(`${apiBaseUrl}/api/database/customers`, {
           method: 'GET',
-          mode: 'cors',
-          credentials: 'omit',
           headers: {
             'Accept': 'application/json',
           },

@@ -3,10 +3,15 @@
 import React from "react"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { YearOverYearProductAnalysisCondition, AnalysisConditions } from "./YearOverYearProductAnalysisCondition"
+import { TableSkeleton, CardSkeleton, ProgressiveLoader } from "../ui/PerformanceOptimized"
+import { YearOverYearProductTable } from "./YearOverYearProductTable"
+import { YearOverYearProductErrorHandling, classifyError, AnalysisError } from "./YearOverYearProductErrorHandling"
 import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
 import { useAppStore } from "../../stores/appStore"
 import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
 import { handleApiError, handleError } from "../../lib/error-handler"
+import { getCurrentStoreId } from "@/lib/api-config"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -24,6 +29,7 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
+  Filter,
 } from "lucide-react"
 import {
   LineChart,
@@ -437,6 +443,16 @@ const convertApiDataToProductYearData = (apiData: YearOverYearProductData[], cur
     const growthValues = Object.values(yearOverYearGrowth)
     const avgGrowth = growthValues.length > 0 ? growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length : 0
 
+    // デバッグ用: 最初の商品の成長率をログ出力
+    if (index === 0) {
+      console.log('🔍 First product growth rates:', {
+        productName: product.productTitle,
+        yearOverYearGrowth,
+        avgGrowth,
+        monthlyData: product.monthlyData.slice(0, 3) // 最初の3ヶ月分
+      })
+    }
+
     return {
       productId: `api_${index}`,
       productName: product.productTitle,
@@ -461,6 +477,12 @@ const YearOverYearProductAnalysis = () => {
   
   const setLoading = useAppStore((state) => state.setLoading)
   const showToast = useAppStore((state) => state.showToast)
+  
+  // 🎯 条件設定→分析実行パターンの状態管理
+  const [analysisExecuted, setAnalysisExecuted] = useState(false)
+  const [analysisConditions, setAnalysisConditions] = useState<AnalysisConditions | null>(null)
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [analysisError, setAnalysisError] = useState<AnalysisError | null>(null)
   
   // エラーハンドラーの初期化
   useEffect(() => {
@@ -497,20 +519,26 @@ const YearOverYearProductAnalysis = () => {
     searchTerm: filters.productFilters.searchTerm || "",
   }), [filters.productFilters.category, filters.productFilters.searchTerm])
   
-  // 🚀 API データ取得
-  const fetchYearOverYearData = useCallback(async () => {
+  // 🚀 API データ取得（条件付き）
+  const fetchYearOverYearData = useCallback(async (conditions?: AnalysisConditions) => {
     setLoadingState(true)
     setError(null)
 
+    // 条件が指定された場合はそれを優先、そうでなければ現在の値を使用
+    const yearToUse = conditions?.selectedYear || selectedYear
+    const viewModeToUse = conditions?.viewMode || viewMode
+    const categoryToUse = conditions?.categories?.[0] || (appliedFilters.category === "all" ? undefined : appliedFilters.category)
+
     try {
       const response = await yearOverYearApi.getYearOverYearAnalysis({
-        storeId: 1,
-        year: selectedYear,
-        viewMode: viewMode,
+        storeId: getCurrentStoreId(),
+        year: yearToUse,
+        viewMode: viewModeToUse,
         sortBy: sortBy === "growth" ? "growth_rate" : sortBy === "total" ? "total_sales" : "name",
         sortDescending: true,
         searchTerm: appliedFilters.searchTerm || undefined,
-        category: appliedFilters.category === "all" ? undefined : appliedFilters.category,
+        category: categoryToUse,
+        excludeServiceItems: conditions?.excludeServiceItems,
       })
 
       if (response.success && response.data) {
@@ -539,10 +567,12 @@ const YearOverYearProductAnalysis = () => {
     }
   }, [selectedYear, viewMode, sortBy, appliedFilters])
 
-  // 初期データ取得とフィルタ変更時の再取得
+  // 分析実行後のデータ取得（条件設定→分析実行パターンでは自動取得しない）
   useEffect(() => {
-    fetchYearOverYearData()
-  }, [fetchYearOverYearData])
+    if (analysisExecuted && !apiData) {
+      fetchYearOverYearData(analysisConditions || undefined)
+    }
+  }, [analysisExecuted, apiData, analysisConditions, fetchYearOverYearData])
   
   // 実際に表示するデータ（APIデータを変換）
   const data = useMemo(() => {
@@ -702,23 +732,132 @@ const YearOverYearProductAnalysis = () => {
     return months
   }, [filteredAndSortedData, viewMode, selectedYear, previousYear])
 
-  // 初期化中の全画面ローディング
-  if (!initialized) {
+  // 🎯 条件設定→分析実行パターン: 分析実行ハンドラー
+  const executeAnalysis = useCallback(async (conditions: AnalysisConditions) => {
+    setAnalysisConditions(conditions)
+    setIsExecuting(true)
+    
+    try {
+      // 条件に基づいて年度を設定
+      if (conditions.selectedYear) {
+        setSelectedYear(conditions.selectedYear)
+      }
+      
+      // ビューモードを設定
+      setViewMode(conditions.viewMode)
+      
+      // カテゴリフィルターを設定
+      if (conditions.categories.length > 0) {
+        updateProductFilters({ category: conditions.categories[0] }) // 複数カテゴリ対応は今後実装
+      }
+      
+      // 最小売上閾値の設定（今後のAPI改修で対応）
+      // TODO: API側でminSalesパラメータをサポート
+      
+      await fetchYearOverYearData()
+      setAnalysisExecuted(true)
+      setAnalysisError(null)
+    } catch (error) {
+      console.error('Analysis execution error:', error)
+      const classifiedError = classifyError(error)
+      setAnalysisError(classifiedError)
+      showToast(classifiedError.message, 'error')
+    } finally {
+      setIsExecuting(false)
+    }
+  }, [fetchYearOverYearData, setSelectedYear, setViewMode, updateProductFilters, showToast])
+  
+  // 🎯 条件設定画面を表示（分析未実行時）
+  if (!analysisExecuted) {
+    return (
+      <YearOverYearProductAnalysisCondition
+        onExecute={executeAnalysis}
+        isExecuting={isExecuting}
+        availableCategories={[]} // TODO: カテゴリマスタから取得
+      />
+    )
+  }
+  
+  // 🚨 エラー画面の表示
+  if (analysisError && !isExecuting) {
+    return (
+      <YearOverYearProductErrorHandling
+        error={analysisError}
+        onRetry={() => {
+          setAnalysisError(null)
+          executeAnalysis(analysisConditions!)
+        }}
+        onGoBack={() => {
+          setAnalysisExecuted(false)
+          setAnalysisError(null)
+          setApiData(null)
+          setInitialized(false)
+        }}
+      />
+    )
+  }
+  
+  // 分析実行後のスケルトンローダー表示
+  if (isExecuting || (!initialized && analysisExecuted)) {
     return (
       <div className="space-y-6">
+        {/* コントロールパネルのスケルトン */}
         <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-              <div className="text-lg font-medium text-gray-700">
-                前年同月比分析データを読み込み中...
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  前年同月比【商品】分析
+                </CardTitle>
+                <CardDescription>商品別の{analysisConditions?.selectedYear || selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
               </div>
-              <div className="text-sm text-gray-500">
-                {selectedYear}年と{previousYear}年のデータを取得しています
-              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
+              ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* フィルターセクションのスケルトン */}
+        <Card>
+          <CardHeader>
+            <CardTitle>詳細フィルタリング</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* メインデータテーブルのスケルトン */}
+        <Card>
+          <CardHeader>
+            <CardTitle>商品別売上データ</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton rows={10} columns={13} />
+          </CardContent>
+        </Card>
+
+        {/* プログレスローダー（オプション） */}
+        {isExecuting && (
+          <div className="fixed bottom-4 right-4 z-50">
+            <ProgressiveLoader
+              current={0}
+              total={100}
+              message="データを分析中..."
+              subMessage="しばらくお待ちください"
+            />
+          </div>
+        )}
       </div>
     )
   }
@@ -728,11 +867,29 @@ const YearOverYearProductAnalysis = () => {
       {/* コントロールパネル */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            前年同月比【商品】分析
-          </CardTitle>
-          <CardDescription>商品別の{selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                前年同月比【商品】分析
+              </CardTitle>
+              <CardDescription>商品別の{selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setAnalysisExecuted(false)
+                setAnalysisConditions(null)
+                setApiData(null)
+                setInitialized(false)
+              }}
+              className="flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              条件を変更
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -855,132 +1012,14 @@ const YearOverYearProductAnalysis = () => {
       {/* 改善4: 季節性分析 */}
       <SeasonalAnalysis data={filteredAndSortedData} viewMode={viewMode} />
 
-      {/* メインデータテーブル */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>商品別月次データ</CardTitle>
-              <CardDescription>
-                {comparisonMode === "sideBySide"
-                  ? "各月の2024年/2025年データを並列表示"
-                  : "前年同月比成長率を表示（正値：成長、負値：減少）"}
-              </CardDescription>
-            </div>
-            <div className="text-sm text-gray-500">{filteredAndSortedData.length}件の商品を表示中</div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <div className="min-w-[2000px]">
-              <table className="w-full text-sm border-collapse">
-                {/* 改善2: ヘッダーの前年/当年明確化 */}
-                <thead>
-                  <tr className="border-b-2 border-gray-200">
-                    <th className="sticky left-0 bg-white z-10 text-left py-4 px-3 font-medium text-gray-900 border-r border-gray-200 min-w-[200px]">
-                      商品名
-                    </th>
-                    {comparisonMode === "sideBySide"
-                      ? Array.from({ length: 12 }, (_, i) => {
-                          const month = (i + 1).toString().padStart(2, "0")
-                          return (
-                            <th
-                              key={month}
-                              colSpan={2}
-                              className="text-center py-2 px-2 font-medium text-gray-900 border-r border-gray-200 bg-blue-50"
-                            >
-                              {month}月
-                            </th>
-                          )
-                        })
-                      : Array.from({ length: 12 }, (_, i) => {
-                          const month = (i + 1).toString().padStart(2, "0")
-                          return (
-                            <th
-                              key={month}
-                              className="text-center py-2 px-2 font-medium text-gray-900 border-r border-gray-200 bg-green-50 min-w-[80px]"
-                            >
-                              {month}月成長率
-                            </th>
-                          )
-                        })}
-                  </tr>
-                  {comparisonMode === "sideBySide" && (
-                    <tr className="border-b border-gray-200">
-                      <th className="sticky left-0 bg-white z-10"></th>
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <React.Fragment key={i}>
-                          <th className="text-center py-2 px-1 text-xs font-medium text-blue-800 border-r border-gray-100 bg-blue-100 min-w-[70px]">
-                            {previousYear}年
-                          </th>
-                          <th className="text-center py-2 px-1 text-xs font-medium text-green-800 border-r border-gray-200 bg-green-100 min-w-[70px]">
-                            {selectedYear}年
-                          </th>
-                        </React.Fragment>
-                      ))}
-                    </tr>
-                  )}
-                </thead>
-                <tbody>
-                  {filteredAndSortedData.map((product, index) => (
-                    <tr key={product.productId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="sticky left-0 bg-white z-10 py-3 px-3 font-medium text-gray-900 border-r border-gray-200">
-                        <div>
-                          <div className="font-medium">{product.productName}</div>
-                          <div className="text-xs text-gray-500">{product.category}</div>
-                          <Badge variant="outline" className={`mt-1 ${getGrowthColor(product.avgGrowth)}`}>
-                            {formatGrowthRate(product.avgGrowth)}
-                          </Badge>
-                        </div>
-                      </td>
-                      {comparisonMode === "sideBySide"
-                        ? Array.from({ length: 12 }, (_, i) => {
-                            const month = (i + 1).toString().padStart(2, "0")
-                            const dataPrevious = product.monthlyData[`${previousYear}-${month}`]?.[viewMode] || 0
-                            const dataCurrent = product.monthlyData[`${selectedYear}-${month}`]?.[viewMode] || 0
-
-                            return (
-                              <React.Fragment key={month}>
-                                <td className="py-1 px-1 text-center border-r border-gray-100">
-                                  <EnhancedDataCell
-                                    currentValue={dataPrevious}
-                                    previousValue={dataPrevious}
-                                    viewMode={viewMode}
-                                  />
-                                </td>
-                                <td className="py-1 px-1 text-center border-r border-gray-200">
-                                  <EnhancedDataCell
-                                    currentValue={dataCurrent}
-                                    previousValue={dataPrevious}
-                                    viewMode={viewMode}
-                                  />
-                                </td>
-                              </React.Fragment>
-                            )
-                          })
-                        : Array.from({ length: 12 }, (_, i) => {
-                            const month = (i + 1).toString().padStart(2, "0")
-                            const growth = product.yearOverYearGrowth[month] || 0
-
-                            return (
-                              <td
-                                key={month}
-                                className="py-3 px-1 text-center text-xs font-mono border-r border-gray-200"
-                              >
-                                <span className={`px-2 py-1 rounded ${getGrowthColor(growth)}`}>
-                                  {formatGrowthRate(growth)}
-                                </span>
-                              </td>
-                            )
-                          })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* メインデータテーブル - 段階的表示対応 */}
+      <YearOverYearProductTable
+        data={filteredAndSortedData}
+        viewMode={viewMode}
+        comparisonMode={comparisonMode}
+        selectedYear={selectedYear}
+        previousYear={previousYear}
+      />
 
       {/* トレンドチャート */}
       <Card>

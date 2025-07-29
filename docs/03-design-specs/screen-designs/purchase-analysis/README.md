@@ -41,10 +41,18 @@
 - **購入間隔分析**: 購入間隔の平均・中央値
 - **セグメント別分析**: 購入回数による顧客セグメント
 
+### 実装方針
+- **シンプル版（推奨）**: 5階層での実装（1回、2回、3-5回、6-10回、11回以上）
+- **詳細版**: 20階層での実装（1-20回以上の個別分析）
+
 ### 実装状況
-- ✅ **Backend API**: 基本実装完了
-- 🚧 **Frontend UI**: 実装中
-- ⏳ **詳細分析機能**: Phase 2で拡張予定
+- ✅ **Backend API**: 基本実装完了（詳細版）
+- 🚧 **Frontend UI**: シンプル版実装中
+- ⏳ **統合最適化**: PROD-02-FREQとの統合検討
+
+### 実装ガイド
+- 📄 [シンプル版実装ガイド](../../04-development/PURCH-02-COUNT-simple-implementation-guide.md) 🆕
+- 📄 [詳細版実装ガイド](../../04-development/PURCH-02-COUNT-implementation-guide.md)
 
 ### 詳細設計書
 📄 [PURCH-02-COUNT.md](./PURCH-02-COUNT.md)

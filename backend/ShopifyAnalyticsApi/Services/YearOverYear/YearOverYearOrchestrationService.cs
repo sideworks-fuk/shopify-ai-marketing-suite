@@ -17,7 +17,7 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
         private readonly ILogger<YearOverYearOrchestrationService> _logger;
 
         // キャッシュキー
-        private const string ANALYSIS_CACHE_KEY = "yoy_analysis_{0}_{1}_{2}_{3}_{4}_{5}";
+        private const string ANALYSIS_CACHE_KEY = "yoy_analysis_{0}_{1}_{2}_{3}_{4}_{5}_{6}";
         private const string FILTER_OPTIONS_CACHE_KEY = "yoy_filter_options_{0}";
 
         // キャッシュ有効期限
@@ -199,11 +199,12 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 request.PreviousYear.ToString(),
                 request.ViewMode ?? "revenue",
                 request.ProductType ?? "all",
-                request.Vendor ?? "all"
+                request.Vendor ?? "all",
+                request.ExcludeServiceItems.ToString()
             };
 
             return string.Format(ANALYSIS_CACHE_KEY, keyElements[0], keyElements[1], keyElements[2], 
-                                keyElements[3], keyElements[4], keyElements[5]);
+                                keyElements[3], keyElements[4], keyElements[5], keyElements[6]);
         }
 
         /// <summary>

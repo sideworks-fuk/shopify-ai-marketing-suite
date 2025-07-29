@@ -8,6 +8,11 @@ export const API_CONFIG = {
     HEALTH: '/api/health',
     HEALTH_DETAILED: '/api/health/detailed',
     
+    // Authentication API
+    AUTH_TOKEN: '/api/auth/token',
+    AUTH_REFRESH: '/api/auth/refresh',
+    AUTH_VALIDATE: '/api/auth/validate',
+    
     // Customer API
     CUSTOMER_TEST: '/api/customer/test',
     CUSTOMER_DASHBOARD: '/api/customer/dashboard',
@@ -48,9 +53,8 @@ export const getApiUrl = () => {
   console.log('  - Current Environment:', currentEnv);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
-  console.log('  - Build Environment:', buildInfo.buildEnvironment);
-  console.log('  - Deploy Environment:', buildInfo.deployEnvironment);
-  console.log('  - App Environment:', buildInfo.appEnvironment);
+  console.log('  - NEXT_PUBLIC_ENVIRONMENT (build time):', buildInfo.nextPublicEnvironment);
+  console.log('  - NODE_ENV (build time):', buildInfo.nodeEnv);
   console.log('  - Is Build Time Set:', buildInfo.isBuildTimeSet);
   console.log('  - API Base URL:', config.apiBaseUrl);
   console.log('  - Environment Name:', config.name);
@@ -108,4 +112,27 @@ export const getEnvironmentInfo = () => {
     description: config.description,
     buildTimeInfo: buildInfo,
   };
-}; 
+};
+
+// ストアIDを取得する関数を追加
+export function getCurrentStoreId(): number {
+  if (typeof window !== 'undefined') {
+    const savedStoreId = localStorage.getItem('selectedStoreId')
+    return savedStoreId ? parseInt(savedStoreId) : 1
+  }
+  return 1
+}
+
+// APIパラメータにstoreIdを自動追加する関数
+export function addStoreIdToParams(params: URLSearchParams | Record<string, any>): URLSearchParams {
+  const searchParams = params instanceof URLSearchParams 
+    ? params 
+    : new URLSearchParams(params)
+  
+  // storeIdが既に設定されていない場合のみ追加
+  if (!searchParams.has('storeId')) {
+    searchParams.set('storeId', getCurrentStoreId().toString())
+  }
+  
+  return searchParams
+} 
