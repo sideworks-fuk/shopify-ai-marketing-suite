@@ -7,6 +7,7 @@ import { FilterProvider } from "@/contexts/FilterContext"
 import { StoreProvider } from "@/contexts/StoreContext"
 import MainLayout from "@/components/layout/MainLayout"
 import "./globals.css"
+import "@shopify/polaris/build/esm/styles.css"
 
 const inter = Inter({ subsets: ["latin"] })
 

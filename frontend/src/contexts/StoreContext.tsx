@@ -15,6 +15,8 @@ interface StoreContextType {
   currentStore: StoreInfo
   availableStores: StoreInfo[]
   switchStore: (storeId: number) => void
+  refreshStores: () => Promise<void>
+  setCurrentStore: (storeId: number) => void
   isLoading: boolean
   error: string | null
 }
@@ -101,11 +103,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }, 500)
   }
 
+  const refreshStores = async () => {
+    await fetchStores()
+  }
+
+  const setCurrentStoreById = (storeId: number) => {
+    const store = availableStores.find(s => s.id === storeId)
+    if (store) {
+      setCurrentStore(store)
+      localStorage.setItem('selectedStoreId', storeId.toString())
+    }
+  }
+
   return (
     <StoreContext.Provider value={{
       currentStore,
       availableStores,
       switchStore,
+      refreshStores,
+      setCurrentStore: setCurrentStoreById,
       isLoading,
       error
     }}>
