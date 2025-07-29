@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AlertCircle, Store } from 'lucide-react';
+import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 
 /**
  * Shopifyアプリインストールページ
@@ -46,11 +47,12 @@ export default function InstallPage() {
 
       console.log('🚀 Shopifyインストール開始:', fullDomain);
 
-      // バックエンドの認証エンドポイントへリダイレクト
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5137';
-      const installUrl = `${apiUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
+      // 環境設定からAPI URLを取得
+      const config = getCurrentEnvironmentConfig();
+      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
       
       console.log('📍 リダイレクト先:', installUrl);
+      console.log('🌍 現在の環境:', config.name);
       
       // Shopify OAuth フローへリダイレクト
       window.location.href = installUrl;
