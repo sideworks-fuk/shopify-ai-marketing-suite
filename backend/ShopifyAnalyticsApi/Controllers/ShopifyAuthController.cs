@@ -9,11 +9,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Net.Http;
 using System.Text.Json;
+using Polly;
+using Polly.Extensions.Http;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
     /// <summary>
-    /// Shopify OAuth認証を処理するコントローラー
+    /// Shopify OAuth認証を処理するコントローラー（改善版）
     /// </summary>
     [ApiController]
     [Route("api/shopify")]
@@ -70,8 +72,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("OAuth認証開始. Shop: {Shop}, State: {State}", shop, state);
 
                 // Shopify OAuth URLを構築
-                var apiKey = _configuration["Shopify:ApiKey"];
-                var scopes = _configuration["Shopify:Scopes"] ?? "read_orders,read_products,read_customers";
+                var apiKey = GetShopifySetting("ApiKey");
+                var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
                 var redirectUri = $"{GetBaseUrl()}/api/shopify/callback";
 
                 var authUrl = $"https://{shop}/admin/oauth/authorize" +
@@ -85,8 +87,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "インストール処理でエラーが発生. Shop: {Shop}", shop);
-                return StatusCode(500, new { error = "Installation failed" });
+                return HandleOAuthError(ex, shop, "Install");
             }
         }
 
@@ -132,8 +133,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 }
 
-                // アクセストークンを取得
-                var accessToken = await ExchangeCodeForAccessToken(code, shop);
+                // アクセストークンを取得（リトライ機能付き）
+                var accessToken = await ExchangeCodeForAccessTokenWithRetry(code, shop);
                 if (string.IsNullOrWhiteSpace(accessToken))
                 {
                     _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", shop);
@@ -149,16 +150,165 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("OAuth認証完了. Shop: {Shop}", shop);
 
                 // フロントエンドのサクセスページにリダイレクト
-                var frontendUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:3000";
+                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
                 return Redirect($"{frontendUrl}/shopify/success?shop={shop}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "コールバック処理でエラーが発生. Shop: {Shop}", shop);
-                
-                var frontendUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:3000";
-                return Redirect($"{frontendUrl}/shopify/error?message=Authentication%20failed");
+                return HandleOAuthError(ex, shop, "Callback");
             }
+        }
+
+        /// <summary>
+        /// テスト用エンドポイント - OAuth設定の確認
+        /// </summary>
+        [HttpGet("test-config")]
+        [AllowAnonymous]
+        public IActionResult TestConfig()
+        {
+            try
+            {
+                var baseUrl = GetBaseUrl();
+                var redirectUri = $"{baseUrl}/api/shopify/callback";
+                
+                var config = new
+                {
+                    ApiKey = !string.IsNullOrEmpty(GetShopifySetting("ApiKey")),
+                    ApiSecret = !string.IsNullOrEmpty(GetShopifySetting("ApiSecret")),
+                    EncryptionKey = !string.IsNullOrEmpty(GetShopifySetting("EncryptionKey")),
+                    Scopes = GetShopifySetting("Scopes"),
+                    BaseUrl = baseUrl,
+                    RedirectUri = redirectUri,
+                    FrontendUrl = GetShopifySetting("Frontend:BaseUrl"),
+                    RequestInfo = new
+                    {
+                        Scheme = HttpContext.Request.Scheme,
+                        Host = HttpContext.Request.Host.Value,
+                        XForwardedProto = HttpContext.Request.Headers["X-Forwarded-Proto"].FirstOrDefault(),
+                        IsNgrok = HttpContext.Request.Host.Value.Contains("ngrok")
+                    },
+                    RateLimit = new
+                    {
+                        MaxRetries = GetShopifySetting("RateLimit:MaxRetries"),
+                        RetryDelaySeconds = GetShopifySetting("RateLimit:RetryDelaySeconds")
+                    }
+                };
+
+                return Ok(new { 
+                    message = "Shopify OAuth設定確認",
+                    config = config,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "設定確認中にエラーが発生");
+                return StatusCode(500, new { error = "Configuration test failed" });
+            }
+        }
+
+        /// <summary>
+        /// テスト用エンドポイント - OAuth URL生成テスト
+        /// </summary>
+        [HttpGet("test-oauth-url")]
+        [AllowAnonymous]
+        public IActionResult TestOAuthUrl([FromQuery] string shop = "test-store.myshopify.com")
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
+                {
+                    return BadRequest(new { error = "Invalid shop domain" });
+                }
+
+                var apiKey = GetShopifySetting("ApiKey");
+                var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                var redirectUri = $"{GetBaseUrl()}/api/shopify/callback";
+                var state = GenerateRandomString(32);
+
+                var authUrl = $"https://{shop}/admin/oauth/authorize" +
+                    $"?client_id={apiKey}" +
+                    $"&scope={scopes}" +
+                    $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                    $"&state={state}";
+
+                return Ok(new
+                {
+                    shop = shop,
+                    baseUrl = GetBaseUrl(),
+                    redirectUri = redirectUri,
+                    oauthUrl = authUrl,
+                    requestInfo = new
+                    {
+                        scheme = HttpContext.Request.Scheme,
+                        host = HttpContext.Request.Host.Value,
+                        xForwardedProto = HttpContext.Request.Headers["X-Forwarded-Proto"].FirstOrDefault(),
+                        isNgrok = HttpContext.Request.Host.Value.Contains("ngrok")
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OAuth URL生成テスト中にエラーが発生");
+                return StatusCode(500, new { error = "OAuth URL generation test failed" });
+            }
+        }
+
+        /// <summary>
+        /// テスト用エンドポイント - 暗号化テスト
+        /// </summary>
+        [HttpPost("test-encryption")]
+        [AllowAnonymous]
+        public IActionResult TestEncryption([FromBody] TestEncryptionRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request?.Text))
+                {
+                    return BadRequest(new { error = "Text is required" });
+                }
+
+                var encrypted = EncryptToken(request.Text);
+                var decrypted = DecryptToken(encrypted);
+
+                return Ok(new
+                {
+                    original = request.Text,
+                    encrypted = encrypted,
+                    decrypted = decrypted,
+                    success = request.Text == decrypted
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "暗号化テスト中にエラーが発生");
+                return StatusCode(500, new { error = "Encryption test failed" });
+            }
+        }
+
+        /// <summary>
+        /// 認証コードをアクセストークンに交換する（リトライ機能付き）
+        /// </summary>
+        private async Task<string?> ExchangeCodeForAccessTokenWithRetry(string code, string shop)
+        {
+            var maxRetries = int.Parse(GetShopifySetting("RateLimit:MaxRetries", "3"));
+            var retryDelaySeconds = int.Parse(GetShopifySetting("RateLimit:RetryDelaySeconds", "2"));
+
+            var retryPolicy = Policy
+                .Handle<HttpRequestException>()
+                .Or<TimeoutException>()
+                .WaitAndRetryAsync(maxRetries, retryAttempt => 
+                    TimeSpan.FromSeconds(Math.Pow(retryDelaySeconds, retryAttempt)),
+                    onRetry: (exception, timeSpan, retryCount, context) =>
+                    {
+                        _logger.LogWarning("トークン取得リトライ {RetryCount}. Shop: {Shop}, Delay: {Delay}ms", 
+                            retryCount, shop, timeSpan.TotalMilliseconds);
+                    });
+
+            return await retryPolicy.ExecuteAsync(async () =>
+            {
+                return await ExchangeCodeForAccessToken(code, shop);
+            });
         }
 
         /// <summary>
@@ -169,12 +319,13 @@ namespace ShopifyAnalyticsApi.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(30); // 30秒タイムアウト
                 
                 var tokenUrl = $"https://{shop}/admin/oauth/access_token";
                 var requestData = new
                 {
-                    client_id = _configuration["Shopify:ApiKey"],
-                    client_secret = _configuration["Shopify:ApiSecret"],
+                    client_id = GetShopifySetting("ApiKey"),
+                    client_secret = GetShopifySetting("ApiSecret"),
                     code = code
                 };
 
@@ -199,7 +350,7 @@ namespace ShopifyAnalyticsApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "アクセストークン取得中にエラーが発生");
-                return null;
+                throw;
             }
         }
 
@@ -229,13 +380,13 @@ namespace ShopifyAnalyticsApi.Controllers
                     _context.Stores.Add(store);
                 }
 
-                // トークンと認証情報を更新
-                // TODO: アクセストークンを暗号化して保存
+                // トークンと認証情報を更新（暗号化して保存）
                 store.Settings = JsonSerializer.Serialize(new
                 {
                     ShopifyAccessToken = EncryptToken(accessToken),
-                    ShopifyScope = _configuration["Shopify:Scopes"],
-                    InstalledAt = DateTime.UtcNow
+                    ShopifyScope = GetShopifySetting("Scopes"),
+                    InstalledAt = DateTime.UtcNow,
+                    LastTokenRefresh = DateTime.UtcNow
                 });
                 store.UpdatedAt = DateTime.UtcNow;
 
@@ -259,6 +410,7 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 var client = _httpClientFactory.CreateClient();
                 client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
+                client.Timeout = TimeSpan.FromSeconds(30);
 
                 var webhookBaseUrl = $"{GetBaseUrl()}/api/webhook";
                 var webhooks = new[]
@@ -271,31 +423,38 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 foreach (var webhook in webhooks)
                 {
-                    var webhookUrl = $"https://{shop}/admin/api/2024-01/webhooks.json";
-                    var requestData = new
+                    try
                     {
-                        webhook = new
+                        var webhookUrl = $"https://{shop}/admin/api/2024-01/webhooks.json";
+                        var requestData = new
                         {
-                            topic = webhook.topic,
-                            address = webhook.address,
-                            format = "json"
+                            webhook = new
+                            {
+                                topic = webhook.topic,
+                                address = webhook.address,
+                                format = "json"
+                            }
+                        };
+
+                        var json = JsonSerializer.Serialize(requestData);
+                        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                        var response = await client.PostAsync(webhookUrl, content);
+                        
+                        if (response.IsSuccessStatusCode)
+                        {
+                            _logger.LogInformation("Webhook登録成功. Topic: {Topic}", webhook.topic);
                         }
-                    };
-
-                    var json = JsonSerializer.Serialize(requestData);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    var response = await client.PostAsync(webhookUrl, content);
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        _logger.LogInformation("Webhook登録成功. Topic: {Topic}", webhook.topic);
+                        else
+                        {
+                            var error = await response.Content.ReadAsStringAsync();
+                            _logger.LogWarning("Webhook登録失敗. Topic: {Topic}, Error: {Error}", 
+                                webhook.topic, error);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        var error = await response.Content.ReadAsStringAsync();
-                        _logger.LogWarning("Webhook登録失敗. Topic: {Topic}, Error: {Error}", 
-                            webhook.topic, error);
+                        _logger.LogError(ex, "Webhook登録中にエラーが発生. Topic: {Topic}", webhook.topic);
                     }
                 }
             }
@@ -342,7 +501,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private bool VerifyHmac(string code, string shop, string state, string timestamp, string hmac)
         {
-            var secret = _configuration["Shopify:ApiSecret"];
+            var secret = GetShopifySetting("ApiSecret");
             if (string.IsNullOrWhiteSpace(secret))
                 return false;
 
@@ -358,13 +517,86 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
-        /// トークンを暗号化する（簡易実装）
+        /// トークンを暗号化する（AES暗号化）
         /// </summary>
         private string EncryptToken(string token)
         {
-            // TODO: 本番環境では適切な暗号化を実装
-            // Azure Key Vaultの使用を推奨
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+            var key = GetShopifySetting("EncryptionKey");
+            if (string.IsNullOrEmpty(key))
+            {
+                _logger.LogWarning("暗号化キーが設定されていません。Base64エンコードを使用します");
+                return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+            }
+
+            try
+            {
+                using var aes = Aes.Create();
+                aes.Key = Convert.FromBase64String(key);
+                aes.GenerateIV();
+
+                using var encryptor = aes.CreateEncryptor();
+                using var msEncrypt = new MemoryStream();
+                using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+                using var swEncrypt = new StreamWriter(csEncrypt);
+
+                swEncrypt.Write(token);
+                swEncrypt.Close();
+
+                var encrypted = msEncrypt.ToArray();
+                var result = new byte[aes.IV.Length + encrypted.Length];
+                Buffer.BlockCopy(aes.IV, 0, result, 0, aes.IV.Length);
+                Buffer.BlockCopy(encrypted, 0, result, aes.IV.Length, encrypted.Length);
+
+                return Convert.ToBase64String(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "トークン暗号化中にエラーが発生。Base64エンコードを使用します");
+                return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
+            }
+        }
+
+        /// <summary>
+        /// トークンを復号化する（AES暗号化）
+        /// </summary>
+        private string DecryptToken(string encryptedToken)
+        {
+            var key = GetShopifySetting("EncryptionKey");
+            if (string.IsNullOrEmpty(key))
+            {
+                _logger.LogWarning("暗号化キーが設定されていません。Base64デコードを使用します");
+                var bytes = Convert.FromBase64String(encryptedToken);
+                return Encoding.UTF8.GetString(bytes);
+            }
+
+            try
+            {
+                var encryptedBytes = Convert.FromBase64String(encryptedToken);
+                
+                using var aes = Aes.Create();
+                aes.Key = Convert.FromBase64String(key);
+
+                // IVを抽出（最初の16バイト）
+                var iv = new byte[16];
+                var encrypted = new byte[encryptedBytes.Length - 16];
+                Buffer.BlockCopy(encryptedBytes, 0, iv, 0, 16);
+                Buffer.BlockCopy(encryptedBytes, 16, encrypted, 0, encrypted.Length);
+
+                aes.IV = iv;
+
+                using var decryptor = aes.CreateDecryptor();
+                using var msDecrypt = new MemoryStream(encrypted);
+                using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
+                using var srDecrypt = new StreamReader(csDecrypt);
+
+                return srDecrypt.ReadToEnd();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "トークン復号化中にエラーが発生。Base64デコードを使用します");
+                var bytes = Convert.FromBase64String(encryptedToken);
+                return Encoding.UTF8.GetString(bytes);
+            }
         }
 
         /// <summary>
@@ -373,7 +605,54 @@ namespace ShopifyAnalyticsApi.Controllers
         private string GetBaseUrl()
         {
             var request = HttpContext.Request;
-            return $"{request.Scheme}://{request.Host}";
+            
+            // X-Forwarded-Protoヘッダーを確認（プロキシ経由の場合）
+            var forwardedProto = request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(forwardedProto))
+            {
+                return $"{forwardedProto}://{request.Host}";
+            }
+            
+            // ngrok経由の場合は強制的にHTTPSを使用
+            var scheme = request.Host.Value.Contains("ngrok") ? "https" : request.Scheme;
+            return $"{scheme}://{request.Host}";
+        }
+
+        /// <summary>
+        /// Shopify設定を取得する（環境変数優先）
+        /// </summary>
+        private string GetShopifySetting(string key, string defaultValue = "")
+        {
+            var envKey = $"SHOPIFY_{key.Replace(":", "_").ToUpper()}";
+            return Environment.GetEnvironmentVariable(envKey) ?? 
+                   _configuration[$"Shopify:{key}"] ?? 
+                   defaultValue;
+        }
+
+        /// <summary>
+        /// OAuthエラーを処理する
+        /// </summary>
+        private IActionResult HandleOAuthError(Exception ex, string shop, string operation)
+        {
+            _logger.LogError(ex, "OAuth {Operation}でエラーが発生. Shop: {Shop}", operation, shop);
+
+            if (ex is HttpRequestException httpEx)
+            {
+                if (httpEx.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    return StatusCode(429, new { error = "Rate limit exceeded. Please try again later." });
+                }
+                return StatusCode(502, new { error = "Shopify API is temporarily unavailable." });
+            }
+
+            if (ex is TimeoutException)
+            {
+                return StatusCode(504, new { error = "Request timeout. Please try again." });
+            }
+
+            // フロントエンドのエラーページにリダイレクト
+            var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+            return Redirect($"{frontendUrl}/shopify/error?message=Authentication%20failed");
         }
 
         /// <summary>
@@ -383,6 +662,14 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             public string? AccessToken { get; set; }
             public string? Scope { get; set; }
+        }
+
+        /// <summary>
+        /// 暗号化テスト用リクエスト
+        /// </summary>
+        public class TestEncryptionRequest
+        {
+            public string? Text { get; set; }
         }
     }
 }
