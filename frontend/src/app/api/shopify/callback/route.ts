@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Agent } from 'https';
+import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 
 /**
  * Shopify OAuthコールバックAPI Route
@@ -33,9 +34,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/error?message=Missing%20required%20parameters', request.url));
     }
 
-    // バックエンドAPIのURLを取得（開発環境ではHTTP接続を推奨）
-    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:5000';
+    // 環境設定からバックエンドAPIのURLを取得
+    const environmentConfig = getCurrentEnvironmentConfig();
+    const backendUrl = environmentConfig.apiBaseUrl;
     const callbackUrl = `${backendUrl}/api/shopify/callback`;
+
+    console.log('🔧 環境設定:', {
+      environment: environmentConfig.name,
+      backendUrl,
+      callbackUrl,
+      nodeEnv: process.env.NODE_ENV
+    });
 
     // バックエンドに処理を委譲（クエリパラメータを追加）
     const params = new URLSearchParams({
