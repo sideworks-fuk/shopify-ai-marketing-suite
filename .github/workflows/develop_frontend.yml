@@ -107,7 +107,7 @@ jobs:
         action: "upload"
         app_location: "/frontend"
         api_location: ""
-        output_location: "out"
+        output_location: ".next"
         # 修正: mainブランチの場合はdeployment_environmentを空にして本番環境にデプロイ
         # その他のブランチはプレビュー環境にデプロイ
         deployment_environment: ${{ steps.env.outputs.deployment_environment }}
