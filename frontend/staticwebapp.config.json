@@ -19,6 +19,18 @@
       }
     },
     {
+      "route": "/*.css",
+      "headers": {
+        "content-type": "text/css"
+      }
+    },
+    {
+      "route": "/*.js",
+      "headers": {
+        "content-type": "application/javascript"
+      }
+    },
+    {
       "route": "/*",
       "headers": {
         "cache-control": "no-cache, no-store, must-revalidate",
@@ -28,11 +40,13 @@
     }
   ],
   "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/api/*", "/_next/*", "/favicon.ico"]
+    "rewrite": "/dev-bookmarks/",
+    "exclude": ["/api/*", "/_next/*", "/favicon.ico", "*.css", "*.js", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.ico"]
   },
   "mimeTypes": {
-    ".json": "application/json"
+    ".json": "application/json",
+    ".css": "text/css",
+    ".js": "application/javascript"
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
@@ -41,7 +55,7 @@
   },
   "responseOverrides": {
     "404": {
-      "rewrite": "/index.html"
+      "rewrite": "/dev-bookmarks/"
     }
   }
 } 

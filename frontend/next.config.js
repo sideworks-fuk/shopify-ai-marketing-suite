@@ -60,7 +60,17 @@ const nextConfig = {
   distDir: '.next',
   // 静的エクスポート用の設定を削除
   // skipTrailingSlashRedirect: true,
-  // skipMiddlewareUrlNormalize: true
+  // skipMiddlewareUrlNormalize: true,
+  // Azure Static Web Appsでの適切な動作のための設定
+  assetPrefix: '',
+  basePath: '',
+  // 静的ファイルの配信設定
+  generateEtags: false,
+  // 開発環境でのホットリロード設定
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  }
 }
 
 module.exports = nextConfig
