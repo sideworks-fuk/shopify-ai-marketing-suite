@@ -8,7 +8,8 @@ export default function HomePage() {
 
   useEffect(() => {
     // デフォルトページとしてdev-bookmarksにリダイレクト
-    router.replace('/dev-bookmarks/')
+    // Next.js App Routerの適切なリダイレクト方法を使用
+    router.push('/dev-bookmarks/')
   }, [router])
 
   return (
