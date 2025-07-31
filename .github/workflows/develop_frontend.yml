@@ -114,13 +114,6 @@ jobs:
         # 環境変数をAzure Static Web Appsに渡す
         app_build_command: "npm run build"
         api_build_command: ""
-        # 環境変数の設定（セキュリティ強化版）
-        app_settings: |
-          NEXT_PUBLIC_ENVIRONMENT=${{ steps.env.outputs.next_public_environment }}
-          NEXT_PUBLIC_BUILD_NUMBER=${{ steps.build_info.outputs.build_number }}
-          NEXT_PUBLIC_GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
-          NEXT_PUBLIC_GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
-          NEXT_PUBLIC_BUILD_DATE=${{ steps.build_info.outputs.build_date }}
       # ビルド時の環境変数を設定
       env:
         NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
