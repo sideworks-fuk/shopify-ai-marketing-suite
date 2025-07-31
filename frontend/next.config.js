@@ -53,13 +53,12 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
   },
-  // Azure Static Web Apps 対応
-  output: 'export',
+  // Azure Static Web Apps 対応（API機能を使用）
+  // output: 'export', // 静的エクスポートを無効化（API Route対応のため）
   trailingSlash: true,
-  distDir: 'out',
-  // 静的エクスポート用の設定
-  skipTrailingSlashRedirect: true,
-  skipMiddlewareUrlNormalize: true
+  // 静的エクスポート用の設定を削除
+  // skipTrailingSlashRedirect: true,
+  // skipMiddlewareUrlNormalize: true
 }
 
 module.exports = nextConfig
