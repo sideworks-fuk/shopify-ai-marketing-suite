@@ -55,7 +55,7 @@ const nextConfig = {
   },
   // Azure Static Web Apps 対応（API機能を使用）
   // output: 'export', // 静的エクスポートを無効化（API Route対応のため）
-  trailingSlash: true,
+  // trailingSlash: true, // Azure Static Web AppsではtrailingSlashを無効化
   // Azure Static Web Apps用の設定
   distDir: '.next',
   // 静的エクスポート用の設定を削除

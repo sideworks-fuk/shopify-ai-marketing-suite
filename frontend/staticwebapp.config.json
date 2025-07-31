@@ -40,8 +40,25 @@
     }
   ],
   "navigationFallback": {
-    "rewrite": "/dev-bookmarks/",
-    "exclude": ["/api/*", "/_next/*", "/favicon.ico", "*.css", "*.js", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.ico"]
+    "rewrite": "/index.html",
+    "exclude": [
+      "/api/*", 
+      "/_next/*", 
+      "/favicon.ico", 
+      "*.css", 
+      "*.js", 
+      "*.png", 
+      "*.jpg", 
+      "*.jpeg", 
+      "*.gif", 
+      "*.svg", 
+      "*.ico", 
+      "*.woff", 
+      "*.woff2", 
+      "*.ttf", 
+      "*.eot",
+      "*.json"
+    ]
   },
   "mimeTypes": {
     ".json": "application/json",
@@ -55,7 +72,7 @@
   },
   "responseOverrides": {
     "404": {
-      "rewrite": "/dev-bookmarks/"
+      "rewrite": "/index.html"
     }
   }
 } 
