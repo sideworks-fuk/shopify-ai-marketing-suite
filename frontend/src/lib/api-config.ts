@@ -66,7 +66,7 @@ export const getApiUrl = () => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
-  // Azure Static Web Appsの検出（本番環境）
+  // Azure Static Web Appsの検出（本番環境）- 最優先
   if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
     console.log('✅ Detected Azure Static Web Apps - using production environment');
     return ENVIRONMENTS.production.apiBaseUrl;

@@ -71,6 +71,12 @@ export const validateEnvironmentConfig = (
 
 // 現在の環境を取得
 export const getCurrentEnvironment = (): string => {
+  // Azure Static Web Appsの検出（最優先）
+  if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
+    console.log('✅ Detected Azure Static Web Apps - using production environment');
+    return 'production';
+  }
+
   // 1. ビルド時の環境変数（最優先）
   const buildTimeEnv = getBuildTimeEnvironment();
   if (buildTimeEnv) {

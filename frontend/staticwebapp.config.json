@@ -19,6 +19,20 @@
       }
     },
     {
+      "route": "/_next/static/css/*",
+      "headers": {
+        "content-type": "text/css",
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/_next/static/js/*",
+      "headers": {
+        "content-type": "application/javascript",
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
       "route": "/*.css",
       "headers": {
         "content-type": "text/css"
@@ -63,7 +77,11 @@
   "mimeTypes": {
     ".json": "application/json",
     ".css": "text/css",
-    ".js": "application/javascript"
+    ".js": "application/javascript",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".eot": "application/vnd.ms-fontobject"
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
