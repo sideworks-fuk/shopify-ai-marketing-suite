@@ -46,6 +46,30 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
+        /// リダイレクトURIを取得する（フロントエンドのコールバックURLを使用）
+        /// </summary>
+        private string GetRedirectUri()
+        {
+            // フロントエンドのコールバックURLを設定ファイルから取得（必須）
+            // 環境変数 → Shopify:Frontend:BaseUrl → Frontend:BaseUrl の順で検索
+            var frontendUrl = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL") ?? 
+                             _configuration["Shopify:Frontend:BaseUrl"] ?? 
+                             _configuration["Frontend:BaseUrl"];
+            
+            if (string.IsNullOrWhiteSpace(frontendUrl))
+            {
+                _logger.LogError("Frontend:BaseUrl設定が見つかりません。設定ファイルを確認してください。");
+                _logger.LogError("検索したパス: SHOPIFY_FRONTEND_BASEURL, Shopify:Frontend:BaseUrl, Frontend:BaseUrl");
+                throw new InvalidOperationException("Frontend:BaseUrl設定が必要です。appsettings.jsonまたは環境変数で設定してください。");
+            }
+            
+            _logger.LogInformation("リダイレクトURI生成: FrontendUrl={FrontendUrl}, RedirectUri={RedirectUri}", 
+                frontendUrl, $"{frontendUrl}/api/shopify/callback");
+            
+            return $"{frontendUrl}/api/shopify/callback";
+        }
+
+        /// <summary>
         /// Shopifyアプリのインストールを開始する
         /// </summary>
         /// <param name="shop">ショップドメイン (例: example.myshopify.com)</param>
@@ -74,7 +98,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 // Shopify OAuth URLを構築
                 var apiKey = GetShopifySetting("ApiKey");
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                var redirectUri = $"{GetBaseUrl()}/api/shopify/callback";
+                // フロントエンドのコールバックAPIを使用（ハイブリッド方式）
+                var redirectUri = GetRedirectUri();
 
                 var authUrl = $"https://{shop}/admin/oauth/authorize" +
                     $"?client_id={apiKey}" +
@@ -91,8 +116,10 @@ namespace ShopifyAnalyticsApi.Controllers
             }
         }
 
+
+
         /// <summary>
-        /// Shopifyからの認証コールバックを処理する
+        /// Shopify OAuthコールバック処理（GET - フロントエンドからの委譲）
         /// </summary>
         [HttpGet("callback")]
         [AllowAnonymous]
@@ -100,13 +127,17 @@ namespace ShopifyAnalyticsApi.Controllers
             [FromQuery] string code,
             [FromQuery] string shop,
             [FromQuery] string state,
-            [FromQuery] string? timestamp,
-            [FromQuery] string? hmac)
+            [FromQuery] string? hmac = null,
+            [FromQuery] string? timestamp = null)
         {
             try
             {
+                _logger.LogInformation("OAuthコールバック受信. Shop: {Shop}, State: {State}", shop, state);
+
                 // パラメータ検証
-                if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(shop) || string.IsNullOrWhiteSpace(state))
+                if (string.IsNullOrWhiteSpace(code) || 
+                    string.IsNullOrWhiteSpace(shop) || 
+                    string.IsNullOrWhiteSpace(state))
                 {
                     _logger.LogWarning("必須パラメータが不足しています");
                     return BadRequest(new { error = "Missing required parameters" });
@@ -123,13 +154,20 @@ namespace ShopifyAnalyticsApi.Controllers
                 // キャッシュからstateを削除（使い捨て）
                 _cache.Remove(cacheKey);
 
-                // HMAC検証（オプション - Shopifyが送信する場合）
+                // HMAC検証（オプション - 開発環境ではスキップ）
                 if (!string.IsNullOrWhiteSpace(hmac) && !string.IsNullOrWhiteSpace(timestamp))
                 {
-                    if (!VerifyHmac(code, shop, state, timestamp, hmac))
+                    var isDevelopment = _configuration["ASPNETCORE_ENVIRONMENT"] == "Development";
+                    
+                    if (!isDevelopment && !VerifyHmac(code, shop, state, timestamp, hmac))
                     {
                         _logger.LogWarning("HMAC検証失敗. Shop: {Shop}", shop);
                         return Unauthorized(new { error = "HMAC validation failed" });
+                    }
+                    
+                    if (isDevelopment)
+                    {
+                        _logger.LogInformation("開発環境のためHMAC検証をスキップ. Shop: {Shop}", shop);
                     }
                 }
 
@@ -149,13 +187,93 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _logger.LogInformation("OAuth認証完了. Shop: {Shop}", shop);
 
-                // フロントエンドのサクセスページにリダイレクト
-                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
-                return Redirect($"{frontendUrl}/shopify/success?shop={shop}");
+                return Ok(new
+                {
+                    success = true,
+                    shop = shop,
+                    message = "OAuth authentication completed successfully"
+                });
             }
             catch (Exception ex)
             {
-                return HandleOAuthError(ex, shop, "Callback");
+                _logger.LogError(ex, "OAuthコールバック処理中にエラーが発生. Shop: {Shop}", shop);
+                return StatusCode(500, new { error = "OAuth callback processing failed" });
+            }
+        }
+
+        /// <summary>
+        /// フロントエンドからのOAuth処理委譲API（ハイブリッド方式 - POST）
+        /// </summary>
+        [HttpPost("process-callback")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ProcessCallback([FromBody] OAuthCallbackRequest request)
+        {
+            try
+            {
+                // パラメータ検証
+                if (string.IsNullOrWhiteSpace(request?.Code) || 
+                    string.IsNullOrWhiteSpace(request?.Shop) || 
+                    string.IsNullOrWhiteSpace(request?.State))
+                {
+                    _logger.LogWarning("必須パラメータが不足しています");
+                    return BadRequest(new { error = "Missing required parameters" });
+                }
+
+                // State検証（CSRF対策）
+                var cacheKey = $"{StateCacheKeyPrefix}{request.State}";
+                if (!_cache.TryGetValue<string>(cacheKey, out var cachedShop) || cachedShop != request.Shop)
+                {
+                    _logger.LogWarning("無効なstate. Shop: {Shop}, State: {State}", request.Shop, request.State);
+                    return Unauthorized(new { error = "Invalid state parameter" });
+                }
+
+                // キャッシュからstateを削除（使い捨て）
+                _cache.Remove(cacheKey);
+
+                // HMAC検証（オプション - 開発環境ではスキップ）
+                if (!string.IsNullOrWhiteSpace(request.Hmac) && !string.IsNullOrWhiteSpace(request.Timestamp))
+                {
+                    var isDevelopment = _configuration["ASPNETCORE_ENVIRONMENT"] == "Development";
+                    
+                    if (!isDevelopment && !VerifyHmac(request.Code, request.Shop, request.State, request.Timestamp, request.Hmac))
+                    {
+                        _logger.LogWarning("HMAC検証失敗. Shop: {Shop}", request.Shop);
+                        return Unauthorized(new { error = "HMAC validation failed" });
+                    }
+                    
+                    if (isDevelopment)
+                    {
+                        _logger.LogInformation("開発環境のためHMAC検証をスキップ. Shop: {Shop}", request.Shop);
+                    }
+                }
+
+                // アクセストークンを取得（リトライ機能付き）
+                var accessToken = await ExchangeCodeForAccessTokenWithRetry(request.Code, request.Shop);
+                if (string.IsNullOrWhiteSpace(accessToken))
+                {
+                    _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", request.Shop);
+                    return StatusCode(500, new { error = "Failed to obtain access token" });
+                }
+
+                // ストア情報を保存・更新
+                await SaveOrUpdateStore(request.Shop, accessToken);
+
+                // Webhook登録
+                await RegisterWebhooks(request.Shop, accessToken);
+
+                _logger.LogInformation("OAuth認証完了（ハイブリッド方式）. Shop: {Shop}", request.Shop);
+
+                return Ok(new
+                {
+                    success = true,
+                    shop = request.Shop,
+                    message = "OAuth authentication completed successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OAuth処理委譲中にエラーが発生. Shop: {Shop}", request?.Shop);
+                return StatusCode(500, new { error = "OAuth processing failed" });
             }
         }
 
@@ -170,6 +288,8 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 var baseUrl = GetBaseUrl();
                 var redirectUri = $"{baseUrl}/api/shopify/callback";
+                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+                var processCallbackUrl = $"{baseUrl}/api/shopify/process-callback";
                 
                 var config = new
                 {
@@ -179,7 +299,14 @@ namespace ShopifyAnalyticsApi.Controllers
                     Scopes = GetShopifySetting("Scopes"),
                     BaseUrl = baseUrl,
                     RedirectUri = redirectUri,
-                    FrontendUrl = GetShopifySetting("Frontend:BaseUrl"),
+                    FrontendUrl = frontendUrl,
+                    ProcessCallbackUrl = processCallbackUrl,
+                    HybridMode = new
+                    {
+                        Enabled = true,
+                        FrontendCallbackUrl = $"{frontendUrl}/api/shopify/callback",
+                        BackendProcessUrl = processCallbackUrl
+                    },
                     RequestInfo = new
                     {
                         Scheme = HttpContext.Request.Scheme,
@@ -195,7 +322,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 };
 
                 return Ok(new { 
-                    message = "Shopify OAuth設定確認",
+                    message = "Shopify OAuth設定確認（ハイブリッド方式対応）",
                     config = config,
                     timestamp = DateTime.UtcNow
                 });
@@ -204,6 +331,68 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 _logger.LogError(ex, "設定確認中にエラーが発生");
                 return StatusCode(500, new { error = "Configuration test failed" });
+            }
+        }
+
+        /// <summary>
+        /// テスト用エンドポイント - ハイブリッド方式のテスト
+        /// </summary>
+        [HttpGet("test-hybrid-mode")]
+        [AllowAnonymous]
+        public IActionResult TestHybridMode([FromQuery] string shop = "test-store.myshopify.com")
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
+                {
+                    return BadRequest(new { error = "Invalid shop domain" });
+                }
+
+                var apiKey = GetShopifySetting("ApiKey");
+                var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+                var redirectUri = $"{frontendUrl}/api/shopify/callback";
+                var state = GenerateRandomString(32);
+
+                var authUrl = $"https://{shop}/admin/oauth/authorize" +
+                    $"?client_id={apiKey}" +
+                    $"&scope={scopes}" +
+                    $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                    $"&state={state}";
+
+                return Ok(new
+                {
+                    shop = shop,
+                    frontendUrl = frontendUrl,
+                    redirectUri = redirectUri,
+                    oauthUrl = authUrl,
+                    backendProcessUrl = $"{GetBaseUrl()}/api/shopify/process-callback",
+                    flow = new
+                    {
+                        step1 = "フロントエンドでOAuth URLを生成",
+                        step2 = "Shopify認証ページにリダイレクト",
+                        step3 = "フロントエンドのコールバックページで受信",
+                        step4 = "バックエンドのprocess-callback APIに委譲",
+                        step5 = "バックエンドでトークン取得・保存・Webhook登録",
+                        step6 = "フロントエンドのサクセスページにリダイレクト"
+                    },
+                    testData = new
+                    {
+                        sampleCallbackRequest = new
+                        {
+                            code = "sample_auth_code",
+                            shop = shop,
+                            state = state,
+                            timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
+                            hmac = "sample_hmac"
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ハイブリッド方式テスト中にエラーが発生");
+                return StatusCode(500, new { error = "Hybrid mode test failed" });
             }
         }
 
@@ -223,7 +412,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var apiKey = GetShopifySetting("ApiKey");
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                var redirectUri = $"{GetBaseUrl()}/api/shopify/callback";
+                var redirectUri = GetRedirectUri(); // ハイブリッド方式用のリダイレクトURI
                 var state = GenerateRandomString(32);
 
                 var authUrl = $"https://{shop}/admin/oauth/authorize" +
@@ -251,6 +440,45 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 _logger.LogError(ex, "OAuth URL生成テスト中にエラーが発生");
                 return StatusCode(500, new { error = "OAuth URL generation test failed" });
+            }
+        }
+
+        /// <summary>
+        /// テスト用エンドポイント - 設定値確認テスト
+        /// </summary>
+        [HttpGet("test-settings")]
+        [AllowAnonymous]
+        public IActionResult TestSettings()
+        {
+            try
+            {
+                var settings = new
+                {
+                    // 環境変数
+                    EnvironmentVariable = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL"),
+                    
+                    // 設定ファイルの値
+                    ShopifyFrontendBaseUrl = _configuration["Shopify:Frontend:BaseUrl"],
+                    FrontendBaseUrl = _configuration["Frontend:BaseUrl"],
+                    
+                    // GetShopifySettingメソッドの結果
+                    GetShopifySettingResult = GetShopifySetting("Frontend:BaseUrl"),
+                    
+                    // 実際に使用される値
+                    ActualRedirectUri = GetRedirectUri(),
+                    
+                    // その他の設定
+                    ApiKey = GetShopifySetting("ApiKey"),
+                    ApiSecret = GetShopifySetting("ApiSecret"),
+                    Scopes = GetShopifySetting("Scopes")
+                };
+
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "設定値確認テスト中にエラーが発生");
+                return StatusCode(500, new { error = "Settings test failed", details = ex.Message });
             }
         }
 
@@ -670,6 +898,18 @@ namespace ShopifyAnalyticsApi.Controllers
         public class TestEncryptionRequest
         {
             public string? Text { get; set; }
+        }
+
+        /// <summary>
+        /// フロントエンドからのOAuthコールバックリクエスト
+        /// </summary>
+        public class OAuthCallbackRequest
+        {
+            public string? Code { get; set; }
+            public string? Shop { get; set; }
+            public string? State { get; set; }
+            public string? Timestamp { get; set; }
+            public string? Hmac { get; set; }
         }
     }
 }

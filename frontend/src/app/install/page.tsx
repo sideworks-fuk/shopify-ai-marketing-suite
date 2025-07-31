@@ -64,10 +64,12 @@ export default function InstallPolarisPage() {
 
       // 環境設定からAPI URLを取得
       const config = getCurrentEnvironmentConfig();
-      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
+      // フロントエンドのコールバックAPIを使用（ハイブリッド方式）
+      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}&redirect_uri=${encodeURIComponent(`${window.location.origin}/api/shopify/callback`)}`;
       
       console.log('📍 リダイレクト先:', installUrl);
       console.log('🌍 現在の環境:', config.name);
+      console.log('🔄 コールバックURL:', `${window.location.origin}/api/shopify/callback`);
       
       // Shopify OAuth フローへリダイレクト
       window.location.href = installUrl;
