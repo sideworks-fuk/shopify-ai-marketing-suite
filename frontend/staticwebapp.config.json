@@ -1,14 +1,6 @@
 {
   "routes": [
     {
-      "route": "/",
-      "redirect": "/dev-bookmarks/"
-    },
-    {
-      "route": "/index.html",
-      "redirect": "/dev-bookmarks/"
-    },
-    {
       "route": "/api/*",
       "rewrite": "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/{*}"
     },
@@ -43,18 +35,10 @@
       "headers": {
         "content-type": "application/javascript"
       }
-    },
-    {
-      "route": "/*",
-      "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate",
-        "pragma": "no-cache",
-        "expires": "0"
-      }
     }
   ],
   "navigationFallback": {
-    "rewrite": "/index.html",
+    "rewrite": "/",
     "exclude": [
       "/api/*", 
       "/_next/*", 
@@ -90,7 +74,7 @@
   },
   "responseOverrides": {
     "404": {
-      "rewrite": "/index.html"
+      "rewrite": "/"
     }
   }
 } 
