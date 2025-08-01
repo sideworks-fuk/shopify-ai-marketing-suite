@@ -7,6 +7,20 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
+    console.log('🔍 [DEBUG] HomePage: useEffect triggered')
+    console.log('🔍 [DEBUG] HomePage: Current pathname:', window.location.pathname)
+    
+    // 一時的にリダイレクトを無効化（デバッグ用）
+    console.log('🔍 [DEBUG] HomePage: Redirect temporarily disabled for debugging')
+    return
+    
+    // 既にdev-bookmarksにいる場合はリダイレクトしない
+    if (window.location.pathname === '/dev-bookmarks' || window.location.pathname === '/dev-bookmarks/') {
+      console.log('🔍 [DEBUG] HomePage: Already on dev-bookmarks, skipping redirect')
+      return
+    }
+    
+    console.log('🔍 [DEBUG] HomePage: Redirecting to /dev-bookmarks/')
     // デフォルトページとしてdev-bookmarksにリダイレクト
     // Next.js App Routerの適切なリダイレクト方法を使用
     router.push('/dev-bookmarks/')
@@ -31,6 +45,12 @@ export default function HomePage() {
           margin: '0 auto'
         }}></div>
         <p style={{ marginTop: '16px', color: '#6b7280' }}>リダイレクト中...</p>
+        <p style={{ marginTop: '8px', color: '#9ca3af', fontSize: '12px' }}>
+          デバッグ: {window.location.pathname}
+        </p>
+        <p style={{ marginTop: '8px', color: '#ef4444', fontSize: '12px' }}>
+          ⚠️ リダイレクト一時無効化中（デバッグ用）
+        </p>
       </div>
       <style jsx>{`
         @keyframes spin {

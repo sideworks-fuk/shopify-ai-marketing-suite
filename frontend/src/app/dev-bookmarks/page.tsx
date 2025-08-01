@@ -280,11 +280,15 @@ export default function DevBookmarksPage() {
   const { currentStore, availableStores } = useStore()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
-  
+
   useEffect(() => {
+    console.log('🔍 [DEBUG] DevBookmarksPage: Component mounted')
+    console.log('🔍 [DEBUG] DevBookmarksPage: Current pathname:', window.location.pathname)
+    
     // 環境情報を取得
     try {
       const envInfo = getEnvironmentInfo()
+      console.log('🔍 [DEBUG] DevBookmarksPage: Environment info:', envInfo)
       setEnvironmentInfo(envInfo)
       
       // デバッグ情報を出力
