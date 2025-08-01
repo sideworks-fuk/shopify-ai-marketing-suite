@@ -274,6 +274,9 @@ app.UseRateLimiter();
 // 認証を有効化
 app.UseAuthentication();
 
+// ストアコンテキストミドルウェア（認証後、承認前）
+app.UseStoreContext();
+
 app.UseAuthorization();
 
 app.MapControllers();

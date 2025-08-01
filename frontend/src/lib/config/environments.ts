@@ -6,26 +6,47 @@ export interface EnvironmentConfig {
   isProduction: boolean;
 }
 
+// 環境変数から設定を取得する関数
+const getApiBaseUrl = (): string => {
+  // 環境変数の優先順位
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  if (backendUrl) {
+    console.log('🔍 Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
+    return backendUrl;
+  }
+  
+  if (apiUrl) {
+    console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
+    return apiUrl;
+  }
+  
+  // デフォルト値（開発環境のみ）
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('⚠️ No backend URL environment variable found, using default for development');
+    return 'https://localhost:7088';
+  }
+  
+  throw new Error('NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
+};
+
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   development: {
     name: '開発環境',
-    apiBaseUrl: 'https://localhost:7088',
-    // http://localhost:5000
-    // https://43931bf0c41f.ngrok-free.app
-    // https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net
-    // https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
+    apiBaseUrl: getApiBaseUrl(),
     description: 'ローカル開発',
     isProduction: false,
   },
   staging: {
     name: 'ステージング環境',
-    apiBaseUrl: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net',
+    apiBaseUrl: getApiBaseUrl(),
     description: 'テスト・検証用',
     isProduction: false,
   },
   production: {
     name: '本番環境',
-    apiBaseUrl: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net',
+    apiBaseUrl: getApiBaseUrl(),
     description: '本番運用環境',
     isProduction: true,
   },
@@ -172,6 +193,8 @@ export const getBuildTimeEnvironmentInfo = () => {
     nextPublicEnvironment: process.env.NEXT_PUBLIC_ENVIRONMENT,
     nodeEnv: process.env.NODE_ENV,
     isBuildTimeSet: !!getBuildTimeEnvironment(),
+    backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
+    apiUrl: process.env.NEXT_PUBLIC_API_URL,
   };
 };
 

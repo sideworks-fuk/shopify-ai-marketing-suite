@@ -11,6 +11,7 @@ namespace ShopifyAnalyticsApi.Models
         public string DataType { get; set; } = "production";
         public bool IsActive { get; set; }
         public string ShopDomain { get; set; } = string.Empty;
+        public string? TenantId { get; set; }
     }
 
     /// <summary>

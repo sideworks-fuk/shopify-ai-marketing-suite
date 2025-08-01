@@ -35,7 +35,23 @@ namespace ShopifyAnalyticsApi.Models
         
         public string? Settings { get; set; } // JSON形式の追加設定
         
+        // マルチテナント対応
+        [MaxLength(100)]
+        public string? TenantId { get; set; }
+        
+        [MaxLength(255)]
+        public string? ApiKey { get; set; }
+        
+        [MaxLength(255)]
+        public string? ApiSecret { get; set; }
+        
+        public string? AccessToken { get; set; }
+        
+        [MaxLength(500)]
+        public string? Scopes { get; set; }
+        
         // ナビゲーションプロパティ
+        public virtual Tenant? Tenant { get; set; }
         public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
         public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
