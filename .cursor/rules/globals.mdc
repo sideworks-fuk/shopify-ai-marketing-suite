@@ -119,7 +119,7 @@ alwaysApply: true
     7.1 作業履歴ログ（必須）
 
     目的: 開発履歴を記録し、後から振り返り可能にする
-    ファイル命名: ./worklog/YYYYMMDD-HHMMSS-{タスク概要}.md
+    ファイル命名: ./docs/worklog/YYYYMMDD-HHMMSS-{タスク概要}.md
     記録タイミング: 作業開始時と完了時
     記録内容:
     markdown# 作業ログ: {タスク概要}
