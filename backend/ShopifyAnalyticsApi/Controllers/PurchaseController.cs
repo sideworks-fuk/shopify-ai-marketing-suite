@@ -9,7 +9,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class PurchaseController : ControllerBase
+    public class PurchaseController : StoreAwareControllerBase
     {
         private readonly IPurchaseCountAnalysisService _purchaseCountAnalysisService;
         private readonly ILogger<PurchaseController> _logger;
@@ -34,6 +34,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("購入回数分析データ取得開始. StoreId: {StoreId}, Period: {StartDate} - {EndDate}, RequestId: {RequestId}",
                     request.StoreId, request.StartDate, request.EndDate, logProperties["RequestId"]);
 
@@ -101,6 +104,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("購入回数サマリー取得開始. StoreId: {StoreId}, Days: {Days}, RequestId: {RequestId}",
                     storeId, days, logProperties["RequestId"]);
 
@@ -143,6 +149,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("購入回数トレンド取得開始. StoreId: {StoreId}, Months: {Months}, RequestId: {RequestId}",
                     storeId, months, logProperties["RequestId"]);
 
@@ -185,6 +194,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("セグメント別購入回数分析取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}",
                     storeId, segment, logProperties["RequestId"]);
 
@@ -256,6 +268,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("購入回数クイック統計取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
                     storeId, logProperties["RequestId"]);
 

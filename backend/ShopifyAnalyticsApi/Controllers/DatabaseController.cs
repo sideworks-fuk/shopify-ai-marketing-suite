@@ -15,7 +15,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [EnableCors("AllowAll")]
-    public class DatabaseController : ControllerBase
+    public class DatabaseController : StoreAwareControllerBase
     {
         private readonly ShopifyDbContext _context;
         private readonly IDatabaseService _databaseService;
@@ -84,8 +84,10 @@ namespace ShopifyAnalyticsApi.Controllers
 
         /// <summary>
         /// データベース初期化（テーブル作成・サンプルデータ投入）
+        /// 管理者専用機能
         /// </summary>
         [HttpPost("initialize")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> InitializeDatabase()
         {
             try
@@ -118,8 +120,12 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var totalCount = await _context.Customers.CountAsync();
+                // JWTから取得したStoreIdでフィルタリング
+                var storeId = this.StoreId;
+                
+                var totalCount = await _context.Customers.Where(c => c.StoreId == storeId).CountAsync();
                 var customers = await _context.Customers
+                    .Where(c => c.StoreId == storeId)
                     .OrderByDescending(c => c.TotalSpent)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
@@ -179,7 +185,11 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                // JWTから取得したStoreIdでフィルタリング
+                var storeId = this.StoreId;
+                
                 var stats = await _context.Customers
+                    .Where(c => c.StoreId == storeId)
                     .GroupBy(c => 1)
                     .Select(g => new
                     {
@@ -245,8 +255,10 @@ namespace ShopifyAnalyticsApi.Controllers
 
         /// <summary>
         /// CSVファイルから顧客データをインポート
+        /// 管理者専用機能
         /// </summary>
         [HttpPost("import/customers")]
+        [Authorize(Roles = "Administrator")]
         public async Task<IActionResult> ImportCustomersFromCsv(IFormFile csvFile)
         {
             if (csvFile == null || csvFile.Length == 0)
@@ -306,12 +318,15 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var customerCount = await _context.Customers.CountAsync();
-                var orderCount = await _context.Orders.CountAsync();
-                var productCount = await _context.Products.CountAsync();
-                var orderItemCount = await _context.OrderItems.CountAsync();
+                // JWTから取得したStoreIdでフィルタリング
+                var storeId = this.StoreId;
+                
+                var customerCount = await _context.Customers.Where(c => c.StoreId == storeId).CountAsync();
+                var orderCount = await _context.Orders.Where(o => o.StoreId == storeId).CountAsync();
+                var productCount = await _context.Products.Where(p => p.StoreId == storeId).CountAsync();
+                var orderItemCount = await _context.OrderItems.Where(oi => _context.Orders.Any(o => o.Id == oi.OrderId && o.StoreId == storeId)).CountAsync();
 
-                var totalRevenue = await _context.Orders.SumAsync(o => o.TotalPrice);
+                var totalRevenue = await _context.Orders.Where(o => o.StoreId == storeId).SumAsync(o => o.TotalPrice);
                 var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
 
                 return Ok(new
@@ -405,6 +420,9 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("Customer totals update requested for StoreId: {StoreId}", storeId);
 
                 // CustomerDataMaintenanceServiceがDIに登録されていない場合は、直接実装
