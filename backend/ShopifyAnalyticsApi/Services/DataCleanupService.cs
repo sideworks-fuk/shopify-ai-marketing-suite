@@ -120,7 +120,7 @@ namespace ShopifyAnalyticsApi.Services
                 }
 
                 var customer = await _context.Customers
-                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId);
+                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId.ToString());
 
                 if (customer == null)
                 {
@@ -139,25 +139,9 @@ namespace ShopifyAnalyticsApi.Services
 
                     foreach (var order in orders)
                     {
-                        order.Email = "redacted@example.com";
-                        order.ShippingName = "REDACTED";
-                        order.ShippingAddress1 = "REDACTED";
-                        order.ShippingAddress2 = null;
-                        order.ShippingCity = "REDACTED";
-                        order.ShippingZip = "00000";
-                        order.ShippingProvince = "REDACTED";
-                        order.ShippingCountry = "REDACTED";
-                        order.ShippingPhone = null;
-                        order.BillingName = "REDACTED";
-                        order.BillingAddress1 = "REDACTED";
-                        order.BillingAddress2 = null;
-                        order.BillingCity = "REDACTED";
-                        order.BillingZip = "00000";
-                        order.BillingProvince = "REDACTED";
-                        order.BillingCountry = "REDACTED";
-                        order.BillingPhone = null;
-                        order.Note = null;
-                        order.CustomerId = null; // 顧客との関連を切る
+                        // 注文と顧客の関連を切る（匿名化）
+                        // Orderモデルには個人情報フィールドがないため、関連のみ切断
+                        order.CustomerId = 0; // 顧客との関連を切る（0は無効な顧客ID）
                     }
 
                     await _context.SaveChangesAsync();
@@ -202,7 +186,7 @@ namespace ShopifyAnalyticsApi.Services
                 var customer = await _context.Customers
                     .Include(c => c.Orders)
                         .ThenInclude(o => o.OrderItems)
-                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId);
+                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId.ToString());
 
                 if (customer == null)
                 {
@@ -220,7 +204,7 @@ namespace ShopifyAnalyticsApi.Services
                         customer.FirstName,
                         customer.LastName,
                         customer.Phone,
-                        customer.TotalOrderCount,
+                        customer.TotalOrders,
                         customer.TotalSpent,
                         customer.CreatedAt,
                         customer.UpdatedAt
@@ -228,38 +212,14 @@ namespace ShopifyAnalyticsApi.Services
                     Orders = customer.Orders.Select(o => new
                     {
                         o.OrderNumber,
-                        o.Email,
                         o.CreatedAt,
-                        o.ProcessedAt,
                         o.UpdatedAt,
                         o.TotalPrice,
+                        o.SubtotalPrice,
+                        o.TaxPrice,
                         o.Currency,
+                        o.Status,
                         o.FinancialStatus,
-                        o.FulfillmentStatus,
-                        o.Tags,
-                        o.Note,
-                        ShippingAddress = new
-                        {
-                            Name = o.ShippingName,
-                            Address1 = o.ShippingAddress1,
-                            Address2 = o.ShippingAddress2,
-                            City = o.ShippingCity,
-                            Zip = o.ShippingZip,
-                            Province = o.ShippingProvince,
-                            Country = o.ShippingCountry,
-                            Phone = o.ShippingPhone
-                        },
-                        BillingAddress = new
-                        {
-                            Name = o.BillingName,
-                            Address1 = o.BillingAddress1,
-                            Address2 = o.BillingAddress2,
-                            City = o.BillingCity,
-                            Zip = o.BillingZip,
-                            Province = o.BillingProvince,
-                            Country = o.BillingCountry,
-                            Phone = o.BillingPhone
-                        },
                         LineItems = o.OrderItems.Select(oi => new
                         {
                             oi.ProductTitle,
