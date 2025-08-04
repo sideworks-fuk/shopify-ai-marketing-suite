@@ -163,11 +163,11 @@ export default function InstallPolarisPage() {
                   </InlineStack>
                 </Box>
                 <Text as="h1" variant="heading2xl">
-                  Shopify AI Marketing Suite
+                  EC Ranger
                 </Text>
                 <Box paddingBlockStart="200">
                   <Text as="p" variant="bodyLg" tone="subdued">
-                    ストアと連携してAI分析を開始しましょう
+                    Shopifyストアの売上を最大化する分析ツール
                   </Text>
                 </Box>
               </div>
