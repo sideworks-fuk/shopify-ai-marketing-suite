@@ -1,16 +1,25 @@
 {
+  "platform": {
+    "apiRuntime": "node:20"
+  },
   "routes": [
-    {
-      "route": "/",
-      "redirect": "/dev-bookmarks/"
-    },
-    {
-      "route": "/index.html",
-      "redirect": "/dev-bookmarks/"
-    },
     {
       "route": "/api/*",
       "rewrite": "https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/{*}"
+    },
+    {
+      "route": "/_next/static/css/*",
+      "headers": {
+        "content-type": "text/css",
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/_next/static/js/*",
+      "headers": {
+        "content-type": "application/javascript",
+        "cache-control": "public, max-age=31536000, immutable"
+      }
     },
     {
       "route": "/_next/static/*",
@@ -19,20 +28,47 @@
       }
     },
     {
-      "route": "/*",
+      "route": "/*.css",
       "headers": {
-        "cache-control": "no-cache, no-store, must-revalidate",
-        "pragma": "no-cache",
-        "expires": "0"
+        "content-type": "text/css"
+      }
+    },
+    {
+      "route": "/*.js",
+      "headers": {
+        "content-type": "application/javascript"
       }
     }
   ],
   "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/api/*", "/_next/*", "/favicon.ico"]
+    "rewrite": "/",
+    "exclude": [
+      "/api/*", 
+      "/_next/*", 
+      "/favicon.ico", 
+      "*.css", 
+      "*.js", 
+      "*.png", 
+      "*.jpg", 
+      "*.jpeg", 
+      "*.gif", 
+      "*.svg", 
+      "*.ico", 
+      "*.woff", 
+      "*.woff2", 
+      "*.ttf", 
+      "*.eot",
+      "*.json"
+    ]
   },
   "mimeTypes": {
-    ".json": "application/json"
+    ".json": "application/json",
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".eot": "application/vnd.ms-fontobject"
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",
@@ -41,7 +77,7 @@
   },
   "responseOverrides": {
     "404": {
-      "rewrite": "/index.html"
+      "rewrite": "/"
     }
   }
 } 

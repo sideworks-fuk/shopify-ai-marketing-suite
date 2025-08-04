@@ -92,4 +92,4 @@ permissions:
 
 ## 関連ファイル
 - `.github/workflows/develop_shopifyapp-backend-develop.yml`
-- `worklog/2025/07/2025-07-20-150000-workflow-dispatch-fix.md` 
+- `docs/worklog/2025/07/2025-07-20-150000-workflow-dispatch-fix.md` 

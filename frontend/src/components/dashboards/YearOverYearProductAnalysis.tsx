@@ -465,7 +465,8 @@ const convertApiDataToProductYearData = (apiData: YearOverYearProductData[], cur
   })
 }
 
-const YearOverYearProductAnalysis = () => {
+// React.memoでメモ化したコンポーネント
+const YearOverYearProductAnalysis = React.memo(() => {
   // ✅ Zustand移行: 商品分析フィルター使用
   const { 
     filters,
@@ -1074,6 +1075,9 @@ const YearOverYearProductAnalysis = () => {
       </Card>
     </div>
   )
-}
+})
+
+// 表示名を設定（デバッグ用）
+YearOverYearProductAnalysis.displayName = 'YearOverYearProductAnalysis'
 
 export default YearOverYearProductAnalysis

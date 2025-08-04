@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Page,
   Card,
@@ -13,6 +13,8 @@ import {
   BlockStack,
   Box,
   InlineStack,
+  ProgressBar,
+  Modal,
 } from '@shopify/polaris';
 import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 
@@ -21,12 +23,51 @@ import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
  * 
  * @author YUKI
  * @date 2025-07-29
- * @description Shopify OAuth認証フローの開始ページ（Polarisデザイン適用）
+ * @updated 2025-08-01
+ * @description Shopify OAuth認証フローの開始ページ（エラーハンドリング強化版）
  */
 export default function InstallPolarisPage() {
   const [shopDomain, setShopDomain] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [installProgress, setInstallProgress] = useState(0);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<{title: string, message: string}>({title: '', message: ''});
+
+  // URLパラメータからエラー情報を取得
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorParam = urlParams.get('error');
+    const errorDescription = urlParams.get('error_description');
+    
+    if (errorParam) {
+      let title = 'インストールエラー';
+      let message = 'インストール中に問題が発生しました。';
+      
+      // エラータイプに応じたメッセージ設定
+      switch (errorParam) {
+        case 'access_denied':
+          title = 'アクセス拒否';
+          message = 'アプリへのアクセスが拒否されました。アプリをインストールするには、必要な権限を承認してください。';
+          break;
+        case 'invalid_shop':
+          title = '無効なストア';
+          message = '指定されたストアが見つかりません。正しいストアドメインを入力してください。';
+          break;
+        case 'invalid_request':
+          title = '無効なリクエスト';
+          message = 'リクエストに問題があります。もう一度お試しください。';
+          break;
+        default:
+          if (errorDescription) {
+            message = errorDescription;
+          }
+      }
+      
+      setErrorDetails({ title, message });
+      setShowErrorModal(true);
+    }
+  }, []);
 
   const handleShopDomainChange = useCallback((value: string) => {
     setShopDomain(value.toLowerCase());
@@ -36,6 +77,19 @@ export default function InstallPolarisPage() {
   const validateShopDomain = (domain: string): boolean => {
     const pattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/;
     return pattern.test(domain);
+  };
+
+  const simulateProgress = () => {
+    setInstallProgress(0);
+    const interval = setInterval(() => {
+      setInstallProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 200);
   };
 
   const handleInstall = useCallback(async () => {
@@ -53,6 +107,7 @@ export default function InstallPolarisPage() {
     }
 
     setLoading(true);
+    simulateProgress();
 
     try {
       // .myshopify.comを自動補完
@@ -64,17 +119,22 @@ export default function InstallPolarisPage() {
 
       // 環境設定からAPI URLを取得
       const config = getCurrentEnvironmentConfig();
-      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}`;
+      // フロントエンドのコールバックAPIを使用（ハイブリッド方式）
+      const installUrl = `${config.apiBaseUrl}/api/shopify/install?shop=${encodeURIComponent(fullDomain)}&redirect_uri=${encodeURIComponent(`${window.location.origin}/api/shopify/callback`)}`;
       
       console.log('📍 リダイレクト先:', installUrl);
       console.log('🌍 現在の環境:', config.name);
+      console.log('🔄 コールバックURL:', `${window.location.origin}/api/shopify/callback`);
       
-      // Shopify OAuth フローへリダイレクト
-      window.location.href = installUrl;
+      // 少し遅延を入れてUXを向上
+      setTimeout(() => {
+        window.location.href = installUrl;
+      }, 500);
     } catch (error) {
       console.error('❌ インストールエラー:', error);
       setError('インストール処理中にエラーが発生しました。もう一度お試しください。');
       setLoading(false);
+      setInstallProgress(0);
     }
   }, [shopDomain]);
 
@@ -139,6 +199,17 @@ export default function InstallPolarisPage() {
                   >
                     {loading ? 'インストール中...' : 'アプリをインストール'}
                   </Button>
+
+                  {loading && (
+                    <Box paddingBlockStart="400">
+                      <ProgressBar progress={installProgress} size="small" />
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodySm" alignment="center" tone="subdued">
+                          Shopifyストアに接続中...
+                        </Text>
+                      </Box>
+                    </Box>
+                  )}
                 </BlockStack>
               </Card>
 
@@ -208,6 +279,35 @@ export default function InstallPolarisPage() {
           </Page>
         </div>
       </Box>
+
+      {/* エラーモーダル */}
+      <Modal
+        open={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title={errorDetails.title}
+        primaryAction={{
+          content: 'もう一度試す',
+          onAction: () => {
+            setShowErrorModal(false);
+            // URLパラメータをクリア
+            window.history.replaceState({}, document.title, window.location.pathname);
+          },
+        }}
+        secondaryActions={[
+          {
+            content: 'ヘルプを見る',
+            onAction: () => {
+              window.open('https://help.shopify.com/ja/manual/apps/installing-apps', '_blank');
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <Text as="p" variant="bodyMd">
+            {errorDetails.message}
+          </Text>
+        </Modal.Section>
+      </Modal>
     </div>
   );
 }

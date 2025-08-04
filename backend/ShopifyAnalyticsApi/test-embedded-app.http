@@ -1,0 +1,39 @@
+### Test Embedded App Endpoints
+@baseUrl = https://localhost:7296
+@jwtToken = YOUR_JWT_TOKEN_HERE
+
+### 1. Test CSP Headers
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### Expected Response Headers:
+# Content-Security-Policy: frame-ancestors https://*.myshopify.com https://admin.shopify.com
+
+### 2. Get Embedded App Config (with regular JWT)
+GET {{baseUrl}}/api/embeddedapp/config
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+### 3. Get App Status
+GET {{baseUrl}}/api/embeddedapp/status
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+### 4. Test Notification
+POST {{baseUrl}}/api/embeddedapp/test-notification
+Authorization: Bearer {{jwtToken}}
+Content-Type: application/json
+
+{
+  "message": "Shopify App Bridge統合テスト成功！"
+}
+
+### 5. Test with Shopify Session Token (Mock)
+GET {{baseUrl}}/api/embeddedapp/config
+Authorization: Bearer session-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXN0IjoiZXhhbXBsZS5teXNob3BpZnkuY29tIiwiYXVkIjoiMWUwMDA2YjNlZGM5ZmZjNWM3NDVkNjgxN2U2NjZhMTgiLCJleHAiOjE3MzMwMDAwMDB9.mock-signature
+Content-Type: application/json
+
+### 6. Test Store Context with Session Token
+GET {{baseUrl}}/api/embeddedapp/status
+Authorization: Bearer session-token:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXN0IjoiZXhhbXBsZS5teXNob3BpZnkuY29tIiwiYXVkIjoiMWUwMDA2YjNlZGM5ZmZjNWM3NDVkNjgxN2U2NjZhMTgiLCJleHAiOjE3MzMwMDAwMDB9.mock-signature
+Content-Type: application/json

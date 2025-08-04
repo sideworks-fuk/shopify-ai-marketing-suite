@@ -28,7 +28,9 @@ import {
   Clock,
   Hash,
   Store,
-  Info
+  Key,
+  Info,
+  Shield
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -167,6 +169,30 @@ const bookmarkItems: BookmarkItem[] = [
     category: 'dev'
   },
   {
+    title: "JWT リフレッシュ テスト",
+    description: "JWT認証リフレッシュトークンの検証",
+    href: "/dev/auth-refresh-test",
+    icon: <Key className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "バックエンド ヘルスチェック",
+    description: "バックエンドサーバーの接続状態確認",
+    href: "/dev/backend-health-check",
+    icon: <Activity className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "HTTPS設定テスト",
+    description: "HTTP/HTTPS接続設定の確認",
+    href: "/dev/https-config-test",
+    icon: <Shield className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
     title: "前年同月比API テスト",
     description: "前年同月比分析【商品】APIの動作確認",
     href: "/year-over-year-api-test",
@@ -195,6 +221,72 @@ const bookmarkItems: BookmarkItem[] = [
     description: "API環境設定と接続状態の確認",
     href: "/dev-bookmarks",
     icon: <Settings className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "JWT デコードテスト",
+    description: "JWTトークンのデコード機能テスト",
+    href: "/dev/jwt-test",
+    icon: <Key className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+
+  // Shopify OAuth認証テスト
+  {
+    title: "Shopify OAuth認証テスト",
+    description: "ハイブリッド方式のOAuth認証フローテスト",
+    href: "/install",
+    icon: <Store className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
+  {
+    title: "認証成功ページ",
+    description: "OAuth認証成功時の表示",
+    href: "/auth/success",
+    icon: <UserCheck className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
+  {
+    title: "認証エラーページ",
+    description: "OAuth認証エラー時の表示",
+    href: "/auth/error",
+    icon: <UserX className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
+  {
+    title: "コールバックAPI",
+    description: "OAuthコールバック受信API",
+    href: "/api/shopify/callback",
+    icon: <Zap className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
+  {
+    title: "バックエンドAPI テスト",
+    description: "Shopify OAuthバックエンドAPIの動作確認",
+    href: "/dev/shopify-backend-test",
+    icon: <Database className="h-5 w-5" />,
+    status: 'planned',
+    category: 'dev'
+  },
+  {
+    title: "OAuth設定確認",
+    description: "Shopify OAuth設定と環境変数の確認",
+    href: "/dev/oauth-config-test",
+    icon: <Settings className="h-5 w-5" />,
+    status: 'planned',
+    category: 'dev'
+  },
+  {
+    title: "Shopify埋め込みモードテスト",
+    description: "App Bridgeと埋め込みモードの動作確認",
+    href: "/dev/shopify-embedded-test",
+    icon: <Store className="h-5 w-5" />,
     status: 'implemented',
     category: 'dev'
   }
@@ -230,11 +322,15 @@ export default function DevBookmarksPage() {
   const { currentStore, availableStores } = useStore()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
-  
+
   useEffect(() => {
+    console.log('🔍 [DEBUG] DevBookmarksPage: Component mounted')
+    console.log('🔍 [DEBUG] DevBookmarksPage: Current pathname:', window.location.pathname)
+    
     // 環境情報を取得
     try {
       const envInfo = getEnvironmentInfo()
+      console.log('🔍 [DEBUG] DevBookmarksPage: Environment info:', envInfo)
       setEnvironmentInfo(envInfo)
       
       // デバッグ情報を出力
@@ -498,6 +594,88 @@ export default function DevBookmarksPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {bookmarkItems
               .filter(item => item.category === 'ai')
+              .map((item, index) => (
+                <Card key={index} className={getCategoryColor(item.category)}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {item.icon}
+                        <CardTitle className="text-base">{item.title}</CardTitle>
+                      </div>
+                      {getStatusBadge(item.status)}
+                    </div>
+                    <CardDescription className="text-sm">
+                      {item.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Link href={item.href}>
+                      <Button variant="outline" size="sm" className="w-full">
+                        アクセス
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+
+        {/* Shopify OAuth認証テスト */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Store className="h-5 w-5 text-orange-600" />
+            Shopify OAuth認証テスト
+          </h2>
+          
+          {/* テスト情報カード */}
+          <Card className="mb-6 bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-900">
+                <Info className="h-5 w-5" />
+                テスト情報
+              </CardTitle>
+              <CardDescription>
+                ハイブリッド方式のOAuth認証フローテスト用情報
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-orange-900">テスト用データ</h4>
+                  <div className="text-sm space-y-1">
+                    <div><span className="font-medium">テストストア:</span> fuk-dev1.myshopify.com</div>
+                    <div><span className="font-medium">開発環境:</span> http://localhost:3000</div>
+                    <div><span className="font-medium">バックエンド:</span> http://localhost:5000</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium text-orange-900">テストフロー</h4>
+                  <div className="text-sm space-y-1">
+                    <div>1. インストールページでOAuth開始</div>
+                    <div>2. Shopify認証ページで認証</div>
+                    <div>3. フロントエンドコールバック受信</div>
+                    <div>4. バックエンド処理委譲</div>
+                    <div>5. 成功/エラーページ表示</div>
+                  </div>
+                </div>
+              </div>
+              <Alert className="mt-4 border-orange-200 bg-orange-50">
+                <Info className="h-4 w-4 text-orange-700" />
+                <AlertDescription className="text-orange-800">
+                  <strong>注意:</strong> テスト時はngrokを使用してHTTPS環境を構築してください。
+                  本番環境ではAzure Static Web AppsのHTTPSを使用します。
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bookmarkItems
+              .filter(item => item.category === 'dev' && 
+                !item.title.includes('OAuth') && 
+                !item.title.includes('認証') && 
+                !item.title.includes('コールバック') &&
+                !item.title.includes('バックエンドAPI'))
               .map((item, index) => (
                 <Card key={index} className={getCategoryColor(item.category)}>
                   <CardHeader className="pb-3">

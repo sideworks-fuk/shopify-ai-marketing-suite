@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { useAppStore } from "../../stores/appStore"
 import { api } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,7 +31,8 @@ interface MonthlyStatsAnalysisProps {
   useSampleData?: boolean
 }
 
-export default function MonthlyStatsAnalysis({
+// React.memoでメモ化したコンポーネント
+const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
   useSampleData = false, // Changed to false to use API by default
 }: MonthlyStatsAnalysisProps) {
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
@@ -754,4 +755,9 @@ export default function MonthlyStatsAnalysis({
 
     </div>
   )
-}
+})
+
+// 表示名を設定（デバッグ用）
+MonthlyStatsAnalysis.displayName = 'MonthlyStatsAnalysis'
+
+export default MonthlyStatsAnalysis

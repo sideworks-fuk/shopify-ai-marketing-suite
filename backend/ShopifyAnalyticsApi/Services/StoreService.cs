@@ -36,7 +36,8 @@ namespace ShopifyAnalyticsApi.Services
                         Description = s.Description,
                         DataType = s.DataType,
                         IsActive = s.IsActive,
-                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com"
+                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com",
+                        TenantId = s.TenantId
                     })
                     .ToListAsync();
 
@@ -63,7 +64,8 @@ namespace ShopifyAnalyticsApi.Services
                         Description = s.Description,
                         DataType = s.DataType,
                         IsActive = s.IsActive,
-                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com"
+                        ShopDomain = s.Domain ?? $"{s.Name.ToLower().Replace(" ", "-")}.myshopify.com",
+                        TenantId = s.TenantId
                     })
                     .FirstOrDefaultAsync();
 
@@ -132,7 +134,8 @@ namespace ShopifyAnalyticsApi.Services
                     Description = "実データを使用したメイン分析環境",
                     DataType = "production",
                     IsActive = true,
-                    ShopDomain = "production-store.myshopify.com"
+                    ShopDomain = "production-store.myshopify.com",
+                    TenantId = "default-tenant"
                 },
                 new StoreDto
                 {
@@ -141,7 +144,8 @@ namespace ShopifyAnalyticsApi.Services
                     Description = "2020-2025年のテストデータ環境",
                     DataType = "test",
                     IsActive = true,
-                    ShopDomain = "test-store.myshopify.com"
+                    ShopDomain = "fuk-dev1.myshopify.com",
+                    TenantId = "default-tenant"
                 }
             };
         }

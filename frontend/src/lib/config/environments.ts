@@ -6,25 +6,52 @@ export interface EnvironmentConfig {
   isProduction: boolean;
 }
 
+// ビルド時とランタイムの処理を分離
+const isBuildTime = typeof window === 'undefined';
+
+// 環境変数から設定を取得する関数
+const getApiBaseUrl = (): string => {
+  // 環境変数の優先順位
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  if (backendUrl) {
+    if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
+    return backendUrl;
+  }
+  
+  if (apiUrl) {
+    if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
+    return apiUrl;
+  }
+  
+  // デフォルト値
+  if (process.env.NODE_ENV === 'development') {
+    if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using default for development');
+    return 'https://localhost:7088';
+  }
+  
+  // 本番環境のデフォルト（Azure Static Web Appsでのビルド時も含む）
+  if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using production default');
+  return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
+};
+
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
   development: {
     name: '開発環境',
-    apiBaseUrl: 'https://localhost:7088',
-    // https://localhost:7088
-    // https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net
-    // https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
+    apiBaseUrl: getApiBaseUrl(),
     description: 'ローカル開発',
     isProduction: false,
   },
   staging: {
     name: 'ステージング環境',
-    apiBaseUrl: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net',
+    apiBaseUrl: getApiBaseUrl(),
     description: 'テスト・検証用',
     isProduction: false,
   },
   production: {
     name: '本番環境',
-    apiBaseUrl: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net',
+    apiBaseUrl: getApiBaseUrl(),
     description: '本番運用環境',
     isProduction: true,
   },
@@ -70,6 +97,12 @@ export const validateEnvironmentConfig = (
 
 // 現在の環境を取得
 export const getCurrentEnvironment = (): string => {
+  // Azure Static Web Appsの検出（最優先）
+  if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
+    console.log('✅ Detected Azure Static Web Apps - using production environment');
+    return 'production';
+  }
+
   // 1. ビルド時の環境変数（最優先）
   const buildTimeEnv = getBuildTimeEnvironment();
   if (buildTimeEnv) {
@@ -165,6 +198,8 @@ export const getBuildTimeEnvironmentInfo = () => {
     nextPublicEnvironment: process.env.NEXT_PUBLIC_ENVIRONMENT,
     nodeEnv: process.env.NODE_ENV,
     isBuildTimeSet: !!getBuildTimeEnvironment(),
+    backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
+    apiUrl: process.env.NEXT_PUBLIC_API_URL,
   };
 };
 

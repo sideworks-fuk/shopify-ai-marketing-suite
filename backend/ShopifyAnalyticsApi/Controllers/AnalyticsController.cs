@@ -12,7 +12,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class AnalyticsController : ControllerBase
+    public class AnalyticsController : StoreAwareControllerBase
     {
         private readonly IYearOverYearService _yearOverYearService;
         private readonly IMonthlySalesService _monthlySalesService;
@@ -41,6 +41,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("前年同月比分析データ取得開始. StoreId: {StoreId}, Year: {Year}, ViewMode: {ViewMode}, RequestId: {RequestId}",
                     request.StoreId, request.Year, request.ViewMode, logProperties["RequestId"]);
 
@@ -119,6 +122,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("商品タイプ一覧取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
                     storeId, logProperties["RequestId"]);
 
@@ -161,6 +167,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("ベンダー一覧取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
                     storeId, logProperties["RequestId"]);
 
@@ -203,6 +212,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("分析可能期間取得開始. StoreId: {StoreId}, RequestId: {RequestId}",
                     storeId, logProperties["RequestId"]);
 
@@ -252,6 +264,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("月別売上統計取得開始. StoreId: {StoreId}, Period: {Period}, DisplayMode: {DisplayMode}, RequestId: {RequestId}",
                     request.StoreId, $"{request.StartYear}-{request.StartMonth:D2} to {request.EndYear}-{request.EndMonth:D2}", 
                     request.DisplayMode, logProperties["RequestId"]);
@@ -310,6 +325,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("月別売上サマリー取得開始. StoreId: {StoreId}, Period: {Period}, RequestId: {RequestId}",
                     request.StoreId, $"{request.StartYear}-{request.StartMonth:D2} to {request.EndYear}-{request.EndMonth:D2}", logProperties["RequestId"]);
 
@@ -352,6 +370,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("カテゴリ別売上統計取得開始. StoreId: {StoreId}, Period: {Period}, RequestId: {RequestId}",
                     request.StoreId, $"{request.StartYear}-{request.StartMonth:D2} to {request.EndYear}-{request.EndMonth:D2}", logProperties["RequestId"]);
 
@@ -400,6 +421,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdを使用（セキュリティ対策）
+                storeId = this.StoreId;
+                
                 _logger.LogInformation("月別売上トレンド取得開始. StoreId: {StoreId}, Year: {Year}, RequestId: {RequestId}",
                     storeId, year, logProperties["RequestId"]);
 

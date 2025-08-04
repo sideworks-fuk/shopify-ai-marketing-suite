@@ -1,20 +1,22 @@
 import { API_CONFIG, buildApiUrl, getApiUrl, getCurrentStoreId } from './api-config';
 import { authClient } from './auth-client';
-
-// API レスポンス型定義
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T | null;
-  message: string;
-  timestamp: string;
-}
+import { 
+  type ApiResponse, 
+  type ApiErrorResponse,
+  type DormantCustomersResponse,
+  type YearOverYearResponse,
+  type PurchaseCountResponse,
+  type MonthlySalesResponse,
+  isApiResponse,
+  isApiErrorResponse
+} from './types/api-responses';
 
 // エラー型定義
 export class ApiError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public response?: any
+    public response?: ApiErrorResponse | unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -129,10 +131,24 @@ class ApiClient {
       }
       
       // ネットワークエラーやその他のエラー
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        console.error('❌ Failed to fetch エラーが発生しました');
+        console.error('📍 API URL:', url);
+        console.error('🔍 考えられる原因:');
+        console.error('  1. バックエンドサーバーが起動していない');
+        console.error('  2. CORS設定の問題');
+        console.error('  3. HTTPS証明書の問題');
+        console.error('  4. ネットワーク接続の問題');
+        
+        const tips = [
+          'バックエンドサーバー（http://localhost:7088）が起動していることを確認してください',
+          'CORSが正しく設定されているか確認してください',
+          'HTTPSの場合、ブラウザで https://localhost:7088 にアクセスして証明書を受け入れてください',
+          '開発者ツールのNetworkタブでリクエストの詳細を確認してください'
+        ];
+        
         throw new ApiError(
-          'Failed to fetch: ネットワーク接続エラーまたはCORS問題が発生しました。\n' +
-          'Azure Static Web Appsのプロキシ設定を確認してください。',
+          `ネットワーク接続エラー\n\n対処方法:\n${tips.map((tip, i) => `${i + 1}. ${tip}`).join('\n')}`,
           0,
           error
         );
@@ -152,7 +168,7 @@ class ApiClient {
   }
 
   // POST リクエスト
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
@@ -160,7 +176,7 @@ class ApiClient {
   }
 
   // PUT リクエスト
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -202,19 +218,19 @@ export const api = {
   
   // ダッシュボードデータ取得
   customerDashboard: () =>
-    apiClient.get<any>(API_CONFIG.ENDPOINTS.CUSTOMER_DASHBOARD),
+    apiClient.get<unknown>(API_CONFIG.ENDPOINTS.CUSTOMER_DASHBOARD),
   
   // 顧客詳細一覧取得
   customerDetails: () =>
-    apiClient.get<any[]>(API_CONFIG.ENDPOINTS.CUSTOMER_DETAILS),
+    apiClient.get<unknown[]>(API_CONFIG.ENDPOINTS.CUSTOMER_DETAILS),
   
   // 特定顧客詳細取得
   customerDetail: (id: string) =>
-    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DETAIL}/${id}`),
+    apiClient.get<unknown>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DETAIL}/${id}`),
   
   // トップ顧客取得
   customerTop: () =>
-    apiClient.get<any[]>(API_CONFIG.ENDPOINTS.CUSTOMER_TOP),
+    apiClient.get<unknown[]>(API_CONFIG.ENDPOINTS.CUSTOMER_TOP),
   
   // 休眠顧客分析API
   dormantCustomers: (params?: {

@@ -198,8 +198,8 @@ Shopify ECマーケティング分析アプリの継続的改善・品質向上�
 ## 🔗 関連ドキュメント
 - プロジェクト状況ドキュメント: `docs/PROJECT_STATUS_DOCUMENT.md`
 - 技術仕様書: `docs/TECHNICAL_SPECIFICATIONS.md`
-- 作業ログ: `worklog/` ディレクトリ
-- タスク管理: `worklog/tasks/main-todo.md`
+- 作業ログ: `docs/worklog/` ディレクトリ
+- タスク管理: `docs/worklog/tasks/main-todo.md`
 
 ## 📝 備考
 本課題は、Shopify ECマーケティング分析アプリの品質向上・機能拡張の全体統括を担う重要な管理課題です。

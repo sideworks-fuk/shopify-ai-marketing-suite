@@ -40,7 +40,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // 現在は開発用の簡易実装
 
                 // アクセストークンとリフレッシュトークンを生成
-                var accessToken = _tokenService.GenerateAccessToken(store.Id, store.ShopDomain);
+                var accessToken = _tokenService.GenerateAccessToken(store.Id, store.ShopDomain, store.TenantId);
                 var refreshToken = _tokenService.GenerateRefreshToken(store.Id);
 
                 _logger.LogInformation("Token generated for Store {StoreId}", store.Id);
@@ -88,7 +88,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 // 新しいアクセストークンを生成
-                var newAccessToken = _tokenService.GenerateAccessToken(store.Id, store.ShopDomain);
+                var newAccessToken = _tokenService.GenerateAccessToken(store.Id, store.ShopDomain, store.TenantId);
                 var newRefreshToken = _tokenService.GenerateRefreshToken(store.Id);
 
                 _logger.LogInformation("Token refreshed for Store {StoreId}", store.Id);

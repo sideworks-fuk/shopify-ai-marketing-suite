@@ -253,7 +253,7 @@ customers/data_request: https://[your-domain].com/api/webhooks/customers/data_re
 
 #### Test credentials
 ```
-Store URL: dev-test-store.myshopify.com
+Store URL: dev-fuk-dev1.myshopify.com
 Email: test@example.com
 Password: [Will be provided separately]
 ```

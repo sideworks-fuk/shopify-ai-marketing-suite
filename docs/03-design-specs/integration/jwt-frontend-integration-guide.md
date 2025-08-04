@@ -349,7 +349,7 @@ try {
 # トークン取得
 curl -X POST http://localhost:7088/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"storeId": 1, "shopDomain": "test-store.myshopify.com"}'
+  -d '{"storeId": 1, "shopDomain": "fuk-dev1.myshopify.com"}'
 
 # APIアクセステスト
 curl -X GET http://localhost:7088/api/customer/dormant?storeId=1 \

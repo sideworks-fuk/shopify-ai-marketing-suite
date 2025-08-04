@@ -159,7 +159,7 @@ Azureインフラのコスト試算、監視、最適化、SQL Database管理に
 
 ### 🗄️ **データベース統合確認**
 1. **設定記録**: [azure-sql-setup-record.md](./06-infrastructure/01-azure-sql/azure-sql-setup-record.md) ✅ **完成**
-2. **統合成功ログ**: [worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md](../worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) ✅ **新規**
+2. **統合成功ログ**: [docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md](../docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) ✅ **新規**
 3. **データアーキテクチャ**: [data-processing-architecture.md](./01-project-management/02-data-architecture/data-processing-architecture.md) ✅ **最新**
 
 ### 📊 **プロジェクトマネージャー向け**

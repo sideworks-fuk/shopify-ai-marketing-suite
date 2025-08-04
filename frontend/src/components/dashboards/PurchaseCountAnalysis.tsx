@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -31,7 +31,8 @@ interface PurchaseCountAnalysisProps {
   onAnalysisComplete?: () => void
 }
 
-export default function PurchaseCountAnalysis({ 
+// React.memoでメモ化したコンポーネント
+const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({ 
   conditions, 
   onAnalysisComplete 
 }: PurchaseCountAnalysisProps) {
@@ -356,4 +357,12 @@ export default function PurchaseCountAnalysis({
       </Card>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // カスタム比較関数：conditionsが変わらなければ再レンダリングをスキップ
+  return prevProps.conditions.timestamp === nextProps.conditions.timestamp
+})
+
+// 表示名を設定（デバッグ用）
+PurchaseCountAnalysis.displayName = 'PurchaseCountAnalysis'
+
+export default PurchaseCountAnalysis

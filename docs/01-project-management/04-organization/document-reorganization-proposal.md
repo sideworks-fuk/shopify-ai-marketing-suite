@@ -206,7 +206,7 @@ docs/
 各カテゴリ用のテンプレートを用意：
 - feature-spec-template.md
 - api-endpoint-template.md
-- worklog-template.md
+- docs/worklog-template.md
 
 ### 2. 自動化ツール
 - ドキュメントリンクチェッカー

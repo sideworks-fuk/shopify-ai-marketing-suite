@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShopifyAnalyticsApi", "Shop
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShopifyAnalyticsApi.Tests", "ShopifyAnalyticsApi.Tests\ShopifyAnalyticsApi.Tests.csproj", "{DDB26917-84D7-E18F-D4E1-7E41C4CB25C7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DatabaseFunction", "azure-functions-sample\DatabaseFunction\DatabaseFunction.csproj", "{47A7742E-A48D-5E55-85F9-39E9CC52C535}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShopifyAzureFunctionsSample", "azure-functions-sample\ShopifyAzureFunctionsSample\ShopifyAzureFunctionsSample.csproj", "{9A2554EC-6E7C-C8CD-DD0C-FBF99ECE2E22}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{DDB26917-84D7-E18F-D4E1-7E41C4CB25C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DDB26917-84D7-E18F-D4E1-7E41C4CB25C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DDB26917-84D7-E18F-D4E1-7E41C4CB25C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47A7742E-A48D-5E55-85F9-39E9CC52C535}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47A7742E-A48D-5E55-85F9-39E9CC52C535}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47A7742E-A48D-5E55-85F9-39E9CC52C535}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47A7742E-A48D-5E55-85F9-39E9CC52C535}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9A2554EC-6E7C-C8CD-DD0C-FBF99ECE2E22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A2554EC-6E7C-C8CD-DD0C-FBF99ECE2E22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A2554EC-6E7C-C8CD-DD0C-FBF99ECE2E22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9A2554EC-6E7C-C8CD-DD0C-FBF99ECE2E22}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
