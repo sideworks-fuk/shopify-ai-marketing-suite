@@ -120,7 +120,7 @@ namespace ShopifyAnalyticsApi.Services
                 }
 
                 var customer = await _context.Customers
-                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId.ToString());
+                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId);
 
                 if (customer == null)
                 {
@@ -202,7 +202,7 @@ namespace ShopifyAnalyticsApi.Services
                 var customer = await _context.Customers
                     .Include(c => c.Orders)
                         .ThenInclude(o => o.OrderItems)
-                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId.ToString());
+                    .FirstOrDefaultAsync(c => c.StoreId == store.Id && c.ShopifyCustomerId == customerId);
 
                 if (customer == null)
                 {
