@@ -40,27 +40,6 @@
       }
     }
   ],
-  "navigationFallback": {
-    "rewrite": "/",
-    "exclude": [
-      "/api/*", 
-      "/_next/*", 
-      "/favicon.ico", 
-      "*.css", 
-      "*.js", 
-      "*.png", 
-      "*.jpg", 
-      "*.jpeg", 
-      "*.gif", 
-      "*.svg", 
-      "*.ico", 
-      "*.woff", 
-      "*.woff2", 
-      "*.ttf", 
-      "*.eot",
-      "*.json"
-    ]
-  },
   "mimeTypes": {
     ".json": "application/json",
     ".css": "text/css",
@@ -74,10 +53,5 @@
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block"
-  },
-  "responseOverrides": {
-    "404": {
-      "rewrite": "/"
-    }
   }
 } 

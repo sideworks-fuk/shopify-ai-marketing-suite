@@ -26,7 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
-import { StoreSelector } from "../common/StoreSelector"
 import { BackendConnectionStatus } from "../common/BackendConnectionStatus"
 
 interface MainLayoutProps {
@@ -200,11 +199,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
             {/* 右側のコントロール */}
             <div className="flex items-center gap-3">
-              {/* ストアセレクター */}
-              <StoreSelector />
-
-              {/* 区切り線 */}
-              <div className="h-6 w-px bg-gray-200" />
 
               {/* 期間選択 - 非表示 */}
               {/* <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
