@@ -82,3 +82,28 @@
     --ring: 0 0% 0%;
   }
 }
+
+/* Shopify埋め込み時の調整 */
+.shopify-embedded {
+  padding: 0;
+  margin: 0;
+}
+
+/* iframe内でのヘッダー非表示 */
+.shopify-embedded .main-header {
+  display: none;
+}
+
+/* Shopify App Bridge用のコンテンツエリア */
+.shopify-app-content {
+  padding: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Shopify管理画面内でのレスポンシブ対応 */
+@media (max-width: 768px) {
+  .shopify-app-content {
+    padding: 0.5rem;
+  }
+}

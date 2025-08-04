@@ -60,6 +60,25 @@ export const getApiUrl = () => {
   console.log('  - Environment Name:', config.name);
   console.log('  - Is Production:', config.isProduction);
   
+  // ローカル開発環境の特別処理
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    // 環境変数でHTTPS使用を強制する場合
+    if (process.env.NEXT_PUBLIC_USE_HTTPS === 'true') {
+      const httpsUrl = 'https://localhost:7088';
+      console.log('🔒 HTTPS使用モード（環境変数設定）:', httpsUrl);
+      console.log('⚠️ HTTPS証明書エラーが発生する場合は、以下を実行してください:');
+      console.log('   1. dotnet dev-certs https --trust (バックエンドディレクトリで実行)');
+      console.log('   2. ブラウザで https://localhost:7088 にアクセスして証明書を受け入れる');
+      return httpsUrl;
+    }
+    
+    // デフォルトはHTTP（証明書問題を回避）
+    const httpUrl = 'http://localhost:7088';
+    console.log('⚠️ ローカル開発環境検出 - HTTPを使用:', httpUrl);
+    console.log('💡 HTTPSを使用する場合は、.env.localに NEXT_PUBLIC_USE_HTTPS=true を設定してください');
+    return httpUrl;
+  }
+  
   // 環境変数で明示的にAPI URLが指定されている場合はそれを優先
   if (process.env.NEXT_PUBLIC_API_URL) {
     console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);

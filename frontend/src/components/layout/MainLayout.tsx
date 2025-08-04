@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
 import { StoreSelector } from "../common/StoreSelector"
+import { BackendConnectionStatus } from "../common/BackendConnectionStatus"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -266,6 +267,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </ErrorBoundaryWrapper>
         </main>
       </div>
+      
+      {/* バックエンド接続状態の表示（開発環境のみ） */}
+      <BackendConnectionStatus />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react"
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -55,7 +55,8 @@ function debounce<T extends (...args: any[]) => Promise<any>>(
   }
 }
 
-export default function DormantCustomerAnalysis() {
+// React.memoでメモ化したコンポーネント
+const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
   const [showConditions, setShowConditions] = useState(true)
   const [dormantData, setDormantData] = useState<any[]>([])
   const [summaryData, setSummaryData] = useState<any>(null)
@@ -891,4 +892,7 @@ export default function DormantCustomerAnalysis() {
       </Card> */}
     </div>
   )
-}
+})
+
+// デフォルトエクスポート
+export default DormantCustomerAnalysis

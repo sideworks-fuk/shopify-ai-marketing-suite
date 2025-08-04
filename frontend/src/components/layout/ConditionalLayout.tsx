@@ -1,7 +1,9 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import MainLayout from "./MainLayout"
+import { EmbeddedAppLayout } from "./EmbeddedAppLayout"
+import { useIsEmbedded } from "@/hooks/useIsEmbedded"
 
 interface ConditionalLayoutProps {
   children: React.ReactNode
@@ -9,6 +11,7 @@ interface ConditionalLayoutProps {
 
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
+  const isEmbedded = useIsEmbedded()
   
   // MainLayoutを使わないページのパスを定義
   const noLayoutPaths = [
@@ -21,6 +24,11 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   
   // 現在のパスがnoLayoutPathsに含まれているかチェック
   const shouldUseMainLayout = !noLayoutPaths.some(path => pathname.startsWith(path))
+  
+  // Shopify埋め込みモードの場合
+  if (isEmbedded) {
+    return <EmbeddedAppLayout>{children}</EmbeddedAppLayout>
+  }
   
   // MainLayoutを使う場合と使わない場合で分岐
   if (shouldUseMainLayout) {

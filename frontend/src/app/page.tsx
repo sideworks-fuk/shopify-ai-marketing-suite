@@ -2,13 +2,27 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 export default function HomePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isEmbedded = searchParams.has('embedded') || searchParams.has('host')
 
   useEffect(() => {
     console.log('🔍 [DEBUG] HomePage: useEffect triggered')
     console.log('🔍 [DEBUG] HomePage: Current pathname:', window.location.pathname)
+    
+    // Shopifyアプリとして埋め込まれている場合の処理
+    if (isEmbedded) {
+      console.log('🛍️ Shopify embedded app mode')
+      
+      // タイトルバーをシンプルに
+      const title = 'AI Marketing Suite'
+      if ((window as any).shopify) {
+        (window as any).shopify.title = title
+      }
+    }
     
     // 開発環境でのリダイレクトカウンターリセット（デバッグ用）
     if (process.env.NODE_ENV === 'development') {
@@ -46,7 +60,7 @@ export default function HomePage() {
     } else {
       console.log('🔍 [DEBUG] HomePage: Not on root path, skipping redirect')
     }
-  }, [router])
+  }, [router, isEmbedded])
 
   return (
     <div style={{
