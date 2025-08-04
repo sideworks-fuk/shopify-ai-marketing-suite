@@ -5,11 +5,11 @@ GET {{baseUrl}}/api/shopify/test-config
 Content-Type: application/json
 
 ### 2. ハイブリッド方式テスト
-GET {{baseUrl}}/api/shopify/test-hybrid-mode?shop=test-store.myshopify.com
+GET {{baseUrl}}/api/shopify/test-hybrid-mode?shop=fuk-dev1.myshopify.com
 Content-Type: application/json
 
 ### 3. OAuth URL生成テスト
-GET {{baseUrl}}/api/shopify/test-oauth-url?shop=test-store.myshopify.com
+GET {{baseUrl}}/api/shopify/test-oauth-url?shop=fuk-dev1.myshopify.com
 Content-Type: application/json
 
 ### 4. 暗号化テスト
@@ -21,7 +21,7 @@ Content-Type: application/json
 }
 
 ### 5. インストール開始（実際のShopifyストア）
-GET {{baseUrl}}/api/shopify/install?shop=test-store.myshopify.com
+GET {{baseUrl}}/api/shopify/install?shop=fuk-dev1.myshopify.com
 
 ### 6. プロセスコールバックテスト（ハイブリッド方式）
 POST {{baseUrl}}/api/shopify/process-callback
@@ -29,7 +29,7 @@ Content-Type: application/json
 
 {
   "code": "test_auth_code_12345",
-  "shop": "test-store.myshopify.com",
+  "shop": "fuk-dev1.myshopify.com",
   "state": "test_state_12345",
   "timestamp": "1640995200",
   "hmac": "test_hmac_12345"
@@ -40,7 +40,7 @@ GET {{baseUrl}}/api/shopify/test-config
 Content-Type: application/json
 
 ### 8. リダイレクトURI確認テスト
-GET {{baseUrl}}/api/shopify/test-oauth-url?shop=test-store.myshopify.com
+GET {{baseUrl}}/api/shopify/test-oauth-url?shop=fuk-dev1.myshopify.com
 Content-Type: application/json
 
 ### 9. 設定値確認テスト（新規追加）

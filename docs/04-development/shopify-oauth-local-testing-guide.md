@@ -108,7 +108,7 @@ curl -X POST https://[your-ngrok-url].ngrok.io/api/webhook/uninstalled \
   -H "X-Shopify-Hmac-SHA256: [computed-hmac]" \
   -H "Content-Type: application/json" \
   -d '{
-    "domain": "test-store.myshopify.com",
+    "domain": "fuk-dev1.myshopify.com",
     "id": 12345678
   }'
 ```

@@ -144,7 +144,7 @@ namespace ShopifyAnalyticsApi.Services
                     Description = "2020-2025年のテストデータ環境",
                     DataType = "test",
                     IsActive = true,
-                    ShopDomain = "test-store.myshopify.com",
+                    ShopDomain = "fuk-dev1.myshopify.com",
                     TenantId = "default-tenant"
                 }
             };

@@ -78,7 +78,7 @@ dotnet run
 https://localhost:7001/api/shopify/test-config
 
 # ハイブリッド方式テスト
-https://localhost:7001/api/shopify/test-hybrid-mode?shop=test-store.myshopify.com
+https://localhost:7001/api/shopify/test-hybrid-mode?shop=fuk-dev1.myshopify.com
 ```
 
 ## 📝 **期待される結果**

@@ -18,7 +18,7 @@ npm run dev
 #### ステップ2: 埋め込みモードテスト
 ```bash
 # ブラウザで以下のURLにアクセス
-http://localhost:3000?embedded=1&host=test-store.myshopify.com
+http://localhost:3000?embedded=1&host=fuk-dev1.myshopify.com
 
 # または開発ツールページ
 http://localhost:3000/dev/shopify-embedded-test?embedded=1
@@ -139,7 +139,7 @@ http://localhost:3000?embedded=1
 http://localhost:3000/dev/shopify-embedded-test
 
 # パラメータ付きテスト
-http://localhost:3000?embedded=1&host=test-store.myshopify.com&session=xxx
+http://localhost:3000?embedded=1&host=fuk-dev1.myshopify.com&session=xxx
 ```
 
 これで基本的なテストが可能です！

@@ -543,7 +543,7 @@ namespace ShopifyAnalyticsApi.Migrations
                         {
                             Id = 1,
                             CreatedAt = new DateTime(2024, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7852),
-                            Domain = "test-store.myshopify.com",
+                            Domain = "fuk-dev1.myshopify.com",
                             Name = "テストストア",
                             ShopifyShopId = "test-store",
                             UpdatedAt = new DateTime(2025, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7867)
