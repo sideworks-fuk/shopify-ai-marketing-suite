@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Models;
+using ShopifyAnalyticsApi.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Text.Json;
@@ -22,17 +23,20 @@ namespace ShopifyAnalyticsApi.Controllers
         private readonly ILogger<WebhookController> _logger;
         private readonly ShopifyDbContext _context;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDataCleanupService _dataCleanupService;
 
         public WebhookController(
             IConfiguration configuration,
             ILogger<WebhookController> logger,
             ShopifyDbContext context,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IDataCleanupService dataCleanupService)
         {
             _configuration = configuration;
             _logger = logger;
             _context = context;
             _serviceProvider = serviceProvider;
+            _dataCleanupService = dataCleanupService;
         }
 
         /// <summary>
@@ -294,10 +298,9 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private async Task ScheduleDataDeletion(string shopDomain, int daysToDelete)
         {
-            // TODO: Azure Service BusまたはHangfireでスケジュール
             _logger.LogInformation("データ削除をスケジュール. Shop: {Shop}, Days: {Days}", shopDomain, daysToDelete);
 
-            // 仮実装: ストアを非アクティブ化
+            // ストアを非アクティブ化
             var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
             if (store != null)
             {
@@ -315,6 +318,18 @@ namespace ShopifyAnalyticsApi.Controllers
                 store.Settings = JsonSerializer.Serialize(settings);
                 
                 await _context.SaveChangesAsync();
+                
+                // 開発環境では即座に削除（本番環境ではHangfireでスケジュールすべき）
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
+                {
+                    _logger.LogWarning("開発環境のため、即座にデータを削除します. Shop: {Shop}", shopDomain);
+                    await _dataCleanupService.DeleteStoreDataAsync(shopDomain);
+                }
+                else
+                {
+                    // TODO: 本番環境ではHangfireでスケジュール
+                    _logger.LogInformation("本番環境では{Days}日後にデータを削除します. Shop: {Shop}", daysToDelete, shopDomain);
+                }
             }
         }
 
@@ -323,12 +338,23 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private async Task ScheduleCustomerDataDeletion(string shopDomain, long customerId, int daysToDelete)
         {
-            // TODO: Azure Service BusまたはHangfireでスケジュール
             _logger.LogInformation("顧客データ削除をスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, Days: {Days}", 
                 shopDomain, customerId, daysToDelete);
 
             // Webhook履歴を記録
             await LogWebhookEvent(shopDomain, "customers/redact", new { customerId, daysToDelete });
+            
+            // 開発環境では即座に削除（本番環境ではHangfireでスケジュールすべき）
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
+            {
+                _logger.LogWarning("開発環境のため、即座に顧客データを削除します. Shop: {Shop}, CustomerId: {CustomerId}", shopDomain, customerId);
+                await _dataCleanupService.DeleteCustomerDataAsync(shopDomain, customerId);
+            }
+            else
+            {
+                // TODO: 本番環境ではHangfireでスケジュール
+                _logger.LogInformation("本番環境では{Days}日後に顧客データを削除します. Shop: {Shop}, CustomerId: {CustomerId}", daysToDelete, shopDomain, customerId);
+            }
         }
 
         /// <summary>
