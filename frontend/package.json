@@ -1,7 +1,6 @@
 {
-  "name": "ec-ranger-frontend",
+  "name": "@shopify-ai-marketing-suite/frontend",
   "version": "1.0.0",
-  "description": "EC Ranger - Shopifyストア分析ツール",
   "private": true,
   "engines": {
     "node": "20.x"

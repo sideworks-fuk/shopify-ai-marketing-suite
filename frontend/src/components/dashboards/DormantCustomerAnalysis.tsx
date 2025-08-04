@@ -93,9 +93,8 @@ const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
   // エラーハンドラーの初期化
   useEffect(() => {
     // 統一エラーハンドラーにトースト機能を設定
-    import('@/lib/error-handler').then(({ errorHandler }) => {
-      errorHandler.setToastHandler(showToast)
-    })
+    const { errorHandler } = require('@/lib/error-handler')
+    errorHandler.setToastHandler(showToast)
   }, [showToast])
 
   // API からデータを取得

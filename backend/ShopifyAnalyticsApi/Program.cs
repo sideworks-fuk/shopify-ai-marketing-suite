@@ -60,9 +60,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "EC Ranger API",
+        Title = "Shopify Analytics API",
         Version = "v1",
-        Description = "EC Ranger - Analytics API"
+        Description = "Shopify AI Marketing Suite - Analytics API"
     });
 
     // JWT認証の設定
@@ -135,9 +135,6 @@ builder.Services.AddScoped<IStoreService, StoreService>();
 
 // Register Token Service (トークンサービス)
 builder.Services.AddScoped<ITokenService, TokenService>();
-
-// Register Data Cleanup Service (データクリーンアップサービス)
-builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];

@@ -12,19 +12,8 @@ import "@shopify/polaris/build/esm/styles.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "EC Ranger - Shopifyストア分析ツール",
-  description: "EC Ranger - Shopifyストアの売上を最大化する包括的な分析ダッシュボード",
-  openGraph: {
-    title: "EC Ranger - Shopifyストア分析ツール",
-    description: "EC Ranger - Shopifyストアの売上を最大化する包括的な分析ダッシュボード",
-    siteName: "EC Ranger",
-    type: "website",
-  },
-  twitter: {
-    card: "summary",
-    title: "EC Ranger",
-    description: "Shopifyストアの売上を最大化する分析ツール",
-  },
+  title: "Shopify ECマーケティング分析",
+  description: "Shopify ECストア向けの包括的なマーケティング分析ダッシュボード",
   icons: {
     icon: [
       {

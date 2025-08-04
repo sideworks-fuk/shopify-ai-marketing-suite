@@ -13,7 +13,7 @@ namespace ShopifyAnalyticsApi.Middleware
             logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("Environment", environment));
 
             // アプリケーション名
-            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("Application", "ECRanger"));
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("Application", "ShopifyTestApi"));
 
             // アプリケーションバージョン
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";

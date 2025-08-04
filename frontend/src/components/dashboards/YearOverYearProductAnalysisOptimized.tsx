@@ -196,9 +196,8 @@ export default function YearOverYearProductAnalysisOptimized() {
 
   // エラーハンドラーの初期化
   useEffect(() => {
-    import('../../lib/error-handler').then(({ errorHandler }) => {
-      errorHandler.setToastHandler(showToast)
-    })
+    const { errorHandler } = require('../../lib/error-handler')
+    errorHandler.setToastHandler(showToast)
   }, [showToast])
 
   // 分析実行ハンドラー
