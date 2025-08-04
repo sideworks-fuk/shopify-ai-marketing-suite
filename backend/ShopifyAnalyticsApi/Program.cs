@@ -253,9 +253,15 @@ app.UseHttpsRedirection();
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Add("X-Frame-Options", "DENY");
+    // Shopify iframe埋め込み対応: X-Frame-Optionsを削除し、CSPで制御
+    // context.Response.Headers.Add("X-Frame-Options", "DENY");
     context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
     context.Response.Headers.Add("Strict-Transport-Security", "max-age=31536000");
+    
+    // Shopify iframe埋め込み対応: CSPヘッダー追加
+    context.Response.Headers.Add("Content-Security-Policy", 
+        "frame-ancestors https://*.myshopify.com https://admin.shopify.com");
+    
     await next();
 });
 
@@ -270,6 +276,9 @@ app.UseHmacValidation();
 
 // Rate Limitingを有効化
 app.UseRateLimiter();
+
+// Shopify埋め込みアプリミドルウェア（認証前に配置）
+app.UseShopifyEmbeddedApp();
 
 // 認証を有効化
 app.UseAuthentication();
