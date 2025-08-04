@@ -6,6 +6,9 @@ export interface EnvironmentConfig {
   isProduction: boolean;
 }
 
+// ビルド時とランタイムの処理を分離
+const isBuildTime = typeof window === 'undefined';
+
 // 環境変数から設定を取得する関数
 const getApiBaseUrl = (): string => {
   // 環境変数の優先順位
@@ -13,22 +16,24 @@ const getApiBaseUrl = (): string => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   
   if (backendUrl) {
-    console.log('🔍 Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
+    if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
     return backendUrl;
   }
   
   if (apiUrl) {
-    console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
+    if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
     return apiUrl;
   }
   
-  // デフォルト値（開発環境のみ）
+  // デフォルト値
   if (process.env.NODE_ENV === 'development') {
-    console.warn('⚠️ No backend URL environment variable found, using default for development');
+    if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using default for development');
     return 'https://localhost:7088';
   }
   
-  throw new Error('NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL environment variable is required');
+  // 本番環境のデフォルト（Azure Static Web Appsでのビルド時も含む）
+  if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using production default');
+  return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
 };
 
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
