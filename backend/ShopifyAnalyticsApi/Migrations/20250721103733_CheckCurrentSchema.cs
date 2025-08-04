@@ -78,7 +78,7 @@ namespace ShopifyAnalyticsApi.Migrations
             migrationBuilder.InsertData(
                 table: "Stores",
                 columns: new[] { "Id", "CreatedAt", "Domain", "Name", "ShopifyShopId", "UpdatedAt" },
-                values: new object[] { 1, new DateTime(2024, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7852), "test-store.myshopify.com", "テストストア", "test-store", new DateTime(2025, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7867) });
+                values: new object[] { 1, new DateTime(2024, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7852), "fuk-dev1.myshopify.com", "テストストア", "test-store", new DateTime(2025, 7, 21, 10, 37, 33, 480, DateTimeKind.Utc).AddTicks(7867) });
         }
 
         /// <inheritdoc />

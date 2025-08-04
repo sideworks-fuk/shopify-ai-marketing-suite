@@ -1,0 +1,62 @@
+### セキュリティテスト - 2025-08-02
+### 修正したコントローラーの動作確認とセキュリティテスト
+
+@baseUrl = https://localhost:7241
+@storeId = 1
+@wrongStoreId = 999
+@authorization = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### 1. AnalyticsController テスト
+### 正常なアクセス（JWTのStoreIdが使用される）
+GET {{baseUrl}}/api/analytics/year-over-year?year=2024&storeId={{wrongStoreId}}
+Authorization: {{authorization}}
+
+### 
+
+### 2. CustomerController テスト
+### 休眠顧客分析（異なるStoreIdを送信してもJWTのStoreIdが使用される）
+GET {{baseUrl}}/api/customer/dormant?storeId={{wrongStoreId}}&segment=all
+Authorization: {{authorization}}
+
+###
+
+### 3. PurchaseController テスト 
+### 購入回数分析（異なるStoreIdを送信してもJWTのStoreIdが使用される）
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{wrongStoreId}}&period=12months
+Authorization: {{authorization}}
+
+###
+
+### 4. DatabaseController テスト
+### 顧客統計（JWTのStoreIdでフィルタリングされる）
+GET {{baseUrl}}/api/database/customers/stats
+Authorization: {{authorization}}
+
+###
+
+### 5. DatabaseController 管理者機能テスト
+### CSVインポート（管理者権限が必要）
+POST {{baseUrl}}/api/database/import/customers
+Authorization: {{authorization}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="csvFile"; filename="test.csv"
+Content-Type: text/csv
+
+id,name,email
+1,Test User,test@example.com
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+
+### パフォーマンステスト - OrderItemsインデックス確認
+### 年次分析（OrderItemsテーブルを使用）
+GET {{baseUrl}}/api/analytics/year-over-year?year=2024&viewMode=monthly&storeId={{storeId}}
+Authorization: {{authorization}}
+
+###
+
+### 購入回数分析（OrderItemsテーブルを使用）
+GET {{baseUrl}}/api/purchase/count-analysis?storeId={{storeId}}&period=12months&tierMode=simplified
+Authorization: {{authorization}}

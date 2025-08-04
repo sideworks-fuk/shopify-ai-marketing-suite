@@ -28,7 +28,9 @@ import {
   Clock,
   Hash,
   Store,
-  Info
+  Key,
+  Info,
+  Shield
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -167,6 +169,30 @@ const bookmarkItems: BookmarkItem[] = [
     category: 'dev'
   },
   {
+    title: "JWT リフレッシュ テスト",
+    description: "JWT認証リフレッシュトークンの検証",
+    href: "/dev/auth-refresh-test",
+    icon: <Key className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "バックエンド ヘルスチェック",
+    description: "バックエンドサーバーの接続状態確認",
+    href: "/dev/backend-health-check",
+    icon: <Activity className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "HTTPS設定テスト",
+    description: "HTTP/HTTPS接続設定の確認",
+    href: "/dev/https-config-test",
+    icon: <Shield className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
     title: "前年同月比API テスト",
     description: "前年同月比分析【商品】APIの動作確認",
     href: "/year-over-year-api-test",
@@ -195,6 +221,14 @@ const bookmarkItems: BookmarkItem[] = [
     description: "API環境設定と接続状態の確認",
     href: "/dev-bookmarks",
     icon: <Settings className="h-5 w-5" />,
+    status: 'implemented',
+    category: 'dev'
+  },
+  {
+    title: "JWT デコードテスト",
+    description: "JWTトークンのデコード機能テスト",
+    href: "/dev/jwt-test",
+    icon: <Key className="h-5 w-5" />,
     status: 'implemented',
     category: 'dev'
   },
@@ -246,6 +280,14 @@ const bookmarkItems: BookmarkItem[] = [
     href: "/dev/oauth-config-test",
     icon: <Settings className="h-5 w-5" />,
     status: 'planned',
+    category: 'dev'
+  },
+  {
+    title: "Shopify埋め込みモードテスト",
+    description: "App Bridgeと埋め込みモードの動作確認",
+    href: "/dev/shopify-embedded-test",
+    icon: <Store className="h-5 w-5" />,
+    status: 'implemented',
     category: 'dev'
   }
 ]
@@ -601,7 +643,7 @@ export default function DevBookmarksPage() {
                 <div className="space-y-2">
                   <h4 className="font-medium text-orange-900">テスト用データ</h4>
                   <div className="text-sm space-y-1">
-                    <div><span className="font-medium">テストストア:</span> test-store.myshopify.com</div>
+                    <div><span className="font-medium">テストストア:</span> fuk-dev1.myshopify.com</div>
                     <div><span className="font-medium">開発環境:</span> http://localhost:3000</div>
                     <div><span className="font-medium">バックエンド:</span> http://localhost:5000</div>
                   </div>

@@ -26,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
+import { StoreSelector } from "../common/StoreSelector"
+import { BackendConnectionStatus } from "../common/BackendConnectionStatus"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -198,6 +200,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
             {/* 右側のコントロール */}
             <div className="flex items-center gap-3">
+              {/* ストアセレクター */}
+              <StoreSelector />
+
+              {/* 区切り線 */}
+              <div className="h-6 w-px bg-gray-200" />
+
               {/* 期間選択 - 非表示 */}
               {/* <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-[140px]">
@@ -259,6 +267,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </ErrorBoundaryWrapper>
         </main>
       </div>
+      
+      {/* バックエンド接続状態の表示（開発環境のみ） */}
+      <BackendConnectionStatus />
     </div>
   )
 }

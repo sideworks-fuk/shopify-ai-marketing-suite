@@ -122,10 +122,10 @@ URL: 未定（後日決定）
 - [⚙️ **開発環境セットアップ**](./04-development/development-environment-setup.md) - 環境構築
 
 ### **📊 作業ログ・成果**
-- [📁 **2025年7月**](../worklog/2025/07/) - 最新作業ログ
-- [🗄️ **Azure SQL統合成功ログ**](../worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - Database統合詳細記録 ✅ **新規**
-- [🔧 **ログシステム実装ログ**](../worklog/2025/07/2025-07-23-180500-azure-application-insights-issue.md) - Application Insights設定問題調査 ✅ **最新**
-- [📋 **メインTODO**](../worklog/tasks/main-todo.md) - タスク管理
+- [📁 **2025年7月**](../docs/worklog/2025/07/) - 最新作業ログ
+- [🗄️ **Azure SQL統合成功ログ**](../docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - Database統合詳細記録 ✅ **新規**
+- [🔧 **ログシステム実装ログ**](../docs/worklog/2025/07/2025-07-23-180500-azure-application-insights-issue.md) - Application Insights設定問題調査 ✅ **最新**
+- [📋 **メインTODO**](../docs/worklog/tasks/main-todo.md) - タスク管理
 - [📈 **プロジェクト状況**](./01-project-management/01-planning/project-status.md) - 進捗状況
 
 ### **🏗️ 技術仕様**

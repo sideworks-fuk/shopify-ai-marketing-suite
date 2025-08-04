@@ -12,7 +12,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class CustomerController : ControllerBase
+    public class CustomerController : StoreAwareControllerBase
     {
         private readonly IMockDataService _mockDataService;
         private readonly IDormantCustomerService _dormantCustomerService;
@@ -257,6 +257,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
+                // JWTから取得したStoreIdで上書き（セキュリティ対策）
+                request.StoreId = this.StoreId;
+                
                 _logger.LogInformation("休眠顧客分析データ取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}",
                     request.StoreId, request.Segment, logProperties["RequestId"]);
 
@@ -294,6 +297,9 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<ActionResult<ApiResponse<Models.DormantSummaryStats>>> GetDormantSummary([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            // JWTから取得したStoreIdを使用（セキュリティ対策）
+            storeId = this.StoreId;
             logProperties["StoreId"] = storeId;
 
             try
@@ -334,6 +340,9 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<ActionResult<ApiResponse<List<DetailedSegmentDistribution>>>> GetDetailedSegments([FromQuery] int storeId = 1)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            // JWTから取得したStoreIdを使用（セキュリティ対策）
+            storeId = this.StoreId;
             logProperties["StoreId"] = storeId;
 
             try
@@ -419,6 +428,9 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> GetStoreDataSummary([FromQuery] int storeId)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
+            
+            // JWTから取得したStoreIdを使用（セキュリティ対策）
+            storeId = this.StoreId;
             
             try
             {

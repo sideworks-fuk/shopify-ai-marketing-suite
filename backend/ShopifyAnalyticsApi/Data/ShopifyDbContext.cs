@@ -14,6 +14,7 @@ namespace ShopifyAnalyticsApi.Data
 
         // DbSets
         public DbSet<Customer> Customers { get; set; }
+        public DbSet<Tenant> Tenants { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Product> Products { get; set; }
@@ -102,7 +103,7 @@ namespace ShopifyAnalyticsApi.Data
                 {
                     Id = 1,
                     Name = "テストストア",
-                    Domain = "test-store.myshopify.com",
+                    Domain = "fuk-dev1.myshopify.com",
                     ShopifyShopId = "test-store",
                     CreatedAt = DateTime.UtcNow.AddDays(-365),
                     UpdatedAt = DateTime.UtcNow

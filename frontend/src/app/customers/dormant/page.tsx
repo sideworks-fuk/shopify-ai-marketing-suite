@@ -1,18 +1,20 @@
 "use client"
 
-import { useMemo } from "react"
+import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-// 統一された休眠顧客分析コンポーネント
-import DormantCustomerAnalysis from "@/components/dashboards/DormantCustomerAnalysis"
-import { DormantCustomerList } from "@/components/dashboards/dormant/DormantCustomerList"
-import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
+// React.lazy を使用したコード分割
+const DormantCustomerAnalysis = React.lazy(() => import("@/components/dashboards/DormantCustomerAnalysis"))
+const DormantCustomerList = React.lazy(() => import("@/components/dashboards/dormant/DormantCustomerList").then(module => ({ default: module.DormantCustomerList })))
+const AnalyticsHeaderUnified = React.lazy(() => import("@/components/layout/AnalyticsHeaderUnified").then(module => ({ default: module.AnalyticsHeaderUnified })))
+
+// ローディングコンポーネント
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 
 import { api } from "@/lib/api-client"
 import { API_CONFIG, getCurrentStoreId } from "@/lib/api-config"
 import { useDormantFilters } from "@/contexts/FilterContext"
-import { useState, useEffect, useCallback } from "react"
 
 export default function DormantCustomersPage() {
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
@@ -278,21 +280,23 @@ export default function DormantCustomersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AnalyticsHeaderUnified 
-        mainTitle="休眠顧客分析【顧客】"
-        description="最終購入からの経過期間別に顧客を分析し、復帰施策の効果的な立案と実行に活用できます"
-        currentAnalysis={{
-          title: "期間別休眠顧客セグメント分析",
-          description: "90日以上購入のない顧客を期間別に分析し、復帰可能性を評価します",
-          targetCount: dormantData.length
-        }}
-        badges={[
-          { label: `${dormantData.length}名`, variant: "outline" },
-          { label: "復帰施策", variant: "secondary" },
-          { label: "期間セグメント", variant: "default" },
-          { label: "🔗 API連携", variant: "default" }
-        ]}
-      />
+      <Suspense fallback={<LoadingSpinner />}>
+        <AnalyticsHeaderUnified 
+          mainTitle="休眠顧客分析【顧客】"
+          description="最終購入からの経過期間別に顧客を分析し、復帰施策の効果的な立案と実行に活用できます"
+          currentAnalysis={{
+            title: "期間別休眠顧客セグメント分析",
+            description: "90日以上購入のない顧客を期間別に分析し、復帰可能性を評価します",
+            targetCount: dormantData.length
+          }}
+          badges={[
+            { label: `${dormantData.length}名`, variant: "outline" },
+            { label: "復帰施策", variant: "secondary" },
+            { label: "期間セグメント", variant: "default" },
+            { label: "🔗 API連携", variant: "default" }
+          ]}
+        />
+      </Suspense>
 
       <div className="container mx-auto px-4 py-6">
         {/* 全体ローディング状態 */}
@@ -428,10 +432,12 @@ export default function DormantCustomersPage() {
             </div>
 
             {/* Step 3: 顧客リスト（テーブル形式・フィルタ・ページネーション対応） */}
-            <DormantCustomerList 
-              selectedSegment={filters.selectedSegment}
-              dormantData={dormantData}
-            />
+            <Suspense fallback={<LoadingSpinner />}>
+              <DormantCustomerList 
+                selectedSegment={filters.selectedSegment}
+                dormantData={dormantData}
+              />
+            </Suspense>
           </>
         )}
 

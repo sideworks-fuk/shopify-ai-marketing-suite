@@ -196,7 +196,7 @@ Database 接続エラー:
 - [🏗️ **システム設計**](./02-architecture/system-architecture.md) - アーキテクチャ
 
 ### **運用・管理**
-- [🗄️ **Azure SQL統合ログ**](../worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - 統合成功記録
+- [🗄️ **Azure SQL統合ログ**](../docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) - 統合成功記録
 - [📈 **プロジェクト状況**](./01-project-management/01-planning/project-status.md) - 進捗管理
 - [💰 **コスト管理**](./06-infrastructure/02-cost-management/) - 運用コスト
 

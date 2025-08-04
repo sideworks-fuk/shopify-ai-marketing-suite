@@ -81,7 +81,7 @@ URL: http://localhost:3000/install?version=polaris
 
 ### 3.2 リダイレクト確認
 開発者ツールのネットワークタブで確認：
-- [ ] `/api/shopify/install?shop=test-store.myshopify.com` へのリクエスト
+- [ ] `/api/shopify/install?shop=fuk-dev1.myshopify.com` へのリクエスト
 - [ ] 302リダイレクトレスポンス
 - [ ] Shopify認証URLへのリダイレクト
 

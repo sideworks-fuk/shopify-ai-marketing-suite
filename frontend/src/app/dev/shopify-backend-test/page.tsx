@@ -32,7 +32,7 @@ interface TestResult {
 export default function ShopifyBackendTestPage() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [shopDomain, setShopDomain] = useState('test-store.myshopify.com');
+  const [shopDomain, setShopDomain] = useState('fuk-dev1.myshopify.com');
   const config = getCurrentEnvironmentConfig();
 
   const addTestResult = (result: TestResult) => {
@@ -167,7 +167,7 @@ export default function ShopifyBackendTestPage() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm font-medium">現在の環境:</span>
-                <Badge variant="secondary">{config.environment}</Badge>
+                <Badge variant="secondary">{config.name}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm font-medium">API ベースURL:</span>
@@ -211,7 +211,7 @@ export default function ShopifyBackendTestPage() {
                 id="shopDomain"
                 value={shopDomain}
                 onChange={(e) => setShopDomain(e.target.value)}
-                placeholder="test-store.myshopify.com"
+                placeholder="fuk-dev1.myshopify.com"
                 className="mt-1"
               />
             </div>

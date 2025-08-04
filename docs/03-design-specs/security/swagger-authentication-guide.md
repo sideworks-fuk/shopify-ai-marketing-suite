@@ -65,7 +65,7 @@ builder.Services.AddSwaggerGen(c =>
    ```json
    {
      "storeId": 1,
-     "shopDomain": "test-store.myshopify.com"
+     "shopDomain": "fuk-dev1.myshopify.com"
    }
    ```
 4. "Execute" ボタンをクリック
@@ -146,7 +146,7 @@ localStorage.getItem('jwt_token');
 # トークン取得
 TOKEN=$(curl -X POST https://localhost:5001/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"storeId": 1, "shopDomain": "test-store.myshopify.com"}' \
+  -d '{"storeId": 1, "shopDomain": "fuk-dev1.myshopify.com"}' \
   | jq -r '.accessToken')
 
 # APIテスト

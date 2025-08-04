@@ -2,17 +2,45 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 export default function HomePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isEmbedded = searchParams.has('embedded') || searchParams.has('host')
 
   useEffect(() => {
     console.log('🔍 [DEBUG] HomePage: useEffect triggered')
     console.log('🔍 [DEBUG] HomePage: Current pathname:', window.location.pathname)
     
-    // 一時的にリダイレクトを無効化（デバッグ用）
-    console.log('🔍 [DEBUG] HomePage: Redirect temporarily disabled for debugging')
-    return
+    // Shopifyアプリとして埋め込まれている場合の処理
+    if (isEmbedded) {
+      console.log('🛍️ Shopify embedded app mode')
+      
+      // タイトルバーをシンプルに
+      const title = 'AI Marketing Suite'
+      if ((window as any).shopify) {
+        (window as any).shopify.title = title
+      }
+    }
+    
+    // 開発環境でのリダイレクトカウンターリセット（デバッグ用）
+    if (process.env.NODE_ENV === 'development') {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('reset') === 'true') {
+        sessionStorage.removeItem('redirectCount')
+        console.log('🔍 [DEBUG] HomePage: Redirect counter reset for development')
+      }
+    }
+    
+    // リダイレクト回数制限のチェック
+    const redirectCount = sessionStorage.getItem('redirectCount') || '0'
+    const currentCount = parseInt(redirectCount)
+    
+    if (currentCount > 2) {
+      console.log('🔍 [DEBUG] HomePage: Max redirect limit reached, stopping redirects')
+      return
+    }
     
     // 既にdev-bookmarksにいる場合はリダイレクトしない
     if (window.location.pathname === '/dev-bookmarks' || window.location.pathname === '/dev-bookmarks/') {
@@ -20,11 +48,19 @@ export default function HomePage() {
       return
     }
     
-    console.log('🔍 [DEBUG] HomePage: Redirecting to /dev-bookmarks/')
-    // デフォルトページとしてdev-bookmarksにリダイレクト
-    // Next.js App Routerの適切なリダイレクト方法を使用
-    router.push('/dev-bookmarks/')
-  }, [router])
+    // ルートページ（/）の場合のみリダイレクト
+    if (window.location.pathname === '/') {
+      console.log('🔍 [DEBUG] HomePage: Redirecting to /dev-bookmarks/')
+      
+      // リダイレクト回数をカウント
+      sessionStorage.setItem('redirectCount', (currentCount + 1).toString())
+      
+      // デフォルトページとしてdev-bookmarksにリダイレクト
+      router.push('/dev-bookmarks/')
+    } else {
+      console.log('🔍 [DEBUG] HomePage: Not on root path, skipping redirect')
+    }
+  }, [router, isEmbedded])
 
   return (
     <div style={{
@@ -48,9 +84,14 @@ export default function HomePage() {
         <p style={{ marginTop: '8px', color: '#9ca3af', fontSize: '12px' }}>
           デバッグ: {window.location.pathname}
         </p>
-        <p style={{ marginTop: '8px', color: '#ef4444', fontSize: '12px' }}>
-          ⚠️ リダイレクト一時無効化中（デバッグ用）
+        <p style={{ marginTop: '8px', color: '#10b981', fontSize: '12px' }}>
+          ✅ リダイレクト処理有効化済み
         </p>
+        {process.env.NODE_ENV === 'development' && (
+          <p style={{ marginTop: '8px', color: '#f59e0b', fontSize: '12px' }}>
+            🔧 開発モード: ?reset=true でカウンターリセット
+          </p>
+        )}
       </div>
       <style jsx>{`
         @keyframes spin {

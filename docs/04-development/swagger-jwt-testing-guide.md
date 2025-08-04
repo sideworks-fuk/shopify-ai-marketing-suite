@@ -26,7 +26,7 @@ https://shopifytestapi20250720173320.azurewebsites.net/swagger
 ```json
 {
   "storeId": 1,
-  "shopDomain": "test-store.myshopify.com"
+  "shopDomain": "fuk-dev1.myshopify.com"
 }
 ```
 
@@ -101,7 +101,7 @@ curl -X POST http://localhost:7088/api/auth/token \
   -H "Content-Type: application/json" \
   -d '{
     "storeId": 1,
-    "shopDomain": "test-store.myshopify.com"
+    "shopDomain": "fuk-dev1.myshopify.com"
   }'
 
 # APIアクセス（トークンを使用）

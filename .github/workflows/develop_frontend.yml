@@ -121,6 +121,10 @@ jobs:
         NEXT_PUBLIC_GIT_COMMIT: ${{ steps.build_info.outputs.git_commit }}
         NEXT_PUBLIC_GIT_BRANCH: ${{ steps.build_info.outputs.git_branch }}
         NEXT_PUBLIC_BUILD_DATE: ${{ steps.build_info.outputs.build_date }}
+        # Azure Static Web Appsで設定された環境変数を使用するためのプレースホルダー
+        # これらの値はAzure Portalで設定された値に置き換えられます
+        NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net' }}
+        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net' }}
 
     - name: Deploy Status
       run: |

@@ -339,7 +339,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-hybrid-mode")]
         [AllowAnonymous]
-        public IActionResult TestHybridMode([FromQuery] string shop = "test-store.myshopify.com")
+        public IActionResult TestHybridMode([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
             {
@@ -401,7 +401,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-oauth-url")]
         [AllowAnonymous]
-        public IActionResult TestOAuthUrl([FromQuery] string shop = "test-store.myshopify.com")
+        public IActionResult TestOAuthUrl([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
             {

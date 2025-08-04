@@ -8,7 +8,7 @@ namespace ShopifyAnalyticsApi.Services
 {
     public interface ITokenService
     {
-        string GenerateAccessToken(int storeId, string shopDomain);
+        string GenerateAccessToken(int storeId, string shopDomain, string? tenantId = null);
         string GenerateRefreshToken(int storeId);
         TokenValidationResult ValidateToken(string token);
         ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
@@ -25,7 +25,7 @@ namespace ShopifyAnalyticsApi.Services
             _logger = logger;
         }
 
-        public string GenerateAccessToken(int storeId, string shopDomain)
+        public string GenerateAccessToken(int storeId, string shopDomain, string? tenantId = null)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured"));
@@ -39,6 +39,12 @@ namespace ShopifyAnalyticsApi.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
+            
+            // テナントIDが提供されている場合は追加
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                claims.Add(new Claim("tenant_id", tenantId));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {

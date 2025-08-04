@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=your-key-here;IngestionEndpoint=https://japaneast-1.in.applicationinsights.azure.com/;LiveEndpoint=https://japaneast.livediagnostics.monitor.azure.com/",
+    "ServiceBusConnectionString": "Endpoint=sb://your-servicebus.servicebus.windows.net/;SharedAccessKeyName=your-key-name;SharedAccessKey=your-key",
+    "AZURE_SQL_CONNECTIONSTRING": "Server=your-server.database.windows.net;Database=ShopifyAnalytics;Authentication=Active Directory Default;Encrypt=True;",
+    "SHOPIFY_APP_SECRET": "your-shopify-app-secret",
+    "SHOPIFY_WEBHOOK_SECRET": "your-webhook-secret"
+  }
+}
