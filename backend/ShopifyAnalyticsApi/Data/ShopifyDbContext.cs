@@ -20,6 +20,7 @@ namespace ShopifyAnalyticsApi.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductVariant> ProductVariants { get; set; }
         public DbSet<Store> Stores { get; set; }
+        public DbSet<SyncStatus> SyncStatuses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

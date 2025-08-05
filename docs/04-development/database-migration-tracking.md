@@ -18,6 +18,7 @@ docs/04-development/
 | スクリプト名 | 作成日 | 作成者 | 内容 | Development | Staging | Production |
 |------------|--------|--------|------|-------------|---------|------------|
 | 2025-08-02-EmergencyIndexes.sql | 2025-08-02 | TAKASHI | OrderItemsインデックス追加 | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-05-AddInitialSetupFeature.sql | 2025-08-05 | TAKASHI | 初期設定機能（SyncStatusテーブル、Storesテーブル更新） | ✅ 適用済 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用手順
 
@@ -74,5 +75,6 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 
 ---
 
-最終更新: 2025-08-02
+最終更新: 2025-08-05
 管理者: 福田
+更新者: Kenji（AIチーム）

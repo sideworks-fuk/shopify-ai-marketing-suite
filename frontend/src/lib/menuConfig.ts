@@ -3,13 +3,22 @@ export interface MenuItem {
   label: string
   icon: string
   href?: string  // Optional for parent items
-  category: "sales" | "purchase" | "customers" | "ai-insights"
+  category: "settings" | "sales" | "purchase" | "customers" | "ai-insights"
   isImplemented: boolean
   description?: string
   children?: MenuItem[]  // For submenu items
 }
 
 export const menuStructure: MenuItem[] = [
+  {
+    id: "data-sync",
+    label: "データ同期",
+    icon: "🔄",
+    href: "/setup/initial",
+    category: "settings",
+    isImplemented: true,
+    description: "データ同期設定・管理画面"
+  },
   {
     id: "year-over-year",
     label: "前年同月比分析【商品】",
@@ -49,11 +58,11 @@ export const menuStructure: MenuItem[] = [
   {
     id: "purchase-count",
     label: "購入回数分析【購買】",
-    icon: "🔢",
+    icon: "🛒",
     href: "/purchase/count-analysis",
     category: "purchase",
     isImplemented: true,
-    description: "顧客の購入回数別詳細分析とリピート促進インサイト"
+    description: "顧客の購買頻度分析"
   },
   // {
   //   id: "f-tier-trend",
@@ -75,12 +84,12 @@ export const menuStructure: MenuItem[] = [
   // },
   {
     id: "dormant-customers",
-    label: "休眠顧客【顧客】",
-    icon: "😴",
+    label: "休眠顧客分析【顧客】",
+    icon: "👤",
     href: "/customers/dormant",
     category: "customers",
     isImplemented: true,
-    description: "最終購入からの経過期間別顧客分類"
+    description: "休眠顧客の分析"
   },
 ]
 

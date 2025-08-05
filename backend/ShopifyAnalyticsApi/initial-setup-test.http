@@ -1,0 +1,61 @@
+### EC Ranger 初期設定機能テスト
+### 作成日: 2025-08-05
+### 作成者: Takashi (AI開発チーム)
+
+### 変数定義
+@baseUrl = https://localhost:7229
+@token = {{$dotenv JWT_TOKEN}}
+
+### 1. 初期設定状態の確認
+GET {{baseUrl}}/api/setup/status
+Authorization: Bearer {{token}}
+
+### 2. 初期データ同期の開始（3ヶ月分）
+POST {{baseUrl}}/api/sync/initial
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "syncPeriod": "3months"
+}
+
+### 3. 同期状態の確認（syncIdを実際の値に置き換えてください）
+GET {{baseUrl}}/api/sync/status/1
+Authorization: Bearer {{token}}
+
+### 4. 最新の同期状態を取得
+GET {{baseUrl}}/api/sync/latest
+Authorization: Bearer {{token}}
+
+### 5. 初期設定を完了としてマーク（手動）
+POST {{baseUrl}}/api/setup/complete
+Authorization: Bearer {{token}}
+
+### 期間別の同期テスト
+
+### 6ヶ月分のデータ同期
+POST {{baseUrl}}/api/sync/initial
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "syncPeriod": "6months"
+}
+
+### 1年分のデータ同期
+POST {{baseUrl}}/api/sync/initial
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "syncPeriod": "1year"
+}
+
+### 全期間のデータ同期
+POST {{baseUrl}}/api/sync/initial
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "syncPeriod": "all"
+}
