@@ -1,21 +1,7 @@
-コミットをする場合は修正に関連するファイルに限定したいので必ずコミットファイルを確認するルールを追加します
-.claude\CLAUDE.md
-.cursor\rules\dev-rules\globals.mdc
-に追記してください
+ビルぢえらーに対応してください
 
----
-
-## Kenjiからの完了報告（2025年8月4日 16:30）
-
-Git運用ルールを以下のファイルに追加しました：
-
-### 1. CLAUDE.md
-- Git運用セクションに「コミット前の確認」ルールを追加
-- 更新履歴に記載
-
-### 2. .cursor/rules/dev-rules/globals.mdc（新規作成）
-- コミット前の確認事項を詳細に記載
-- ステージングの原則
-- コミット前チェックリスト
-
-これにより、チーム全員が修正に関連するファイルのみをコミットするよう意識できます。
+重大度レベル	コード	説明	プロジェクト	ファイル	行	抑制状態
+エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	38	
+エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	70	
+エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SyncController.cs	42	
+エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SyncController.cs	166	

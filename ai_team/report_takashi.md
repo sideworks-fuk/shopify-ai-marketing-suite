@@ -1,5 +1,72 @@
 # Takashiからの報告
 
+## 2025年8月5日 - 初期設定機能バックエンド実装完了
+
+### 完了した作業
+
+#### 1. データベース更新 ✅
+- **SyncStatusテーブル作成**: 同期状態を管理する新規テーブル
+- **Storesテーブル更新**: InitialSetupCompletedとLastSyncDateカラム追加
+- **マイグレーションファイル作成**: `2025-08-05-AddInitialSetupFeature.sql`
+
+#### 2. API実装 ✅
+
+**SetupController.cs**
+- `GET /api/setup/status`: 初期設定完了状態の確認
+- `POST /api/setup/complete`: 手動で初期設定を完了にマーク
+
+**SyncController.cs**
+- `POST /api/sync/initial`: 初期データ同期の開始（期間指定可能）
+- `GET /api/sync/status/{syncId}`: 同期進捗の確認
+- `GET /api/sync/latest`: 最新の同期状態を取得
+
+#### 3. ShopifyDataSyncService実装 ✅
+- 期間指定でのデータ同期（3months, 6months, 1year, all）
+- リアルタイム進捗更新
+- エラーハンドリング
+- シミュレーションモード（デモ用）
+
+#### 4. テストファイル作成 ✅
+- `initial-setup-test.http`: APIエンドポイントのテスト用ファイル
+
+### 実装のポイント
+- **非同期処理**: バックグラウンドで同期を実行
+- **進捗追跡**: 定期的にデータベースに進捗を保存
+- **エラーハンドリング**: 失敗時は適切にステータス更新
+- **デモ対応**: ShopifySharpなしでも動作するシミュレーション実装
+
+### Yukiさんへの連携事項
+バックエンドAPIが完成したので、フロントエンドから以下のAPIを呼び出してください：
+1. `/api/setup/status` - アプリ起動時に初期設定チェック
+2. `/api/sync/initial` - 同期開始（syncIdが返却される）
+3. `/api/sync/status/{syncId}` - 5秒ごとにポーリングして進捗確認
+
+### 次のステップ
+- Yukiさんのフロントエンド実装と結合テスト
+- 実際のShopify API連携の実装（将来的に）
+
+## 2025年8月5日 - EC Ranger名称変更追加対応
+
+### 追加で変更した箇所
+
+#### Program.cs
+- ✅ Swagger UI エンドポイント表示名: "Shopify Test API v1" → "EC Ranger API v1"
+- ✅ 起動ログメッセージ: "Starting Shopify Test API" → "Starting EC Ranger API"
+
+#### HTTPテストファイル
+- ✅ `ShopifyTestApi.http` → `ECRangerApi.http`
+- ✅ `ShopifyTestApi-PurchaseCount.http` → `ECRangerApi-PurchaseCount.http`
+- ✅ ファイル内の変数名とURL参照も更新
+
+### Azure環境で別途対応が必要な項目
+以下はAzureポータルで個別に変更が必要（インフラリソース名）：
+- データベースサーバー名: `shopify-test-server.database.windows.net`
+- データベース名: `shopify-test-db`
+- Web App名: `ShopifyTestApi20250720173320`
+
+### EC Ranger名称変更完了状況
+バックエンドのコード内の名称変更は全て完了しました。残りはAzureインフラリソース名のみです。
+
 ## 2025年8月4日 - EC Ranger名称変更作業
 
 ### 完了した作業
