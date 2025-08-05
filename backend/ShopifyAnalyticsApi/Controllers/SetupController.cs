@@ -10,7 +10,7 @@ namespace ShopifyAnalyticsApi.Controllers
     /// </summary>
     [ApiController]
     [Route("api/setup")]
-    public class SetupController : ControllerBase
+    public class SetupController : StoreAwareControllerBase
     {
         private readonly ShopifyDbContext _context;
         private readonly IStoreService _storeService;
@@ -35,7 +35,7 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var currentStore = await _storeService.GetCurrentStoreAsync();
+                var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     return NotFound(new { error = "Store not found" });
@@ -53,7 +53,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting setup status");
+                _logger.LogError(ex, "Error getting setup status for store {StoreId}", StoreId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
@@ -67,7 +67,7 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var currentStore = await _storeService.GetCurrentStoreAsync();
+                var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     return NotFound(new { error = "Store not found" });
@@ -79,7 +79,8 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Initial setup marked as complete for store: {currentStore.Name}");
+                _logger.LogInformation("Initial setup marked as complete for store: {StoreName} (ID: {StoreId})", 
+                    currentStore.Name, currentStore.Id);
 
                 return Ok(new
                 {
@@ -90,7 +91,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error marking setup as complete");
+                _logger.LogError(ex, "Error marking setup as complete for store {StoreId}", StoreId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }

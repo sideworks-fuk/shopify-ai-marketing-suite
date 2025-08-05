@@ -1,3 +1,6 @@
+2025-08-02-EmergencyIndexes.sql
+Developmentも昨日実行済みです
+
 # データベース移行管理ドキュメント
 
 ## 概要
@@ -17,8 +20,8 @@ docs/04-development/
 
 | スクリプト名 | 作成日 | 作成者 | 内容 | Development | Staging | Production |
 |------------|--------|--------|------|-------------|---------|------------|
-| 2025-08-02-EmergencyIndexes.sql | 2025-08-02 | TAKASHI | OrderItemsインデックス追加 | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
-| 2025-08-05-AddInitialSetupFeature.sql | 2025-08-05 | TAKASHI | 初期設定機能（SyncStatusテーブル、Storesテーブル更新） | ✅ 適用済 | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-02-EmergencyIndexes.sql | 2025-08-02 | TAKASHI | OrderItemsインデックス追加 | ✅ 適用済 (2025-08-04) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-05-AddInitialSetupFeature.sql | 2025-08-05 | TAKASHI | 初期設定機能（SyncStatusテーブル、Storesテーブル更新） | ✅ 適用済 (2025-08-05 10:00) | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用手順
 
