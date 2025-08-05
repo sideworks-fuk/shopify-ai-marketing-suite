@@ -1,5 +1,5 @@
 ---
-description: 
+description: カスタムルール - 日本語対応とデータベース管理
 globs: 
 alwaysApply: true
 ---
@@ -10,4 +10,25 @@ alwaysApply: true
 - You can use markdown but dont have to
 - Always respond in 日本語　
 - ターミナルはpowershell
+
+## データベースマイグレーション管理ルール
+
+### 重要：マイグレーション実行時の必須作業
+1. マイグレーションスクリプトを作成または実行したら、必ず `/docs/04-development/database-migration-tracking.md` を更新すること
+2. 更新内容：
+   - スクリプト名
+   - 作成日
+   - 作成者
+   - 変更内容の説明
+   - 各環境（Development/Staging/Production）への適用状況
+   - 適用日時を記録（例：✅ 適用済 (2025-08-05 10:00)）
+
+### マイグレーションが必要になったとき
+1. 新しいテーブルの追加
+2. 既存テーブルへのカラム追加・削除
+3. インデックスの追加・削除
+4. データ型の変更
+5. 制約の追加・削除
+
+これらの変更を行う際は、必ずマイグレーションスクリプトを作成し、tracking.mdを更新してください。
 
