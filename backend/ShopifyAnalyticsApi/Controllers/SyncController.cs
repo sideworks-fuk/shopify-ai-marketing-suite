@@ -12,7 +12,7 @@ namespace ShopifyAnalyticsApi.Controllers
     /// </summary>
     [ApiController]
     [Route("api/sync")]
-    public class SyncController : ControllerBase
+    public class SyncController : StoreAwareControllerBase
     {
         private readonly ShopifyDbContext _context;
         private readonly IStoreService _storeService;
@@ -39,7 +39,7 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var currentStore = await _storeService.GetCurrentStoreAsync();
+                var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     return NotFound(new { error = "Store not found" });
@@ -78,11 +78,12 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Error in background sync for store {currentStore.Id}");
+                        _logger.LogError(ex, "Error in background sync for store {StoreId}", currentStore.Id);
                     }
                 });
 
-                _logger.LogInformation($"Initial sync started for store: {currentStore.Name}, period: {request.SyncPeriod}");
+                _logger.LogInformation("Initial sync started for store: {StoreName} (ID: {StoreId}), period: {SyncPeriod}", 
+                    currentStore.Name, currentStore.Id, request.SyncPeriod);
 
                 return Ok(new
                 {
@@ -93,7 +94,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting initial sync");
+                _logger.LogError(ex, "Error starting initial sync for store {StoreId}", StoreId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
@@ -108,6 +109,12 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 var syncStatus = await _context.SyncStatuses.FindAsync(syncId);
                 if (syncStatus == null)
+                {
+                    return NotFound(new { error = "Sync status not found" });
+                }
+
+                // セキュリティチェック: 現在のストアの同期状態のみアクセス可能
+                if (syncStatus.StoreId != StoreId.ToString())
                 {
                     return NotFound(new { error = "Sync status not found" });
                 }
@@ -150,7 +157,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting sync status for syncId: {syncId}");
+                _logger.LogError(ex, "Error getting sync status for syncId: {SyncId}, store: {StoreId}", syncId, StoreId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
@@ -163,14 +170,8 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var currentStore = await _storeService.GetCurrentStoreAsync();
-                if (currentStore == null)
-                {
-                    return NotFound(new { error = "Store not found" });
-                }
-
                 var latestSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString())
+                    .Where(s => s.StoreId == StoreId.ToString())
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
@@ -183,7 +184,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting latest sync status");
+                _logger.LogError(ex, "Error getting latest sync status for store {StoreId}", StoreId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
