@@ -245,7 +245,7 @@ else
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Shopify Test API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EC Ranger API v1");
         c.RoutePrefix = "swagger";
     });
 }
@@ -329,7 +329,7 @@ app.MapGet("/env-info", () =>
 
 try
 {
-    Log.Information("Starting Shopify Test API");
+    Log.Information("Starting EC Ranger API");
     app.Run();
 }
 catch (Exception ex)

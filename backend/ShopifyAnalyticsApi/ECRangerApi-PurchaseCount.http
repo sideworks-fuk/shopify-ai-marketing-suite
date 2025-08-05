@@ -1,0 +1,81 @@
+### Purchase Count Analysis API テスト
+### API Base URL: https://ecrangerapi20250720173320.azurewebsites.net/api/purchase
+### または Local: http://localhost:5000/api/purchase
+
+### 1. API接続テスト
+GET {{baseUrl}}/api/purchase/test
+
+### 2. 購入回数分析クイック統計取得
+GET {{baseUrl}}/api/purchase/quick-stats?storeId=1
+
+### 3. 購入回数分析サマリー取得（デフォルト：過去365日）
+GET {{baseUrl}}/api/purchase/count-summary?storeId=1&days=365
+
+### 4. 購入回数分析サマリー取得（過去90日）
+GET {{baseUrl}}/api/purchase/count-summary?storeId=1&days=90
+
+### 5. 購入回数トレンドデータ取得（デフォルト：過去12ヶ月）
+GET {{baseUrl}}/api/purchase/count-trends?storeId=1&months=12
+
+### 6. 購入回数トレンドデータ取得（過去6ヶ月）
+GET {{baseUrl}}/api/purchase/count-trends?storeId=1&months=6
+
+### 7. セグメント別購入回数分析取得（新規顧客）
+GET {{baseUrl}}/api/purchase/segment-analysis?storeId=1&segment=new
+
+### 8. セグメント別購入回数分析取得（既存顧客）
+GET {{baseUrl}}/api/purchase/segment-analysis?storeId=1&segment=existing
+
+### 9. セグメント別購入回数分析取得（復帰顧客）
+GET {{baseUrl}}/api/purchase/segment-analysis?storeId=1&segment=returning
+
+### 10. 詳細な購入回数分析データ取得（基本）
+GET {{baseUrl}}/api/purchase/count-analysis?storeId=1&startDate=2023-07-01&endDate=2024-07-31&segment=all&includeComparison=true&maxPurchaseCount=20
+
+### 11. 詳細な購入回数分析データ取得（新規顧客セグメント）
+GET {{baseUrl}}/api/purchase/count-analysis?storeId=1&startDate=2024-01-01&endDate=2024-07-31&segment=new&includeComparison=true&maxPurchaseCount=15
+
+### 12. 詳細な購入回数分析データ取得（過去3ヶ月、比較なし）
+GET {{baseUrl}}/api/purchase/count-analysis?storeId=1&startDate=2024-05-01&endDate=2024-07-31&segment=all&includeComparison=false&maxPurchaseCount=10
+
+###
+### POST リクエスト例（JSONボディ使用）
+###
+
+### 13. 購入回数分析データ取得（POSTリクエスト形式）
+# POST {{baseUrl}}/api/purchase/count-analysis
+# Content-Type: application/json
+
+# {
+#   "storeId": 1,
+#   "startDate": "2024-01-01T00:00:00Z",
+#   "endDate": "2024-07-31T23:59:59Z",
+#   "segment": "all",
+#   "includeComparison": true,
+#   "maxPurchaseCount": 20
+# }
+
+### 変数定義
+@baseUrl = https://ecrangerapi20250720173320.azurewebsites.net
+# @baseUrl = http://localhost:5000
+
+### テスト実行ログ
+###
+### 実行日時: 2024-07-25
+### テスト対象: PURCH-02-COUNT 購入回数分析API
+### 実装者: Azure Functions + .NET 8
+###
+### 期待されるレスポンス構造:
+### - 購入回数分析レスポンス (PurchaseCountAnalysisResponse)
+###   - サマリー情報 (PurchaseCountSummary)
+###   - 詳細データ (List<PurchaseCountDetail>)
+###   - トレンドデータ (List<PurchaseCountTrend>)
+###   - セグメント分析 (List<SegmentAnalysisData>)
+###   - インサイト (PurchaseCountInsights)
+###
+### 主要指標:
+### - 購入回数分布（1回～20回以上）
+### - リピート顧客率
+### - 複数回購入率
+### - 前年同期比較
+### - セグメント別分析（新規/既存/復帰顧客）
