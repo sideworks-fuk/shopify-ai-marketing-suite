@@ -39,7 +39,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const setSelectedPeriod = useAppStore((state) => state.setSelectedPeriod)
   const refreshData = useAppStore((state) => state.refreshData)
   const exportData = useAppStore((state) => state.exportData)
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(["sales", "purchase", "customers", "ai-insights"])
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(["settings", "sales", "purchase", "customers", "ai-insights"])
 
   const periodOptions = [
     { value: "今月", label: "今月" },
@@ -55,6 +55,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   // カテゴリ情報の定義
   const categories = [
+    {
+      id: "settings",
+      label: "⚙️ 設定",
+      description: "システム設定"
+    },
     {
       id: "sales",
       label: "📦 商品分析",

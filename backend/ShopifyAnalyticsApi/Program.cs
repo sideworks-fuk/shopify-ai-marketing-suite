@@ -139,6 +139,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 // Register Data Cleanup Service (データクリーンアップサービス)
 builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 
+// Register Shopify Data Sync Service (Shopifyデータ同期サービス)
+builder.Services.AddScoped<ShopifyDataSyncService>();
+
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
 if (string.IsNullOrEmpty(aiConnectionString) || aiConnectionString?.Contains("#") == true)
@@ -245,7 +248,7 @@ else
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Shopify Test API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EC Ranger API v1");
         c.RoutePrefix = "swagger";
     });
 }
@@ -329,7 +332,7 @@ app.MapGet("/env-info", () =>
 
 try
 {
-    Log.Information("Starting Shopify Test API");
+    Log.Information("Starting EC Ranger API");
     app.Run();
 }
 catch (Exception ex)

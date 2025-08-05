@@ -1,0 +1,6 @@
+@ECRangerApi_HostAddress = http://localhost:5168
+
+GET {{ECRangerApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

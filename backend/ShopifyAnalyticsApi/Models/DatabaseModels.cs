@@ -50,6 +50,10 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(500)]
         public string? Scopes { get; set; }
         
+        // 初期設定関連
+        public bool InitialSetupCompleted { get; set; } = false;
+        public DateTime? LastSyncDate { get; set; }
+        
         // ナビゲーションプロパティ
         public virtual Tenant? Tenant { get; set; }
         public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
