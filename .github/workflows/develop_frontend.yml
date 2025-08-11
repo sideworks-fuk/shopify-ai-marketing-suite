@@ -18,7 +18,7 @@ on:
         type: string
 
 env:
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '20.x'
   APP_LOCATION: '/frontend'
   OUTPUT_LOCATION: '.next'
   AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
