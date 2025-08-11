@@ -61,16 +61,19 @@ jobs:
       shell: bash
 
     - name: 🔍 Restore dependencies
-      run: dotnet restore
-      working-directory: ./backend/ShopifyAnalyticsApi
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet restore
 
     - name: 🏗️ Build project
-      run: dotnet build --configuration Release --no-restore
-      working-directory: ./backend/ShopifyAnalyticsApi
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet build --configuration Release --no-restore
 
     - name: 📦 Publish project
-      run: dotnet publish -c Release -o ./published
-      working-directory: ./backend/ShopifyAnalyticsApi
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet publish -c Release -o ./published
 
     - name: 🚀 Deploy to Azure App Service (Production)
       if: github.event.inputs.environment == 'production'
@@ -78,7 +81,7 @@ jobs:
       with:
         app-name: shopifyapp-backend-develop
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
-        package: ./backend/ShopifyAnalyticsApi/published
+        package: backend/ShopifyAnalyticsApi/published
 
     - name: 🚀 Deploy to Azure App Service (Dev/Staging)
       if: github.event.inputs.environment != 'production'
@@ -86,7 +89,7 @@ jobs:
       with:
         app-name: ShopifyTestApi20250720173320
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ./backend/ShopifyAnalyticsApi/published
+        package: backend/ShopifyAnalyticsApi/published
 
     - name: ✅ Backend deployment complete
       run: echo "✅ Backend deployed successfully!"
