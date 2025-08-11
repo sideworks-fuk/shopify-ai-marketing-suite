@@ -97,6 +97,9 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
+// Register Shopify OAuth Service (ShopifySharpライブラリ使用)
+builder.Services.AddScoped<ShopifyOAuthService>();
+
 // Register Dormant Customer Service (休眠顧客分析サービス) - 新しいモジュラー版を使用
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Dormant.IDormantCustomerService, ShopifyAnalyticsApi.Services.Dormant.DormantCustomerService>();
 

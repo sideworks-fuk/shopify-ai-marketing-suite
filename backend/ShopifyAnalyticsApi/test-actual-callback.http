@@ -1,0 +1,78 @@
+### 実際のShopifyコールバックデータでのテスト
+### 2025-01-13 記録データ
+
+@baseUrl = https://localhost:7088
+@apiSecret = be83457b1f63f4c9b20d3ea5e62b5ef0
+
+### 実際のコールバックパラメータ
+# code=f995556a3a0fc6a02526e92e9d5229cc
+# shop=fuk-dev4.myshopify.com
+# state=pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd
+# hmac=73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941
+# timestamp=1754925455
+
+### 1. 実際のコールバックGETリクエスト（元のリクエストを再現）
+GET {{baseUrl}}/api/shopify/callback?code=f995556a3a0fc6a02526e92e9d5229cc&shop=fuk-dev4.myshopify.com&state=pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd&hmac=73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941&timestamp=1754925455
+Accept: application/json
+
+### 2. HMAC検証テスト - 全メソッド試行
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "code": "f995556a3a0fc6a02526e92e9d5229cc",
+  "shop": "fuk-dev4.myshopify.com",
+  "state": "pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd",
+  "timestamp": "1754925455",
+  "hmac": "73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941"
+}
+
+### 3. process-callbackエンドポイントでテスト（POSTメソッド）
+POST {{baseUrl}}/api/shopify/process-callback
+Content-Type: application/json
+
+{
+  "code": "f995556a3a0fc6a02526e92e9d5229cc",
+  "shop": "fuk-dev4.myshopify.com",
+  "state": "pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd",
+  "timestamp": "1754925455",
+  "hmac": "73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941"
+}
+
+### 4. HMACシミュレーションテスト
+GET {{baseUrl}}/api/shopify/hmac-test/simulate-callback?code=f995556a3a0fc6a02526e92e9d5229cc&shop=fuk-dev4.myshopify.com&state=pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd&timestamp=1754925455&hmac=73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941
+Accept: application/json
+
+### 5. HMAC手動計算確認
+# クエリ文字列（hmacを除く、辞書順）:
+# code=f995556a3a0fc6a02526e92e9d5229cc&shop=fuk-dev4.myshopify.com&state=pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd&timestamp=1754925455
+# 
+# APIシークレット: be83457b1f63f4c9b20d3ea5e62b5ef0
+# 受信HMAC: 73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941
+
+### 6. デバッグ用：パラメータ順序を変えてテスト
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "shop": "fuk-dev4.myshopify.com",
+  "code": "f995556a3a0fc6a02526e92e9d5229cc",
+  "timestamp": "1754925455",
+  "state": "pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd",
+  "hmac": "73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941"
+}
+
+### 7. 追加パラメータの可能性をテスト
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "code": "f995556a3a0fc6a02526e92e9d5229cc",
+  "shop": "fuk-dev4.myshopify.com",
+  "state": "pvdcJqsr8A5WwCwfwvn2hANHuUJLRFfd",
+  "timestamp": "1754925455",
+  "hmac": "73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941",
+  "additionalParams": {
+    "host": "fuk-dev4.myshopify.com"
+  }
+}

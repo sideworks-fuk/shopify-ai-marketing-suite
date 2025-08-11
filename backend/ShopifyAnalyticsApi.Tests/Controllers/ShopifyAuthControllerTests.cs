@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using ShopifyAnalyticsApi.Controllers;
 using ShopifyAnalyticsApi.Data;
+using ShopifyAnalyticsApi.Services;
 using System.Text.Json;
 using System.Web;
 using Xunit;
@@ -38,12 +39,20 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
             _mockConfiguration.Setup(x => x["Shopify:Scopes"]).Returns("read_orders,read_products,read_customers");
             _mockConfiguration.Setup(x => x["Frontend:BaseUrl"]).Returns("http://localhost:3000");
 
+            // ShopifyOAuthServiceを作成
+            var mockOAuthLogger = new Mock<ILogger<ShopifyOAuthService>>();
+            var oauthService = new ShopifyOAuthService(
+                _mockConfiguration.Object,
+                mockOAuthLogger.Object,
+                _memoryCache);
+
             _controller = new ShopifyAuthController(
                 _mockConfiguration.Object,
                 _mockLogger.Object,
                 _mockContext.Object,
                 _mockHttpClientFactory.Object,
-                _memoryCache);
+                _memoryCache,
+                oauthService);
         }
 
         [Fact]

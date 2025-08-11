@@ -5,12 +5,16 @@ using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http.Extensions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Polly;
 using Polly.Extensions.Http;
+using ShopifySharp.Utilities;
+using Microsoft.Extensions.Primitives;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -26,6 +30,7 @@ namespace ShopifyAnalyticsApi.Controllers
         private readonly ShopifyDbContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
+        private readonly ShopifyOAuthService _oauthService;
 
         // State保存用のキャッシュキープレフィックス
         private const string StateCacheKeyPrefix = "shopify_oauth_state_";
@@ -36,13 +41,15 @@ namespace ShopifyAnalyticsApi.Controllers
             ILogger<ShopifyAuthController> logger,
             ShopifyDbContext context,
             IHttpClientFactory httpClientFactory,
-            IMemoryCache cache)
+            IMemoryCache cache,
+            ShopifyOAuthService oauthService)
         {
             _configuration = configuration;
             _logger = logger;
             _context = context;
             _httpClientFactory = httpClientFactory;
             _cache = cache;
+            _oauthService = oauthService;
         }
 
         /// <summary>
@@ -154,20 +161,27 @@ namespace ShopifyAnalyticsApi.Controllers
                 // キャッシュからstateを削除（使い捨て）
                 _cache.Remove(cacheKey);
 
-                // HMAC検証（オプション - 開発環境ではスキップ）
+                // HMAC検証（ShopifySharpライブラリ使用）
                 if (!string.IsNullOrWhiteSpace(hmac) && !string.IsNullOrWhiteSpace(timestamp))
                 {
                     var isDevelopment = _configuration["ASPNETCORE_ENVIRONMENT"] == "Development";
                     
-                    if (!isDevelopment && !VerifyHmac(code, shop, state, timestamp, hmac))
+                    // クエリパラメータをShopifyOAuthService用に準備
+                    var queryParams = HttpContext.Request.Query
+                        .Select(q => new KeyValuePair<string, StringValues>(q.Key, q.Value))
+                        .ToList();
+                    
+                    var isValidHmac = _oauthService.VerifyHmac(queryParams);
+                    
+                    if (!isValidHmac && !isDevelopment)
                     {
                         _logger.LogWarning("HMAC検証失敗. Shop: {Shop}", shop);
                         return Unauthorized(new { error = "HMAC validation failed" });
                     }
                     
-                    if (isDevelopment)
+                    if (!isValidHmac && isDevelopment)
                     {
-                        _logger.LogInformation("開発環境のためHMAC検証をスキップ. Shop: {Shop}", shop);
+                        _logger.LogWarning("開発環境のためHMAC検証失敗を無視. Shop: {Shop}", shop);
                     }
                 }
 
@@ -550,34 +564,71 @@ namespace ShopifyAnalyticsApi.Controllers
                 client.Timeout = TimeSpan.FromSeconds(30); // 30秒タイムアウト
                 
                 var tokenUrl = $"https://{shop}/admin/oauth/access_token";
+                
+                var apiKey = GetShopifySetting("ApiKey");
+                var apiSecret = GetShopifySetting("ApiSecret");
+                
+                _logger.LogInformation("トークン交換開始. Shop: {Shop}, URL: {URL}, ClientId: {ClientId}", 
+                    shop, tokenUrl, apiKey);
+                
                 var requestData = new
                 {
-                    client_id = GetShopifySetting("ApiKey"),
-                    client_secret = GetShopifySetting("ApiSecret"),
+                    client_id = apiKey,
+                    client_secret = apiSecret,
                     code = code
                 };
 
                 var json = JsonSerializer.Serialize(requestData);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
+                _logger.LogDebug("トークン交換リクエスト. Code: {Code}, ClientId: {ClientId}", 
+                    code?.Substring(0, Math.Min(code.Length, 8)) + "***", apiKey);
 
                 var response = await client.PostAsync(tokenUrl, content);
                 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("トークン取得失敗. Status: {Status}, Error: {Error}", 
-                        response.StatusCode, errorContent);
+                    _logger.LogError("トークン取得失敗. Status: {Status}, Error: {Error}, Shop: {Shop}", 
+                        response.StatusCode, errorContent, shop);
+                    
+                    // Shopify API エラーの詳細をログ出力
+                    if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                    {
+                        _logger.LogError("Shopify APIエラー (400 Bad Request): 無効なリクエストパラメータ");
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) 
+                    {
+                        _logger.LogError("Shopify APIエラー (401 Unauthorized): API Key/Secretが無効か、認証コードが無効");
+                    }
+                    else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        _logger.LogError("Shopify APIエラー (404 Not Found): ショップドメインが無効");
+                    }
+                    
                     return null;
                 }
 
                 var responseJson = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("トークン取得成功. Shop: {Shop}, Response Length: {Length}", 
+                    shop, responseJson?.Length ?? 0);
+                
                 var tokenResponse = JsonSerializer.Deserialize<ShopifyTokenResponse>(responseJson);
+                
+                if (tokenResponse?.AccessToken != null)
+                {
+                    _logger.LogInformation("アクセストークン取得成功. Shop: {Shop}", shop);
+                }
+                else
+                {
+                    _logger.LogWarning("アクセストークンがレスポンスに含まれていません. Shop: {Shop}", shop);
+                }
                 
                 return tokenResponse?.AccessToken;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "アクセストークン取得中にエラーが発生");
+                _logger.LogError(ex, "アクセストークン取得中にエラーが発生. Shop: {Shop}", shop);
                 throw;
             }
         }
@@ -725,23 +776,101 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
-        /// HMACを検証する
+        /// HMACを検証する（ShopifySharpライブラリ使用）
         /// </summary>
         private bool VerifyHmac(string code, string shop, string state, string timestamp, string hmac)
         {
             var secret = GetShopifySetting("ApiSecret");
             if (string.IsNullOrWhiteSpace(secret))
+            {
+                _logger.LogError("HMAC検証エラー: ApiSecretが設定されていません");
                 return false;
+            }
 
-            // クエリパラメータを構築（hmacを除く）
-            var queryString = $"code={code}&shop={shop}&state={state}&timestamp={timestamp}";
-            
-            // HMAC-SHA256を計算
-            using var hmacSha256 = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-            var computedHash = hmacSha256.ComputeHash(Encoding.UTF8.GetBytes(queryString));
-            var computedHmac = BitConverter.ToString(computedHash).Replace("-", "").ToLower();
+            try
+            {
+                // 開発環境でのデバッグ情報出力
+                var isDevelopment = _configuration["ASPNETCORE_ENVIRONMENT"] == "Development";
+                
+                // すべてのクエリパラメータを収集（ShopifySharp用）
+                var queryParams = new List<KeyValuePair<string, StringValues>>();
+                foreach (var queryParam in HttpContext.Request.Query)
+                {
+                    queryParams.Add(new KeyValuePair<string, StringValues>(queryParam.Key, queryParam.Value));
+                }
 
-            return computedHmac == hmac.ToLower();
+                if (isDevelopment)
+                {
+                    _logger.LogInformation("=== HMAC検証開始（ShopifySharp使用） ===");
+                    _logger.LogInformation("受信したパラメータ:");
+                    foreach (var p in queryParams.OrderBy(x => x.Key))
+                    {
+                        _logger.LogInformation("  {Key}: {Value}", p.Key, string.Join(",", p.Value));
+                    }
+                    _logger.LogInformation("受信HMAC: {Hmac}", hmac);
+                    _logger.LogInformation("使用するAPIシークレット: {Secret}", secret.Substring(0, Math.Min(4, secret.Length)) + "..." + secret.Substring(Math.Max(0, secret.Length - 4)));
+                }
+
+                // ShopifySharpライブラリでHMAC検証
+                var validator = new ShopifyRequestValidationUtility();
+                var isValid = validator.IsAuthenticRequest(queryParams, secret);
+
+                if (isDevelopment)
+                {
+                    _logger.LogInformation("ShopifySharp検証結果: {IsValid}", isValid);
+                }
+
+                if (!isValid)
+                {
+                    // フォールバック: 手動検証も試みる（デバッグ用）
+                    if (isDevelopment)
+                    {
+                        _logger.LogWarning("ShopifySharp検証失敗。手動検証を試みます...");
+                        
+                        // 手動でパラメータを構築
+                        var manualParams = new Dictionary<string, string>();
+                        foreach (var queryParam in HttpContext.Request.Query)
+                        {
+                            var key = queryParam.Key;
+                            var value = queryParam.Value.FirstOrDefault() ?? "";
+                            
+                            if (!string.Equals(key, "hmac", StringComparison.OrdinalIgnoreCase) && 
+                                !string.Equals(key, "signature", StringComparison.OrdinalIgnoreCase))
+                            {
+                                manualParams[key] = value;
+                            }
+                        }
+                        
+                        var sortedParams = manualParams
+                            .OrderBy(p => p.Key, StringComparer.Ordinal)
+                            .ToList();
+                        
+                        var queryString = string.Join("&", 
+                            sortedParams.Select(p => $"{p.Key}={p.Value}"));
+                        
+                        _logger.LogInformation("手動構築したクエリ文字列: {QueryString}", queryString);
+                        
+                        using (var hmacSha256 = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
+                        {
+                            var hashBytes = hmacSha256.ComputeHash(Encoding.UTF8.GetBytes(queryString));
+                            var computedHmac = BitConverter.ToString(hashBytes)
+                                .Replace("-", "")
+                                .ToLower();
+                            
+                            _logger.LogInformation("手動計算HMAC: {Computed}", computedHmac);
+                            _logger.LogInformation("受信HMAC: {Received}", hmac);
+                            _logger.LogInformation("手動検証一致: {Match}", string.Equals(computedHmac, hmac, StringComparison.OrdinalIgnoreCase));
+                        }
+                    }
+                }
+
+                return isValid;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "HMAC検証中にエラーが発生");
+                return false;
+            }
         }
 
         /// <summary>
@@ -888,7 +1017,10 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private class ShopifyTokenResponse
         {
+            [JsonPropertyName("access_token")]
             public string? AccessToken { get; set; }
+            
+            [JsonPropertyName("scope")]
             public string? Scope { get; set; }
         }
 

@@ -1,0 +1,81 @@
+### HMAC検証テスト用HTTPリクエスト集
+### Visual Studio Code の REST Client 拡張機能で使用可能
+
+@baseUrl = https://localhost:7088
+@apiKey = 2d7e0e1f5da14eb9d299aa746738e44b
+@apiSecret = be83457b1f63f4c9b20d3ea5e62b5ef0
+
+### 1. 設定確認
+GET {{baseUrl}}/api/shopify/test-settings
+Accept: application/json
+
+### 2. HMAC検証テスト - 全メソッド試行
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "code": "test_code_123",
+  "shop": "fuk-dev1.myshopify.com",
+  "state": "test_state_456",
+  "timestamp": "1736000000",
+  "hmac": "33c721b29d949236e1828688b57db5c22f9abfb1e7de79c74eaf2a26d4ab4394"
+}
+
+### 3. 実際のShopifyコールバックをシミュレート
+GET {{baseUrl}}/api/shopify/hmac-test/simulate-callback?code=test_code&shop=fuk-dev1.myshopify.com&state=test_state&timestamp=1736000000&hmac=test_hmac
+Accept: application/json
+
+### 4. process-callbackエンドポイントのテスト（開発環境でHMACスキップ）
+POST {{baseUrl}}/api/shopify/process-callback
+Content-Type: application/json
+
+{
+  "code": "test_auth_code",
+  "shop": "fuk-dev1.myshopify.com",
+  "state": "random_state_string",
+  "timestamp": "1736000000",
+  "hmac": "33c721b29d949236e1828688b57db5c22f9abfb1e7de79c74eaf2a26d4ab4394"
+}
+
+### 5. HMAC手動計算テスト
+# クエリ文字列: code=test&shop=test.myshopify.com&state=test&timestamp=1736000000
+# APIシークレット: be83457b1f63f4c9b20d3ea5e62b5ef0
+# 期待されるHMAC: (計算が必要)
+
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "code": "test",
+  "shop": "test.myshopify.com",
+  "state": "test",
+  "timestamp": "1736000000",
+  "hmac": "計算されたHMAC値をここに入力"
+}
+
+### 6. 追加パラメータありのテスト（実際のShopifyに近い）
+POST {{baseUrl}}/api/shopify/hmac-test/verify-all-methods
+Content-Type: application/json
+
+{
+  "code": "0907a61c0c8d55e99db179b68161bc00",
+  "shop": "fuk-dev1.myshopify.com",
+  "state": "0.6784241404160823",
+  "timestamp": "1337178173",
+  "hmac": "700e2dadb827fcc8609e9d5ce208b2e9cdaab9df07390d2cbca10d7c328fc4bf",
+  "additionalParams": {
+    "host": "fuk-dev1.myshopify.com"
+  }
+}
+
+### 7. 開発環境でのHMAC検証スキップ確認
+POST {{baseUrl}}/api/shopify/process-callback
+Content-Type: application/json
+
+{
+  "code": "dummy_code_for_dev",
+  "shop": "fuk-dev1.myshopify.com",
+  "state": "dummy_state",
+  "timestamp": "1736000000",
+  "hmac": "invalid_hmac_but_should_be_skipped_in_dev"
+}
