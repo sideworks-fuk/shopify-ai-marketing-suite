@@ -184,3 +184,41 @@ Yuki
 
 ---
 Yuki
+
+### Shopify管理画面サブメニュー実装完了 ✅✅✅
+
+**福田さんからの緊急追加タスクを完了しました！**
+
+**実装内容**:
+
+1. **技術調査** ✅
+   - @shopify/app-bridge-react v4.2.1のAPI変更を確認
+   - NavigationMenu → NavMenuへの変更に対応
+
+2. **基本実装（ShopifyNavigationMenu.tsx）** ✅
+   - NavMenuコンポーネントを使用した実装
+   - データ同期、前年同月比分析、購入回数分析、休眠顧客分析の4項目を追加
+   - エラーハンドリングとフォールバックUI実装
+
+3. **高度な実装（ShopifyNavigationAdvanced.tsx）** ✅
+   - useAppBridgeフックを使用
+   - Next.jsルーターとの統合
+   - 埋め込み環境の自動検出
+
+4. **ドキュメント作成** ✅
+   - 実装ガイド作成（/docs/04-development/shopify-navigation-implementation-2025-08-05.md）
+   - トラブルシューティングと今後の改善案を記載
+
+**技術的な発見**:
+- App Bridge v4では大幅なAPI変更があり、よりシンプルなHTML形式に
+- NavigationMenuコンポーネントは廃止され、NavMenuに置き換え
+- 標準的な`<a>`タグを使用する形式に変更
+
+**TypeScriptエラー**: なし（確認済み）
+
+**注意事項**:
+- Shopify埋め込み環境でのみ動作
+- 実際の動作確認にはShopify管理画面での検証が必要
+
+---
+Yuki

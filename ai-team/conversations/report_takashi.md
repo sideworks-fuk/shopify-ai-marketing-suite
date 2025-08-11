@@ -1,5 +1,43 @@
 # Takashiからの報告
 
+## 2025年8月5日 - Shopify管理画面サブメニュー調査完了
+
+### 調査結果
+Shopify管理画面のサブメニューについて調査した結果：
+
+1. **フロントエンドで既に実装済み**
+   - `/frontend/src/components/shopify/ShopifyNavigationMenu.tsx`で実装
+   - Shopify App Bridge ReactのNavigationMenuコンポーネントを使用
+
+2. **バックエンド側の設定は不要**
+   - ナビゲーションはフロントエンドが直接Shopify App Bridgeと通信
+   - shopify.app.tomlファイルは存在しない（このプロジェクトでは不要）
+
+3. **ドキュメント作成**
+   - `/backend/shopify-navigation-explanation.md`に詳細説明を記載
+   - 現在の実装方法と今後の拡張方法を文書化
+
+### データベースマイグレーション管理
+- マイグレーションスクリプトを`/docs/04-development/database-migrations/`にコピー
+- `database-migration-tracking.md`は既に更新済み（Kenjiさんが対応）
+
+## 2025年8月5日 - ビルドエラー修正完了
+
+### 修正内容
+- SetupControllerとSyncControllerでのビルドエラーを修正
+- `IStoreService.GetCurrentStoreAsync()`メソッドが存在しないエラーの対処
+
+### 修正方法
+1. 両コントローラーを`StoreAwareControllerBase`から継承するように変更
+2. `GetCurrentStoreAsync()`の代わりに、基底クラスの`StoreId`プロパティを使用
+3. DbContextから直接ストア情報を取得するように変更
+
+### セキュリティ強化
+- `GetSyncStatus`メソッドにセキュリティチェックを追加
+- 現在のストアIDと一致する同期状態のみアクセス可能に制限
+
+これでビルドエラーは解消され、マルチテナント対応のセキュアな実装になりました。
+
 ## 2025年8月5日 - 初期設定機能バックエンド実装完了
 
 ### 完了した作業

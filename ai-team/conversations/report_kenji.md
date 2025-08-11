@@ -1,5 +1,104 @@
 # Kenjiからの報告
 
+## 2025年8月11日（日）09:30 - リダイレクトエラー調査結果
+
+### 🔴 問題の原因を特定しました
+
+#### 主な原因
+インストール後にlocalhostにリダイレクトされる問題の原因を特定しました：
+
+1. **バックエンド側の設定問題**
+   - `ShopifyAuthController.cs`の`GetRedirectUri()`メソッドで、フロントエンドURLが正しく設定されていない
+   - デフォルト値が`http://localhost:3000`にハードコードされている
+
+2. **環境変数の設定不足**
+   - バックエンドの`Frontend:BaseUrl`が本番環境でも`localhost`を指している
+   - 環境変数`SHOPIFY_FRONTEND_BASEURL`が設定されていない
+
+### 📍 問題箇所の詳細
+
+#### 1. バックエンド：ShopifyAuthController.cs（51-69行目）
+```csharp
+private string GetRedirectUri()
+{
+    // 環境変数 → Shopify:Frontend:BaseUrl → Frontend:BaseUrl の順で検索
+    var frontendUrl = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL") ?? 
+                     _configuration["Shopify:Frontend:BaseUrl"] ?? 
+                     _configuration["Frontend:BaseUrl"];
+    
+    // デフォルト値がlocalhostになっている
+    return $"{frontendUrl}/api/shopify/callback";
+}
+```
+
+#### 2. 設定ファイル：appsettings.json（44-46行目）
+```json
+"Frontend": {
+    "BaseUrl": "http://localhost:3000"  // ここがlocalhostのまま
+}
+```
+
+#### 3. 設定ファイル：appsettings.Production.json（42-44行目）
+```json
+"Frontend": {
+    "BaseUrl": "https://brave-sea-038f17a00.1.azurestaticapps.net"  // 正しい値
+}
+```
+
+### ✅ 修正案
+
+#### 方法1: 環境変数の設定（推奨）
+Azure App Serviceの環境変数に以下を追加：
+```
+SHOPIFY_FRONTEND_BASEURL=https://brave-sea-038f17a00.1.azurestaticapps.net
+```
+
+#### 方法2: 設定ファイルの修正
+`appsettings.json`のデフォルト値を修正し、環境別に正しく設定：
+- Development: `http://localhost:3000`
+- Staging: `https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net`
+- Production: `https://brave-sea-038f17a00.1.azurestaticapps.net`
+
+### 🔍 追加の調査結果
+
+#### フロントエンド側
+- `.env.local`でも`NEXT_PUBLIC_FRONTEND_URL`がngrokのURLになっている
+- `environments.ts`でデフォルト値として`localhost`が使用されている（31行目）
+
+#### その他のハードコーディング
+以下のファイルにlocalhostが含まれています：
+- 各種HTTPテストファイル（問題なし）
+- CORS設定（許可リストに含まれているので問題なし）
+
+### 📋 推奨する対応手順
+
+1. **即座の対応（Azure Portal）**
+   - Azure App ServiceのApplication Settingsに環境変数を追加
+   - `SHOPIFY_FRONTEND_BASEURL`を設定
+
+2. **コードの修正**
+   - `appsettings.Production.json`の値が正しいことを確認（既に正しい）
+   - デプロイパイプラインで環境変数が正しく設定されることを確認
+
+3. **テスト**
+   - 設定変更後、インストールフローを再テスト
+   - リダイレクトURLが正しく生成されることを確認
+
+### 🎯 次のアクション
+
+Takashiさんと連携して：
+1. Azure App Serviceの環境変数を確認・設定
+2. デプロイパイプラインの環境変数設定を確認
+3. 修正後のテストを実施
+
+この問題は環境設定の問題なので、コード変更なしで解決可能です。
+
+---
+Kenji
+2025年8月11日 09:30
+
+---
+
 ## 2025年8月4日 報告
 
 ### 1. 本日の活動内容
