@@ -7,8 +7,40 @@ import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
  * 
  * @author YUKI
  * @date 2025-07-31
+ * @updated 2025-08-11
  * @description Shopify OAuth認証後のコールバック処理（ハイブリッド方式）
+ * 
+ * 修正内容:
+ * - localhost:8080へのリダイレクト問題を修正
+ * - 正しいホスト名を使用するよう改善
  */
+
+/**
+ * リクエストから正しいホスト名を取得
+ */
+function getCorrectHost(request: NextRequest): { host: string; protocol: string } {
+  // Azure Static Web Appsのヘッダーから取得を試みる
+  const xForwardedHost = request.headers.get('x-forwarded-host');
+  const xForwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  
+  // 優先順位:
+  // 1. x-forwarded-host (プロキシ経由の場合)
+  // 2. host ヘッダー
+  // 3. デフォルト値
+  const host = xForwardedHost || 
+               request.headers.get('host') || 
+               'brave-sea-038f17a00.1.azurestaticapps.net';
+  
+  console.log('🌐 ホスト情報:', {
+    xForwardedHost,
+    hostHeader: request.headers.get('host'),
+    selectedHost: host,
+    protocol: xForwardedProto
+  });
+  
+  return { host, protocol: xForwardedProto };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -31,7 +63,8 @@ export async function GET(request: NextRequest) {
     // 必須パラメータの検証
     if (!code || !shop || !state) {
       console.error('❌ 必須パラメータが不足:', { code: !!code, shop: !!shop, state: !!state });
-      return NextResponse.redirect(new URL('/auth/error?message=Missing%20required%20parameters', request.url));
+      const { host, protocol } = getCorrectHost(request);
+      return NextResponse.redirect(new URL('/auth/error?message=Missing%20required%20parameters', `${protocol}://${host}`));
     }
 
     // 環境設定からバックエンドAPIのURLを取得
@@ -91,7 +124,8 @@ export async function GET(request: NextRequest) {
     // バックエンドの応答を確認
     if (backendResponse.ok) {
       // 成功時: 認証成功ページにリダイレクト
-      const successUrl = new URL('/auth/success', request.url);
+      const { host, protocol } = getCorrectHost(request);
+      const successUrl = new URL('/auth/success', `${protocol}://${host}`);
       successUrl.searchParams.set('shop', shop);
       successUrl.searchParams.set('state', state);
       
@@ -102,7 +136,8 @@ export async function GET(request: NextRequest) {
       const errorMessage = await backendResponse.text();
       console.error('❌ バックエンドエラー:', errorMessage);
       
-      const errorUrl = new URL('/auth/error', request.url);
+      const { host, protocol } = getCorrectHost(request);
+      const errorUrl = new URL('/auth/error', `${protocol}://${host}`);
       errorUrl.searchParams.set('message', encodeURIComponent('Authentication failed'));
       errorUrl.searchParams.set('shop', shop);
       
@@ -121,8 +156,9 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // 予期しないエラー時
-    const errorUrl = new URL('/auth/error', request.url);
+    // 予期しないエラー時 - 正しいホストを使用
+    const { host, protocol } = getCorrectHost(request);
+    const errorUrl = new URL('/auth/error', `${protocol}://${host}`);
     errorUrl.searchParams.set('message', encodeURIComponent('Unexpected error occurred'));
     
     return NextResponse.redirect(errorUrl);
