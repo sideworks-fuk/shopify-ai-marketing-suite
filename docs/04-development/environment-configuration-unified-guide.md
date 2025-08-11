@@ -157,8 +157,8 @@ npm run dev
     "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=ShopifyTestDB;Trusted_Connection=True;"
   },
   "Shopify": {
-    "ClientId": "your_dev_client_id",
-    "ClientSecret": "your_dev_client_secret",
+    "ApiKey": "your_dev_api_key",
+    "ApiSecret": "your_dev_api_secret",
     "WebhookSecret": "your_dev_webhook_secret"
   },
   "Frontend": {

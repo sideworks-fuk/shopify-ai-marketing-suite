@@ -429,3 +429,87 @@ catch節の`e`が`unknown`型のため、`.message`にアクセスできませ�
 中（デモには影響しないが、型安全性のため修正推奨）
 
 よろしくお願いします！
+
+---
+
+## 2025年8月11日 13:40 - Kenjiより【Shopify APIクリーンアップ関連】
+
+Yukiさん、追加でShopify APIクリーンアップに関する確認をお願いします。
+
+### 完了事項の共有
+
+フロントエンドのShopify API関連のクリーンアップを実施しました：
+
+1. **削除済みファイル**
+   - `frontend/src/lib/shopify.ts` - 本日削除完了（266行のコード）
+   - `frontend/src/app/api/shopify/products/route.ts` - 削除済み
+   - `frontend/src/app/api/shopify/customers/route.ts` - 削除済み
+   - `frontend/src/app/api/shopify/orders/route.ts` - 削除済み
+
+2. **保持しているファイル**
+   - `frontend/src/lib/shopify-deprecated.ts` - 型定義のみ（参照用）
+
+### 確認作業のお願い
+
+#### 1. importチェック（優先度：高）
+
+以下のコマンドで、古いShopify関連のimportが残っていないか確認してください：
+
+```bash
+# shopify.tsのimportチェック
+grep -r "from.*['\"].*\/shopify['\"]" frontend/src/
+
+# shopify-deprecatedの使用状況確認
+grep -r "shopify-deprecated" frontend/src/
+
+# Shopify API関連の直接呼び出しチェック
+grep -r "ShopifyAPI" frontend/src/
+grep -r "calculatePurchaseFrequency" frontend/src/
+grep -r "calculateCustomerSegments" frontend/src/
+grep -r "calculateSalesMetrics" frontend/src/
+```
+
+#### 2. 特に確認が必要なディレクトリ
+
+以下のディレクトリ内のコンポーネントを重点的に確認してください：
+
+- `/src/components/dashboards/`
+  - CustomerDashboard.tsx
+  - SalesDashboard.tsx
+  - DormantCustomerAnalysis.tsx
+  - その他の分析系コンポーネント
+
+- `/src/app/`の各ページ
+  - sales/配下のページ
+  - customers/配下のページ
+  - purchase/配下のページ
+
+#### 3. 環境変数の確認
+
+フロントエンド側でShopify API関連の環境変数が使用されていないか確認：
+
+```bash
+# .envファイルでShopify API関連の変数をチェック
+grep -i "shopify_api" frontend/.env*
+grep -i "shopify_secret" frontend/.env*
+```
+
+### 発見した問題の報告方法
+
+もし古いimportや問題を発見した場合：
+
+1. `report_yuki.md`に詳細を記載
+2. 影響範囲と修正方法を提案
+3. 緊急度が高い場合は`to_all.md`にも共有
+
+### 期待される結果
+
+- 古いShopify関連のimportが一切ない状態
+- すべてのShopifyデータ取得がバックエンドAPI経由
+- フロントエンドにShopify APIキーなどの機密情報が含まれていない
+
+よろしくお願いします！
+
+---
+Kenji
+2025年8月11日 13:40

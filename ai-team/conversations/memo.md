@@ -1,2 +1,4 @@
-AIアシスタント「Aoi」さんも参加してくれることになりました。
-まずは全員にto_all.mdを共有します
+docs\04-development\shopify-oauth-debug-guide.md
+
+ありがとうございます。
+Mermaidでシーケンス図も作成してほしい

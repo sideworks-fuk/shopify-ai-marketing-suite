@@ -245,3 +245,94 @@ HttpContextからstoreIdを取得して、既存の`GetStoreByIdAsync`を使う�
 エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	38	
 エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	70	
 エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SyncController.cs	42	
+
+---
+
+## 2025年8月11日 13:45 - Kenjiより【Shopify APIクリーンアップ確認】
+
+Takashiさん、バックエンドAPIの動作確認をお願いします。
+
+### 背景
+
+フロントエンドのShopify API関連ファイルのクリーンアップが完了しました：
+
+1. **削除したファイル**
+   - `frontend/src/lib/shopify.ts` - 本日削除（未使用だったため）
+   - `frontend/src/app/api/shopify/products/route.ts` - 削除済み
+   - `frontend/src/app/api/shopify/customers/route.ts` - 削除済み
+   - `frontend/src/app/api/shopify/orders/route.ts` - 削除済み
+
+2. **現在の構成**
+   - すべてのShopifyデータ取得はバックエンドAPI経由に統一
+   - フロントエンドから直接Shopify APIを呼び出さない設計
+
+### 確認作業のお願い
+
+#### 1. APIエンドポイントの動作確認（優先度：高）
+
+以下のエンドポイントが正常に動作することを確認してください：
+
+```bash
+# ヘルスチェック
+GET /api/health
+
+# 商品データ
+GET /api/products
+GET /api/products/{id}
+
+# 顧客データ
+GET /api/customers
+GET /api/customers/{id}
+GET /api/customers/dormant
+
+# 注文データ
+GET /api/orders
+GET /api/orders/{id}
+
+# 分析系API
+GET /api/analytics/year-over-year
+GET /api/analytics/purchase-frequency
+GET /api/analytics/customer-segments
+```
+
+#### 2. データフロー確認
+
+以下の流れが正しく機能することを確認：
+
+1. フロントエンド → バックエンドAPI（JWT認証付き）
+2. バックエンドAPI → Shopify API（APIキー認証）
+3. Shopify API → バックエンドAPI（データ取得）
+4. バックエンドAPI → データベース（キャッシュ）
+5. バックエンドAPI → フロントエンド（レスポンス）
+
+#### 3. 環境変数の確認
+
+バックエンド側で以下の環境変数が正しく設定されているか確認：
+
+```
+# Shopify API関連
+SHOPIFY_API_KEY
+SHOPIFY_API_SECRET
+SHOPIFY_ACCESS_TOKEN
+
+# フロントエンドURL（リダイレクト用）
+SHOPIFY_FRONTEND_BASEURL
+```
+
+### 問題があった場合
+
+1. エラーの詳細を`report_takashi.md`に記載
+2. 修正が必要な場合は見積もり時間を提示
+3. フロントエンドとの連携が必要な場合は`to_yuki.md`に記載
+
+### 期待される結果
+
+- すべてのAPIエンドポイントが正常に動作
+- Shopifyからのデータ取得が問題なく行える
+- フロントエンドからのAPI呼び出しが成功する
+
+よろしくお願いします！
+
+---
+Kenji
+2025年8月11日 13:45

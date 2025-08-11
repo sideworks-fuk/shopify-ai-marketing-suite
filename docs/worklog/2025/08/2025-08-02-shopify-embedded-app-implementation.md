@@ -40,7 +40,7 @@
 5. 認証済みリクエストの処理
 
 ### 3. 設定更新
-- **appsettings.json**: Shopify ClientId/ClientSecretの追加
+- **appsettings.json**: Shopify ApiKey/ApiSecretの追加
 - **Program.cs**: ShopifyEmbeddedAppMiddlewareの登録
 - **ngrok URL**: 80dea80da890に更新
 

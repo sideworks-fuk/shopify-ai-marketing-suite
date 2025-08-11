@@ -99,8 +99,8 @@ SHOPIFY_API_SECRET=your_api_secret
     "BaseUrl": "https://your-frontend.ngrok.io"
   },
   "Shopify": {
-    "ClientId": "your_api_key",
-    "ClientSecret": "your_api_secret"
+    "ApiKey": "your_api_key",
+    "ApiSecret": "your_api_secret"
   }
 }
 ```
@@ -182,7 +182,7 @@ public IActionResult Install(string shop, string redirect_uri)
 {
     var state = GenerateRandomState();
     var authUrl = $"https://{shop}/admin/oauth/authorize?" +
-        $"client_id={_shopifySettings.ClientId}&" +
+        $"client_id={_shopifySettings.ApiKey}&" +
         $"scope={_shopifySettings.Scopes}&" +
         $"redirect_uri={redirect_uri}&" +
         $"state={state}";

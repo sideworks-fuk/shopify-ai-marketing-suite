@@ -1,4 +1,4 @@
-# 2025年8月11日 作業ログ - Kenji
+# 2025年8月10日 作業ログ - Kenji
 
 ## 概要
 福田さんからの指示に基づき、週末作業を開始。最優先課題はインストール後のlocalhostリダイレクトエラーの調査と修正。
@@ -82,6 +82,29 @@
 - 各メンバーの進捗確認
 - 明日以降の作業計画策定
 
+## 13:30 - Shopify APIクリーンアップ状況確認
+
+### 完了済みタスク
+1. **APIルートファイル削除（完了）**
+   - frontend/src/app/api/shopify/products/route.ts - 削除済み
+   - frontend/src/app/api/shopify/customers/route.ts - 削除済み
+   - frontend/src/app/api/shopify/orders/route.ts - 削除済み
+
+2. **非推奨ライブラリ作成（完了）**
+   - frontend/src/lib/shopify-deprecated.ts - 作成済み（型定義のみ保持）
+
+### 未完了タスク
+1. **shopify.tsファイルの処理**
+   - 現状：まだ存在している（266行のコード）
+   - 内容：ShopifyAPIクラスと型定義、ユーティリティ関数
+   - 使用状況：現在どのコンポーネントからも使用されていない（Grepで確認済み）
+   - 対応：削除可能
+
+### クリーンアップ実施内容
+1. shopify.tsファイルを削除
+2. 環境変数の最終確認と整理
+3. チームメンバーへの完了報告
+
 ---
 作成: Kenji
-最終更新: 2025年8月11日 09:15
+最終更新: 2025年8月11日 13:30
