@@ -18,6 +18,12 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(255)]
         public string? Domain { get; set; }
         
+        /// <summary>
+        /// ShopifyのショップURL（例：example.myshopify.com）
+        /// </summary>
+        [NotMapped]
+        public string? ShopUrl => Domain;
+        
         [MaxLength(100)]
         public string? ShopifyShopId { get; set; }
         
@@ -136,6 +142,7 @@ namespace ShopifyAnalyticsApi.Models
         public string? Industry { get; set; }  // 業種名 (分析用)
         
         // システム管理用
+        public bool IsActive { get; set; } = true;  // アクティブ状態
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
@@ -183,6 +190,17 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(50)]
         public string OrderNumber { get; set; } = string.Empty;
         
+        // Shopify Order ID
+        [MaxLength(50)]
+        public string? ShopifyOrderId { get; set; }
+        
+        // Shopify Customer ID
+        [MaxLength(50)]
+        public string? ShopifyCustomerId { get; set; }
+        
+        [MaxLength(255)]
+        public string? Email { get; set; }
+        
         [ForeignKey("Customer")]
         public int CustomerId { get; set; }
         
@@ -195,6 +213,10 @@ namespace ShopifyAnalyticsApi.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal TaxPrice { get; set; }
         
+        // TotalTaxプロパティ（Shopify互換性のため）
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalTax { get; set; }
+        
         [MaxLength(50)]
         public string Currency { get; set; } = "JPY";
         
@@ -203,6 +225,9 @@ namespace ShopifyAnalyticsApi.Models
         
         [MaxLength(50)]
         public string FinancialStatus { get; set; } = "pending";
+        
+        [MaxLength(50)]
+        public string? FulfillmentStatus { get; set; }
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -241,6 +266,10 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(255)]
         public string? Handle { get; set; }  // Shopify商品ハンドル
         
+        // Shopify Product ID
+        [MaxLength(50)]
+        public string? ShopifyProductId { get; set; }
+        
         [MaxLength(1000)]
         public string? Description { get; set; }
         
@@ -260,6 +289,10 @@ namespace ShopifyAnalyticsApi.Models
         
         // ナビゲーションプロパティ
         public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+        
+        // エイリアス（後方互換性のため）
+        [NotMapped]
+        public ICollection<ProductVariant> ProductVariants => Variants;
         // OrderItemは商品情報のスナップショットを保存するため、ナビゲーションプロパティは不要
         // public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
@@ -274,6 +307,13 @@ namespace ShopifyAnalyticsApi.Models
         
         [ForeignKey("Product")]
         public int ProductId { get; set; }
+        
+        // Shopify Variant ID
+        [MaxLength(50)]
+        public string? ShopifyVariantId { get; set; }
+        
+        [MaxLength(255)]
+        public string? Title { get; set; }
         
         [MaxLength(100)]
         public string? Sku { get; set; }
@@ -340,8 +380,22 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(50)]
         public string? ProductId { get; set; }  // Shopify Product ID for reference
         
+        // Shopify IDs
+        [MaxLength(50)]
+        public string? ShopifyLineItemId { get; set; }
+        
+        [MaxLength(50)]
+        public string? ShopifyProductId { get; set; }
+        
+        [MaxLength(50)]
+        public string? ShopifyVariantId { get; set; }
+        
         [MaxLength(255)]
         public string ProductTitle { get; set; } = string.Empty;
+        
+        // Titleプロパティ（Shopify互換性のため）
+        [MaxLength(255)]
+        public string? Title { get; set; }
         
         [MaxLength(255)]
         public string? ProductHandle { get; set; }

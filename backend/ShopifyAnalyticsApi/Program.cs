@@ -140,7 +140,11 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 
 // Register Shopify Data Sync Service (Shopifyデータ同期サービス)
+builder.Services.AddScoped<ShopifyApiService>();
 builder.Services.AddScoped<ShopifyDataSyncService>();
+
+// HttpClient Factory登録（Shopify API呼び出し用）
+builder.Services.AddHttpClient();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];

@@ -32,7 +32,7 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 var config = new
                 {
-                    apiKey = _configuration["Shopify:ClientId"] ?? "",
+                    apiKey = _configuration["Shopify:ApiKey"] ?? "",
                     host = Request.Headers["X-Shopify-Shop-Domain"].ToString(),
                     forceRedirect = true,
                     storeId = this.StoreId,

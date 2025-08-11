@@ -72,7 +72,7 @@ namespace ShopifyAnalyticsApi.Middleware
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var shopifySecret = _configuration["Shopify:ClientSecret"];
+                var shopifySecret = _configuration["Shopify:ApiSecret"];
                 
                 if (string.IsNullOrEmpty(shopifySecret))
                 {
@@ -89,7 +89,7 @@ namespace ShopifyAnalyticsApi.Middleware
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero,
                     // Shopifyのトークンは "dest" (destination) と "aud" (audience) を使用
-                    ValidAudience = _configuration["Shopify:ClientId"],
+                    ValidAudience = _configuration["Shopify:ApiKey"],
                     ValidIssuer = null // Shopifyはissuerを含まない場合がある
                 };
 
