@@ -40,35 +40,6 @@ jobs:
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
         echo "Timestamp: $(date)"
 
-    - name: 🔧 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
-
-    - name: 📦 Install dependencies
-      run: |
-        cd frontend
-        npm ci --legacy-peer-deps
-        echo "✅ Dependencies installed"
-
-    - name: 🔍 Run type check
-      run: |
-        cd frontend
-        npm run type-check || true
-        echo "✅ Type check completed"
-
-    - name: 🏗️ Build application
-      run: |
-        cd frontend
-        npm run build
-        echo "✅ Build completed"
-      env:
-        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
-        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-        NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
-
     - name: 🚀 Deploy to Azure Static Web Apps
       uses: Azure/static-web-apps-deploy@v1
       with:
@@ -77,7 +48,12 @@ jobs:
         action: 'upload'
         app_location: ${{ env.APP_LOCATION }}
         output_location: ${{ env.OUTPUT_LOCATION }}
-        skip_app_build: true
+        app_build_command: 'npm run build'
+      env:
+        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
+        NODE_VERSION: 20
 
     - name: ✅ Deployment complete
       run: |

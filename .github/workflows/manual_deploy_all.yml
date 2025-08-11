@@ -86,27 +86,6 @@ jobs:
         echo "Environment: ${{ github.event.inputs.environment }}"
         echo "Message: ${{ github.event.inputs.deploy_message }}"
 
-    - name: 🔧 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
-
-    - name: 📦 Install dependencies
-      run: |
-        cd frontend
-        npm ci --legacy-peer-deps
-
-    - name: 🏗️ Build application
-      run: |
-        cd frontend
-        npm run build
-      env:
-        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
-        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-        NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
-
     - name: 🚀 Deploy to Azure Static Web Apps
       uses: Azure/static-web-apps-deploy@v1
       with:
@@ -115,7 +94,12 @@ jobs:
         action: 'upload'
         app_location: '/frontend'
         output_location: '.next'
-        skip_app_build: true
+        app_build_command: 'npm run build'
+      env:
+        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
+        NODE_VERSION: 20
 
     - name: ✅ Frontend deployment complete
       run: echo "✅ Frontend deployed successfully!"
