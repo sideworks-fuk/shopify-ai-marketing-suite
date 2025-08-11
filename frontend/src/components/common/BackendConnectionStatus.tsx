@@ -87,7 +87,7 @@ export function BackendConnectionStatus() {
             <div className="text-sm space-y-1">
               <p>対処方法:</p>
               <ul className="list-disc list-inside pl-2">
-                <li>バックエンドサーバー（http://localhost:7088）を起動</li>
+                <li>バックエンドサーバー（{getApiUrl()}）を起動</li>
                 <li>ターミナルで <code className="bg-gray-100 px-1">dotnet run</code> を実行</li>
                 <li><a href="/dev/backend-health-check" className="underline">ヘルスチェック</a>で詳細確認</li>
               </ul>

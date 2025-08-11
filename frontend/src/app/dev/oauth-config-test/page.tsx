@@ -338,8 +338,8 @@ export default function OAuthConfigTestPage() {
                 <pre className="text-sm text-gray-700">
 {`# .env.local
 NEXT_PUBLIC_ENVIRONMENT=development
-NEXT_PUBLIC_API_URL=http://localhost:5000
-BACKEND_API_URL=http://localhost:5000`}
+NEXT_PUBLIC_API_URL=${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}
+BACKEND_API_URL=${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}`}
                 </pre>
               </div>
             </div>
@@ -356,7 +356,7 @@ BACKEND_API_URL=http://localhost:5000`}
     "EncryptionKey": "your-32-byte-base64-key"
   },
   "Frontend": {
-    "BaseUrl": "http://localhost:3000"
+    "BaseUrl": "${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}"
   }
 }`}
                 </pre>

@@ -53,12 +53,27 @@ export const getApiUrl = () => {
   console.log('  - Current Environment:', currentEnv);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
+  console.log('  - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+  console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+  console.log('  - NEXT_PUBLIC_USE_HTTPS:', process.env.NEXT_PUBLIC_USE_HTTPS);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT (build time):', buildInfo.nextPublicEnvironment);
   console.log('  - NODE_ENV (build time):', buildInfo.nodeEnv);
   console.log('  - Is Build Time Set:', buildInfo.isBuildTimeSet);
   console.log('  - API Base URL:', config.apiBaseUrl);
   console.log('  - Environment Name:', config.name);
   console.log('  - Is Production:', config.isProduction);
+  
+  // 最優先: NEXT_PUBLIC_BACKEND_URLが設定されている場合
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    console.log('✅ Using NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
+  
+  // 環境変数で明示的にAPI URLが指定されている場合
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
   
   // ローカル開発環境の特別処理
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -77,12 +92,6 @@ export const getApiUrl = () => {
     console.log('⚠️ ローカル開発環境検出 - HTTPを使用:', httpUrl);
     console.log('💡 HTTPSを使用する場合は、.env.localに NEXT_PUBLIC_USE_HTTPS=true を設定してください');
     return httpUrl;
-  }
-  
-  // 環境変数で明示的にAPI URLが指定されている場合はそれを優先
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
-    return process.env.NEXT_PUBLIC_API_URL;
   }
   
   // Azure Static Web Appsの検出（本番環境）- 最優先

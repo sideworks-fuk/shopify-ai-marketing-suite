@@ -11,11 +11,23 @@ export default function BackendHealthCheck() {
   const [results, setResults] = useState<{[key: string]: any}>({})
   const [isLoading, setIsLoading] = useState(false)
 
-  const endpoints = [
-    { name: 'HTTP Health Check', url: 'http://localhost:7088/api/health', method: 'GET' },
-    { name: 'HTTPS Health Check', url: 'https://localhost:7088/api/health', method: 'GET' },
-    { name: 'HTTP Auth Token', url: 'http://localhost:7088/api/auth/token', method: 'POST' },
-    { name: 'HTTPS Auth Token', url: 'https://localhost:7088/api/auth/token', method: 'POST' },
+  // バックエンドURLの設定
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+  const isHttps = backendUrl.startsWith('https://')
+  
+  // 環境変数に基づいて適切なプロトコルのエンドポイントのみを使用
+  const endpoints = isHttps ? [
+    { name: 'Health Check (HTTPS)', url: `${backendUrl}/api/health`, method: 'GET' },
+    { name: 'Auth Token (HTTPS)', url: `${backendUrl}/api/auth/token`, method: 'POST' },
+  ] : [
+    { name: 'Health Check (HTTP)', url: `${backendUrl}/api/health`, method: 'GET' },
+    { name: 'Auth Token (HTTP)', url: `${backendUrl}/api/auth/token`, method: 'POST' },
+  ]
+  
+  // デバッグ用：両方のプロトコルをテストする追加エンドポイント（オプション）
+  const debugEndpoints = [
+    { name: 'Debug: HTTP Health', url: `http://localhost:${backendUrl.split(':').pop()?.replace('/', '')}/api/health`, method: 'GET' },
+    { name: 'Debug: HTTPS Health', url: `https://localhost:${backendUrl.split(':').pop()?.replace('/', '')}/api/health`, method: 'GET' },
   ]
 
   const checkEndpoint = async (endpoint: typeof endpoints[0]) => {
@@ -104,8 +116,11 @@ export default function BackendHealthCheck() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              このツールはバックエンドサーバーの接続状態を確認します。
-              HTTPとHTTPSの両方をテストして、接続問題を特定できます。
+              <div className="space-y-2">
+                <p>このツールはバックエンドサーバーの接続状態を確認します。</p>
+                <p className="font-semibold">現在の設定: {backendUrl}</p>
+                <p className="text-xs text-gray-600">プロトコル: {isHttps ? 'HTTPS' : 'HTTP'}</p>
+              </div>
             </AlertDescription>
           </Alert>
 
@@ -199,16 +214,18 @@ export default function BackendHealthCheck() {
             })}
           </div>
 
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>💡 ヒント:</strong> HTTPSでエラーが出る場合は、ブラウザで直接 
-              <a href="https://localhost:7088" target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline">
-                https://localhost:7088
-              </a> 
-              にアクセスして証明書を受け入れてください。
-            </AlertDescription>
-          </Alert>
+          {isHttps && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>💡 ヒント:</strong> HTTPSでエラーが出る場合は、ブラウザで直接 
+                <a href={backendUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-blue-600 underline">
+                  {backendUrl}
+                </a> 
+                にアクセスして証明書を受け入れてください。
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
     </div>

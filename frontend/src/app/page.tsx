@@ -644,8 +644,8 @@ export default function DevBookmarksPage() {
                   <h4 className="font-medium text-orange-900">テスト用データ</h4>
                   <div className="text-sm space-y-1">
                     <div><span className="font-medium">テストストア:</span> fuk-dev1.myshopify.com</div>
-                    <div><span className="font-medium">開発環境:</span> http://localhost:3000</div>
-                    <div><span className="font-medium">バックエンド:</span> http://localhost:5000</div>
+                    <div><span className="font-medium">開発環境:</span> {process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}</div>
+                    <div><span className="font-medium">バックエンド:</span> {process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}</div>
                   </div>
                 </div>
                 <div className="space-y-2">

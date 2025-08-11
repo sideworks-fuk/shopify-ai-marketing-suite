@@ -6,7 +6,7 @@ import {
   calculatePurchaseFrequency,
   calculateCustomerSegments,
   calculateSalesMetrics,
-} from "../lib/shopify"
+} from "../lib/shopify-deprecated"
 
 // 統一エラーハンドリング統合
 import { handleError, handleApiError } from "../lib/error-handler"

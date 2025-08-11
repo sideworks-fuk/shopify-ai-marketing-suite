@@ -5,7 +5,7 @@ import {
   calculatePurchaseFrequency,
   calculateCustomerSegments,
   calculateSalesMetrics,
-} from "./shopify"
+} from "./shopify-deprecated"
 
 export interface AnalyticsData {
   salesMetrics: {
@@ -132,14 +132,14 @@ export class DataService {
 
     // Collect product names from orders
     orders.forEach((order) => {
-      order.line_items.forEach((item) => {
+      order.line_items.forEach((item: any) => {
         productNames.set(item.product_id, item.title)
       })
     })
 
     // Calculate frequency distribution for each product
-    purchaseFrequency.forEach((customerProducts, customerId) => {
-      customerProducts.forEach((quantity, productId) => {
+    purchaseFrequency.forEach((customerProducts: Map<string, number>, customerId: string) => {
+      customerProducts.forEach((quantity: number, productId: string) => {
         if (!productFrequency.has(productId)) {
           productFrequency.set(productId, new Map())
         }
