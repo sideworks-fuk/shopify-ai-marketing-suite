@@ -18,7 +18,6 @@ on:
         type: string
 
 env:
-  AZURE_WEBAPP_NAME: shopifyapp-backend-develop
   AZURE_WEBAPP_PACKAGE_PATH: './backend/ShopifyAnalyticsApi'
   DOTNET_VERSION: '8.x'
 
@@ -35,6 +34,20 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 🔧 Set deployment target
+      id: deploy_target
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          echo "app_name=shopifyapp-backend-develop" >> $GITHUB_OUTPUT
+          echo "app_url=https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
+          echo "publish_profile=AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7" >> $GITHUB_OUTPUT
+        else
+          echo "app_name=ShopifyTestApi20250720173320" >> $GITHUB_OUTPUT
+          echo "app_url=https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
+          echo "publish_profile=AZURE_WEBAPP_PUBLISH_PROFILE" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
 
     - name: 📝 Display deployment info
       run: |
@@ -56,17 +69,26 @@ jobs:
       run: dotnet publish -c Release -o ./published
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-    - name: 🚀 Deploy to Azure App Service
+    - name: 🚀 Deploy to Azure App Service (Production)
+      if: github.event.inputs.environment == 'production'
       uses: azure/webapps-deploy@v3
       with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-name: shopifyapp-backend-develop
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/published
+
+    - name: 🚀 Deploy to Azure App Service (Dev/Staging)
+      if: github.event.inputs.environment != 'production'
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ShopifyTestApi20250720173320
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/published
 
     - name: ✅ Deployment complete
       run: |
         echo "✅ Backend deployment completed successfully!"
-        echo "🌐 App URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
+        echo "🌐 App URL: ${{ steps.deploy_target.outputs.app_url }}"
         echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
@@ -75,7 +97,7 @@ jobs:
         Start-Sleep -Seconds 30
         echo "Performing health check..."
         try {
-          $response = Invoke-WebRequest -Uri "https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/api/health" -UseBasicParsing
+          $response = Invoke-WebRequest -Uri "${{ steps.deploy_target.outputs.app_url }}api/health" -UseBasicParsing
           if ($response.StatusCode -eq 200) {
             echo "✅ Health check passed!"
           } else {
