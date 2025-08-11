@@ -18,7 +18,7 @@ on:
         type: string
 
 env:
-  AZURE_WEBAPP_NAME: shopifytestapi20250720173320-aed5bhc0cferg2hm
+  AZURE_WEBAPP_NAME: shopifyapp-backend-develop
   AZURE_WEBAPP_PACKAGE_PATH: './backend/ShopifyAnalyticsApi'
   DOTNET_VERSION: '8.x'
 
@@ -66,7 +66,7 @@ jobs:
     - name: ✅ Deployment complete
       run: |
         echo "✅ Backend deployment completed successfully!"
-        echo "🌐 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        echo "🌐 App URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
         echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
@@ -75,7 +75,7 @@ jobs:
         Start-Sleep -Seconds 30
         echo "Performing health check..."
         try {
-          $response = Invoke-WebRequest -Uri "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health" -UseBasicParsing
+          $response = Invoke-WebRequest -Uri "https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/api/health" -UseBasicParsing
           if ($response.StatusCode -eq 200) {
             echo "✅ Health check passed!"
           } else {

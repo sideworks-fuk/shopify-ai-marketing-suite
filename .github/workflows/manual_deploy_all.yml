@@ -63,7 +63,7 @@ jobs:
     - name: 🚀 Deploy to Azure App Service
       uses: azure/webapps-deploy@v3
       with:
-        app-name: shopifytestapi20250720173320-aed5bhc0cferg2hm
+        app-name: shopifyapp-backend-develop
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
         package: ./backend/ShopifyAnalyticsApi/published
 
@@ -123,5 +123,5 @@ jobs:
         echo ""
         echo "🔗 URLs:"
         echo "Frontend: https://brave-sea-038f17a00.1.azurestaticapps.net"
-        echo "Backend: https://shopifytestapi20250720173320-aed5bhc0cferg2hm.azurewebsites.net"
+        echo "Backend: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
         echo "========================================="
