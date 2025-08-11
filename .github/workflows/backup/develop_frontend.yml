@@ -1,0 +1,147 @@
+name: フロント開発環境　Azure Static Web Apps (Development)
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches: [ main, develop, staging ]
+    paths:
+      - 'frontend/**'
+  # 手動実行機能を追加
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'Production'
+        type: choice
+        options:
+          - Production
+          - staging
+          - development
+      force_rebuild:
+        description: '強制リビルド'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get build info
+      id: build_info
+      run: |
+        echo "build_number=${{ github.run_number }}" >> $GITHUB_OUTPUT
+        echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+        echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+    - name: Set deployment environment
+      id: env
+      run: |
+        # mainブランチの場合は常にProduction環境にデプロイ
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "deployment_environment=" >> $GITHUB_OUTPUT
+          echo "environment_name=Production" >> $GITHUB_OUTPUT
+          echo "next_public_environment=production" >> $GITHUB_OUTPUT
+        # stagingブランチの場合はstaging環境にデプロイ
+        elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+          echo "deployment_environment=staging" >> $GITHUB_OUTPUT
+          echo "environment_name=staging" >> $GITHUB_OUTPUT
+          echo "next_public_environment=staging" >> $GITHUB_OUTPUT
+        # 手動実行の場合は指定された環境を使用
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event.inputs.environment }}" = "Production" ]; then
+            echo "deployment_environment=" >> $GITHUB_OUTPUT
+            echo "environment_name=Production" >> $GITHUB_OUTPUT
+            echo "next_public_environment=production" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+            echo "deployment_environment=staging" >> $GITHUB_OUTPUT
+            echo "environment_name=staging" >> $GITHUB_OUTPUT
+            echo "next_public_environment=staging" >> $GITHUB_OUTPUT
+          else
+            echo "deployment_environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "environment_name=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "next_public_environment=development" >> $GITHUB_OUTPUT
+          fi
+        # その他のブランチはdevelopment環境
+        else
+          echo "deployment_environment=development" >> $GITHUB_OUTPUT
+          echo "environment_name=development" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
+        fi
+        
+        # 環境設定の整合性確認（変数を直接参照）
+        echo "🔍 Environment Configuration:"
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "  NEXT_PUBLIC_ENVIRONMENT: production"
+          echo "  Deployment Target: Production"
+        elif [ "${{ github.ref }}" = "refs/heads/staging" ]; then
+          echo "  NEXT_PUBLIC_ENVIRONMENT: staging"
+          echo "  Deployment Target: staging"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.environment }}" = "Production" ]; then
+          echo "  NEXT_PUBLIC_ENVIRONMENT: production"
+          echo "  Deployment Target: Production"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "  NEXT_PUBLIC_ENVIRONMENT: staging"
+          echo "  Deployment Target: staging"
+        else
+          echo "  NEXT_PUBLIC_ENVIRONMENT: development"
+          echo "  Deployment Target: development"
+        fi
+        echo "  Note: Next.js will automatically set NODE_ENV=production during build"
+
+    - name: Deploy to Azure Static Web Apps
+      id: builddeploy
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: "upload"
+        app_location: "/frontend"
+        api_location: ""
+        output_location: ".next"
+        # 修正: mainブランチの場合はdeployment_environmentを空にして本番環境にデプロイ
+        # その他のブランチはプレビュー環境にデプロイ
+        deployment_environment: ${{ steps.env.outputs.deployment_environment }}
+        # 環境変数をAzure Static Web Appsに渡す
+        app_build_command: "npm run build"
+        api_build_command: ""
+      # ビルド時の環境変数を設定
+      env:
+        NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
+        NEXT_PUBLIC_BUILD_NUMBER: ${{ steps.build_info.outputs.build_number }}
+        NEXT_PUBLIC_GIT_COMMIT: ${{ steps.build_info.outputs.git_commit }}
+        NEXT_PUBLIC_GIT_BRANCH: ${{ steps.build_info.outputs.git_branch }}
+        NEXT_PUBLIC_BUILD_DATE: ${{ steps.build_info.outputs.build_date }}
+        # Azure Static Web Appsで設定された環境変数を使用するためのプレースホルダー
+        # これらの値はAzure Portalで設定された値に置き換えられます
+        NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL || 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net' }}
+        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net' }}
+
+    - name: Deploy Status
+      run: |
+        echo "✅ デプロイ完了: ${{ steps.builddeploy.outputs.app_url }}"
+        echo "🌐 環境: ${{ steps.env.outputs.environment_name }}"
+        echo "🔧 デプロイ先環境: ${{ steps.env.outputs.deployment_environment == '' && 'Production (本番環境)' || format('Preview ({0})', steps.env.outputs.deployment_environment) }}"
+        echo "📦 ビルドID: ${{ steps.builddeploy.outputs.build_id }}"
+        echo "🔢 ビルド番号: ${{ steps.build_info.outputs.build_number }}"
+        echo "📅 ビルド日時: ${{ steps.build_info.outputs.build_date }}"
+        echo "🌿 ブランチ: ${{ github.ref_name }}"
+        echo "🔍 イベントタイプ: ${{ github.event_name }}"
+
+    # 開発・ステージング環境でデバッグ情報を出力（セキュリティ強化）
+    - name: Debug info (non-production only)
+      if: steps.env.outputs.next_public_environment != 'production'
+      run: |
+        echo "🔧 環境設定情報:"
+        echo "  - 環境: ${{ steps.env.outputs.next_public_environment }}"
+        echo "  - デプロイ先: ${{ steps.env.outputs.deployment_environment }}"
+        echo "  - Note: NODE_ENV is automatically set to 'production' by Next.js during build"

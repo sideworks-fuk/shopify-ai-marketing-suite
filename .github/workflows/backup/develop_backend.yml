@@ -1,0 +1,101 @@
+name: バックエンド開発環境　Azure Web App CI/CD (プレビュー)
+
+on:
+  # 自動デプロイ（developブランチへのプッシュ時）
+  push:
+    branches:
+      - develop
+    paths:
+      - 'backend/**'
+  
+  # 手動デプロイ（GitHub画面上から実行可能）
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+      force_rebuild:
+        description: '強制リビルド'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore dependencies
+        run: |
+          cd backend/ShopifyAnalyticsApi
+          dotnet restore
+
+      - name: Build with dotnet
+        run: |
+          cd backend/ShopifyAnalyticsApi
+          dotnet build --configuration Release --no-restore
+
+      - name: Publish with dotnet
+        run: |
+          cd backend/ShopifyAnalyticsApi
+          dotnet publish -c Release -o ./publish --no-build
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-app
+          path: backend/ShopifyAnalyticsApi/publish
+
+  deploy:
+    runs-on: windows-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: read
+      deployments: write
+      id-token: write
+    environment:
+      name: 'Development'
+      url: 'https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/'
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dotnet-app
+      
+      - name: Deploy to Azure Web App (Development)
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'shopifyapp-backend-develop'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+          package: .
+
+      - name: Deploy Status
+        run: |
+          echo "✅ バックエンドデプロイ完了"
+          echo "🌐 環境: development"
+          echo "🔗 URL: https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/"
+          echo "👤 実行者: ${{ github.actor }}"
+          echo "📅 実行日時: $(Get-Date)"
+          echo "📦 ビルドID: ${{ github.run_id }}"

@@ -1,0 +1,143 @@
+name: Deploy All (Frontend & Backend)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境を選択'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+        default: 'development'
+      deploy_frontend:
+        description: 'フロントエンドをデプロイ'
+        required: true
+        type: boolean
+        default: true
+      deploy_backend:
+        description: 'バックエンドをデプロイ'
+        required: true
+        type: boolean
+        default: true
+      deploy_message:
+        description: 'デプロイメッセージ（任意）'
+        required: false
+        type: string
+
+jobs:
+  deploy-backend:
+    if: ${{ github.event.inputs.deploy_backend == 'true' }}
+    runs-on: windows-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET Core
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.x'
+
+    - name: 📝 Backend deployment info
+      run: |
+        echo "🚀 Backend Deployment Started"
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Message: ${{ github.event.inputs.deploy_message }}"
+
+    - name: 🔍 Restore dependencies
+      run: dotnet restore
+      working-directory: ./backend/ShopifyAnalyticsApi
+
+    - name: 🏗️ Build project
+      run: dotnet build --configuration Release --no-restore
+      working-directory: ./backend/ShopifyAnalyticsApi
+
+    - name: 📦 Publish project
+      run: dotnet publish -c Release -o ./published
+      working-directory: ./backend/ShopifyAnalyticsApi
+
+    - name: 🚀 Deploy to Azure App Service
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: shopifytestapi20250720173320-aed5bhc0cferg2hm
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ./backend/ShopifyAnalyticsApi/published
+
+    - name: ✅ Backend deployment complete
+      run: echo "✅ Backend deployed successfully!"
+
+  deploy-frontend:
+    if: ${{ github.event.inputs.deploy_frontend == 'true' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    needs: [deploy-backend]
+    
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 📝 Frontend deployment info
+      run: |
+        echo "🚀 Frontend Deployment Started"
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Message: ${{ github.event.inputs.deploy_message }}"
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: 📦 Install dependencies
+      run: |
+        cd frontend
+        npm ci --legacy-peer-deps
+
+    - name: 🏗️ Build application
+      run: |
+        cd frontend
+        npm run build
+      env:
+        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
+
+    - name: 🚀 Deploy to Azure Static Web Apps
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: 'upload'
+        app_location: '/frontend'
+        output_location: '.next'
+        skip_app_build: true
+
+    - name: ✅ Frontend deployment complete
+      run: echo "✅ Frontend deployed successfully!"
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    
+    steps:
+    - name: 📊 Deployment Summary
+      run: |
+        echo "========================================="
+        echo "📊 DEPLOYMENT SUMMARY"
+        echo "========================================="
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Frontend Deploy: ${{ github.event.inputs.deploy_frontend }}"
+        echo "Backend Deploy: ${{ github.event.inputs.deploy_backend }}"
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Message: ${{ github.event.inputs.deploy_message }}"
+        echo ""
+        echo "🔗 URLs:"
+        echo "Frontend: https://brave-sea-038f17a00.1.azurestaticapps.net"
+        echo "Backend: https://shopifytestapi20250720173320-aed5bhc0cferg2hm.azurewebsites.net"
+        echo "========================================="
