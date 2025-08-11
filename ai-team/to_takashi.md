@@ -1,226 +1,266 @@
-# Takashiへの作業指示
-**日付:** 2025年8月12日（月）20:00  
+# Takashiへの作業指示（同期範囲管理機能追加）
+**日付:** 2025年8月12日（月）22:45  
 **差出人:** Kenji
 
-## 🚀 前倒し実装開始！
+## 📢 重要：新しい設計仕様書を作成しました！
 
-OAuth問題が解決したので、予定を前倒しして今から準備を始めましょう。
+データ同期範囲管理の詳細設計を完了しました。
+明日の実装で参照してください。
 
-## 明日（8/13）の作業詳細
+### 📚 新規設計ドキュメント
+1. **データ同期設計仕様書（更新）**
+   - `/docs/04-development/data-sync-design-specification.md`
+   - セクション11：UI要件追加
+   - データ取得範囲設定機能を追加
 
-### 午前: HangFire基本設定（9:00-12:00）
+2. **同期範囲管理仕様書（新規）**
+   - `/docs/04-development/sync-range-management.md`
+   - データベース設計
+   - チェックポイント管理
+   - 進捗詳細追跡
 
-#### 1. 必要なNuGetパッケージ
-```xml
-<PackageReference Include="Hangfire.Core" Version="1.8.6" />
-<PackageReference Include="Hangfire.SqlServer" Version="1.8.6" />
-<PackageReference Include="Hangfire.AspNetCore" Version="1.8.6" />
-```
+## 🆕 明日追加で実装するテーブル
 
-#### 2. Program.cs設定例
-```csharp
-// HangFire設定
-builder.Services.AddHangfire(configuration => configuration
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
-    {
-        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-        QueuePollInterval = TimeSpan.Zero,
-        UseRecommendedIsolationLevel = true,
-        DisableGlobalLocks = true
-    }));
-
-// HangFireサーバー
-builder.Services.AddHangfireServer(options =>
-{
-    options.ServerName = "EC-Ranger-Server";
-    options.WorkerCount = Environment.ProcessorCount * 2;
-});
-
-// ダッシュボード
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
-{
-    Authorization = new[] { new HangfireAuthorizationFilter() },
-    DashboardTitle = "EC Ranger - Job Dashboard"
-});
-```
-
-#### 3. Azure App Service対策
-```csharp
-public class KeepAliveService : BackgroundService
-{
-    private readonly ILogger<KeepAliveService> _logger;
-    private readonly IServiceProvider _serviceProvider;
+### 1. SyncRangeSettings（同期範囲設定）
+```sql
+CREATE TABLE SyncRangeSettings (
+    SettingId INT PRIMARY KEY IDENTITY(1,1),
+    StoreId INT NOT NULL,
+    DataType NVARCHAR(50) NOT NULL,
+    StartDate DATETIME2 NOT NULL,    -- データ取得開始日
+    EndDate DATETIME2 NOT NULL,      -- データ取得終了日
+    YearsBack INT NOT NULL DEFAULT 3, -- 何年前まで遡るか
+    IncludeArchived BIT DEFAULT 0,
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    CreatedBy NVARCHAR(100),
     
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    CONSTRAINT FK_SyncRangeSettings_Store FOREIGN KEY (StoreId) 
+        REFERENCES Stores(StoreId)
+);
+```
+
+### 2. SyncProgressDetails（進捗詳細）
+```sql
+CREATE TABLE SyncProgressDetails (
+    ProgressId INT PRIMARY KEY IDENTITY(1,1),
+    SyncStateId INT NOT NULL,
+    DataType NVARCHAR(50) NOT NULL,
+    CurrentPage NVARCHAR(MAX),       -- 現在のカーソル位置
+    CurrentBatch INT DEFAULT 0,
+    TotalBatches INT NULL,
+    BatchStartedAt DATETIME2,
+    LastUpdateAt DATETIME2 DEFAULT GETUTCDATE(),
+    EstimatedCompletionTime DATETIME2 NULL,
+    RecordsPerSecond FLOAT,          -- 処理速度
+    AverageResponseTime INT,         -- API応答時間
+    RecordsInDateRange INT,          -- 指定期間内のレコード数
+    RecordsSkipped INT DEFAULT 0,
+    RecordsWithErrors INT DEFAULT 0,
+    
+    CONSTRAINT FK_SyncProgressDetails_SyncState FOREIGN KEY (SyncStateId) 
+        REFERENCES SyncStates(SyncStateId) ON DELETE CASCADE
+);
+```
+
+### 3. SyncCheckpoints（チェックポイント）
+```sql
+CREATE TABLE SyncCheckpoints (
+    CheckpointId INT PRIMARY KEY IDENTITY(1,1),
+    StoreId INT NOT NULL,
+    DataType NVARCHAR(50) NOT NULL,
+    LastSuccessfulCursor NVARCHAR(MAX),
+    LastProcessedDate DATETIME2,
+    RecordsProcessedSoFar INT,
+    SyncStartDate DATETIME2,
+    SyncEndDate DATETIME2,
+    CanResume BIT DEFAULT 1,
+    ExpiresAt DATETIME2,              -- 有効期限（7日後）
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    
+    CONSTRAINT FK_SyncCheckpoints_Store FOREIGN KEY (StoreId) 
+        REFERENCES Stores(StoreId)
+);
+```
+
+## 📝 InitialSyncJobの実装更新
+
+### 同期範囲オプションの追加
+```csharp
+public class InitialSyncOptions
+{
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int MaxYearsBack { get; set; } = 3; // デフォルト3年
+    public bool IncludeArchived { get; set; } = false;
+}
+
+public class InitialSyncJob : BaseSyncJob
+{
+    private readonly CheckpointManager _checkpointManager;
+    private readonly SyncRangeManager _rangeManager;
+    private readonly SyncProgressTracker _progressTracker;
+    
+    public async Task Execute(int storeId, InitialSyncOptions options = null)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        options ??= new InitialSyncOptions();
+        
+        // 1. 同期範囲を決定
+        var dateRange = await _rangeManager.DetermineSyncRange(
+            storeId, "Products", options);
+        
+        // 2. 再開可能かチェック
+        var resumeInfo = await _checkpointManager.GetResumeInfo(
+            storeId, "Products");
+        
+        var startCursor = resumeInfo?.LastCursor;
+        var recordsProcessed = resumeInfo?.RecordsAlreadyProcessed ?? 0;
+        
+        // 3. 同期実行（チェックポイント保存付き）
+        await SyncProductsWithCheckpoints(
+            storeId, 
+            dateRange, 
+            startCursor, 
+            recordsProcessed);
+    }
+    
+    private async Task SyncProductsWithCheckpoints(
+        int storeId,
+        DateRange range,
+        string startCursor,
+        int startingRecords)
+    {
+        var cursor = startCursor;
+        var totalProcessed = startingRecords;
+        
+        while (true)
         {
             try
             {
-                using (var scope = _serviceProvider.CreateScope())
+                // APIコール
+                var result = await _shopifyApi.GetProducts(
+                    storeId, 
+                    cursor,
+                    range.Start,
+                    range.End);
+                
+                // データ保存
+                await SaveProducts(result.Products);
+                totalProcessed += result.Products.Count;
+                
+                // 進捗更新
+                await _progressTracker.UpdateProgress(
+                    syncStateId,
+                    "Products",
+                    totalProcessed,
+                    result.NextPageCursor);
+                
+                // チェックポイント保存（1000件ごと）
+                if (totalProcessed % 1000 == 0)
                 {
-                    var context = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-                    await context.Database.ExecuteSqlRawAsync("SELECT 1");
+                    await _checkpointManager.SaveCheckpoint(
+                        storeId,
+                        "Products",
+                        result.NextPageCursor,
+                        totalProcessed,
+                        range);
                 }
                 
-                _logger.LogDebug("Keep alive ping executed");
-                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                if (string.IsNullOrEmpty(result.NextPageCursor))
+                    break;
+                    
+                cursor = result.NextPageCursor;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Keep alive ping failed");
+                _logger.LogError(ex, 
+                    "同期エラー発生。チェックポイントから再開可能。" +
+                    "StoreId={StoreId} Cursor={Cursor}",
+                    storeId, cursor);
+                throw;
             }
-        }
-    }
-}
-```
-
-### 午後: 商品データ同期（13:00-18:00）
-
-#### 1. ShopifyProductSyncJob.cs
-```csharp
-public class ShopifyProductSyncJob
-{
-    private readonly ShopifyApiService _shopifyApi;
-    private readonly ShopifyDbContext _context;
-    private readonly ILogger<ShopifyProductSyncJob> _logger;
-    
-    public async Task SyncProducts(int storeId)
-    {
-        try
-        {
-            var store = await _context.Stores
-                .FirstOrDefaultAsync(s => s.StoreId == storeId);
-                
-            if (store == null)
-            {
-                _logger.LogWarning($"Store not found: {storeId}");
-                return;
-            }
-            
-            _logger.LogInformation($"商品同期開始: {store.Name}");
-            
-            // ページネーション対応
-            string? pageInfo = null;
-            int totalProducts = 0;
-            
-            do
-            {
-                var result = await _shopifyApi.GetProductsPagedAsync(
-                    store.Domain, 
-                    store.AccessToken, 
-                    pageInfo);
-                
-                foreach (var product in result.Products)
-                {
-                    await SaveOrUpdateProduct(product, storeId);
-                    totalProducts++;
-                }
-                
-                pageInfo = result.NextPageInfo;
-                
-                // Rate Limit対策
-                await Task.Delay(500);
-                
-            } while (!string.IsNullOrEmpty(pageInfo));
-            
-            _logger.LogInformation($"商品同期完了: {totalProducts}件");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"商品同期エラー: StoreId={storeId}");
-            throw;
-        }
-    }
-    
-    private async Task SaveOrUpdateProduct(ShopifyProduct shopifyProduct, int storeId)
-    {
-        var existing = await _context.Products
-            .FirstOrDefaultAsync(p => p.ShopifyProductId == shopifyProduct.Id && p.StoreId == storeId);
-            
-        if (existing != null)
-        {
-            // 更新
-            existing.Title = shopifyProduct.Title;
-            existing.Description = shopifyProduct.BodyHtml;
-            existing.UpdatedAt = DateTime.UtcNow;
-            _context.Products.Update(existing);
-        }
-        else
-        {
-            // 新規作成
-            var product = new Product
-            {
-                StoreId = storeId,
-                ShopifyProductId = shopifyProduct.Id.ToString(),
-                Title = shopifyProduct.Title,
-                Description = shopifyProduct.BodyHtml,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _context.Products.Add(product);
         }
         
-        await _context.SaveChangesAsync();
+        // 完了後、チェックポイントをクリア
+        await _checkpointManager.ClearCheckpoint(storeId, "Products");
     }
 }
 ```
 
-#### 2. ジョブ登録
-```csharp
-// 各ストアに対してジョブを登録
-var stores = await _context.Stores.Where(s => s.IsActive).ToListAsync();
-foreach (var store in stores)
-{
-    RecurringJob.AddOrUpdate<ShopifyProductSyncJob>(
-        $"sync-products-store-{store.StoreId}",
-        job => job.SyncProducts(store.StoreId),
-        Cron.Hourly);
-}
-```
+## 🔧 新規クラスの作成
 
-## チェックリスト
+### 1. SyncRangeManager.cs
+- 同期範囲の決定ロジック
+- 設定の保存と取得
 
-### 午前完了時
-- [ ] HangFireパッケージインストール
-- [ ] Program.cs設定完了
-- [ ] データベーステーブル作成確認
-- [ ] /hangfireダッシュボード表示
-- [ ] KeepAliveService実装
+### 2. CheckpointManager.cs
+- チェックポイントの保存
+- 再開情報の取得
+- 期限切れデータのクリーンアップ
 
-### 午後完了時
-- [ ] ShopifyProductSyncJob実装
-- [ ] ページネーション対応
-- [ ] Rate Limit対策
-- [ ] エラーハンドリング
-- [ ] 最低1店舗でテスト成功
+### 3. SyncProgressTracker.cs
+- 詳細な進捗追跡
+- パフォーマンス指標の計算
+- 完了予定時刻の推定
 
-## 技術的な相談事項
+## ✅ 実装チェックリスト（明日）
 
-1. **データベース設計**
-   - Productテーブルに追加カラムが必要か？
-   - バリアント（SKU）の扱いは？
+### データベース
+- [ ] 3つの新規テーブル作成マイグレーション
+- [ ] インデックスの追加
+- [ ] SyncStatesテーブルの更新（カラム追加）
 
-2. **同期戦略**
-   - 差分同期 vs 全件同期？
-   - 削除された商品の扱いは？
+### 初回同期の拡張
+- [ ] InitialSyncOptionsクラス作成
+- [ ] 日付範囲でのフィルタリング実装
+- [ ] Shopify APIへの日付パラメータ追加
 
-3. **パフォーマンス**
-   - バッチサイズの最適値は？
-   - 並列処理は必要か？
+### チェックポイント機能
+- [ ] CheckpointManagerクラス実装
+- [ ] 1000件ごとの自動保存
+- [ ] 再開ロジックの実装
 
-## サポート
+### 進捗追跡
+- [ ] SyncProgressTrackerクラス実装
+- [ ] 処理速度の計算
+- [ ] 完了予定時刻の推定
 
-何か問題があれば即座に連絡してください。
-- 技術的な問題: temp.mdに記載
-- 設計の相談: このファイルに返信
+### API更新
+- [ ] 同期開始時の範囲指定オプション追加
+- [ ] 詳細進捗取得エンドポイント追加
+- [ ] チェックポイント状態確認エンドポイント
 
-ShopifyApiServiceは既に実装済みなので、それを活用してください。
+## 💡 実装のポイント
 
-頑張りましょう！🚀
+1. **パフォーマンス考慮**
+   - チェックポイント保存は非同期で
+   - バッチ処理でDB書き込み最適化
+
+2. **エラー処理**
+   - 一時的エラーは自動リトライ
+   - 永続的エラーはチェックポイント保持
+
+3. **ユーザビリティ**
+   - 進捗をリアルタイムで更新
+   - 中断時も安心できるUI表示
+
+## 📅 スケジュール調整
+
+### 8月13日（火）の優先順位
+1. **9:00-10:00**: 新規テーブル作成
+2. **10:00-12:00**: InitialSyncJob拡張（範囲指定対応）
+3. **13:00-14:30**: CheckpointManager実装
+4. **14:30-16:00**: SyncProgressTracker実装
+5. **16:00-17:00**: テスト作成
+6. **17:00-18:00**: Yukiとの連携確認
+
+---
+
+設計仕様書を必ず確認して、仕様通りに実装をお願いします！
+特にチェックポイント機能は、大量データ処理で重要になります。
+
+頑張ってください！
 
 Kenji

@@ -1,363 +1,457 @@
-# Yukiへの作業指示
-**日付:** 2025年8月12日（月）20:00  
+# Yukiへの作業指示（同期範囲UI実装）
+**日付:** 2025年8月12日（月）22:50  
 **差出人:** Kenji
 
-## 🚀 前倒し実装開始！
+## 📢 重要：同期範囲管理の新仕様追加！
 
-OAuth問題が解決したので、予定を前倒しして明日からダッシュボード実装を開始しましょう。
+データ同期範囲管理の詳細設計を完了しました。
+UIに新機能を追加してください。
 
-## 明日（8/13）の作業詳細
+### 📚 新規設計ドキュメント
+1. **データ同期設計仕様書（更新）**
+   - `/docs/04-development/data-sync-design-specification.md`
+   - セクション11：UI要件追加
 
-### 全日: ダッシュボード画面実装（9:00-18:00）
+2. **同期範囲管理仕様書（新規）**
+   - `/docs/04-development/sync-range-management.md`
+   - UI実装ガイド（セクション5）
 
-#### 1. ディレクトリ構造
+## 🆕 明日追加で実装するUI機能
 
-```
-frontend/src/app/(authenticated)/dashboard/
-├── page.tsx              # メインページ
-├── components/
-│   ├── SummaryCard.tsx   # サマリーカード
-│   ├── SalesChart.tsx    # 売上グラフ
-│   ├── TopProducts.tsx   # 人気商品
-│   └── RecentOrders.tsx  # 最近の注文
-└── loading.tsx           # ローディング画面
-```
+### 1. 同期範囲選択コンポーネント
 
-#### 2. メインダッシュボード実装
+**新規ファイル:** `frontend/src/app/(authenticated)/sync/components/SyncRangeSelector.tsx`
 
-**page.tsx:**
-```tsx
-'use client';
+```typescript
+interface SyncRangeSettings {
+  yearsBack: number;        // 何年前まで取得するか
+  startDate?: Date;         // カスタム開始日
+  endDate?: Date;           // カスタム終了日
+  includeArchived: boolean; // アーカイブ済みデータを含む
+}
 
-import { useEffect, useState } from 'react';
-import { SummaryCard } from './components/SummaryCard';
-import { SalesChart } from './components/SalesChart';
-import { TopProducts } from './components/TopProducts';
-import { RecentOrders } from './components/RecentOrders';
-import { dashboardApi } from '@/lib/api/dashboard';
-import { useMockData } from '@/hooks/useMockData';
+export function SyncRangeSelector({ onRangeSelected }: Props) {
+  const [settings, setSettings] = useState<SyncRangeSettings>({
+    yearsBack: 3,  // デフォルト3年
+    includeArchived: false
+  });
 
-export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { isUsingMock } = useMockData();
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      const dashboardData = await dashboardApi.getSummary();
-      setData(dashboardData);
-    } catch (error) {
-      console.error('Dashboard data loading failed:', error);
-      // モックデータへフォールバック
-      setData(mockDashboardData);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <DashboardSkeleton />;
-  if (!data) return <ErrorMessage />;
+  const presets = [
+    { value: '1year', label: '過去1年', years: 1 },
+    { value: '2years', label: '過去2年', years: 2 },
+    { value: '3years', label: '過去3年（推奨）', years: 3 },
+    { value: '5years', label: '過去5年', years: 5 },
+    { value: 'all', label: '全期間', years: null },
+    { value: 'custom', label: 'カスタム期間', years: null }
+  ];
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">ダッシュボード</h1>
-        {isUsingMock && (
-          <span className="text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded">
-            モックデータ使用中
-          </span>
-        )}
-      </div>
-      
-      {/* サマリーカード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <SummaryCard 
-          title="本日の売上" 
-          value={`¥${data.todaySales.toLocaleString()}`}
-          trend={data.salesTrend}
-          icon="currency"
-        />
-        <SummaryCard 
-          title="注文数" 
-          value={data.orderCount.toString()}
-          trend={data.orderTrend}
-          icon="shopping-cart"
-        />
-        <SummaryCard 
-          title="顧客数" 
-          value={data.customerCount.toString()}
-          trend={data.customerTrend}
-          icon="users"
-        />
-        <SummaryCard 
-          title="商品数" 
-          value={data.productCount.toString()}
-          trend={data.productTrend}
-          icon="package"
-        />
-      </div>
-      
-      {/* グラフエリア */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">売上推移</h2>
-          <SalesChart data={data.salesData} />
+    <Card className="p-6">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold">データ取得範囲の選択</h3>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">人気商品TOP5</h2>
-          <TopProducts products={data.topProducts} />
-        </div>
+        
+        <RadioGroup value={preset} onValueChange={handlePresetChange}>
+          {presets.map((p) => (
+            <div key={p.value} className="flex items-center space-x-2 mb-2">
+              <RadioGroupItem value={p.value} id={p.value} />
+              <Label htmlFor={p.value}>
+                {p.label}
+                {p.value === '3years' && (
+                  <Badge variant="outline" className="ml-2">推奨</Badge>
+                )}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+        
+        <Alert className="mt-4">
+          <Info className="w-4 h-4" />
+          <AlertDescription>
+            {settings.yearsBack > 0 
+              ? `${new Date().getFullYear() - settings.yearsBack}年から現在までのデータを取得します`
+              : '利用可能な全てのデータを取得します'}
+            <br />
+            <span className="text-xs text-gray-500 mt-1">
+              大量データの場合、処理に時間がかかる可能性があります
+            </span>
+          </AlertDescription>
+        </Alert>
       </div>
-      
-      {/* 最近の注文 */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">最近の注文</h2>
-        <RecentOrders orders={data.recentOrders} />
-      </div>
-    </div>
+    </Card>
   );
 }
 ```
 
-#### 3. コンポーネント実装例
+### 2. 詳細進捗表示コンポーネント
 
-**SummaryCard.tsx:**
-```tsx
-interface SummaryCardProps {
-  title: string;
-  value: string;
-  trend?: string;
-  icon?: string;
+**新規ファイル:** `frontend/src/app/(authenticated)/sync/components/DetailedProgress.tsx`
+
+```typescript
+interface DetailedProgressProps {
+  storeId: string;
+  dataType: 'products' | 'customers' | 'orders';
 }
 
-export function SummaryCard({ title, value, trend, icon }: SummaryCardProps) {
-  const trendColor = trend?.startsWith('+') ? 'text-green-600' : 'text-red-600';
-  
+export function DetailedProgress({ storeId, dataType }: DetailedProgressProps) {
+  const { data: progress } = useApi(
+    () => syncApi.getDetailedProgress(storeId, dataType),
+    [storeId, dataType]
+  );
+
+  if (!progress) return null;
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-gray-600">{title}</span>
-        {icon && <Icon name={icon} className="text-gray-400" />}
-      </div>
-      <div className="text-2xl font-bold mb-1">{value}</div>
-      {trend && (
-        <div className={`text-sm ${trendColor}`}>
-          {trend} 前日比
+    <div className="space-y-4">
+      {/* 全体進捗 */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>全体進捗</span>
+          <span>{progress.progressPercentage.toFixed(1)}%</span>
         </div>
+        <Progress value={progress.progressPercentage} className="h-3" />
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>
+            {progress.recordsProcessed.toLocaleString()} / 
+            {progress.totalRecords?.toLocaleString() || '計算中...'}
+          </span>
+          <span>{progress.recordsPerSecond.toFixed(1)} レコード/秒</span>
+        </div>
+      </div>
+
+      {/* データ取得範囲 */}
+      <div className="p-3 bg-gray-50 rounded">
+        <div className="text-sm font-medium mb-1">取得範囲</div>
+        <div className="text-xs text-gray-600">
+          {formatDate(progress.dataRange.startDate)} 〜 
+          {formatDate(progress.dataRange.endDate)}
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          範囲内レコード数: {progress.dataRange.recordsInRange.toLocaleString()}件
+        </div>
+      </div>
+
+      {/* 完了予定時刻 */}
+      {progress.estimatedCompletionTime && (
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="w-4 h-4 text-gray-400" />
+          <span>
+            完了予定: {formatTime(progress.estimatedCompletionTime)}
+            （残り{formatDuration(getTimeRemaining(progress.estimatedCompletionTime))}）
+          </span>
+        </div>
+      )}
+
+      {/* 再開可能状態 */}
+      {progress.canResume && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            中断から再開可能です
+            <br />
+            <span className="text-xs">
+              最終チェックポイント: {formatTime(progress.lastCheckpoint)}
+            </span>
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );
 }
 ```
 
-#### 4. グラフ実装（Recharts使用）
+### 3. 初回同期設定モーダル
 
-**SalesChart.tsx:**
-```tsx
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+**新規ファイル:** `frontend/src/app/(authenticated)/sync/components/InitialSyncModal.tsx`
 
-interface SalesChartProps {
-  data: Array<{
-    date: string;
-    amount: number;
-  }>;
-}
+```typescript
+export function InitialSyncModal({ 
+  isOpen, 
+  onClose, 
+  onStart 
+}: InitialSyncModalProps) {
+  const [step, setStep] = useState(1); // 1: 範囲選択, 2: 確認
+  const [settings, setSettings] = useState<SyncRangeSettings>({
+    yearsBack: 3,
+    includeArchived: false
+  });
+  const [estimates, setEstimates] = useState<RecordEstimates | null>(null);
 
-export function SalesChart({ data }: SalesChartProps) {
+  // データ量の推定を取得
+  useEffect(() => {
+    if (settings.yearsBack) {
+      fetchEstimates(settings).then(setEstimates);
+    }
+  }, [settings.yearsBack]);
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          dataKey="date" 
-          tickFormatter={(value) => new Date(value).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
-        />
-        <YAxis 
-          tickFormatter={(value) => `¥${(value / 1000).toFixed(0)}k`}
-        />
-        <Tooltip 
-          formatter={(value: number) => `¥${value.toLocaleString()}`}
-          labelFormatter={(label) => new Date(label).toLocaleDateString('ja-JP')}
-        />
-        <Line 
-          type="monotone" 
-          dataKey="amount" 
-          stroke="#3B82F6" 
-          strokeWidth={2}
-          dot={{ fill: '#3B82F6' }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {step === 1 ? '初回同期の設定' : '同期内容の確認'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === 1 ? (
+          <>
+            <SyncRangeSelector 
+              onRangeSelected={setSettings}
+              estimatedRecords={estimates}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                キャンセル
+              </Button>
+              <Button onClick={() => setStep(2)}>
+                次へ
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <h3 className="font-semibold">同期内容の確認</h3>
+              
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span>取得期間:</span>
+                  <span className="font-medium">
+                    {settings.yearsBack}年前〜現在
+                  </span>
+                </div>
+                {estimates && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>推定レコード数:</span>
+                      <span className="font-medium">
+                        {(estimates.products + estimates.customers + estimates.orders).toLocaleString()}件
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>推定所要時間:</span>
+                      <span className="font-medium">
+                        約{Math.ceil(estimates.totalSizeGB * 10)}分
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <Alert>
+                <Info className="w-4 h-4" />
+                <AlertDescription>
+                  同期は中断しても後から再開できます。
+                  進捗は自動的に保存されます。
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep(1)}>
+                戻る
+              </Button>
+              <Button 
+                onClick={() => onStart(settings)}
+                className="bg-primary"
+              >
+                同期を開始
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 ```
 
-#### 5. APIクライアント
+### 4. sync/page.tsx の更新
 
-**lib/api/dashboard.ts:**
 ```typescript
-import { apiClient } from './client';
+export default function SyncPage() {
+  const [showInitialSyncModal, setShowInitialSyncModal] = useState(false);
+  const [syncRange, setSyncRange] = useState<SyncRangeSettings | null>(null);
+  
+  // 初回同期が必要かチェック
+  useEffect(() => {
+    checkIfInitialSyncNeeded().then(needed => {
+      if (needed) {
+        setShowInitialSyncModal(true);
+      }
+    });
+  }, []);
 
-export const dashboardApi = {
-  getSummary: async () => {
-    try {
-      const response = await apiClient.get('/api/dashboard/summary');
-      return response.data;
-    } catch (error) {
-      // 開発中はモックデータを返す
-      if (process.env.NODE_ENV === 'development') {
-        return mockDashboardData.summary;
-      }
-      throw error;
-    }
+  const handleInitialSyncStart = async (settings: SyncRangeSettings) => {
+    setSyncRange(settings);
+    await syncApi.startInitialSync(getCurrentStoreId(), settings);
+    setShowInitialSyncModal(false);
+  };
+
+  return (
+    <div className="container mx-auto p-6">
+      {/* 既存のコンテンツ */}
+      
+      {/* 同期範囲表示を追加 */}
+      {syncRange && (
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-600" />
+            <span className="text-sm">
+              データ取得範囲: {syncRange.yearsBack}年前〜現在
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 詳細進捗表示を更新 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">商品データ</h4>
+          <DetailedProgress storeId={getCurrentStoreId()} dataType="products" />
+        </Card>
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">顧客データ</h4>
+          <DetailedProgress storeId={getCurrentStoreId()} dataType="customers" />
+        </Card>
+        <Card className="p-6">
+          <h4 className="font-semibold mb-4">注文データ</h4>
+          <DetailedProgress storeId={getCurrentStoreId()} dataType="orders" />
+        </Card>
+      </div>
+
+      {/* 初回同期モーダル */}
+      <InitialSyncModal
+        isOpen={showInitialSyncModal}
+        onClose={() => setShowInitialSyncModal(false)}
+        onStart={handleInitialSyncStart}
+      />
+    </div>
+  );
+}
+```
+
+## 🔧 API Client更新
+
+**ファイル:** `frontend/src/lib/api/sync.ts`
+
+```typescript
+export interface SyncRangeSettings {
+  yearsBack: number;
+  startDate?: string;
+  endDate?: string;
+  includeArchived: boolean;
+}
+
+export interface DetailedProgress {
+  progressPercentage: number;
+  recordsProcessed: number;
+  totalRecords: number | null;
+  recordsPerSecond: number;
+  estimatedCompletionTime?: string;
+  dataRange: {
+    startDate: string;
+    endDate: string;
+    recordsInRange: number;
+  };
+  canResume: boolean;
+  lastCheckpoint?: string;
+}
+
+export const syncApi = {
+  // 既存のメソッド...
+
+  startInitialSync: async (
+    storeId: string, 
+    settings: SyncRangeSettings
+  ): Promise<void> => {
+    await apiClient.post('/api/sync/initial', {
+      storeId,
+      ...settings
+    });
   },
-  
-  getSalesData: async (period: 'week' | 'month' | 'year' = 'week') => {
-    try {
-      const response = await apiClient.get(`/api/dashboard/sales?period=${period}`);
-      return response.data;
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return mockDashboardData.salesData;
-      }
-      throw error;
-    }
+
+  getDetailedProgress: async (
+    storeId: string,
+    dataType: string
+  ): Promise<DetailedProgress> => {
+    const response = await apiClient.get(
+      `/api/sync/progress/${storeId}/${dataType}`
+    );
+    return response.data;
   },
-  
-  getTopProducts: async (limit: number = 5) => {
-    try {
-      const response = await apiClient.get(`/api/dashboard/top-products?limit=${limit}`);
-      return response.data;
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return mockDashboardData.topProducts;
-      }
-      throw error;
-    }
-  },
-  
-  getRecentOrders: async (limit: number = 10) => {
-    try {
-      const response = await apiClient.get(`/api/dashboard/recent-orders?limit=${limit}`);
-      return response.data;
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        return mockDashboardData.recentOrders;
-      }
-      throw error;
-    }
+
+  estimateRecords: async (
+    storeId: string,
+    settings: SyncRangeSettings
+  ): Promise<RecordEstimates> => {
+    const response = await apiClient.post('/api/sync/estimate', {
+      storeId,
+      ...settings
+    });
+    return response.data;
   }
 };
 ```
 
-#### 6. モックデータ
+## ✅ 実装チェックリスト（明日）
 
-**lib/mock/dashboard-mock.ts:**
-```typescript
-export const mockDashboardData = {
-  summary: {
-    todaySales: 1234567,
-    salesTrend: '+12.5%',
-    orderCount: 123,
-    orderTrend: '+8.3%',
-    customerCount: 456,
-    customerTrend: '+15.2%',
-    productCount: 789,
-    productTrend: '+2.1%'
-  },
-  salesData: [
-    { date: '2025-08-06', amount: 450000 },
-    { date: '2025-08-07', amount: 520000 },
-    { date: '2025-08-08', amount: 480000 },
-    { date: '2025-08-09', amount: 610000 },
-    { date: '2025-08-10', amount: 580000 },
-    { date: '2025-08-11', amount: 720000 },
-    { date: '2025-08-12', amount: 650000 },
-  ],
-  topProducts: [
-    { id: 1, name: 'オーガニック石鹸', sales: 234, revenue: 468000 },
-    { id: 2, name: 'ナチュラルシャンプー', sales: 189, revenue: 378000 },
-    { id: 3, name: 'ハンドクリーム', sales: 156, revenue: 234000 },
-    { id: 4, name: 'フェイスマスク', sales: 134, revenue: 402000 },
-    { id: 5, name: 'ボディローション', sales: 98, revenue: 196000 },
-  ],
-  recentOrders: [
-    { id: 1, orderNumber: '#1234', customer: '山田太郎', amount: 12500, status: '処理中', createdAt: '2025-08-12T10:30:00' },
-    { id: 2, orderNumber: '#1233', customer: '佐藤花子', amount: 8900, status: '発送済み', createdAt: '2025-08-12T09:15:00' },
-    { id: 3, orderNumber: '#1232', customer: '鈴木一郎', amount: 15600, status: '配達完了', createdAt: '2025-08-12T08:45:00' },
-    // ... 他の注文
-  ]
-};
-```
+### 新規コンポーネント
+- [ ] SyncRangeSelector（同期範囲選択）
+- [ ] DetailedProgress（詳細進捗表示）
+- [ ] InitialSyncModal（初回同期設定）
 
-## チェックリスト
+### 既存コンポーネント更新
+- [ ] sync/page.tsx（範囲表示追加）
+- [ ] SyncStatus（詳細進捗統合）
+- [ ] SyncHistory（範囲情報追加）
 
-### 基本実装
-- [ ] ダッシュボードページ作成
-- [ ] 4つのサマリーカード実装
-- [ ] 売上グラフ実装
-- [ ] 人気商品リスト実装
-- [ ] 最近の注文テーブル実装
+### UI/UX改善
+- [ ] 完了予定時刻の表示
+- [ ] 処理速度の表示
+- [ ] 再開可能状態の表示
+- [ ] データ取得範囲の可視化
 
-### UI/UX
-- [ ] レスポンシブデザイン確認
-- [ ] ローディング状態実装
-- [ ] エラー状態実装
-- [ ] モックデータ表示確認
+### API連携
+- [ ] 範囲指定パラメータ送信
+- [ ] 詳細進捗取得
+- [ ] レコード数推定API
 
-### 技術要件
-- [ ] TypeScriptエラー解消
-- [ ] ESLintエラー解消
-- [ ] パフォーマンス確認
+## 💡 実装のポイント
 
-## パッケージインストール
+1. **ユーザビリティ**
+   - デフォルトは「過去3年」推奨
+   - 大量データの警告表示
+   - 中断・再開可能なことを明示
 
-```bash
-# グラフライブラリ（Recharts推奨）
-npm install recharts
+2. **パフォーマンス**
+   - 進捗は30秒ごとに更新
+   - 不要な再レンダリング防止
+   - メモ化の活用
 
-# アイコンライブラリ
-npm install lucide-react
+3. **エラー処理**
+   - ネットワークエラー時の表示
+   - 推定値取得失敗時のフォールバック
 
-# 日付処理（必要に応じて）
-npm install date-fns
-```
+## 📅 明日のスケジュール調整
 
-## デザイン参考
+### 8月13日（火）の優先順位
+1. **9:00-10:00**: 設計仕様書の確認
+2. **10:00-11:30**: SyncRangeSelector実装
+3. **11:30-12:00**: InitialSyncModal実装
+4. **13:00-14:30**: DetailedProgress実装
+5. **14:30-16:00**: sync/page.tsx統合
+6. **16:00-17:00**: APIクライアント更新
+7. **17:00-18:00**: Takashiとの連携テスト
 
-- Shopify管理画面のデザインを参考に
-- カラーパレット：
-  - Primary: #3B82F6 (青)
-  - Success: #10B981 (緑)
-  - Warning: #F59E0B (黄)
-  - Error: #EF4444 (赤)
+---
 
-## 相談事項
+設計仕様書のUI要件を参考に、使いやすいインターフェースを実装してください！
+特に初回同期時の範囲選択は、ユーザーにとって重要な決定なので、
+分かりやすく、安心感のあるUIにしてください。
 
-1. **グラフライブラリ**
-   - Recharts vs Chart.js どちらが良いか？
-   - 私はRechartsを推奨（React専用で使いやすい）
-
-2. **状態管理**
-   - Zustandでグローバル管理する？
-   - 今はローカルステートで十分かも
-
-3. **リアルタイム更新**
-   - 将来的にWebSocketで更新？
-   - 今は定期的なポーリングで十分
-
-## サポート
-
-何か問題があれば即座に連絡してください。
-- UIの相談: このファイルに返信
-- 緊急事項: temp.mdに記載
-
-モックデータで開発を進めて、Takashiのバックエンドが完成したら繋ぎ込みましょう。
-
-頑張りましょう！🎨
+頑張ってください！
 
 Kenji
