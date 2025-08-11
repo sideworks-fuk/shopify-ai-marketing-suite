@@ -40,6 +40,29 @@ jobs:
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
         echo "Timestamp: $(date)"
 
+    - name: 🔧 Set deployment environment
+      id: env
+      run: |
+        # productionの場合はdeployment_environmentを空にして本番環境にデプロイ
+        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          echo "deployment_environment=" >> $GITHUB_OUTPUT
+          echo "environment_name=production" >> $GITHUB_OUTPUT
+          echo "next_public_environment=production" >> $GITHUB_OUTPUT
+        # stagingの場合はstaging環境にデプロイ
+        elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "deployment_environment=staging" >> $GITHUB_OUTPUT
+          echo "environment_name=staging" >> $GITHUB_OUTPUT
+          echo "next_public_environment=staging" >> $GITHUB_OUTPUT
+        # developmentの場合はdevelopment環境にデプロイ
+        else
+          echo "deployment_environment=development" >> $GITHUB_OUTPUT
+          echo "environment_name=development" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
+        fi
+        echo "🔍 Environment Configuration:"
+        echo "  - Environment: ${{ github.event.inputs.environment }}"
+        echo "  - Deployment Target: $([ "${{ github.event.inputs.environment }}" = "production" ] && echo "Production" || echo "${{ github.event.inputs.environment }}")"
+
     - name: 🚀 Deploy to Azure Static Web Apps
       uses: Azure/static-web-apps-deploy@v1
       with:
@@ -49,8 +72,9 @@ jobs:
         app_location: ${{ env.APP_LOCATION }}
         output_location: ${{ env.OUTPUT_LOCATION }}
         app_build_command: 'npm run build'
+        deployment_environment: ${{ steps.env.outputs.deployment_environment }}
       env:
-        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
         NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
         NODE_VERSION: 20
@@ -58,7 +82,12 @@ jobs:
     - name: ✅ Deployment complete
       run: |
         echo "✅ Frontend deployment completed successfully!"
-        echo "🌐 App URL: https://brave-sea-038f17a00.1.azurestaticapps.net"
+        if [ "${{ steps.env.outputs.deployment_environment }}" = "" ]; then
+          echo "🌐 App URL: https://brave-sea-038f17a00.1.azurestaticapps.net (Production)"
+        else
+          echo "🌐 App URL: https://${{ steps.env.outputs.deployment_environment }}--brave-sea-038f17a00.1.azurestaticapps.net (Preview)"
+        fi
+        echo "📊 Environment: ${{ steps.env.outputs.environment_name }}"
         echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
@@ -66,7 +95,12 @@ jobs:
         echo "Waiting 30 seconds for deployment to stabilize..."
         sleep 30
         echo "Performing health check..."
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://brave-sea-038f17a00.1.azurestaticapps.net)
+        if [ "${{ steps.env.outputs.deployment_environment }}" = "" ]; then
+          url="https://brave-sea-038f17a00.1.azurestaticapps.net"
+        else
+          url="https://${{ steps.env.outputs.deployment_environment }}--brave-sea-038f17a00.1.azurestaticapps.net"
+        fi
+        response=$(curl -s -o /dev/null -w "%{http_code}" $url)
         if [ "$response" = "200" ]; then
           echo "✅ Health check passed!"
         else

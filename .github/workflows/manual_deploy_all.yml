@@ -86,6 +86,23 @@ jobs:
         echo "Environment: ${{ github.event.inputs.environment }}"
         echo "Message: ${{ github.event.inputs.deploy_message }}"
 
+    - name: 🔧 Set deployment environment
+      id: env
+      run: |
+        # productionの場合はdeployment_environmentを空にして本番環境にデプロイ
+        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          echo "deployment_environment=" >> $GITHUB_OUTPUT
+          echo "next_public_environment=production" >> $GITHUB_OUTPUT
+        # stagingの場合はstaging環境にデプロイ
+        elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "deployment_environment=staging" >> $GITHUB_OUTPUT
+          echo "next_public_environment=staging" >> $GITHUB_OUTPUT
+        # developmentの場合はdevelopment環境にデプロイ
+        else
+          echo "deployment_environment=development" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
+        fi
+
     - name: 🚀 Deploy to Azure Static Web Apps
       uses: Azure/static-web-apps-deploy@v1
       with:
@@ -95,8 +112,9 @@ jobs:
         app_location: '/frontend'
         output_location: '.next'
         app_build_command: 'npm run build'
+        deployment_environment: ${{ steps.env.outputs.deployment_environment }}
       env:
-        NEXT_PUBLIC_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
         NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
         NODE_VERSION: 20
