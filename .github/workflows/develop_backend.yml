@@ -41,11 +41,11 @@ jobs:
         if [ "${{ github.event.inputs.environment }}" = "production" ]; then
           echo "app_name=shopifyapp-backend-develop" >> $GITHUB_OUTPUT
           echo "app_url=https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
-          echo "publish_profile=AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7" >> $GITHUB_OUTPUT
+          echo "publish_profile=AZURE_WEBAPP_PUBLISH_PROFILE" >> $GITHUB_OUTPUT
         else
           echo "app_name=ShopifyTestApi20250720173320" >> $GITHUB_OUTPUT
           echo "app_url=https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
-          echo "publish_profile=AZURE_WEBAPP_PUBLISH_PROFILE" >> $GITHUB_OUTPUT
+          echo "publish_profile=AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
@@ -74,7 +74,7 @@ jobs:
       uses: azure/webapps-deploy@v3
       with:
         app-name: shopifyapp-backend-develop
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/published
 
     - name: 🚀 Deploy to Azure App Service (Dev/Staging)
@@ -82,7 +82,7 @@ jobs:
       uses: azure/webapps-deploy@v3
       with:
         app-name: ShopifyTestApi20250720173320
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C60B318531324C8F9CC369407A7D3DF7 }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/published
 
     - name: ✅ Deployment complete
