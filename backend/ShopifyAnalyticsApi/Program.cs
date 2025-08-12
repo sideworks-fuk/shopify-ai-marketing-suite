@@ -153,6 +153,11 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ICheckpointManager,
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncRangeManager, ShopifyAnalyticsApi.Services.Sync.SyncRangeManager>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncProgressTracker, ShopifyAnalyticsApi.Services.Sync.SyncProgressTracker>();
 
+// Register Shopify Sync Jobs (Shopify同期ジョブ)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyProductSyncJob>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
+
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
 
