@@ -1,4 +1,22 @@
 /** @type {import('next').NextConfig} */
+
+// 本番環境で除外する開発用ページのパターン
+const DEV_PAGE_PATTERNS = [
+  '**/dev-bookmarks/**',
+  '**/dev/**',
+  '**/test/**',
+  '**/debug/**',
+  '**/*-test/**',
+  '**/api-test/**',
+  '**/dormant-api-test/**',
+  '**/database-test/**',
+  '**/debug-env/**',
+  '**/test-sync/**',
+];
+
+const isProduction = process.env.NODE_ENV === 'production' || 
+                     process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT === 'production';
+
 const nextConfig = {
   typescript: {
     // !! WARN !!
@@ -51,7 +69,13 @@ const nextConfig = {
   },
   // 実験的機能の設定
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // 本番環境で開発用ページを除外
+    ...(isProduction && {
+      outputFileTracingExcludes: {
+        '*': DEV_PAGE_PATTERNS,
+      },
+    }),
   },
   // Azure Static Web Apps 対応（API機能を使用）
   // output: 'export', // 静的エクスポートを無効化（API Route対応のため）

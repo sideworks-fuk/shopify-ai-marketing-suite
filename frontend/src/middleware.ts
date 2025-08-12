@@ -12,8 +12,46 @@ const SKIP_PATHS = [
   '/favicon.ico',
 ]
 
+// 開発用ページのパスパターン
+const DEV_PATHS = [
+  '/dev-bookmarks',
+  '/dev/',
+  '/test/',
+  '/debug/',
+  '/api-test',
+  '/dormant-api-test',
+  '/database-test',
+  '/debug-env',
+  '/year-over-year-api-test',
+  '/purchase-count-api-test',
+  '/test-sync',
+  '/settings/environment',  // 環境設定（開発用）
+]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  
+  // 本番環境で開発用ページへのアクセスをブロック
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                       process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT === 'production' ||
+                       process.env.NEXT_PUBLIC_APP_ENVIRONMENT === 'production'
+  
+  if (isProduction) {
+    // 開発用ページへのアクセスをチェック
+    const isDevPath = DEV_PATHS.some(path => {
+      if (path.endsWith('/')) {
+        return pathname.startsWith(path)
+      }
+      return pathname === path || pathname.startsWith(path + '/')
+    })
+    
+    if (isDevPath) {
+      // 404ページへリダイレクト
+      const url = request.nextUrl.clone()
+      url.pathname = '/404'
+      return NextResponse.redirect(url)
+    }
+  }
 
   // スキップパスの場合はそのまま通す
   if (SKIP_PATHS.some(path => pathname.startsWith(path))) {

@@ -25,7 +25,7 @@ interface SyncStatus {
 export default function SyncingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const syncId = searchParams.get('syncId')
+  const syncId = searchParams?.get('syncId')
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const [error, setError] = useState<string | null>(null)

@@ -198,7 +198,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <span>ホーム</span>
               <span>/</span>
               <span className="text-gray-900 font-medium">
-                {pathname.split('/').filter(Boolean).join(' / ')}
+                {pathname?.split('/').filter(Boolean).join(' / ') || ''}
               </span>
             </div>
 
