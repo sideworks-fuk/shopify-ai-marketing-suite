@@ -21,6 +21,13 @@ namespace ShopifyAnalyticsApi.Data
         public DbSet<ProductVariant> ProductVariants { get; set; }
         public DbSet<Store> Stores { get; set; }
         public DbSet<SyncStatus> SyncStatuses { get; set; }
+        
+        // 同期管理用のDbSets
+        public DbSet<SyncState> SyncStates { get; set; }
+        public DbSet<SyncRangeSetting> SyncRangeSettings { get; set; }
+        public DbSet<SyncProgressDetail> SyncProgressDetails { get; set; }
+        public DbSet<SyncCheckpoint> SyncCheckpoints { get; set; }
+        public DbSet<SyncHistory> SyncHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -46,6 +53,22 @@ namespace ShopifyAnalyticsApi.Data
             modelBuilder.Entity<Order>()
                 .HasIndex(o => new { o.StoreId, o.OrderNumber });
             
+            // 同期管理テーブルのインデックス設定
+            modelBuilder.Entity<SyncRangeSetting>()
+                .HasIndex(s => new { s.StoreId, s.DataType });
+            
+            modelBuilder.Entity<SyncProgressDetail>()
+                .HasIndex(s => s.SyncStateId);
+            
+            modelBuilder.Entity<SyncCheckpoint>()
+                .HasIndex(s => new { s.StoreId, s.DataType });
+            
+            modelBuilder.Entity<SyncState>()
+                .HasIndex(s => new { s.StoreId, s.SyncType });
+            
+            modelBuilder.Entity<SyncHistory>()
+                .HasIndex(s => new { s.StoreId, s.StartedAt });
+
             // Storeとのリレーション設定
             modelBuilder.Entity<Customer>()
                 .HasOne<Store>()

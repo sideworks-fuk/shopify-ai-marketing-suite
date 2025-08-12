@@ -21,6 +21,7 @@ export function ShopifyNavigationMenu() {
       <NavMenu>
         <a href="/" rel="home">EC Ranger</a>
         <a href="/setup/initial">データ同期</a>
+        <a href="/sync">同期ステータス</a>
         <a href="/sales/year-over-year">前年同月比分析</a>
         <a href="/purchase/count-analysis">購入回数分析</a>
         <a href="/customers/dormant">休眠顧客分析</a>
@@ -34,6 +35,7 @@ export function ShopifyNavigationMenu() {
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', gap: '1rem' }}>
           <li><a href="/">EC Ranger</a></li>
           <li><a href="/setup/initial">データ同期</a></li>
+          <li><a href="/sync">同期ステータス</a></li>
           <li><a href="/sales/year-over-year">前年同月比分析</a></li>
           <li><a href="/purchase/count-analysis">購入回数分析</a></li>
           <li><a href="/customers/dormant">休眠顧客分析</a></li>

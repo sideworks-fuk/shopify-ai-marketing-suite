@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Hangfire;
+using Hangfire.SqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -146,8 +148,37 @@ builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 builder.Services.AddScoped<ShopifyApiService>();
 builder.Services.AddScoped<ShopifyDataSyncService>();
 
+// Register Sync Management Services (同期管理サービス)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ICheckpointManager, ShopifyAnalyticsApi.Services.Sync.CheckpointManager>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncRangeManager, ShopifyAnalyticsApi.Services.Sync.SyncRangeManager>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncProgressTracker, ShopifyAnalyticsApi.Services.Sync.SyncProgressTracker>();
+
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
+
+// HangFire設定
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new Hangfire.SqlServer.SqlServerStorageOptions
+    {
+        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+        QueuePollInterval = TimeSpan.Zero,
+        UseRecommendedIsolationLevel = true,
+        DisableGlobalLocks = true
+    }));
+
+// HangFireサーバー設定
+builder.Services.AddHangfireServer(options =>
+{
+    options.ServerName = "EC-Ranger-Server";
+    options.WorkerCount = Environment.ProcessorCount * 2;
+});
+
+// KeepAliveサービス登録（Azure App Service対策）
+builder.Services.AddHostedService<KeepAliveService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
@@ -261,6 +292,13 @@ else
 }
 
 app.UseHttpsRedirection();
+
+// HangFireダッシュボード設定
+app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
+{
+    Authorization = new[] { new ShopifyAnalyticsApi.Filters.HangfireAuthorizationFilter() },
+    DashboardTitle = "EC Ranger - Job Dashboard"
+});
 
 // セキュリティヘッダーを追加
 app.Use(async (context, next) =>

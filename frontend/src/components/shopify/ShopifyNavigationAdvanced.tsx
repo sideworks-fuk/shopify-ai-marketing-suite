@@ -77,6 +77,12 @@ export function ShopifyNavigationAdvanced() {
           データ同期
         </a>
         <a 
+          href="/sync"
+          onClick={(e) => handleNavigation(e, '/sync')}
+        >
+          同期ステータス
+        </a>
+        <a 
           href="/sales/year-over-year"
           onClick={(e) => handleNavigation(e, '/sales/year-over-year')}
         >
