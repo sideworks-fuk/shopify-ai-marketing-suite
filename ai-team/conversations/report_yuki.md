@@ -4,6 +4,35 @@
 
 ### 完了作業
 
+#### LocalStorage変数の整理と統一
+フロントエンドで使用されているLocalStorage変数の調査と整理を実施しました。
+
+**調査結果:**
+- `selectedStoreId` - StoreContextで使用
+- `currentStoreId` - AuthProviderで使用  
+- `currentShopDomain` - OAuth認証成功時のみ保存（現在未使用）
+
+**問題点:**
+1. `selectedStoreId`と`currentStoreId`が重複した目的で使用
+2. 同じ値を表すのに2つの異なる変数が存在
+3. `currentShopDomain`は保存後どこでも使用されていない
+
+**実施内容:**
+1. **変数の統一**: `currentStoreId`に統一（後方互換性維持）
+2. **マイグレーション機能追加**: `/frontend/src/lib/localstorage-migration.ts`
+3. **自動マイグレーション**: AuthProvider初期化時に自動実行
+4. **ドキュメント作成**: `/docs/04-development/localstorage-variables-analysis.md`
+
+**更新ファイル:**
+- `/frontend/src/contexts/StoreContext.tsx` - 両変数をチェック、統一変数へ移行
+- `/frontend/src/lib/api-config.ts` - getCurrentStoreId関数の更新
+- `/frontend/src/components/providers/AuthProvider.tsx` - マイグレーション実行
+- `/frontend/src/app/auth/success/page.tsx` - currentShopDomainの保存をコメント化
+
+**今後の対応:**
+- Phase 1（完了）: 互換性維持しながら統一
+- Phase 2（将来）: selectedStoreIdとcurrentShopDomainの完全削除
+
 #### 課金フローUIの実装完了
 プラン選択、アップグレード/ダウングレード、サブスクリプション管理の3つの主要画面を実装しました。
 

@@ -1,7 +1,9 @@
-マイグレーションのSQLはかならずプロジェクトに含めるルールにしましょう。
-backend\ShopifyAnalyticsApi\Migrations
-docs\04-development\database-migrations\2025-08-13-AddWebhookEventsTable.sql
+機能追加に入る前に現状機能を整理していきましょう
+インストールウィザードOKでした。
 
-実行履歴は必ず以下で管理します
-docs\04-development\database-migration-tracking.md
-→　検討　移動　docs\04-development\database-migrations\database-migration-tracking.md
+LocalStrageで使用している以下の変数を整理したい。
+現状使用していない変数がないか？チェックして使っていない変数は整理したい。
+
+selectedStoreId
+currentStoreId
+currentShopDomain
