@@ -51,8 +51,8 @@ export default function AuthSuccessPage() {
         setCurrentStore(storeId);
         
         // LocalStorageに保存
+        // Phase 2: currentStoreIdのみを使用
         localStorage.setItem('currentStoreId', storeId.toString());
-        localStorage.setItem('currentShopDomain', shop);
         
         setStatus('success');
         setMessage('認証が完了しました！ダッシュボードへ移動します...');

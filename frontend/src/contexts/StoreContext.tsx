@@ -52,7 +52,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ローカルストレージから復元
   useEffect(() => {
-    const savedStoreId = localStorage.getItem('selectedStoreId')
+    // Phase 2: currentStoreIdのみを使用
+    const savedStoreId = localStorage.getItem('currentStoreId')
+    
     if (savedStoreId) {
       const store = availableStores.find(s => s.id === parseInt(savedStoreId))
       if (store) {
@@ -95,7 +97,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     setTimeout(() => {
       setCurrentStore(store)
-      localStorage.setItem('selectedStoreId', storeId.toString())
+      // Phase 2: currentStoreIdのみを使用
+      localStorage.setItem('currentStoreId', storeId.toString())
       setIsLoading(false)
       
       // ページリロードして新しいデータを取得
@@ -111,7 +114,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const store = availableStores.find(s => s.id === storeId)
     if (store) {
       setCurrentStore(store)
-      localStorage.setItem('selectedStoreId', storeId.toString())
+      // Phase 2: currentStoreIdのみを使用
+      localStorage.setItem('currentStoreId', storeId.toString())
     }
   }
 

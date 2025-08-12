@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { authClient } from '@/lib/auth-client'
+import { migrateLocalStorageVariables } from '@/lib/localstorage-migration'
 
 /**
  * 認証プロバイダー
@@ -50,7 +51,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setIsInitializing(true)
         setAuthError(null)
 
-        // LocalStorageからstoreIdを取得
+        // LocalStorage変数のマイグレーションを実行
+        migrateLocalStorageVariables()
+
+        // Phase 2: currentStoreIdのみを使用
         const savedStoreId = localStorage.getItem('currentStoreId')
         const storeId = savedStoreId ? parseInt(savedStoreId, 10) : 1
 

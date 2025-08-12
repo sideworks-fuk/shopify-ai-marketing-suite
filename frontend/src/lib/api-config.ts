@@ -145,8 +145,9 @@ export const getEnvironmentInfo = () => {
 // ストアIDを取得する関数を追加
 export function getCurrentStoreId(): number {
   if (typeof window !== 'undefined') {
-    const savedStoreId = localStorage.getItem('selectedStoreId')
-    return savedStoreId ? parseInt(savedStoreId) : 1
+    // Phase 2: currentStoreIdのみを使用
+    const currentStoreId = localStorage.getItem('currentStoreId')
+    return currentStoreId ? parseInt(currentStoreId) : 1
   }
   return 1
 }
