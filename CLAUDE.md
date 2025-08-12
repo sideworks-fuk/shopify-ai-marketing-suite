@@ -79,7 +79,7 @@ Architecture Decision Records（ADR）は、重要な技術的決定を記録し
 - **決定の見直し**: 状況が変わった時に、過去の前提条件を確認できる
 
 ### ADRの保存場所
-- `/docs/adr/`フォルダに保存
+- `/docs/02-architecture/05-ADR/`フォルダに保存
 - ファイル名は`ADR-XXX-タイトル.md`の形式（XXXは3桁の連番）
 - テンプレートは`ADR-000-template.md`を参照
 
@@ -95,7 +95,7 @@ Architecture Decision Records（ADR）は、重要な技術的決定を記録し
 
 #### 1. マイグレーションスクリプトの作成
 - ファイル名: `YYYY-MM-DD-説明.sql`（例：2025-08-05-AddInitialSetupFeature.sql）
-- 保存場所: `/docs/04-development/database-migrations/`
+- 保存場所: `/docs/04-development/03-データベース/マイグレーション/`
 - スクリプト内に以下のコメントを必ず記載：
   ```sql
   -- 作成日: YYYY-MM-DD
@@ -105,7 +105,7 @@ Architecture Decision Records（ADR）は、重要な技術的決定を記録し
   ```
 
 #### 2. マイグレーション管理ドキュメントの更新
-**必須**: マイグレーションを作成または実行したら、即座に `/docs/04-development/database-migration-tracking.md` を更新する
+**必須**: マイグレーションを作成または実行したら、即座に `/docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` を更新する
 
 更新内容：
 - スクリプト名
@@ -132,3 +132,4 @@ Architecture Decision Records（ADR）は、重要な技術的決定を記録し
 - 2025-08-01: 初版作成
 - 2025-08-02: ADRセクション追加
 - 2025-08-05: データベースマイグレーション管理セクション追加
+- 2025-08-12: フォルダ構造更新（ADRとマイグレーションのパス変更）
