@@ -28,6 +28,10 @@ namespace ShopifyAnalyticsApi.Data
         public DbSet<SyncProgressDetail> SyncProgressDetails { get; set; }
         public DbSet<SyncCheckpoint> SyncCheckpoints { get; set; }
         public DbSet<SyncHistory> SyncHistories { get; set; }
+        
+        // サブスクリプション管理用のDbSets
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
+        public DbSet<StoreSubscription> StoreSubscriptions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

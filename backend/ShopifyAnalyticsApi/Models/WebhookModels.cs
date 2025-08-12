@@ -287,4 +287,14 @@ namespace ShopifyAnalyticsApi.Models
             ? (int)(TrialEndsAt.Value - DateTime.UtcNow).TotalDays 
             : null;
     }
+    
+    /// <summary>
+    /// サブスクリプション操作の結果
+    /// </summary>
+    public class SubscriptionResult
+    {
+        public bool Success { get; set; }
+        public string? ConfirmationUrl { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
 }

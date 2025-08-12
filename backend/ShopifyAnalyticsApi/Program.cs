@@ -148,6 +148,9 @@ builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 builder.Services.AddScoped<ShopifyApiService>();
 builder.Services.AddScoped<ShopifyDataSyncService>();
 
+// Register Subscription Service (サブスクリプション管理サービス)
+builder.Services.AddScoped<ISubscriptionService, ShopifySubscriptionService>();
+
 // Register Sync Management Services (同期管理サービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ICheckpointManager, ShopifyAnalyticsApi.Services.Sync.CheckpointManager>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncRangeManager, ShopifyAnalyticsApi.Services.Sync.SyncRangeManager>();

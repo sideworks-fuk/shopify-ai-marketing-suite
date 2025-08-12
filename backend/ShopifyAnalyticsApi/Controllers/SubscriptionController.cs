@@ -26,7 +26,7 @@ namespace ShopifyAnalyticsApi.Controllers
             ILogger<SubscriptionController> logger,
             ShopifyDbContext context,
             ISubscriptionService subscriptionService,
-            IConfiguration configuration) : base(context)
+            IConfiguration configuration)
         {
             _logger = logger;
             _context = context;
@@ -42,15 +42,14 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var storeId = GetStoreId();
-                if (storeId == null)
+                if (!HasStoreContext)
                 {
-                    return BadRequest(new { error = "Store not found" });
+                    return BadRequest(new { error = "Store context not found" });
                 }
 
                 var subscription = await _context.StoreSubscriptions
                     .Include(s => s.Plan)
-                    .Where(s => s.StoreId == storeId.Value && s.Status == "active")
+                    .Where(s => s.StoreId == StoreId && s.Status == "active")
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
@@ -98,20 +97,21 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var plans = await _context.SubscriptionPlans
+                var plansData = await _context.SubscriptionPlans
                     .Where(p => p.IsActive)
                     .OrderBy(p => p.Price)
-                    .Select(p => new
-                    {
-                        id = p.Id,
-                        name = p.Name,
-                        price = p.Price,
-                        trialDays = p.TrialDays,
-                        features = p.Features != null 
-                            ? JsonSerializer.Deserialize<object>(p.Features) 
-                            : null
-                    })
                     .ToListAsync();
+                
+                var plans = plansData.Select(p => new
+                {
+                    id = p.Id,
+                    name = p.Name,
+                    price = p.Price,
+                    trialDays = p.TrialDays,
+                    features = p.Features != null 
+                        ? JsonSerializer.Deserialize<object>(p.Features) 
+                        : null
+                }).ToList();
 
                 return Ok(plans);
             }
@@ -130,13 +130,12 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var storeId = GetStoreId();
-                if (storeId == null)
+                if (!HasStoreContext)
                 {
-                    return BadRequest(new { error = "Store not found" });
+                    return BadRequest(new { error = "Store context not found" });
                 }
 
-                var store = await _context.Stores.FindAsync(storeId.Value);
+                var store = await _context.Stores.FindAsync(StoreId);
                 if (store == null || string.IsNullOrEmpty(store.AccessToken))
                 {
                     return BadRequest(new { error = "Store not properly authenticated" });
@@ -144,7 +143,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // 既存のアクティブなサブスクリプションをチェック
                 var existingSubscription = await _context.StoreSubscriptions
-                    .AnyAsync(s => s.StoreId == storeId.Value && s.Status == "active");
+                    .AnyAsync(s => s.StoreId == StoreId && s.Status == "active");
 
                 if (existingSubscription)
                 {
@@ -236,20 +235,19 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var storeId = GetStoreId();
-                if (storeId == null)
+                if (!HasStoreContext)
                 {
-                    return BadRequest(new { error = "Store not found" });
+                    return BadRequest(new { error = "Store context not found" });
                 }
 
-                var store = await _context.Stores.FindAsync(storeId.Value);
+                var store = await _context.Stores.FindAsync(StoreId);
                 if (store == null)
                 {
                     return BadRequest(new { error = "Store not found" });
                 }
 
                 var subscription = await _context.StoreSubscriptions
-                    .Where(s => s.StoreId == storeId.Value && s.Status == "active")
+                    .Where(s => s.StoreId == StoreId && s.Status == "active")
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
@@ -279,7 +277,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Subscription cancelled for store {StoreId}", storeId.Value);
+                _logger.LogInformation("Subscription cancelled for store {StoreId}", StoreId);
 
                 return Ok(new { message = "Subscription cancelled successfully" });
             }
@@ -298,15 +296,14 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var storeId = GetStoreId();
-                if (storeId == null)
+                if (!HasStoreContext)
                 {
-                    return BadRequest(new { error = "Store not found" });
+                    return BadRequest(new { error = "Store context not found" });
                 }
 
                 var history = await _context.StoreSubscriptions
                     .Include(s => s.Plan)
-                    .Where(s => s.StoreId == storeId.Value)
+                    .Where(s => s.StoreId == StoreId)
                     .OrderByDescending(s => s.CreatedAt)
                     .Select(s => new
                     {
@@ -338,13 +335,12 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                var storeId = GetStoreId();
-                if (storeId == null)
+                if (!HasStoreContext)
                 {
-                    return BadRequest(new { error = "Store not found" });
+                    return BadRequest(new { error = "Store context not found" });
                 }
 
-                var store = await _context.Stores.FindAsync(storeId.Value);
+                var store = await _context.Stores.FindAsync(StoreId);
                 if (store == null)
                 {
                     return BadRequest(new { error = "Store not found" });
@@ -352,7 +348,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // 現在のサブスクリプションを取得
                 var currentSubscription = await _context.StoreSubscriptions
-                    .Where(s => s.StoreId == storeId.Value && s.Status == "active")
+                    .Where(s => s.StoreId == StoreId && s.Status == "active")
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
