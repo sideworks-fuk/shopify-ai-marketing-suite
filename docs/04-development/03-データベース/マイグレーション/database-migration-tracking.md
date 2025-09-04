@@ -19,6 +19,7 @@ docs/04-development/03-データベース/マイグレーション/
 ├── 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql
 ├── 2025-08-25-FIX2-free-plan-feature-selection.sql
 ├── 2025-08-26-free-plan-feature-selection.sql
+├── 2025-09-04-MASTER-CreateDatabaseFromScratch.sql
 └── 2025-08-XX-[変更内容].sql
 ```
 
@@ -38,6 +39,7 @@ docs/04-development/03-データベース/マイグレーション/
 | 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql | 2025-08-25 | Kenji | ストアドプロシージャ簡易版 | ✅ 適用済 (2025-08-25 13:10) | ⏳ 未適用 | ⏳ 未適用 |
 | 2025-08-25-FIX2-free-plan-feature-selection.sql | 2025-08-25 | Kenji | Store→Stores修正、カラム追加 | ✅ 適用済 (2025-08-25 13:20) | ⏳ 未適用 | ⏳ 未適用 |
 | 2025-08-26-free-plan-feature-selection.sql | 2025-08-26 | Takashi | 無料プラン機能制限（元版） | ❌ エラー発生 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-09-04-MASTER-CreateDatabaseFromScratch.sql** | 2025-09-04 | Kenji | **完全なデータベース作成マスタースクリプト** | 🆕 新規作成 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -55,6 +57,13 @@ docs/04-development/03-データベース/マイグレーション/
 ### エラー発生（修正版で解決済み）❌→✅
 - 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
 - 2025-08-26-free-plan-feature-selection.sql → 2025-08-25-FIX2版で解決
+
+### 🆕 マスタースクリプト
+- **2025-09-04-MASTER-CreateDatabaseFromScratch.sql** - 新規環境用の完全なDDLスクリプト
+  - Entity Frameworkで管理されていた基本テーブルのCREATE文を含む
+  - すべての手動マイグレーションを統合
+  - 実行順序を考慮した外部キー制約の設定
+  - ベーステーブル: Stores, Tenants, Customers, Products, ProductVariants, Orders, OrderItems
 
 ## 適用手順
 
@@ -109,8 +118,23 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 - [ ] パフォーマンス改善を確認
 - [ ] 本ドキュメント更新
 
+## 新規環境構築手順
+
+### マスタースクリプトを使用した新規環境構築
+新規環境でデータベースをゼロから構築する場合：
+
+1. SQL Serverで新規データベースを作成
+2. `2025-09-04-MASTER-CreateDatabaseFromScratch.sql` を実行
+3. エラーがないことを確認
+4. アプリケーションの接続テストを実施
+
+### 注意事項
+- Entity Frameworkのマイグレーションは不要（マスタースクリプトに含まれている）
+- 既存環境には適用しないこと（データ損失の可能性）
+- 新規環境専用のスクリプトです
+
 ---
 
-最終更新: 2025-08-25 13:30
+最終更新: 2025-09-04 10:00
 管理者: 福田
 更新者: Kenji（AIチーム）
