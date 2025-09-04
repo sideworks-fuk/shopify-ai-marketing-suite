@@ -1,17 +1,26 @@
 import type { BillingPlan, Subscription, BillingInfo, PlanChangeRequest } from '@/types/billing';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+
+/**
+ * Get auth headers with JWT token
+ */
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : '',
+  };
+}
 
 /**
  * 利用可能なプラン一覧を取得
  */
 export async function getAvailablePlans(): Promise<BillingPlan[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/plans`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/plans`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -31,11 +40,9 @@ export async function getAvailablePlans(): Promise<BillingPlan[]> {
  */
 export async function getCurrentSubscription(): Promise<Subscription | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/subscription`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/current`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -96,13 +103,11 @@ export async function getBillingInfo(): Promise<BillingInfo> {
  */
 export async function changePlan(request: PlanChangeRequest): Promise<Subscription> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/change-plan`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/upgrade`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
-      body: JSON.stringify(request),
+      body: JSON.stringify({ planId: request.toPlanId }),
     });
 
     if (!response.ok) {
@@ -122,11 +127,9 @@ export async function changePlan(request: PlanChangeRequest): Promise<Subscripti
  */
 export async function createSubscription(planId: string): Promise<Subscription> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/subscribe`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/create`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify({ planId }),
     });
@@ -146,13 +149,11 @@ export async function createSubscription(planId: string): Promise<Subscription> 
 /**
  * サブスクリプションをキャンセル
  */
-export async function cancelSubscription(subscriptionId: string): Promise<void> {
+export async function cancelSubscription(subscriptionId?: string): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/subscription/${subscriptionId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/cancel`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -169,13 +170,11 @@ export async function cancelSubscription(subscriptionId: string): Promise<void> 
 /**
  * サブスクリプションを再開
  */
-export async function reactivateSubscription(subscriptionId: string): Promise<Subscription> {
+export async function reactivateSubscription(subscriptionId?: string): Promise<Subscription> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/subscription/${subscriptionId}/reactivate`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/reactivate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -205,11 +204,9 @@ export interface Invoice {
 
 export async function getInvoiceHistory(limit: number = 10): Promise<Invoice[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/invoices?limit=${limit}`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/history?limit=${limit}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -254,11 +251,9 @@ export interface UsageStats {
 
 export async function getUsageStats(): Promise<UsageStats> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/billing/usage`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/usage`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 

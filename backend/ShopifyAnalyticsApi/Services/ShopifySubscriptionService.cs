@@ -71,23 +71,24 @@ namespace ShopifyAnalyticsApi.Services
                     };
                 }
 
-                // GraphQL Mutation for creating subscription
+                // GraphQL Mutation for creating subscription (2024-01 API)
                 var mutation = @"
-                    mutation appSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $trialDays: Int) {
-                        appSubscriptionCreate(
-                            name: $name,
-                            lineItems: $lineItems,
-                            returnUrl: $returnUrl,
-                            trialDays: $trialDays,
-                            test: true
-                        ) {
+                    mutation CreateAppSubscription($input: AppSubscriptionCreateInput!) {
+                        appSubscriptionCreate(appSubscription: $input) {
                             appSubscription {
                                 id
+                                name
+                                status
+                                createdAt
+                                currentPeriodEnd
+                                test
+                                trialDays
                             }
                             confirmationUrl
                             userErrors {
                                 field
                                 message
+                                code
                             }
                         }
                     }";
@@ -95,27 +96,31 @@ namespace ShopifyAnalyticsApi.Services
                 var appUrl = _configuration["AppUrl"] ?? "https://ec-ranger.azurewebsites.net";
                 var variables = new
                 {
-                    name = plan.Name,
-                    lineItems = new[]
+                    input = new
                     {
-                        new
+                        name = plan.Name,
+                        lineItems = new[]
                         {
-                            plan = new
+                            new
                             {
-                                appRecurringPricingDetails = new
+                                plan = new
                                 {
-                                    price = new
+                                    appRecurringPricingDetails = new
                                     {
-                                        amount = plan.Price,
-                                        currencyCode = "USD"
-                                    },
-                                    interval = "EVERY_30_DAYS"
+                                        price = new
+                                        {
+                                            amount = plan.Price,
+                                            currencyCode = "USD"
+                                        },
+                                        interval = "EVERY_30_DAYS"
+                                    }
                                 }
                             }
-                        }
-                    },
-                    returnUrl = $"{appUrl}/api/subscription/confirm?shop={shopDomain}",
-                    trialDays = plan.TrialDays
+                        },
+                        returnUrl = $"{appUrl}/api/subscription/confirm?shop={shopDomain}",
+                        trialDays = plan.TrialDays,
+                        test = _configuration.GetValue<bool>("Shopify:TestMode", true)
+                    }
                 };
 
                 var response = await ExecuteGraphQL(shopDomain, accessToken, mutation, variables);
@@ -433,42 +438,139 @@ namespace ShopifyAnalyticsApi.Services
         }
 
         /// <summary>
-        /// GraphQLを実行
+        /// GraphQLを実行（Rate Limit対策とリトライ機構付き）
         /// </summary>
-        private async Task<JsonDocument?> ExecuteGraphQL(string shopDomain, string accessToken, string query, object variables)
+        private async Task<JsonDocument?> ExecuteGraphQL(string shopDomain, string accessToken, string query, object variables, int maxRetries = 3)
         {
-            try
+            var retryCount = 0;
+            var delay = TimeSpan.FromSeconds(1);
+
+            while (retryCount < maxRetries)
             {
-                var client = _httpClientFactory.CreateClient();
-                client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
-
-                var graphqlEndpoint = $"https://{shopDomain}/admin/api/2024-01/graphql.json";
-                
-                var requestBody = new
+                try
                 {
-                    query = query,
-                    variables = variables
-                };
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
+                    client.Timeout = TimeSpan.FromSeconds(30); // タイムアウト設定
 
-                var json = JsonSerializer.Serialize(requestBody);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    var graphqlEndpoint = $"https://{shopDomain}/admin/api/2024-01/graphql.json";
+                    
+                    var requestBody = new
+                    {
+                        query = query,
+                        variables = variables
+                    };
 
-                var response = await client.PostAsync(graphqlEndpoint, content);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    return JsonDocument.Parse(responseContent);
+                    var json = JsonSerializer.Serialize(requestBody);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    var response = await client.PostAsync(graphqlEndpoint, content);
+                    
+                    // Rate Limit チェック
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        retryCount++;
+                        
+                        // Retry-Afterヘッダーから待機時間を取得
+                        if (response.Headers.RetryAfter != null)
+                        {
+                            delay = response.Headers.RetryAfter.Delta ?? TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                        }
+                        else
+                        {
+                            delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount)); // 指数バックオフ
+                        }
+                        
+                        _logger.LogWarning("Rate limited. Retrying after {Delay} seconds. Attempt {Attempt}/{MaxRetries}", 
+                            delay.TotalSeconds, retryCount, maxRetries);
+                        
+                        await Task.Delay(delay);
+                        continue;
+                    }
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        var document = JsonDocument.Parse(responseContent);
+                        
+                        // GraphQLエラーチェック
+                        if (document.RootElement.TryGetProperty("errors", out var errors))
+                        {
+                            var errorMessages = new List<string>();
+                            foreach (var error in errors.EnumerateArray())
+                            {
+                                if (error.TryGetProperty("message", out var message))
+                                {
+                                    errorMessages.Add(message.GetString() ?? "Unknown error");
+                                }
+                            }
+                            
+                            _logger.LogError("GraphQL errors: {Errors}", string.Join(", ", errorMessages));
+                            
+                            // スロットリングエラーの場合はリトライ
+                            if (errorMessages.Any(m => m.Contains("throttled", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                retryCount++;
+                                delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                                await Task.Delay(delay);
+                                continue;
+                            }
+                        }
+                        
+                        return document;
+                    }
+
+                    _logger.LogWarning("GraphQL request failed with status {Status}", response.StatusCode);
+                    
+                    // 5xx エラーの場合はリトライ
+                    if ((int)response.StatusCode >= 500)
+                    {
+                        retryCount++;
+                        delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                        _logger.LogWarning("Server error. Retrying after {Delay} seconds. Attempt {Attempt}/{MaxRetries}", 
+                            delay.TotalSeconds, retryCount, maxRetries);
+                        await Task.Delay(delay);
+                        continue;
+                    }
+                    
+                    return null;
                 }
-
-                _logger.LogWarning("GraphQL request failed with status {Status}", response.StatusCode);
-                return null;
+                catch (TaskCanceledException ex)
+                {
+                    _logger.LogError(ex, "Request timeout for GraphQL request");
+                    retryCount++;
+                    
+                    if (retryCount < maxRetries)
+                    {
+                        delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                        _logger.LogWarning("Timeout. Retrying after {Delay} seconds. Attempt {Attempt}/{MaxRetries}", 
+                            delay.TotalSeconds, retryCount, maxRetries);
+                        await Task.Delay(delay);
+                        continue;
+                    }
+                    
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error executing GraphQL request");
+                    retryCount++;
+                    
+                    if (retryCount < maxRetries)
+                    {
+                        delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                        _logger.LogWarning("Error occurred. Retrying after {Delay} seconds. Attempt {Attempt}/{MaxRetries}", 
+                            delay.TotalSeconds, retryCount, maxRetries);
+                        await Task.Delay(delay);
+                        continue;
+                    }
+                    
+                    return null;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing GraphQL request");
-                return null;
-            }
+            
+            _logger.LogError("Max retries ({MaxRetries}) exceeded for GraphQL request", maxRetries);
+            return null;
         }
     }
 

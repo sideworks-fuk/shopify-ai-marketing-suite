@@ -32,6 +32,22 @@ namespace ShopifyAnalyticsApi.Data
         // サブスクリプション管理用のDbSets
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<StoreSubscription> StoreSubscriptions { get; set; }
+        
+        // Webhook管理用のDbSets
+        public DbSet<WebhookEvent> WebhookEvents { get; set; }
+        
+        // GDPR管理用のDbSets
+        public DbSet<GDPRRequest> GDPRRequests { get; set; }
+        public DbSet<GDPRDeletionLog> GDPRDeletionLogs { get; set; }
+        public DbSet<GDPRStatistics> GDPRStatistics { get; set; }
+        public DbSet<GDPRComplianceLog> GDPRComplianceLogs { get; set; }
+        public DbSet<InstallationHistory> InstallationHistories { get; set; }
+        
+        // 無料プラン機能制限用のDbSets
+        public DbSet<FeatureLimit> FeatureLimits { get; set; }
+        public DbSet<UserFeatureSelection> UserFeatureSelections { get; set; }
+        public DbSet<FeatureUsageLog> FeatureUsageLogs { get; set; }
+        public DbSet<FeatureSelectionChangeHistory> FeatureSelectionChangeHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -72,6 +88,40 @@ namespace ShopifyAnalyticsApi.Data
             
             modelBuilder.Entity<SyncHistory>()
                 .HasIndex(s => new { s.StoreId, s.StartedAt });
+            
+            // Webhookイベントのインデックス設定
+            modelBuilder.Entity<WebhookEvent>()
+                .HasIndex(w => new { w.ShopDomain, w.Topic });
+            
+            modelBuilder.Entity<WebhookEvent>()
+                .HasIndex(w => w.Status);
+            
+            modelBuilder.Entity<WebhookEvent>()
+                .HasIndex(w => w.IdempotencyKey)
+                .IsUnique()
+                .HasFilter("[IdempotencyKey] IS NOT NULL");
+            
+            // GDPRテーブルのインデックス設定
+            modelBuilder.Entity<GDPRRequest>()
+                .HasIndex(g => new { g.ShopDomain, g.RequestType });
+            
+            modelBuilder.Entity<GDPRRequest>()
+                .HasIndex(g => g.Status);
+            
+            modelBuilder.Entity<GDPRRequest>()
+                .HasIndex(g => g.DueDate);
+            
+            modelBuilder.Entity<GDPRRequest>()
+                .HasIndex(g => g.IdempotencyKey)
+                .IsUnique()
+                .HasFilter("[IdempotencyKey] IS NOT NULL");
+            
+            modelBuilder.Entity<GDPRDeletionLog>()
+                .HasIndex(d => d.GDPRRequestId);
+            
+            modelBuilder.Entity<GDPRStatistics>()
+                .HasIndex(s => new { s.Period, s.RequestType })
+                .IsUnique();
 
             // Storeとのリレーション設定
             modelBuilder.Entity<Customer>()

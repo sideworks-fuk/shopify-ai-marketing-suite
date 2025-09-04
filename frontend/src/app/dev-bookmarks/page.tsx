@@ -233,6 +233,23 @@ const bookmarkItems: BookmarkItem[] = [
     category: 'dev'
   },
 
+  // 課金システム・無料プラン
+  {
+    title: "課金管理画面",
+    description: "サブスクリプションプラン管理画面",
+    href: "/settings/billing",
+    icon: <ShoppingBag className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
+  {
+    title: "無料プラン機能選択",
+    description: "無料プランで利用する機能の選択画面",
+    href: "/billing/free-plan-setup",
+    icon: <Target className="h-5 w-5" />,
+    status: 'in-progress',
+    category: 'dev'
+  },
   // Shopify OAuth認証テスト
   {
     title: "Shopify OAuth認証テスト",

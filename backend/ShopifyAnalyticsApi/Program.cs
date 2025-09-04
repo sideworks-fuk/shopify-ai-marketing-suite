@@ -138,11 +138,17 @@ builder.Services.AddScoped<IMonthlySalesService, MonthlySalesService>();
 // Register Store Service (ストア管理サービス)
 builder.Services.AddScoped<IStoreService, StoreService>();
 
+// Register Feature Selection Service (無料プラン機能選択サービス)
+builder.Services.AddScoped<IFeatureSelectionService, FeatureSelectionService>();
+
 // Register Token Service (トークンサービス)
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Register Data Cleanup Service (データクリーンアップサービス)
 builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
+
+// Register GDPR Service (GDPR準拠サービス)
+builder.Services.AddScoped<IGDPRService, GDPRService>();
 
 // Register Shopify Data Sync Service (Shopifyデータ同期サービス)
 builder.Services.AddScoped<ShopifyApiService>();
@@ -344,6 +350,9 @@ app.UseAuthentication();
 
 // ストアコンテキストミドルウェア（認証後、承認前）
 app.UseStoreContext();
+
+// 機能アクセス制御ミドルウェア（ストアコンテキスト後、承認前）
+app.UseFeatureAccess();
 
 app.UseAuthorization();
 

@@ -24,19 +24,22 @@ namespace ShopifyAnalyticsApi.Controllers
         private readonly ShopifyDbContext _context;
         private readonly IServiceProvider _serviceProvider;
         private readonly IDataCleanupService _dataCleanupService;
+        private readonly IGDPRService _gdprService;
 
         public WebhookController(
             IConfiguration configuration,
             ILogger<WebhookController> logger,
             ShopifyDbContext context,
             IServiceProvider serviceProvider,
-            IDataCleanupService dataCleanupService)
+            IDataCleanupService dataCleanupService,
+            IGDPRService gdprService)
         {
             _configuration = configuration;
             _logger = logger;
             _context = context;
             _serviceProvider = serviceProvider;
             _dataCleanupService = dataCleanupService;
+            _gdprService = gdprService;
         }
 
         /// <summary>
@@ -119,16 +122,25 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("顧客データ削除要求受信. Shop: {Shop}, CustomerId: {CustomerId}", 
                     webhook.ShopDomain, webhook.Customer.Id);
 
-                // 非同期で顧客データ削除処理をスケジュール
+                // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await ScheduleCustomerDataDeletion(webhook.ShopDomain, webhook.Customer.Id, 30);
+                        var request = await _gdprService.CreateRequestAsync(
+                            webhook.ShopDomain, 
+                            "customers_redact", 
+                            body);
+                        
+                        // 開発環境では即座に処理
+                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                        {
+                            await _gdprService.ProcessCustomerRedactAsync(request.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "顧客データ削除スケジュール中にエラー. Shop: {Shop}", webhook.ShopDomain);
+                        _logger.LogError(ex, "顧客データ削除処理中にエラー. Shop: {Shop}", webhook.ShopDomain);
                     }
                 });
 
@@ -168,16 +180,25 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _logger.LogInformation("ショップデータ削除要求受信. Shop: {Shop}", webhook.Domain);
 
-                // 非同期でショップデータ削除処理をスケジュール
+                // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await ScheduleShopDataDeletion(webhook.Domain, 90);
+                        var request = await _gdprService.CreateRequestAsync(
+                            webhook.Domain, 
+                            "shop_redact", 
+                            body);
+                        
+                        // 開発環境では即座に処理
+                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                        {
+                            await _gdprService.ProcessShopRedactAsync(request.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "ショップデータ削除スケジュール中にエラー. Shop: {Shop}", webhook.Domain);
+                        _logger.LogError(ex, "ショップデータ削除処理中にエラー. Shop: {Shop}", webhook.Domain);
                     }
                 });
 
@@ -218,16 +239,25 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("顧客データ提供要求受信. Shop: {Shop}, CustomerId: {CustomerId}", 
                     webhook.ShopDomain, webhook.Customer.Id);
 
-                // 非同期で顧客データエクスポート処理をスケジュール
+                // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await ScheduleCustomerDataExport(webhook.ShopDomain, webhook.Customer.Id, webhook.DataRequest.Id);
+                        var request = await _gdprService.CreateRequestAsync(
+                            webhook.ShopDomain, 
+                            "customers_data_request", 
+                            body);
+                        
+                        // 開発環境では即座に処理
+                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                        {
+                            await _gdprService.ProcessCustomerDataRequestAsync(request.Id);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "顧客データエクスポートスケジュール中にエラー. Shop: {Shop}", webhook.ShopDomain);
+                        _logger.LogError(ex, "顧客データエクスポート処理中にエラー. Shop: {Shop}", webhook.ShopDomain);
                     }
                 });
 
@@ -236,6 +266,104 @@ namespace ShopifyAnalyticsApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "customers/data_request Webhook処理中にエラー");
+                return Ok();
+            }
+        }
+
+        /// <summary>
+        /// サブスクリプション更新のWebhook
+        /// </summary>
+        [HttpPost("subscriptions-update")]
+        public async Task<IActionResult> SubscriptionsUpdate()
+        {
+            try
+            {
+                // HMAC検証
+                if (!await VerifyWebhookRequest())
+                {
+                    _logger.LogWarning("HMAC検証失敗: app_subscriptions/update");
+                    return Unauthorized();
+                }
+
+                var body = await GetRequestBodyAsync();
+                var webhook = JsonSerializer.Deserialize<AppSubscriptionWebhook>(body);
+
+                if (webhook?.AppSubscription == null)
+                {
+                    _logger.LogWarning("無効なWebhookペイロード: app_subscriptions/update");
+                    return BadRequest();
+                }
+
+                _logger.LogInformation("サブスクリプション更新通知受信. ChargeId: {ChargeId}, Status: {Status}", 
+                    webhook.AppSubscription.AdminGraphqlApiId, webhook.AppSubscription.Status);
+
+                // 非同期でサブスクリプション更新処理
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ProcessSubscriptionUpdate(webhook);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "サブスクリプション更新処理中にエラー");
+                    }
+                });
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "app_subscriptions/update Webhook処理中にエラー");
+                return Ok();
+            }
+        }
+
+        /// <summary>
+        /// サブスクリプションキャンセルのWebhook
+        /// </summary>
+        [HttpPost("subscriptions-cancel")]
+        public async Task<IActionResult> SubscriptionsCancel()
+        {
+            try
+            {
+                // HMAC検証
+                if (!await VerifyWebhookRequest())
+                {
+                    _logger.LogWarning("HMAC検証失敗: app_subscriptions/cancel");
+                    return Unauthorized();
+                }
+
+                var body = await GetRequestBodyAsync();
+                var webhook = JsonSerializer.Deserialize<AppSubscriptionWebhook>(body);
+
+                if (webhook?.AppSubscription == null)
+                {
+                    _logger.LogWarning("無効なWebhookペイロード: app_subscriptions/cancel");
+                    return BadRequest();
+                }
+
+                _logger.LogInformation("サブスクリプションキャンセル通知受信. ChargeId: {ChargeId}", 
+                    webhook.AppSubscription.AdminGraphqlApiId);
+
+                // 非同期でサブスクリプションキャンセル処理
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ProcessSubscriptionCancel(webhook);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "サブスクリプションキャンセル処理中にエラー");
+                    }
+                });
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "app_subscriptions/cancel Webhook処理中にエラー");
                 return Ok();
             }
         }
@@ -384,13 +512,221 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
+        /// サブスクリプション更新を処理する
+        /// </summary>
+        private async Task ProcessSubscriptionUpdate(AppSubscriptionWebhook webhook)
+        {
+            if (webhook?.AppSubscription == null) return;
+
+            try
+            {
+                // ChargeIDからストアを特定
+                var chargeIdString = webhook.AppSubscription.AdminGraphqlApiId?.Replace("gid://shopify/AppSubscription/", "");
+                if (!long.TryParse(chargeIdString, out var chargeId))
+                {
+                    _logger.LogWarning("無効なChargeId: {ChargeId}", webhook.AppSubscription.AdminGraphqlApiId);
+                    return;
+                }
+
+                var subscription = await _context.StoreSubscriptions
+                    .Include(s => s.Store)
+                    .FirstOrDefaultAsync(s => s.ShopifyChargeId == chargeId);
+
+                if (subscription == null)
+                {
+                    _logger.LogWarning("サブスクリプションが見つかりません. ChargeId: {ChargeId}", chargeId);
+                    return;
+                }
+
+                // 以前のステータスを保存
+                var previousStatus = subscription.Status;
+                var previousPlanName = subscription.PlanName;
+
+                // ステータスを更新
+                subscription.Status = webhook.AppSubscription.Status?.ToLower() ?? "unknown";
+                subscription.UpdatedAt = DateTime.UtcNow;
+
+                // プラン名を更新
+                if (!string.IsNullOrEmpty(webhook.AppSubscription.Name))
+                {
+                    subscription.PlanName = webhook.AppSubscription.Name;
+                }
+
+                // トライアル期間の更新
+                if (webhook.AppSubscription.TrialDays.HasValue)
+                {
+                    subscription.TrialEndsAt = subscription.CreatedAt.AddDays(webhook.AppSubscription.TrialDays.Value);
+                }
+
+                // 現在の期間終了日を更新
+                if (!string.IsNullOrEmpty(webhook.AppSubscription.CurrentPeriodEnd))
+                {
+                    if (DateTime.TryParse(webhook.AppSubscription.CurrentPeriodEnd, out var periodEnd))
+                    {
+                        subscription.CurrentPeriodEnd = periodEnd;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                // プラン変更を検出して機能アクセスを更新
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var featureService = scope.ServiceProvider.GetRequiredService<IFeatureSelectionService>();
+                    var memoryCache = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+                    
+                    var storeId = subscription.StoreId.ToString();
+                    
+                    // 無料プランへのダウングレードを検出
+                    if (IsDowngradeToFree(previousPlanName, webhook.AppSubscription.Name, previousStatus, subscription.Status))
+                    {
+                        _logger.LogInformation("無料プランへのダウングレードを検出. StoreId: {StoreId}", storeId);
+                        
+                        // 最後に選択された機能のみを有効化
+                        var selectedFeatures = await featureService.GetSelectedFeaturesAsync(storeId);
+                        if (selectedFeatures != null && selectedFeatures.Any())
+                        {
+                            // 最新の1機能のみを保持
+                            var latestFeature = selectedFeatures.Last();
+                            await featureService.UpdateSelectedFeaturesAsync(storeId, new[] { latestFeature });
+                            
+                            _logger.LogInformation("無料プランの機能制限を適用. StoreId: {StoreId}, Feature: {Feature}", 
+                                storeId, latestFeature);
+                        }
+                    }
+                    // 有料プランへのアップグレードを検出
+                    else if (IsUpgradeToPaid(previousPlanName, webhook.AppSubscription.Name, previousStatus, subscription.Status))
+                    {
+                        _logger.LogInformation("有料プランへのアップグレードを検出. StoreId: {StoreId}", storeId);
+                        
+                        // 全機能を即座に解放（全機能を選択状態にする）
+                        var allFeatures = FeatureConstants.FreeSelectableFeatures
+                            .Select(f => new AvailableFeature 
+                            { 
+                                FeatureId = f,
+                                DisplayName = FeatureConstants.FeatureDisplayNames[f],
+                                Description = FeatureConstants.FeatureDescriptions[f],
+                                IsAccessible = true
+                            });
+                        await featureService.UpdateSelectedFeaturesAsync(storeId, allFeatures);
+                        
+                        _logger.LogInformation("有料プランの全機能を解放. StoreId: {StoreId}", storeId);
+                    }
+                    
+                    // キャッシュをクリア
+                    memoryCache.Remove($"feature_access_{storeId}");
+                    memoryCache.Remove($"feature_selection_{storeId}");
+                }
+
+                // Webhookイベントを記録
+                await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/update", webhook);
+
+                _logger.LogInformation("サブスクリプション更新完了. StoreId: {StoreId}, Status: {Status}, Plan: {Plan}", 
+                    subscription.StoreId, subscription.Status, subscription.PlanName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "サブスクリプション更新処理中にエラー");
+            }
+        }
+
+        /// <summary>
+        /// 無料プランへのダウングレードかどうかを判定
+        /// </summary>
+        private bool IsDowngradeToFree(string previousPlan, string newPlan, string previousStatus, string newStatus)
+        {
+            // プラン名で判定
+            var isFreeNow = string.Equals(newPlan, "Free", StringComparison.OrdinalIgnoreCase);
+            var wasPaidBefore = !string.Equals(previousPlan, "Free", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(previousPlan);
+            
+            // ステータスで判定（ACTIVEからキャンセルへ）
+            var wasActive = string.Equals(previousStatus, "active", StringComparison.OrdinalIgnoreCase);
+            var isCancelled = string.Equals(newStatus, "cancelled", StringComparison.OrdinalIgnoreCase);
+            
+            return (isFreeNow && wasPaidBefore) || (wasActive && isCancelled);
+        }
+
+        /// <summary>
+        /// 有料プランへのアップグレードかどうかを判定
+        /// </summary>
+        private bool IsUpgradeToPaid(string previousPlan, string newPlan, string previousStatus, string newStatus)
+        {
+            // プラン名で判定
+            var isPaidNow = !string.Equals(newPlan, "Free", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(newPlan);
+            var wasFreeBefore = string.Equals(previousPlan, "Free", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(previousPlan);
+            
+            // ステータスで判定（非アクティブからACTIVEへ）
+            var isActiveNow = string.Equals(newStatus, "active", StringComparison.OrdinalIgnoreCase);
+            
+            return (isPaidNow && wasFreeBefore) || (isPaidNow && isActiveNow);
+        }
+
+        /// <summary>
+        /// サブスクリプションキャンセルを処理する
+        /// </summary>
+        private async Task ProcessSubscriptionCancel(AppSubscriptionWebhook webhook)
+        {
+            if (webhook?.AppSubscription == null) return;
+
+            try
+            {
+                // ChargeIDからストアを特定
+                var chargeIdString = webhook.AppSubscription.AdminGraphqlApiId?.Replace("gid://shopify/AppSubscription/", "");
+                if (!long.TryParse(chargeIdString, out var chargeId))
+                {
+                    _logger.LogWarning("無効なChargeId: {ChargeId}", webhook.AppSubscription.AdminGraphqlApiId);
+                    return;
+                }
+
+                var subscription = await _context.StoreSubscriptions
+                    .Include(s => s.Store)
+                    .FirstOrDefaultAsync(s => s.ShopifyChargeId == chargeId);
+
+                if (subscription == null)
+                {
+                    _logger.LogWarning("サブスクリプションが見つかりません. ChargeId: {ChargeId}", chargeId);
+                    return;
+                }
+
+                // ステータスをキャンセルに更新
+                subscription.Status = "cancelled";
+                subscription.CancelledAt = DateTime.UtcNow;
+                subscription.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                // Webhookイベントを記録
+                await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/cancel", webhook);
+
+                _logger.LogInformation("サブスクリプションキャンセル完了. StoreId: {StoreId}", subscription.StoreId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "サブスクリプションキャンセル処理中にエラー");
+            }
+        }
+
+        /// <summary>
         /// Webhookイベントをログに記録する
         /// </summary>
         private async Task LogWebhookEvent(string shopDomain, string topic, object payload)
         {
             try
             {
-                // TODO: WebhookEventsテーブルに記録
+                // WebhookEventsテーブルに記録
+                var webhookEvent = new WebhookEvent
+                {
+                    ShopDomain = shopDomain,
+                    Topic = topic,
+                    Payload = JsonSerializer.Serialize(payload),
+                    ProcessedAt = DateTime.UtcNow,
+                    Status = "processed",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Add(webhookEvent);
+                await _context.SaveChangesAsync();
+
                 _logger.LogInformation("Webhookイベントを記録. Shop: {Shop}, Topic: {Topic}", shopDomain, topic);
             }
             catch (Exception ex)
@@ -430,6 +766,23 @@ namespace ShopifyAnalyticsApi.Controllers
         private class DataRequestInfo
         {
             public long Id { get; set; }
+        }
+
+        private class AppSubscriptionWebhook
+        {
+            public AppSubscriptionInfo? AppSubscription { get; set; }
+        }
+
+        private class AppSubscriptionInfo
+        {
+            public string? AdminGraphqlApiId { get; set; }
+            public string? Name { get; set; }
+            public string? Status { get; set; }
+            public string? CurrentPeriodEnd { get; set; }
+            public int? TrialDays { get; set; }
+            public bool Test { get; set; }
+            public decimal? Price { get; set; }
+            public string? CurrencyCode { get; set; }
         }
     }
 }

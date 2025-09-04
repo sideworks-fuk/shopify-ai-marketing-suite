@@ -1,13 +1,41 @@
 "use client"
 
+import React, { Suspense } from "react"
 import PurchaseFrequencyDetailAnalysis from "@/components/dashboards/PurchaseFrequencyDetailAnalysis"
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 import { AnalyticsHeaderUnified } from "@/components/layout/AnalyticsHeaderUnified"
 import { AnalysisDescriptionCard } from "@/components/common/AnalysisDescriptionCard"
 import { AlertCircle } from "lucide-react"
+import { useFeatureAccess } from "@/hooks/useFeatureAccess"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 
+// React.lazy を使用したコード分割
+const FeatureLockedScreen = React.lazy(() => import("@/components/billing/FeatureLockedScreen"))
 
 export default function FrequencyDetailPage() {
+  // 機能アクセス制御
+  const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('frequency_detail')
+  
+  // アクセス権限の確認中
+  if (isAccessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // アクセス権限がない場合
+  if (!hasAccess) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <FeatureLockedScreen 
+          featureName="購入回数詳細分析"
+          featureType="frequency_detail"
+        />
+      </Suspense>
+    )
+  }
   // 統一ヘッダー設定
   const headerConfig = {
     mainTitle: "購入回数分析【購買】",

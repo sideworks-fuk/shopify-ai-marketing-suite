@@ -53,6 +53,12 @@ namespace ShopifyAnalyticsApi.Models
         /// </summary>
         public string? ErrorMessage { get; set; }
 
+        /// <summary>
+        /// 冪等性キー (重複処理防止用)
+        /// </summary>
+        [MaxLength(255)]
+        public string? IdempotencyKey { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
@@ -238,6 +244,12 @@ namespace ShopifyAnalyticsApi.Models
         [Required]
         [MaxLength(50)]
         public string Status { get; set; } = "pending";
+
+        /// <summary>
+        /// プラン名
+        /// </summary>
+        [MaxLength(100)]
+        public string? PlanName { get; set; }
 
         /// <summary>
         /// トライアル終了日

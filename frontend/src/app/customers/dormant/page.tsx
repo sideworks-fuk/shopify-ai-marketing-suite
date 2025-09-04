@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 const DormantCustomerAnalysis = React.lazy(() => import("@/components/dashboards/DormantCustomerAnalysis"))
 const DormantCustomerList = React.lazy(() => import("@/components/dashboards/dormant/DormantCustomerList").then(module => ({ default: module.DormantCustomerList })))
 const AnalyticsHeaderUnified = React.lazy(() => import("@/components/layout/AnalyticsHeaderUnified").then(module => ({ default: module.AnalyticsHeaderUnified })))
+const FeatureLockedScreen = React.lazy(() => import("@/components/billing/FeatureLockedScreen"))
 
 // ローディングコンポーネント
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
@@ -15,8 +16,32 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { api } from "@/lib/api-client"
 import { API_CONFIG, getCurrentStoreId } from "@/lib/api-config"
 import { useDormantFilters } from "@/contexts/FilterContext"
+import { useFeatureAccess } from "@/hooks/useFeatureAccess"
 
 export default function DormantCustomersPage() {
+  // 機能アクセス制御
+  const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
+  
+  // アクセス権限の確認中
+  if (isAccessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // アクセス権限がない場合
+  if (!hasAccess) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <FeatureLockedScreen 
+          featureName="休眠顧客分析"
+          featureType="dormant_analysis"
+        />
+      </Suspense>
+    )
+  }
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   const { filters } = useDormantFilters()
 

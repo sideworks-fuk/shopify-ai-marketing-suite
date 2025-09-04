@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 const AnalyticsHeaderUnified = React.lazy(() => import("@/components/layout/AnalyticsHeaderUnified").then(module => ({ default: module.AnalyticsHeaderUnified })))
 const AnalysisDescriptionCard = React.lazy(() => import("@/components/common/AnalysisDescriptionCard").then(module => ({ default: module.AnalysisDescriptionCard })))
 const YearOverYearProductAnalysis = React.lazy(() => import("@/components/dashboards/YearOverYearProductAnalysis"))
+const FeatureLockedScreen = React.lazy(() => import("@/components/billing/FeatureLockedScreen"))
 
 // ローディングコンポーネント
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
+import { useFeatureAccess } from "@/hooks/useFeatureAccess"
 
 // ローディングコンポーネント
 const LoadingComponent = () => (
@@ -39,6 +41,30 @@ const LoadingComponent = () => (
 )
 
 export default function YearOverYearPage() {
+  // 機能アクセス制御
+  const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('year_over_year')
+  
+  // アクセス権限の確認中
+  if (isAccessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // アクセス権限がない場合
+  if (!hasAccess) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <FeatureLockedScreen 
+          featureName="前年同月比分析"
+          featureType="year_over_year"
+        />
+      </Suspense>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 統一ヘッダー */}
