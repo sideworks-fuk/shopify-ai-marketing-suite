@@ -70,16 +70,20 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _logger.LogInformation("アプリアンインストール通知受信. Shop: {Shop}", webhook.Domain);
 
-                // 非同期でデータ削除処理をスケジュール
+                // 非同期で処理を実行
                 _ = Task.Run(async () =>
                 {
                     try
                     {
+                        // 1. 課金をキャンセル
+                        await CancelStoreSubscription(webhook.Domain);
+                        
+                        // 2. データ削除をスケジュール（48時間以内）
                         await ScheduleDataDeletion(webhook.Domain, 48);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "データ削除スケジュール中にエラー. Shop: {Shop}", webhook.Domain);
+                        _logger.LogError(ex, "アンインストール処理中にエラー. Shop: {Shop}", webhook.Domain);
                     }
                 });
 
@@ -419,6 +423,53 @@ namespace ShopifyAnalyticsApi.Controllers
             var body = await reader.ReadToEndAsync();
             Request.Body.Position = 0;
             return body;
+        }
+
+        /// <summary>
+        /// ストアのサブスクリプションをキャンセル
+        /// </summary>
+        private async Task CancelStoreSubscription(string shopDomain)
+        {
+            try
+            {
+                _logger.LogInformation("サブスクリプションをキャンセル. Shop: {Shop}", shopDomain);
+
+                // ストアを検索
+                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
+                if (store == null)
+                {
+                    _logger.LogWarning("ストアが見つかりません. Shop: {Shop}", shopDomain);
+                    return;
+                }
+
+                // アクティブなサブスクリプションを検索
+                var activeSubscription = await _context.StoreSubscriptions
+                    .Where(s => s.StoreId == store.Id && 
+                           (s.Status == "ACTIVE" || s.Status == "PENDING"))
+                    .FirstOrDefaultAsync();
+
+                if (activeSubscription != null)
+                {
+                    // サブスクリプションをキャンセル
+                    activeSubscription.Status = "CANCELLED";
+                    activeSubscription.CancelledAt = DateTime.UtcNow;
+                    activeSubscription.UpdatedAt = DateTime.UtcNow;
+                    
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("サブスクリプションをキャンセルしました. Shop: {Shop}, SubscriptionId: {SubId}", 
+                        shopDomain, activeSubscription.Id);
+                }
+                else
+                {
+                    _logger.LogInformation("アクティブなサブスクリプションなし. Shop: {Shop}", shopDomain);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "サブスクリプションキャンセル中にエラー. Shop: {Shop}", shopDomain);
+                // エラーを再スローして上位でハンドリング
+                throw;
+            }
         }
 
         /// <summary>
