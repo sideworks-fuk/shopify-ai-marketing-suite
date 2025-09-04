@@ -87,13 +87,15 @@ private async Task CancelStoreSubscription(string shopDomain)
 - app/uninstalled時の課金キャンセル処理
 - データベースマイグレーション（Development環境）
 
-### 📊 申請準備完了度: 85%
+### 📊 申請準備完了度: 90%
 
 ### ⚠️ 残タスク
-1. **申請素材準備**（必須）
-   - アプリアイコン
-   - スクリーンショット5枚
-   - 日本語・英語の説明文
+1. **申請素材準備**
+   - ✅ 日本語・英語の説明文（完了）
+   - ✅ プライバシーポリシー（完了）
+   - ✅ 利用規約（完了）
+   - ⏳ アプリアイコン（未作成）
+   - ⏳ スクリーンショット5枚（未作成）
    
 2. **E2Eテスト**（推奨）
    - インストールフロー
@@ -104,7 +106,28 @@ private async Task CancelStoreSubscription(string shopDomain)
    - Staging環境へのデプロイ
    - Production環境の準備
 
-### 2025年9月5日（木）以降の予定
+### 2025年9月5日（木）
+
+#### 4. 申請素材の作成（完了）
+**時間**: 02:00 - 02:30
+
+##### 4.1 法的文書作成
+- プライバシーポリシー（日本語）
+- 利用規約（日本語）
+- GDPR準拠の内容を含む
+
+##### 4.2 アプリ説明文作成
+- 日本語版説明文（500文字）
+- 英語版説明文（500 words）
+- キーワード、カテゴリ設定
+
+##### 4.3 作成したファイル
+- `/docs/00-production-release/legal/privacy-policy.md`
+- `/docs/00-production-release/legal/terms-of-service.md`
+- `/docs/00-production-release/app-description/app-description-ja.md`
+- `/docs/00-production-release/app-description/app-description-en.md`
+
+### 2025年9月6日（金）以降の予定
 
 #### 優先度1: 申請素材の確認と準備
 - アイコンの作成状況確認
@@ -135,4 +158,4 @@ private async Task CancelStoreSubscription(string shopDomain)
 - **現在の目標**: 2025年9月9日（月）〜 9月13日（金）
 
 ---
-最終更新: 2025-09-05 02:00
+最終更新: 2025-09-05 02:30
