@@ -11,14 +11,14 @@ Shopifyアプリの課金機能実装に必要な技術調査結果をまとめ�
 ## 1. Shopify課金モデルの概要
 
 ### 1.1 利用可能な課金タイプ
-- **Recurring Application Charge** (定期課金) ← 今回採用
+- **App Subscription (GraphQL Admin API)** ← 今回採用
 - One-time Application Charge (単発課金)
-- Usage Charge (従量課金)
+- Usage-based charges（従量課金, capped feeと組み合わせ可）
 - Application Credit (クレジット)
 
 ### 1.2 選定理由
-月額サブスクリプションモデルには「Recurring Application Charge」が最適。
-無料トライアル機能も標準サポート。
+月額サブスクリプションはGraphQLのApp Subscriptionが公式推奨。
+無料トライアル（trialDays）やテストモード（test）をサポート。
 
 ## 2. 実装アーキテクチャ
 

@@ -1,6 +1,3 @@
-2025-08-02-EmergencyIndexes.sql
-Developmentも昨日実行済みです
-
 # データベース移行管理ドキュメント
 
 ## 概要
@@ -8,11 +5,20 @@ Developmentも昨日実行済みです
 
 ## ディレクトリ構造
 ```
-docs/04-development/database-migrations/
+docs/04-development/03-データベース/マイグレーション/
 ├── database-migration-tracking.md (本ファイル)
 ├── 2025-08-02-EmergencyIndexes.sql
 ├── 2025-08-05-AddInitialSetupFeature.sql
 ├── 2025-08-13-AddWebhookEventsTable.sql
+├── 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql
+├── 2025-08-24-CreateBillingTables.sql
+├── 2025-08-24-AddFeatureSelectionTables.sql
+├── 2025-08-24-AddGDPRTables.sql
+├── 2025-08-25-FIX-AddIdempotencyKeyToWebhookEvents.sql
+├── 2025-08-25-FIX-free-plan-feature-selection.sql
+├── 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql
+├── 2025-08-25-FIX2-free-plan-feature-selection.sql
+├── 2025-08-26-free-plan-feature-selection.sql
 └── 2025-08-XX-[変更内容].sql
 ```
 
@@ -22,7 +28,33 @@ docs/04-development/database-migrations/
 |------------|--------|--------|------|-------------|---------|------------|
 | 2025-08-02-EmergencyIndexes.sql | 2025-08-02 | TAKASHI | OrderItemsインデックス追加 | ✅ 適用済 (2025-08-04) | ⏳ 未適用 | ⏳ 未適用 |
 | 2025-08-05-AddInitialSetupFeature.sql | 2025-08-05 | TAKASHI | 初期設定機能（SyncStatusテーブル、Storesテーブル更新） | ✅ 適用済 (2025-08-05 10:00) | ⏳ 未適用 | ⏳ 未適用 |
-| 2025-08-13-AddWebhookEventsTable.sql | 2025-08-13 | TAKASHI | Webhookイベント履歴・GDPR管理テーブル追加 | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-13-AddWebhookEventsTable.sql | 2025-08-13 | TAKASHI | Webhookイベント履歴・GDPR管理テーブル追加 | ✅ 適用済 (2025-08-13) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql | 2025-08-24 | ERIS | 冪等キー追加＋ユニーク(Filtered) | ❌ エラー発生 | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-24-CreateBillingTables.sql | 2025-08-24 | ERIS | 課金テーブル新規（Plans/StoreSubscriptions） | ✅ 適用済 (2025-08-25) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-24-AddFeatureSelectionTables.sql | 2025-08-24 | Kenji | 機能選択テーブル（FeatureLimits等） | ✅ 適用済 (2025-08-25) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-24-AddGDPRTables.sql | 2025-08-24 | Takashi | GDPR管理テーブル（GDPRRequests等） | ✅ 適用済 (2025-08-25) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-25-FIX-AddIdempotencyKeyToWebhookEvents.sql | 2025-08-25 | Kenji | IdempotencyKeyエラー修正版 | ✅ 適用済 (2025-08-25 13:10) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-25-FIX-free-plan-feature-selection.sql | 2025-08-25 | Kenji | 無料プラン機能制限修正版 | ❌ エラー発生 | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql | 2025-08-25 | Kenji | ストアドプロシージャ簡易版 | ✅ 適用済 (2025-08-25 13:10) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-25-FIX2-free-plan-feature-selection.sql | 2025-08-25 | Kenji | Store→Stores修正、カラム追加 | ✅ 適用済 (2025-08-25 13:20) | ⏳ 未適用 | ⏳ 未適用 |
+| 2025-08-26-free-plan-feature-selection.sql | 2025-08-26 | Takashi | 無料プラン機能制限（元版） | ❌ エラー発生 | ⏳ 未適用 | ⏳ 未適用 |
+
+## 適用済みマイグレーションまとめ（Development環境）
+
+### 成功適用済み ✅
+1. 2025-08-02-EmergencyIndexes.sql
+2. 2025-08-05-AddInitialSetupFeature.sql
+3. 2025-08-13-AddWebhookEventsTable.sql
+4. 2025-08-24-CreateBillingTables.sql
+5. 2025-08-24-AddFeatureSelectionTables.sql
+6. 2025-08-24-AddGDPRTables.sql
+7. 2025-08-25-FIX-AddIdempotencyKeyToWebhookEvents.sql
+8. 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql
+9. 2025-08-25-FIX2-free-plan-feature-selection.sql
+
+### エラー発生（修正版で解決済み）❌→✅
+- 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
+- 2025-08-26-free-plan-feature-selection.sql → 2025-08-25-FIX2版で解決
 
 ## 適用手順
 
@@ -48,14 +80,14 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 ## 記録ルール
 
 ### スクリプト作成時
-1. `docs/04-development/database-migrations/` に保存
+1. `docs/04-development/03-データベース/マイグレーション/` に保存
 2. ファイル名: `YYYY-MM-DD-[説明].sql`
 3. スクリプト内にコメントで以下を記載：
    ```sql
-   -- 作成日: 2025-08-02
-   -- 作成者: TAKASHI
-   -- 目的: OrderItemsテーブルのパフォーマンス改善
-   -- 影響: 読み取りクエリの高速化
+   -- 作成日: 2025-08-25
+   -- 作成者: Kenji
+   -- 目的: エラー修正
+   -- 影響: 影響範囲の説明
    ```
 
 ### 適用時
@@ -79,6 +111,6 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 
 ---
 
-最終更新: 2025-08-05
+最終更新: 2025-08-25 13:30
 管理者: 福田
 更新者: Kenji（AIチーム）

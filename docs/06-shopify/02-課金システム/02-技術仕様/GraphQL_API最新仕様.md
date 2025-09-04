@@ -9,7 +9,7 @@
 
 ### API バージョン
 - **推奨バージョン**: 2024-01 以降
-- **廃止予定API**: `recurringApplicationChargeCreate` → `appSubscriptionCreate`に移行
+- **移行方針**: RESTのRecurringApplicationChargeはレガシー。新規実装はGraphQLの`appSubscriptionCreate`を使用
 
 ---
 
@@ -20,7 +20,7 @@
 ```graphql
 # 正しい最新API実装
 mutation CreateAppSubscription($input: AppSubscriptionCreateInput!) {
-  appSubscriptionCreate(appSubscription: $input) {
+  appSubscriptionCreate(input: $input) {
     appSubscription {
       id
       name
@@ -142,7 +142,7 @@ public class ShopifyBillingService
         {
             Query = @"
                 mutation CreateAppSubscription($input: AppSubscriptionCreateInput!) {
-                  appSubscriptionCreate(appSubscription: $input) {
+                  appSubscriptionCreate(input: $input) {
                     appSubscription {
                       id
                       name
@@ -334,7 +334,7 @@ public class WebhookController : ControllerBase
             var processed = topic switch
             {
                 "app_subscriptions/update" => await ProcessSubscriptionUpdate(rawBody, shopDomain),
-                "app_subscriptions/cancel" => await ProcessSubscriptionCancel(rawBody, shopDomain),
+                "app_subscriptions/cancelled" => await ProcessSubscriptionCancel(rawBody, shopDomain),
                 "app/uninstalled" => await ProcessAppUninstalled(rawBody, shopDomain),
                 _ => false
             };
