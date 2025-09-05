@@ -18,6 +18,13 @@ namespace ShopifyAnalyticsApi.Services
         Task<SubscriptionResult> ChangePlan(string shopDomain, string accessToken, long currentChargeId, int newPlanId);
         Task CheckTrialExpirations();
         Task UpdateSubscriptionStatus(string shopDomain);
+        
+        // BillingController用の追加メソッド
+        Task<List<SubscriptionPlan>> GetAvailablePlansAsync();
+        Task<SubscriptionServiceResult> CreateOrUpdateSubscriptionAsync(int storeId, string planId, string returnUrl);
+        Task<SubscriptionServiceResult> CancelSubscriptionAsync(int storeId);
+        Task<SubscriptionServiceResult> ChangePlanAsync(int storeId, string newPlanId, string returnUrl);
+        Task<SubscriptionServiceResult> StartFreeTrialAsync(int storeId, string planId, int trialDays);
     }
 
     /// <summary>
@@ -438,6 +445,275 @@ namespace ShopifyAnalyticsApi.Services
         }
 
         /// <summary>
+        /// 利用可能なプラン一覧を取得
+        /// </summary>
+        public async Task<List<SubscriptionPlan>> GetAvailablePlansAsync()
+        {
+            return await _context.SubscriptionPlans
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Price)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// サブスクリプションを作成または更新
+        /// </summary>
+        public async Task<SubscriptionServiceResult> CreateOrUpdateSubscriptionAsync(int storeId, string planId, string returnUrl)
+        {
+            try
+            {
+                var store = await _context.Stores
+                    .Include(s => s.StoreSubscriptions)
+                    .FirstOrDefaultAsync(s => s.Id == storeId);
+
+                if (store == null)
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Store not found"
+                    };
+                }
+
+                // プランIDを数値に変換
+                if (!int.TryParse(planId, out int planIdInt))
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Invalid plan ID"
+                    };
+                }
+
+                // 既存のアクティブなサブスクリプションをキャンセル
+                var existingSubscription = store.StoreSubscriptions
+                    .FirstOrDefault(s => s.Status == "active" || s.Status == "trialing");
+
+                if (existingSubscription != null)
+                {
+                    existingSubscription.Status = "cancelled";
+                    existingSubscription.CancelledAt = DateTime.UtcNow;
+                    existingSubscription.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Shopify APIを呼び出してサブスクリプション作成
+                var result = await CreateSubscription(store.Domain, store.AccessToken, planIdInt);
+
+                if (result.Success)
+                {
+                    // データベースに新しいサブスクリプションを作成
+                    var newSubscription = new StoreSubscription
+                    {
+                        StoreId = storeId,
+                        PlanId = planIdInt,
+                        Status = "pending",
+                        CurrentPeriodEnd = DateTime.UtcNow.AddMonths(1),
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    _context.StoreSubscriptions.Add(newSubscription);
+                    await _context.SaveChangesAsync();
+
+                    return new SubscriptionServiceResult
+                    {
+                        Success = true,
+                        ConfirmationUrl = result.ConfirmationUrl,
+                        Subscription = newSubscription
+                    };
+                }
+                else
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = result.ErrorMessage
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating/updating subscription for store {StoreId}", storeId);
+                return new SubscriptionServiceResult
+                {
+                    Success = false,
+                    Error = "An error occurred while creating the subscription"
+                };
+            }
+        }
+
+        /// <summary>
+        /// サブスクリプションをキャンセル
+        /// </summary>
+        public async Task<SubscriptionServiceResult> CancelSubscriptionAsync(int storeId)
+        {
+            try
+            {
+                var store = await _context.Stores
+                    .Include(s => s.StoreSubscriptions)
+                    .FirstOrDefaultAsync(s => s.Id == storeId);
+
+                if (store == null)
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Store not found"
+                    };
+                }
+
+                var activeSubscription = store.StoreSubscriptions
+                    .FirstOrDefault(s => s.Status == "active" || s.Status == "trialing");
+
+                if (activeSubscription == null)
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "No active subscription found"
+                    };
+                }
+
+                // Shopify APIを呼び出してキャンセル
+                if (activeSubscription.ShopifyChargeId.HasValue)
+                {
+                    var cancelled = await CancelSubscription(store.Domain, store.AccessToken, activeSubscription.ShopifyChargeId.Value);
+                    
+                    if (!cancelled)
+                    {
+                        _logger.LogWarning("Failed to cancel Shopify charge for store {StoreId}", storeId);
+                    }
+                }
+
+                // データベースのステータスを更新
+                activeSubscription.Status = "cancelled";
+                activeSubscription.CancelledAt = DateTime.UtcNow;
+                activeSubscription.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return new SubscriptionServiceResult
+                {
+                    Success = true,
+                    Subscription = activeSubscription
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling subscription for store {StoreId}", storeId);
+                return new SubscriptionServiceResult
+                {
+                    Success = false,
+                    Error = "An error occurred while cancelling the subscription"
+                };
+            }
+        }
+
+        /// <summary>
+        /// プランを変更
+        /// </summary>
+        public async Task<SubscriptionServiceResult> ChangePlanAsync(int storeId, string newPlanId, string returnUrl)
+        {
+            try
+            {
+                // 既存のサブスクリプションをキャンセル
+                var cancelResult = await CancelSubscriptionAsync(storeId);
+                
+                if (!cancelResult.Success)
+                {
+                    return cancelResult;
+                }
+
+                // 新しいプランでサブスクリプションを作成
+                return await CreateOrUpdateSubscriptionAsync(storeId, newPlanId, returnUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing plan for store {StoreId}", storeId);
+                return new SubscriptionServiceResult
+                {
+                    Success = false,
+                    Error = "An error occurred while changing the plan"
+                };
+            }
+        }
+
+        /// <summary>
+        /// 無料トライアルを開始
+        /// </summary>
+        public async Task<SubscriptionServiceResult> StartFreeTrialAsync(int storeId, string planId, int trialDays)
+        {
+            try
+            {
+                var store = await _context.Stores
+                    .Include(s => s.StoreSubscriptions)
+                    .FirstOrDefaultAsync(s => s.Id == storeId);
+
+                if (store == null)
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Store not found"
+                    };
+                }
+
+                // 既にサブスクリプションがある場合はエラー
+                var existingSubscription = store.StoreSubscriptions
+                    .Any(s => s.Status != "cancelled");
+
+                if (existingSubscription)
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Store already has a subscription"
+                    };
+                }
+
+                // プランIDを数値に変換
+                if (!int.TryParse(planId, out int planIdInt))
+                {
+                    return new SubscriptionServiceResult
+                    {
+                        Success = false,
+                        Error = "Invalid plan ID"
+                    };
+                }
+
+                // 無料トライアルサブスクリプションを作成
+                var trialSubscription = new StoreSubscription
+                {
+                    StoreId = storeId,
+                    PlanId = planIdInt,
+                    Status = "trialing",
+                    CurrentPeriodEnd = DateTime.UtcNow.AddDays(trialDays),
+                    TrialEndsAt = DateTime.UtcNow.AddDays(trialDays),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.StoreSubscriptions.Add(trialSubscription);
+                await _context.SaveChangesAsync();
+
+                return new SubscriptionServiceResult
+                {
+                    Success = true,
+                    Subscription = trialSubscription
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting free trial for store {StoreId}", storeId);
+                return new SubscriptionServiceResult
+                {
+                    Success = false,
+                    Error = "An error occurred while starting the free trial"
+                };
+            }
+        }
+
+        /// <summary>
         /// GraphQLを実行（Rate Limit対策とリトライ機構付き）
         /// </summary>
         private async Task<JsonDocument?> ExecuteGraphQL(string shopDomain, string accessToken, string query, object variables, int maxRetries = 3)
@@ -582,5 +858,16 @@ namespace ShopifyAnalyticsApi.Services
         public bool Success { get; set; }
         public string? ConfirmationUrl { get; set; }
         public string? ErrorMessage { get; set; }
+    }
+
+    /// <summary>
+    /// サブスクリプションサービスの結果（BillingController用）
+    /// </summary>
+    public class SubscriptionServiceResult
+    {
+        public bool Success { get; set; }
+        public string? Error { get; set; }
+        public string? ConfirmationUrl { get; set; }
+        public StoreSubscription? Subscription { get; set; }
     }
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { NavMenu } from '@shopify/app-bridge-react'
+import Image from 'next/image'
 
 export function ShopifyNavigationMenu() {
   const [isClient, setIsClient] = useState(false)
@@ -19,7 +20,16 @@ export function ShopifyNavigationMenu() {
   try {
     return (
       <NavMenu>
-        <a href="/" rel="home">EC Ranger</a>
+        <a href="/" rel="home" className="flex items-center">
+          <Image
+            src="/branding/logo.png"
+            alt="EC Ranger"
+            width={150}
+            height={48}
+            className="h-8 md:h-9 w-auto"
+            priority
+          />
+        </a>
         <a href="/setup/initial">データ同期</a>
         <a href="/sync">同期ステータス</a>
         <a href="/sales/year-over-year">前年同月比分析</a>
@@ -33,7 +43,16 @@ export function ShopifyNavigationMenu() {
     return (
       <nav className="shopify-navigation-fallback">
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', gap: '1rem' }}>
-          <li><a href="/">EC Ranger</a></li>
+          <li><a href="/" className="flex items-center">
+            <Image
+              src="/branding/logo.png"
+              alt="EC Ranger"
+              width={120}
+              height={30}
+              className="h-6 w-auto"
+              priority
+            />
+          </a></li>
           <li><a href="/setup/initial">データ同期</a></li>
           <li><a href="/sync">同期ステータス</a></li>
           <li><a href="/sales/year-over-year">前年同月比分析</a></li>

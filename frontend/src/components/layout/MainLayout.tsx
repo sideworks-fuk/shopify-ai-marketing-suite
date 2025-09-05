@@ -9,6 +9,7 @@ import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
 import { Button } from "../ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Badge } from "../ui/badge"
+import Image from "next/image"
 import { 
   RefreshCw, 
   Download, 
@@ -108,9 +109,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
         {/* ヘッダー */}
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            🏪 EC Ranger
-          </h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/branding/logo.png"
+              alt="EC Ranger"
+              width={200}
+              height={64}
+              className="h-10 md:h-12 w-auto object-contain"
+              priority
+            />
+          </div>
         </div>
 
         {/* ナビゲーションメニュー */}
