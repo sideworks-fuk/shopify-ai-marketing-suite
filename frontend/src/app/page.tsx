@@ -100,10 +100,10 @@ const bookmarkItems: BookmarkItem[] = [
   // 購買分析
   {
     title: "購入回数【購買】",
-    description: "顧客の購入回数分析",
-    href: "/purchase/frequency-detail",
+    description: "顧客の購入回数分析（5階層分析・実データ対応）",
+    href: "/purchase/count-analysis",
     icon: <ShoppingBag className="h-5 w-5" />,
-    status: 'in-progress',
+    status: 'implemented',
     category: 'purchase'
   },
   {

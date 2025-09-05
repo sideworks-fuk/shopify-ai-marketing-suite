@@ -4,6 +4,8 @@
 - 課金システム: `./billing-system/README.md`, `./billing-system/free-plan-requirements.md`, `./billing-system/実装チェックリスト.md`
 - GDPR: `./gdpr-compliance/GDPR_Webhook仕様.md`, `./gdpr-compliance/実装計画書.md`
 - 申請: `./shopify-submission/アプリストア申請ガイド.md`, `./shopify-submission/申請チェックリスト.md`
+- 関係者向けドキュメント案内: `./関係者向けドキュメント案内.md`
+- 本番環境テスト計画: `./本番環境テスト計画.md`
 
 ## 🎯 Shopifyアプリストア申請必須項目
 

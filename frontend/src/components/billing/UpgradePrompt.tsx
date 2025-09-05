@@ -19,7 +19,7 @@ import {
   Brain
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useFeatureAccess, FEATURES, type FeatureId } from '@/hooks/useFeatureAccess';
+import { useFeatureAccess, useComprehensiveFeatureAccess, FEATURES, type FeatureId } from '@/hooks/useFeatureAccess';
 
 interface UpgradePromptProps {
   feature: string | FeatureId;
@@ -55,7 +55,10 @@ export function UpgradePrompt({
   showComparison = false
 }: UpgradePromptProps) {
   const router = useRouter();
-  const { checkFeatureAccess, getRequiredPlan, currentPlan } = useFeatureAccess();
+  const comprehensiveAccess = useComprehensiveFeatureAccess();
+  const checkFeatureAccess = comprehensiveAccess.checkFeatureAccess;
+  const getRequiredPlan = comprehensiveAccess.getRequiredPlan;
+  const currentPlan = comprehensiveAccess.currentPlan;
   const [showModal, setShowModal] = useState(variant === 'modal');
 
   const accessResult = checkFeatureAccess(feature);
@@ -83,7 +86,7 @@ export function UpgradePrompt({
   };
 
   const FeatureIcon = featureIcons[feature] || Lock;
-  const PlanIcon = requiredPlan ? planIcons[requiredPlan] : Sparkles;
+  const PlanIcon = requiredPlan ? planIcons[requiredPlan as keyof typeof planIcons] : Sparkles;
 
   const getPlanDisplayName = (planId: string) => {
     switch (planId) {
@@ -349,7 +352,8 @@ export function FeatureGate({
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }) {
-  const { canAccess } = useFeatureAccess();
+  const comprehensiveAccess = useComprehensiveFeatureAccess();
+  const canAccess = comprehensiveAccess.canAccess;
 
   if (canAccess(feature)) {
     return <>{children}</>;
