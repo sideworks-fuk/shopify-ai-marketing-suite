@@ -90,8 +90,8 @@ const mockSyncHistory: SyncHistoryItem[] = [
 ];
 
 class SyncApi {
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
-  private useMockData = true; // Set to false when backend is ready
+  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7088';
+  private useMockData = false; // Using real backend API now
 
   async getStatus(): Promise<SyncStatusData> {
     if (this.useMockData) {
@@ -119,11 +119,17 @@ class SyncApi {
       return mockSyncStatus;
     }
 
-    const response = await fetch(`${this.baseUrl}/sync/status`, {
+    const token = localStorage.getItem('authToken');
+    const storeId = localStorage.getItem('storeId');
+    
+    const response = await fetch(`${this.baseUrl}/api/sync/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Store-Id': storeId || '',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -140,11 +146,17 @@ class SyncApi {
       return mockSyncHistory.slice(0, limit);
     }
 
-    const response = await fetch(`${this.baseUrl}/sync/history?limit=${limit}`, {
+    const token = localStorage.getItem('authToken');
+    const storeId = localStorage.getItem('storeId');
+    
+    const response = await fetch(`${this.baseUrl}/api/sync/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Store-Id': storeId || '',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -190,16 +202,55 @@ class SyncApi {
       };
     }
 
-    const response = await fetch(`${this.baseUrl}/sync/trigger`, {
+    const token = localStorage.getItem('authToken');
+    const storeId = localStorage.getItem('storeId');
+    
+    const response = await fetch(`${this.baseUrl}/api/sync/trigger`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Store-Id': storeId || '',
       },
+      credentials: 'include',
       body: JSON.stringify({ type }),
     });
 
     if (!response.ok) {
       throw new Error('Failed to trigger sync');
+    }
+
+    return response.json();
+  }
+
+  async getProgress(type: string = 'all'): Promise<any> {
+    if (this.useMockData) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return {
+        status: 'syncing',
+        type,
+        progressPercentage: Math.random() * 100,
+        currentCount: Math.floor(Math.random() * 1000),
+        totalCount: 1000,
+        estimatedTimeRemaining: Math.floor(Math.random() * 600)
+      };
+    }
+
+    const token = localStorage.getItem('authToken');
+    const storeId = localStorage.getItem('storeId');
+    
+    const response = await fetch(`${this.baseUrl}/api/sync/progress?type=${type}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Store-Id': storeId || '',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch sync progress');
     }
 
     return response.json();

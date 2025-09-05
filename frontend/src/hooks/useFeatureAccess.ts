@@ -201,11 +201,11 @@ interface UseFeatureAccessReturn {
 
 // Hook for checking access to selectable features (free plan)
 export function useFeatureAccess(featureId?: SelectableFeatureId) {
-  const { currentPlan, selectedFeature } = useSubscriptionContext();
+  const { currentPlan } = useSubscriptionContext();
   const [isLoading, setIsLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   
-  const currentPlanId = (currentPlan?.id as PlanId) || null;
+  const currentPlanId = (currentPlan?.id as PlanId) || 'starter'; // Default to starter (free) plan
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -218,9 +218,10 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
         return;
       }
 
-      // For free plan users, check if this is their selected feature
-      if (featureId && selectedFeature) {
-        setHasAccess(selectedFeature.featureId === featureId);
+      // For free plan users, only allow access to dormant_analysis
+      // 無料プランは「休眠顧客分析」のみ利用可能
+      if (currentPlanId === 'starter') {
+        setHasAccess(featureId === 'dormant_analysis');
       } else {
         setHasAccess(false);
       }
@@ -229,12 +230,12 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
     };
 
     checkAccess();
-  }, [currentPlanId, featureId, selectedFeature]);
+  }, [currentPlanId, featureId]);
 
   return {
     hasAccess,
     isLoading,
-    selectedFeature,
+    selectedFeature: featureId === 'dormant_analysis' ? { featureId: 'dormant_analysis', name: '休眠顧客分析' } : null,
     currentPlan: currentPlanId
   };
 }

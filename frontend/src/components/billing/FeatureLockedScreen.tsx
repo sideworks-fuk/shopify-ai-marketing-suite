@@ -77,8 +77,8 @@ export default function FeatureLockedScreen({
           この機能は現在ロックされています
         </AlertTitle>
         <AlertDescription className="text-amber-700">
-          無料プランでは、3つの分析機能から1つを選択してご利用いただけます。
-          30日ごとに選択を変更できます。
+          無料プランでは「休眠顧客分析」のみご利用いただけます。
+          全ての分析機能をご利用になるには、有料プランへのアップグレードが必要です。
         </AlertDescription>
       </Alert>
 
@@ -110,23 +110,17 @@ export default function FeatureLockedScreen({
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium mb-2">アクセス方法</h4>
+            <h4 className="font-medium mb-2">この機能を利用するには</h4>
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex items-start">
-                <span className="font-medium mr-2">オプション1:</span>
+                <span className="text-primary mr-2">●</span>
                 <div>
-                  <p>現在選択中の機能を変更する</p>
+                  <p className="font-medium">有料プランにアップグレード</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    ※前回の変更から30日経過後に変更可能
+                    顧客数に応じた月額料金で全ての分析機能が利用可能
                   </p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <span className="font-medium mr-2">オプション2:</span>
-                <div>
-                  <p>有料プランにアップグレードして全機能を利用する</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    月額9.99ドルで全ての分析機能が利用可能
+                  <p className="text-xs text-gray-500">
+                    30日間の無料トライアルあり
                   </p>
                 </div>
               </div>
@@ -134,21 +128,13 @@ export default function FeatureLockedScreen({
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col sm:flex-row gap-3">
-          <Button
-            onClick={handleSelectFeature}
-            variant="outline"
-            className="flex-1"
-          >
-            機能を選択・変更する
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+        <CardFooter className="flex justify-center">
           <Button
             onClick={handleUpgrade}
-            className="flex-1 bg-gradient-to-r from-primary to-primary/80"
+            className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
           >
             <Sparkles className="mr-2 h-4 w-4" />
-            有料プランで全機能を利用
+            有料プランで全機能を利用する
           </Button>
         </CardFooter>
       </Card>

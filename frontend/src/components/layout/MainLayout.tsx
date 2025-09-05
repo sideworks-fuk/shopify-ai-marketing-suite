@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import { getMenuByCategory, type MenuItem } from "@/lib/menuConfig"
 import { useAppStore } from "@/stores/appStore"
 import ErrorBoundaryWrapper from "@/components/ErrorBoundary"
@@ -109,16 +110,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
         {/* ヘッダー */}
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Image
               src="/branding/logo.png"
               alt="EC Ranger"
               width={200}
               height={64}
-              className="h-10 md:h-12 w-auto object-contain"
+              className="h-10 md:h-12 w-auto object-contain cursor-pointer"
               priority
             />
-          </div>
+          </Link>
         </div>
 
         {/* ナビゲーションメニュー */}

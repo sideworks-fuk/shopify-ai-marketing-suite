@@ -229,8 +229,8 @@ export default function InitialSetupPage() {
 
         {/* メインコンテンツ */}
         <Card className="shadow-xl">
-          <CardHeader>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="setup" className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
@@ -245,10 +245,9 @@ export default function InitialSetupPage() {
                   手動同期
                 </TabsTrigger>
               </TabsList>
-            </Tabs>
-          </CardHeader>
-          <CardContent>
-            <TabsContent value="setup" className="space-y-6">
+            </CardHeader>
+            <CardContent>
+              <TabsContent value="setup" className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
                   <Database className="h-5 w-5 text-blue-600" />
@@ -484,7 +483,8 @@ export default function InitialSetupPage() {
                 </Card>
               </div>
             </TabsContent>
-          </CardContent>
+            </CardContent>
+          </Tabs>
         </Card>
       </div>
     </div>
