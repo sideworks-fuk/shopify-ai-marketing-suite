@@ -1,0 +1,8 @@
+No,Category,Task,Detail,Owner,Due,Status,Source,Evidence
+1,Critical,GDPR Webhook最終化,署名検証/5秒応答/冪等/監査ログ,Takashi,2025-09-18,Dev Done (Verify Pending),docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
+2,Critical,app_uninstalledで課金キャンセル,Webhook連動の確実化,Takashi,2025-09-18,Done,docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
+3,Critical,StagingへDBマイグレーション適用,tracking更新含む,Fukuda,2025-09-18,In Progress,docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md,
+4,Critical,課金統合E2E,BillingController通し検証,Kenji,2025-09-18,In Progress,docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
+5,High,無料プラン制限UI最終化,403/409理由/次回変更日/Upgrade導線/残日数,Yuki,2025-09-18,Dev Done (QA Pending),docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
+6,High,本番で開発用ルート遮断,可視/非可視の最終確認,Yuki,2025-09-18,Done,docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
+7,High,申請素材整備,スクショ等（福田担当）,Fukuda,2025-09-18,In Progress,docs/00-production-release/RELEASE-TASK-DASHBOARD.md,
