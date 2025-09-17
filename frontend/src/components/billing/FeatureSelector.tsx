@@ -139,10 +139,18 @@ export function FeatureSelector({ onSelect, onSkip }: FeatureSelectorProps) {
       {/* エラー表示 */}
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <span className="text-red-500 mr-2">⚠️</span>
-              <p className="text-red-800">{error}</p>
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 flex items-start">
+              <span className="text-red-500 mr-2 mt-0.5">⚠️</span>
+              <div>
+                <p className="text-red-800 mb-2">{error}</p>
+                <a
+                  href="/billing"
+                  className="inline-flex items-center text-sm text-red-700 hover:text-red-900 underline"
+                >
+                  有料プランを確認して制限を解除する →
+                </a>
+              </div>
             </div>
             <button
               onClick={clearError}
@@ -369,7 +377,7 @@ export function FeatureSelector({ onSelect, onSkip }: FeatureSelectorProps) {
                 <button
                   onClick={() => {
                     setShowPreview(null);
-                    window.location.href = '/settings/billing';
+                    window.location.href = '/billing';
                   }}
                   className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors font-semibold"
                 >

@@ -10,7 +10,7 @@ import {
   FeatureUsageResponse
 } from '@/types/featureSelection';
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL as string;
 
 // エラータイプ定義
 type ErrorType = 'network' | 'auth' | 'permission' | 'validation' | 'server' | 'unknown';

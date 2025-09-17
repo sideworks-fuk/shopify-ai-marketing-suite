@@ -109,17 +109,10 @@ export function useSubscription(
 
   // Get backend URL
   const getBackendUrl = () => {
-    return process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+    return process.env.NEXT_PUBLIC_API_URL as string;
   };
 
-  // Get auth headers
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('authToken');
-    return {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
-    };
-  };
+  // Cookieベース認証を使用するため、Authorizationヘッダは付与しない
 
   // Fetch subscription data
   const fetchSubscriptionData = useCallback(async () => {
@@ -132,10 +125,12 @@ export function useSubscription(
       // Parallel fetch for better performance
       const [subResponse, plansResponse] = await Promise.all([
         fetch(`${backendUrl}/api/subscription/current`, {
-          headers: getAuthHeaders()
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
         }),
         fetch(`${backendUrl}/api/subscription/plans`, {
-          headers: getAuthHeaders()
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
         })
       ]);
 
@@ -189,7 +184,8 @@ export function useSubscription(
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/subscription/create`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId })
       });
 
@@ -225,7 +221,8 @@ export function useSubscription(
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/subscription/upgrade`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId })
       });
 
@@ -261,7 +258,8 @@ export function useSubscription(
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/subscription/cancel`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -289,7 +287,8 @@ export function useSubscription(
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/subscription/reactivate`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -313,7 +312,8 @@ export function useSubscription(
     try {
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/subscription/history`, {
-        headers: getAuthHeaders()
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {

@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
   if (storeId) {
     try {
       // 初期設定の状態を確認
-      const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
       const response = await fetch(`${apiUrl}/api/setup/status`, {
         headers: {
           'X-Store-Id': storeId,

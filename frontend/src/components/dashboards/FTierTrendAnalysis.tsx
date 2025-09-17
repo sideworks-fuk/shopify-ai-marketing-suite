@@ -66,7 +66,7 @@ interface FTierTrendAnalysisProps {
 export default function FTierTrendAnalysis({
   shopDomain,
   accessToken,
-  useSampleData = true,
+  useSampleData = false,
 }: FTierTrendAnalysisProps) {
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [viewMode, setViewMode] = useState<'heatmap' | 'chart' | 'both'>('both')

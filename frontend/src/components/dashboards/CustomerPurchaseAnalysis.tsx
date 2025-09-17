@@ -131,7 +131,7 @@ interface CustomerPurchaseAnalysisProps {
 export default function CustomerPurchaseAnalysis({
   shopDomain,
   accessToken,
-  useSampleData = true,
+  useSampleData = false,
 }: CustomerPurchaseAnalysisProps) {
   // ✅ Zustand移行: AppStore & AnalysisFiltersStore使用（個別セレクター）
   const selectedCustomerId = useAppStore((state) => state.selectionState.selectedCustomerId)

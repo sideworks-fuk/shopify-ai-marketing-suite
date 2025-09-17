@@ -93,13 +93,8 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // Use mock data for now
-        // TODO: Replace with actual API call
-        // const dashboardData = await getDashboardData();
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setData(mockDashboardData);
+        const dashboardData = await getDashboardData();
+        setData(dashboardData);
       } catch (err) {
         setError('Failed to load dashboard data');
         console.error('Dashboard data fetch error:', err);

@@ -53,7 +53,7 @@ export const getApiUrl = () => {
   console.log('  - Current Environment:', currentEnv);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
-  console.log('  - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+  console.log('  - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL); // deprecated
   console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('  - NEXT_PUBLIC_USE_HTTPS:', process.env.NEXT_PUBLIC_USE_HTTPS);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT (build time):', buildInfo.nextPublicEnvironment);
@@ -63,16 +63,15 @@ export const getApiUrl = () => {
   console.log('  - Environment Name:', config.name);
   console.log('  - Is Production:', config.isProduction);
   
-  // 最優先: NEXT_PUBLIC_BACKEND_URLが設定されている場合
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-    console.log('✅ Using NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-    return process.env.NEXT_PUBLIC_BACKEND_URL;
-  }
-  
-  // 環境変数で明示的にAPI URLが指定されている場合
+  // 最優先: NEXT_PUBLIC_API_URL（統一）
   if (process.env.NEXT_PUBLIC_API_URL) {
     console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     return process.env.NEXT_PUBLIC_API_URL;
+  }
+  // 次点: 互換のため NEXT_PUBLIC_BACKEND_URL（将来廃止予定）
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    console.log('⚠️ Using legacy NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
   }
   
   // ローカル開発環境の特別処理

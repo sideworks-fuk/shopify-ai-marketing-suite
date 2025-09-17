@@ -90,7 +90,7 @@ const mockSyncHistory: SyncHistoryItem[] = [
 ];
 
 class SyncApi {
-  private baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7088';
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL as string;
   private useMockData = false; // Using real backend API now
 
   async getStatus(): Promise<SyncStatusData> {
@@ -119,15 +119,10 @@ class SyncApi {
       return mockSyncStatus;
     }
 
-    const token = localStorage.getItem('authToken');
-    const storeId = localStorage.getItem('storeId');
-    
     const response = await fetch(`${this.baseUrl}/api/sync/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        'X-Store-Id': storeId || '',
       },
       credentials: 'include',
     });
@@ -146,15 +141,10 @@ class SyncApi {
       return mockSyncHistory.slice(0, limit);
     }
 
-    const token = localStorage.getItem('authToken');
-    const storeId = localStorage.getItem('storeId');
-    
     const response = await fetch(`${this.baseUrl}/api/sync/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        'X-Store-Id': storeId || '',
       },
       credentials: 'include',
     });
@@ -202,15 +192,10 @@ class SyncApi {
       };
     }
 
-    const token = localStorage.getItem('authToken');
-    const storeId = localStorage.getItem('storeId');
-    
     const response = await fetch(`${this.baseUrl}/api/sync/trigger`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        'X-Store-Id': storeId || '',
       },
       credentials: 'include',
       body: JSON.stringify({ type }),
@@ -236,15 +221,10 @@ class SyncApi {
       };
     }
 
-    const token = localStorage.getItem('authToken');
-    const storeId = localStorage.getItem('storeId');
-    
     const response = await fetch(`${this.baseUrl}/api/sync/progress?type=${type}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        'X-Store-Id': storeId || '',
       },
       credentials: 'include',
     });

@@ -12,7 +12,7 @@ export default function BackendHealthCheck() {
   const [isLoading, setIsLoading] = useState(false)
 
   // バックエンドURLの設定
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
   const isHttps = backendUrl.startsWith('https://')
   
   // 環境変数に基づいて適切なプロトコルのエンドポイントのみを使用

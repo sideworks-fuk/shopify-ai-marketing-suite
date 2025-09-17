@@ -140,7 +140,7 @@ interface CustomerSegmentAnalysisProps {
 export default function CustomerSegmentAnalysis({
   shopDomain,
   accessToken,
-  useSampleData = true,
+  useSampleData = false,
 }: CustomerSegmentAnalysisProps) {
   const [purchaseCountData, setPurchaseCountData] = useState<PurchaseCountAnalysisData[]>([])
   const [isLoading, setIsLoading] = useState(false)

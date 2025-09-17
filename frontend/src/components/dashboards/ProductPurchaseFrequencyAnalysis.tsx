@@ -39,7 +39,7 @@ interface PurchaseFrequencyAnalysisProps {
 export default function ProductPurchaseFrequencyAnalysis({
   shopDomain,
   accessToken,
-  useSampleData = true,
+  useSampleData = false,
 }: PurchaseFrequencyAnalysisProps) {
   // ✅ Zustand移行: 商品分析フィルター使用
   const { 

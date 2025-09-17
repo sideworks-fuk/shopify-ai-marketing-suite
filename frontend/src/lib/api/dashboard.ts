@@ -1,6 +1,5 @@
 import { DashboardData, DashboardFilters } from '@/types/dashboard';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7059/api';
+import { buildApiUrl } from '@/lib/api-config';
 
 export async function getDashboardData(filters?: DashboardFilters): Promise<DashboardData> {
   try {
@@ -16,7 +15,7 @@ export async function getDashboardData(filters?: DashboardFilters): Promise<Dash
       }
     }
 
-    const response = await fetch(`${API_BASE_URL}/dashboard?${params.toString()}`, {
+    const response = await fetch(`${buildApiUrl('/api/dashboard')}?${params.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +39,7 @@ export async function getDashboardData(filters?: DashboardFilters): Promise<Dash
 
 export async function refreshDashboardData(storeId: string): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/dashboard/refresh`, {
+    const response = await fetch(`${buildApiUrl('/api/dashboard/refresh')}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

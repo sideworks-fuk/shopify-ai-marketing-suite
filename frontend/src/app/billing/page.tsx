@@ -6,96 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckIcon, XIcon } from 'lucide-react';
 import type { BillingPlan, Subscription } from '@/types/billing';
+import { useSubscription } from '@/hooks/useSubscription';
 
-// Mock data for development
-const mockPlans: BillingPlan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 50,
-    currency: 'USD',
-    interval: 'monthly',
-    features: [
-      '基本的な分析機能',
-      '月間10,000件の注文まで',
-      '顧客分析',
-      'メールサポート',
-      '7日間の無料トライアル',
-    ],
-    maxProducts: 1000,
-    maxOrders: 10000,
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    price: 80,
-    currency: 'USD',
-    interval: 'monthly',
-    features: [
-      'すべてのStarter機能',
-      '月間50,000件の注文まで',
-      'AI予測分析',
-      'カスタムレポート',
-      '優先サポート',
-      'APIアクセス',
-      '14日間の無料トライアル',
-    ],
-    isPopular: true,
-    maxProducts: 5000,
-    maxOrders: 50000,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 100,
-    currency: 'USD',
-    interval: 'monthly',
-    features: [
-      'すべてのProfessional機能',
-      '無制限の注文処理',
-      '高度なAI分析',
-      'カスタマイズ可能なダッシュボード',
-      '専任サポート',
-      'ホワイトラベル対応',
-      'SLA保証',
-      '30日間の無料トライアル',
-    ],
-    maxProducts: undefined,
-    maxOrders: undefined,
-  },
-];
-
-const mockSubscription: Subscription = {
-  id: 'sub_123',
-  planId: 'starter',
-  status: 'trialing',
-  currentPeriodStart: new Date('2025-01-01'),
-  currentPeriodEnd: new Date('2025-02-01'),
-  trialEnd: new Date('2025-01-14'),
-};
+// モック定義は排除（実APIから取得するplans/subscriptionを使用）
 
 export default function BillingPage() {
-  const [plans, setPlans] = useState<BillingPlan[]>([]);
-  const [currentSubscription, setCurrentSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { plans, subscription: currentSubscription, updateSubscription, loading, isProcessing } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API call
-    const fetchBillingData = async () => {
-      try {
-        setLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setPlans(mockPlans);
-        setCurrentSubscription(mockSubscription);
-      } catch (error) {
-        console.error('Failed to fetch billing data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBillingData();
+    // 必要に応じて初期化ロジックを追加
   }, []);
 
   const calculateTrialDaysRemaining = () => {
@@ -115,9 +35,7 @@ export default function BillingPage() {
 
   const handleUpgrade = async (planId: string) => {
     try {
-      console.log('Upgrading to plan:', planId);
-      // TODO: Implement upgrade API call
-      alert(`プラン ${planId} へのアップグレードを処理中...`);
+      await updateSubscription(planId);
     } catch (error) {
       console.error('Upgrade failed:', error);
     }
@@ -247,10 +165,11 @@ export default function BillingPage() {
                     className="w-full"
                     variant={plan.isPopular ? "default" : "outline"}
                     onClick={() => handleUpgrade(plan.id)}
+                    disabled={isProcessing}
                   >
                     {currentSubscription && 
-                     mockPlans.findIndex(p => p.id === plan.id) > 
-                     mockPlans.findIndex(p => p.id === currentSubscription.planId) 
+                     plans.findIndex(p => p.id === plan.id) > 
+                     plans.findIndex(p => p.id === currentSubscription.planId) 
                       ? 'アップグレード' 
                       : '選択する'}
                   </Button>

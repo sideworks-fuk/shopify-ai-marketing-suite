@@ -158,12 +158,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   // Fetch selected feature for free plan users
   const fetchSelectedFeature = useCallback(async () => {
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${backendUrl}/api/subscription/selected-feature`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -181,14 +181,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setLoading(true);
       setError(null);
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       
       // Fetch current subscription
       const subResponse = await fetch(`${backendUrl}/api/subscription/current`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       if (subResponse.ok) {
@@ -204,9 +204,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       // Fetch available plans
       const plansResponse = await fetch(`${backendUrl}/api/subscription/plans`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       if (plansResponse.ok) {
@@ -218,7 +218,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
       
       // Use mock data in development
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_API_URL) {
         setSubscription({
           id: 'sub_mock',
           planId: 'starter',
@@ -285,13 +285,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     try {
       setError(null);
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${backendUrl}/api/subscription/upgrade`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ planId })
       });
 
@@ -321,13 +321,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     try {
       setError(null);
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       const response = await fetch(`${backendUrl}/api/subscription/cancel`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       if (!response.ok) {
