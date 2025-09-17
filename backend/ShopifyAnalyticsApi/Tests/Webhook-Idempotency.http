@@ -1,0 +1,48 @@
+### customers-redact 正常
+POST {{API_BASE}}/api/webhook/customers-redact
+X-Shopify-Hmac-SHA256: {{HMAC}}
+X-Shopify-Webhook-Id: {{WEBHOOK_ID}}
+Content-Type: application/json
+
+{
+  "shop_domain": "{{SHOP_DOMAIN}}",
+  "customer": { "id": 1234567890, "email": "user@example.com" },
+  "orders_to_redact": [111,222]
+}
+
+### customers-redact 重複（IdempotencyKeyで抑止）
+POST {{API_BASE}}/api/webhook/customers-redact
+X-Shopify-Hmac-SHA256: {{HMAC}}
+X-Shopify-Webhook-Id: {{WEBHOOK_ID}}
+Content-Type: application/json
+
+{
+  "shop_domain": "{{SHOP_DOMAIN}}",
+  "customer": { "id": 1234567890, "email": "user@example.com" },
+  "orders_to_redact": [111,222]
+}
+
+### app/uninstalled 正常
+POST {{API_BASE}}/api/webhook/uninstalled
+X-Shopify-Hmac-SHA256: {{HMAC}}
+X-Shopify-Webhook-Id: {{WEBHOOK_ID2}}
+Content-Type: application/json
+
+{
+  "domain": "{{SHOP_DOMAIN}}",
+  "id": 987654321
+}
+
+### HMAC不正（403想定）
+POST {{API_BASE}}/api/webhook/customers-data-request
+X-Shopify-Hmac-SHA256: invalid-hmac
+X-Shopify-Webhook-Id: {{WEBHOOK_ID3}}
+Content-Type: application/json
+
+{
+  "shop_domain": "{{SHOP_DOMAIN}}",
+  "customer": { "id": 555, "email": "bad@example.com" },
+  "data_request": { "id": 333 }
+}
+
+

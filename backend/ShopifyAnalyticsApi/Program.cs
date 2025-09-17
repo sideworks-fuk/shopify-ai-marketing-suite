@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Hangfire;
 using Hangfire.SqlServer;
+using ShopifyAnalyticsApi.Jobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -184,11 +185,11 @@ builder.Services.AddHangfire(configuration => configuration
         DisableGlobalLocks = true
     }));
 
-// HangFireサーバー設定
+// HangFireサーバー設定（安全側: 並列1）
 builder.Services.AddHangfireServer(options =>
 {
     options.ServerName = "EC-Ranger-Server";
-    options.WorkerCount = Environment.ProcessorCount * 2;
+    options.WorkerCount = 1;
 });
 
 // KeepAliveサービス登録（Azure App Service対策）
@@ -313,6 +314,12 @@ app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
     Authorization = new[] { new ShopifyAnalyticsApi.Filters.HangfireAuthorizationFilter() },
     DashboardTitle = "EC Ranger - Job Dashboard"
 });
+
+// GDPR: pending処理の定期実行（*/5分）
+RecurringJob.AddOrUpdate<GdprProcessingJob>(
+    "gdpr-process-pending",
+    job => job.ProcessPendingRequests(),
+    "*/5 * * * *");
 
 // セキュリティヘッダーを追加
 app.Use(async (context, next) =>

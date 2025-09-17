@@ -7,6 +7,10 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using ShopifyAnalyticsApi.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -17,6 +21,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [ApiController]
     [Route("api/webhook")]
     [AllowAnonymous] // Webhookは認証なしでアクセス可能
+    [RequestSizeLimit(262144)] // 256 KB 上限
     public class WebhookController : ControllerBase
     {
         private readonly IConfiguration _configuration;
@@ -49,13 +54,20 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("uninstalled")]
         public async Task<IActionResult> AppUninstalled()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                // 必須ヘッダ/トピック検証
+                if (!ValidateRequiredHeaders("app/uninstalled", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
+
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: app/uninstalled");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 // リクエストボディを読み取る
@@ -68,14 +80,16 @@ namespace ShopifyAnalyticsApi.Controllers
                     return BadRequest();
                 }
 
-                _logger.LogInformation("アプリアンインストール通知受信. Shop: {Shop}", webhook.Domain);
+                var correlationId = LoggingHelper.GetOrCreateCorrelationId(HttpContext);
+                var requestId = LoggingHelper.GetOrCreateRequestId(HttpContext);
+                _logger.LogInformation("アプリアンインストール通知受信 Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, topic, webhookId, correlationId, requestId);
 
                 // 非同期で処理を実行
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        // 1. 課金をキャンセル
+                        // 1. 課金をキャンセル（Shopify側とローカル両方を冪等に処理）
                         await CancelStoreSubscription(webhook.Domain);
                         
                         // 2. データ削除をスケジュール（48時間以内）
@@ -88,6 +102,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 });
 
                 // 即座に200 OKを返す（5秒ルール）
+                started.Stop();
+                _logger.LogInformation("app/uninstalled 処理完了 Shop={Shop} WebhookId={WebhookId} Result={Result} LatencyMs={Latency} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, webhookId, "accepted", started.ElapsedMilliseconds, correlationId, requestId);
                 return Ok();
             }
             catch (Exception ex)
@@ -105,13 +121,18 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("customers-redact")]
         public async Task<IActionResult> CustomersRedact()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                if (!ValidateRequiredHeaders("customers/redact", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: customers/redact");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -123,8 +144,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     return BadRequest();
                 }
 
-                _logger.LogInformation("顧客データ削除要求受信. Shop: {Shop}, CustomerId: {CustomerId}", 
-                    webhook.ShopDomain, webhook.Customer.Id);
+                _logger.LogInformation("顧客データ削除要求受信 Shop={Shop} CustomerId={CustomerId} Topic={Topic} WebhookId={WebhookId}", 
+                    webhook.ShopDomain, webhook.Customer.Id, topic, webhookId);
 
                 // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
@@ -148,6 +169,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 });
 
+                started.Stop();
+                _logger.LogInformation("customers/redact 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
@@ -164,13 +187,18 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("shop-redact")]
         public async Task<IActionResult> ShopRedact()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                if (!ValidateRequiredHeaders("shop/redact", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: shop/redact");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -182,7 +210,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     return BadRequest();
                 }
 
-                _logger.LogInformation("ショップデータ削除要求受信. Shop: {Shop}", webhook.Domain);
+                _logger.LogInformation("ショップデータ削除要求受信 Shop={Shop} Topic={Topic} WebhookId={WebhookId}", webhook.Domain, topic, webhookId);
 
                 // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
@@ -206,6 +234,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 });
 
+                started.Stop();
+                _logger.LogInformation("shop/redact 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.Domain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
@@ -222,13 +252,18 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("customers-data-request")]
         public async Task<IActionResult> CustomersDataRequest()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                if (!ValidateRequiredHeaders("customers/data_request", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: customers/data_request");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -240,8 +275,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     return BadRequest();
                 }
 
-                _logger.LogInformation("顧客データ提供要求受信. Shop: {Shop}, CustomerId: {CustomerId}", 
-                    webhook.ShopDomain, webhook.Customer.Id);
+                _logger.LogInformation("顧客データ提供要求受信 Shop={Shop} CustomerId={CustomerId} Topic={Topic} WebhookId={WebhookId}", 
+                    webhook.ShopDomain, webhook.Customer.Id, topic, webhookId);
 
                 // GDPRサービスでリクエストを作成
                 _ = Task.Run(async () =>
@@ -265,6 +300,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 });
 
+                started.Stop();
+                _logger.LogInformation("customers/data_request 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
@@ -280,13 +317,18 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("subscriptions-update")]
         public async Task<IActionResult> SubscriptionsUpdate()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                if (!ValidateRequiredHeaders("app_subscriptions/update", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: app_subscriptions/update");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -314,6 +356,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 });
 
+                started.Stop();
+                _logger.LogInformation("subscriptions-update 受付完了 WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
@@ -329,13 +373,18 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("subscriptions-cancel")]
         public async Task<IActionResult> SubscriptionsCancel()
         {
+            var started = Stopwatch.StartNew();
             try
             {
+                if (!ValidateRequiredHeaders("app_subscriptions/cancel", out var topic, out var shopDomainHeader, out var webhookId))
+                {
+                    return Forbid();
+                }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: app_subscriptions/cancel");
-                    return Unauthorized();
+                    return Forbid();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -363,6 +412,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 });
 
+                started.Stop();
+                _logger.LogInformation("subscriptions-cancel 受付完了 WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
@@ -401,10 +452,26 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
                 var computedHashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
-                var computedHash = Convert.ToBase64String(computedHashBytes);
 
-                // 比較
-                return computedHash == receivedHmac.ToString();
+                // 受信値をBase64デコード
+                byte[] receivedHmacBytes;
+                try
+                {
+                    receivedHmacBytes = Convert.FromBase64String(receivedHmac.ToString());
+                }
+                catch
+                {
+                    _logger.LogWarning("HMAC署名の形式が不正です");
+                    return false;
+                }
+
+                if (receivedHmacBytes.Length != computedHashBytes.Length)
+                {
+                    return false;
+                }
+
+                // 固定時間比較で検証
+                return CryptographicOperations.FixedTimeEquals(computedHashBytes, receivedHmacBytes);
             }
             catch (Exception ex)
             {
@@ -421,6 +488,12 @@ namespace ShopifyAnalyticsApi.Controllers
             Request.EnableBuffering();
             using var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
             var body = await reader.ReadToEndAsync();
+            // サイズ上限（256KB）を超える場合は拒否
+            if (Encoding.UTF8.GetByteCount(body) > 262144)
+            {
+                _logger.LogWarning("Webhookリクエストがサイズ上限を超過: {Size} bytes", Encoding.UTF8.GetByteCount(body));
+                throw new InvalidOperationException("Payload too large");
+            }
             Request.Body.Position = 0;
             return body;
         }
@@ -442,26 +515,28 @@ namespace ShopifyAnalyticsApi.Controllers
                     return;
                 }
 
-                // アクティブなサブスクリプションを検索
-                var activeSubscription = await _context.StoreSubscriptions
-                    .Where(s => s.StoreId == store.Id && 
-                           (s.Status == "ACTIVE" || s.Status == "PENDING"))
-                    .FirstOrDefaultAsync();
+                // まずShopify側/ローカル双方を内包するサービス経由でキャンセル（冪等）
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var subscriptionService = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
+                    var result = await subscriptionService.CancelSubscriptionAsync(store.Id);
+                    if (!result.Success)
+                    {
+                        _logger.LogWarning("サービス経由のキャンセルに失敗したためローカル更新を試行. Shop: {Shop}", shopDomain);
 
-                if (activeSubscription != null)
-                {
-                    // サブスクリプションをキャンセル
-                    activeSubscription.Status = "CANCELLED";
-                    activeSubscription.CancelledAt = DateTime.UtcNow;
-                    activeSubscription.UpdatedAt = DateTime.UtcNow;
-                    
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("サブスクリプションをキャンセルしました. Shop: {Shop}, SubscriptionId: {SubId}", 
-                        shopDomain, activeSubscription.Id);
-                }
-                else
-                {
-                    _logger.LogInformation("アクティブなサブスクリプションなし. Shop: {Shop}", shopDomain);
+                        // フォールバック: ローカルのみキャンセル
+                        var activeSubscription = await _context.StoreSubscriptions
+                            .Where(s => s.StoreId == store.Id && (s.Status == "ACTIVE" || s.Status == "PENDING"))
+                            .FirstOrDefaultAsync();
+                        if (activeSubscription != null)
+                        {
+                            activeSubscription.Status = "CANCELLED";
+                            activeSubscription.CancelledAt = DateTime.UtcNow;
+                            activeSubscription.UpdatedAt = DateTime.UtcNow;
+                            await _context.SaveChangesAsync();
+                            _logger.LogInformation("ローカルのみキャンセル完了. Shop: {Shop}, SubscriptionId: {SubId}", shopDomain, activeSubscription.Id);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -764,26 +839,126 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                // WebhookEventsテーブルに記録
+                // ストアID解決
+                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
+                var storeId = store?.Id ?? 0;
+
+                var serialized = JsonSerializer.Serialize(payload);
+                var idempotencyKey = GenerateWebhookIdempotencyKey(shopDomain, topic, serialized);
+
+                // 既存チェック（冪等）
+                var exists = await _context.WebhookEvents.AnyAsync(w => w.IdempotencyKey == idempotencyKey);
+                if (exists)
+                {
+                    _logger.LogInformation("Webhookイベントは既に記録済み（冪等）. Key: {Key}", idempotencyKey);
+                    return;
+                }
+
+                // WebhookEventsテーブルに記録（UPSERT相当: 事前チェック + ユニーク制約）
                 var webhookEvent = new WebhookEvent
                 {
+                    StoreId = storeId,
                     ShopDomain = shopDomain,
                     Topic = topic,
-                    Payload = JsonSerializer.Serialize(payload),
+                    Payload = serialized,
                     ProcessedAt = DateTime.UtcNow,
                     Status = "processed",
-                    CreatedAt = DateTime.UtcNow
+                    IdempotencyKey = idempotencyKey,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 _context.Add(webhookEvent);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Webhookイベントを記録. Shop: {Shop}, Topic: {Topic}", shopDomain, topic);
+                var correlationId = LoggingHelper.GetOrCreateCorrelationId(HttpContext);
+                var requestId = LoggingHelper.GetOrCreateRequestId(HttpContext);
+                _logger.LogInformation(
+                    "WebhookEvent 記録 StoreId={StoreId} Shop={Shop} Topic={Topic} WebhookId={WebhookId} IdempotencyKey={IdempotencyKey} Result={Result} CorrelationId={CorrelationId} RequestId={RequestId}",
+                    storeId,
+                    shopDomain,
+                    topic,
+                    Request.Headers["X-Shopify-Webhook-Id"].ToString(),
+                    idempotencyKey,
+                    "processed",
+                    correlationId,
+                    requestId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Webhookイベント記録中にエラー");
             }
+        }
+
+        /// <summary>
+        /// 必須ヘッダ検証とトピック許可リストチェック
+        /// </summary>
+        private bool ValidateRequiredHeaders(string expectedTopic, out string topic, out string shopDomain, out string webhookId)
+        {
+            topic = Request.Headers["X-Shopify-Topic"].ToString();
+            shopDomain = Request.Headers["X-Shopify-Shop-Domain"].ToString();
+            webhookId = Request.Headers["X-Shopify-Webhook-Id"].ToString();
+
+            if (string.IsNullOrWhiteSpace(topic) || string.IsNullOrWhiteSpace(shopDomain) || string.IsNullOrWhiteSpace(webhookId))
+            {
+                _logger.LogWarning("必須ヘッダ欠落 topic={Topic} shop={Shop} webhookId={WebhookId}", topic, shopDomain, webhookId);
+                return false;
+            }
+
+            var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "app/uninstalled",
+                "customers/redact",
+                "shop/redact",
+                "customers/data_request",
+                "app_subscriptions/update",
+                "app_subscriptions/cancel"
+            };
+
+            if (!allowed.Contains(topic))
+            {
+                _logger.LogWarning("未許可トピック: {Topic}", topic);
+                return false;
+            }
+
+            if (!string.Equals(topic, expectedTopic, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("トピックとエンドポイント不一致: expected={Expected} actual={Actual}", expectedTopic, topic);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Webhookイベント用の冪等性キーを生成
+        /// 推奨: hash(StoreDomain + Topic + created_at + X-Shopify-Webhook-Id)
+        /// </summary>
+        private string GenerateWebhookIdempotencyKey(string shopDomain, string topic, string payloadJson)
+        {
+            string createdAt = string.Empty;
+            try
+            {
+                var json = JsonSerializer.Deserialize<JsonElement>(payloadJson);
+                if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("created_at", out var created))
+                {
+                    createdAt = created.GetRawText();
+                }
+            }
+            catch
+            {
+                // ignore parse issues
+            }
+
+            var webhookId = Request.Headers.TryGetValue("X-Shopify-Webhook-Id", out var headerVal)
+                ? headerVal.ToString()
+                : string.Empty;
+
+            var seed = $"{shopDomain}|{topic}|{createdAt}|{webhookId}";
+            using var sha = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(seed);
+            var hash = sha.ComputeHash(bytes);
+            return Convert.ToBase64String(hash);
         }
 
         // Webhook用のDTOクラス
