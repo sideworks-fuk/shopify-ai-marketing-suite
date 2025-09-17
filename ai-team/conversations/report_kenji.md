@@ -200,3 +200,28 @@ Status: Quick Ship Trackerサンプルアプリ実装開始
 
 Kenji（AIプロジェクトマネージャー）
 2025-09-06 09:00
+
+---
+
+## 2025-09-17 21:40 - フロントエンド実装状況共有（Yuki）
+
+### 概要
+- 認証保護レイアウトに未実装TODOあり（`app/(authenticated)/layout.tsx`）。
+- ダッシュボードと課金UIにAPI統合未完・モック残存箇所あり。
+- `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_BACKEND_URL`とローカル固定URLの混在を確認。
+
+### 主要発見
+- 認証: `(authenticated)/layout.tsx` → 認証チェックTODO。
+- ダッシュボード: `app/(authenticated)/dashboard/page.tsx` → 実API置換TODO。
+- 課金: `app/billing/page.tsx` → プラン選択/アップグレードAPI TODO。
+  - `SubscriptionContext`/`useSubscription` に `MOCK_PLANS` 残存。
+- 分析系: 複数コンポーネントで `useSampleData=true` 初期・サンプルデータ参照あり。
+- 環境変数: API URL参照が二系統＋`localhost`フォールバック点在。
+
+### 提案する進行順（指示待ち）
+1) 認証チェックの実装確定（Clerk/既存JWT方針に合わせ）
+2) API URL参照の一本化（`NEXT_PUBLIC_API_URL`へ統一、`localhost`フォールバック排除）
+3) モック/サンプルの段階的無効化（ダッシュボード→顧客/購買頻度→FTier）
+4) 課金UIのAPI接続完了（プラン取得/アップグレード/状態反映）
+
+必要であれば、上記を小さなPRバッチ（A:認証、B:URL統一、C:モック外し第一弾、D:課金UI）で即対応可能です。ご指示ください。

@@ -153,3 +153,101 @@ Status: Day 2実装完了
 
 ---
 Yuki
+
+---
+
+## 2025-09-17 21:40 - 本日の進捗と状況（Yuki → Kenji）
+
+### フロントエンド実装状況 要約
+- 認証保護: `app/(authenticated)/layout.tsx` に認証チェックのTODOが残存。
+- ダッシュボード: `app/(authenticated)/dashboard/page.tsx` は実API置換TODOあり。
+- 課金UI: `app/billing/page.tsx` にプラン選択/アップグレードAPIのTODO、`SubscriptionContext`/`useSubscription` に `MOCK_PLANS` 残存。
+- 分析系: 複数コンポーネントで `useSampleData=true` 初期＆サンプルデータ参照が残存。
+- 環境変数: `NEXT_PUBLIC_API_URL` と `NEXT_PUBLIC_BACKEND_URL` が混在し、`localhost` フォールバックも点在。
+
+### 次アクション案（指示待ちで即着手可）
+1) 認証チェック実装確定（Clerk/既存JWTいずれかに合わせる）
+2) API URL参照を `NEXT_PUBLIC_API_URL` に統一（`localhost` フォールバック排除）
+3) モック/サンプルの段階的無効化（ダッシュボード→顧客/購買頻度→FTier）
+4) 課金UIのAPI接続仕上げ（プラン取得/アップグレード/状態反映）
+
+### 依存・ブロッカー（要判断）
+- 認証方式の最終方針（Clerk使用の是非）
+- 本番/ステージングのAPIベースURLの正（`NEXT_PUBLIC_API_URL`）
+- 課金・機能選択APIの最終エンドポイント名・契約
+
+ご確認の上、A→B→C→Dの順で進めてよければ承認ください。承認後、バッチ単位でPRを切ります。
+
+## 2025-09-17 23:46 - 進捗報告（Yuki）
+
+### 完了
+- 認証チェック: `(authenticated)/layout.tsx` に本番時のみの簡易チェック実装（未トークンは `/install` へ）
+- API URL統一: `NEXT_PUBLIC_API_URL` に統一、`NEXT_PUBLIC_BACKEND_URL` と `localhost` フォールバック排除
+- ダッシュボード: 実API呼び出しへ切替（`lib/api/dashboard.ts` は `buildApiUrl` 一貫化）
+- 課金UI: `billing/page.tsx` を `useSubscription` に接続（`updateSubscription` 呼び出し、processing制御）
+- 本番遮断: `frontend/middleware.ts` 追加（`/dev`, `/design-system`, `/playground` を本番で遮断）
+- 無料プランUI: 409/403系エラー時のUpgrade導線を `/billing` に明示
+
+### 着手中/次候補
+- `lib/api/sync.ts`: API URL統一とCookie認証化（Authorization撤去）
+- 分析画面モック外し: `useSampleData` のfalse化＋API連携の確認
+- 課金E2E通し: `create/upgrade → confirmationUrl → 承認 → Webhook反映 → UI反映`
+
+## 2025-09-18 00:19 - 進捗報告（Yuki）
+
+### 実装/反映
+- 分析4画面 `useSampleData` 既定を `false` に変更（API前提に統一）
+  - `CustomerSegmentAnalysis`, `PurchaseFrequencyDetailAnalysis`, `ProductPurchaseFrequencyAnalysis`, `purchase-frequency-analysis`
+- `lib/api/sync.ts`: ベースURLを `NEXT_PUBLIC_API_URL` に統一、Cookie認証（`credentials: 'include'`）、`Authorization` 撤廃
+- `middleware.ts`: 本番判定を `NEXT_PUBLIC_ENVIRONMENT==='production'` に変更し、ステージング無害化
+
+### 次アクション（本日継続）
+1) 分析データの実API連携確認（サンプルフォールバック発火しないこと）
+2) 課金E2E通し（キャプチャ取得）
+3) 403/409表示の受け入れ基準検証（`nextChangeAvailableDate` 表示/Upgrade導線）
+
+ブロッカーなし。完了次第、PRリンクとキャプチャを本レポートに追記します。
+
+## 2025-09-18 00:59 - フロントエンド実装完了/QA引き継ぎ（Yuki → Kenji）
+
+### 実装完了（要点）
+- API URL統一: すべてのフロントエンドAPI参照を `NEXT_PUBLIC_API_URL` に統一。`Authorization` ヘッダ撤廃＋`credentials: 'include'`でCookie認証。
+- 認証保護: `(authenticated)/layout.tsx` に本番時の簡易チェック実装（未セッションは `/install` リダイレクト）。
+- ダッシュボード: `lib/api/dashboard.ts` を `buildApiUrl` に統一し、`(authenticated)/dashboard/page.tsx` は実API呼び出しへ切替。
+- 課金UI: `app/billing/page.tsx` を `useSubscription` に接続。`create/upgrade/cancel/reactivate/history` はCookie認証で呼び出し、`confirmationUrl` 返却時は外部承認へ遷移。`/billing/success` を新設。
+- 無料プラン制限UI: 403/409時の理由表示＋`/billing` へのアップグレード導線、`nextChangeAvailableDate` 表示に対応。
+- 分析画面: `useSampleData` 既定を `false` に変更（実API前提に統一）。
+- ミドルウェア: 本番環境（`NEXT_PUBLIC_ENVIRONMENT==='production'`）で `/dev`, `/design-system`, `/playground` を遮断。
+- Sync API: `lib/api/sync.ts` を `NEXT_PUBLIC_API_URL` とCookie認証に統一。
+- devツール群: HTTPS/Backend Health/OAuth設定確認等のページを `API_URL` ベースに整理、文言の誤字修正。
+
+### QA引き継ぎ（確認観点と手順）
+- 前提設定
+  - 環境変数: `NEXT_PUBLIC_API_URL` が正（ステージング/本番それぞれ）。
+  - 本番遮断確認時のみ: `NEXT_PUBLIC_ENVIRONMENT=production`。
+- 主要ルート
+  - `/billing`（プラン表示・現行プラン・トライアル残日数・アップグレード動線）
+  - `/billing/success`（決済後の一時ページ→自動で `/billing` リダイレクト）
+  - 本番遮断の確認（`/dev`, `/dev-bookmarks`, `/design-system`, `/playground` が遮断）
+- API 期待挙動（すべて Cookie 送信）
+  - GET `/api/subscription/plans`, GET `/api/subscription/current(404=未契約)`,
+  - POST `/api/subscription/create`（初回作成）/`/upgrade`（変更）→ `confirmationUrl` 返却で外部承認へ
+  - POST `/cancel`, POST `/reactivate`, GET `/history`, GET `/usage`
+- E2E シナリオ
+  1) `/billing` でプラン/現行プラン/トライアル残日数が表示
+  2) プラン選択 → POST `/create` or `/upgrade` → `confirmationUrl` に遷移
+  3) 承認後にフロント（`/billing/success` → 自動で `/billing`）へ戻る
+  4) Webhook反映後に GET `/current` が新プランを返し、UI更新
+  5) 無料プラン制限UI: 403/409 時に「理由＋次回変更可能日（あれば）＋/billing 導線」表示
+
+### 受け入れ基準（抜粋）
+- Cookie送信で各APIが期待ステータスを返す（未認可時は適切に401）。
+- `confirmationUrl` 未返却時でも `/billing/success` 経由で正常復帰。
+- 本番環境で開発用ページが遮断される。
+
+### 保留/依存
+- `billing-e2e-check`: 決済承認〜Webhook反映〜UI更新の通し検証（QA実施想定）。
+- `403/409-acceptance-criteria`: 理由/`nextChangeAvailableDate`/導線表示の受け入れ基準確認。
+- 環境値の最終確認: ステージング/本番の `NEXT_PUBLIC_API_URL`。
+
+必要に応じ、QA結果を受けて微修正→即時PR対応します。（担当: Yuki）

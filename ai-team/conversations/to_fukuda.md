@@ -96,3 +96,52 @@ AppUrl=https://ec-ranger.azurewebsites.net
 
 ---
 Kenji (AIプロジェクトマネージャー)
+
+## 2025-09-17 21:45 依頼（スクリーンショット/環境前提確認/E2E準備）
+
+### 1) スクリーンショット取得（申請用）
+- 保存先: `docs/00-production-release/shopify-submission/assets/`
+- 対象（例）
+  - ダッシュボード
+  - 分析3画面（前年同月比/購入回数/休眠顧客）
+  - 課金画面（プラン表示/アップグレード導線）
+  - 設定画面
+- 参考: `docs/00-production-release/shopify-submission/screenshot-guide.md`
+
+### 2) Shopifyパートナー側設定の最終確認
+- OAuthリダイレクトURL/スコープ、アプリURLの整合
+- Webhook登録（URLはバックエンド公開URLで）
+  - `customers/data_request` → `/api/webhooks/customers/data_request`
+  - `customers/redact` → `/api/webhooks/customers/redact`
+  - `shop/redact` → `/api/webhooks/shop/redact`
+  - `app/uninstalled` → `/api/webhooks/app/uninstalled`
+
+### 3) 環境変数・前提条件の棚卸し（Staging）
+- `Shopify:WebhookSecret`, `AppUrl`, 課金関連の設定確認
+- APIベースURLをフロント/バックで統一（`NEXT_PUBLIC_API_URL`）
+
+### 4) E2E実施準備（明日AM）
+- テストストアの用意
+- 通しシナリオ確認（インストール→課金確認→Webhook反映→解放、GDPR再送/順不同の冪等確認）
+
+### 報告
+- 進捗と成果物のパスを `ai-team/conversations/to_kenji.md` に記載お願いします。
+
+## 2025-09-17 22:42 依頼追加（DBマイグレーション適用 担当: 福田）
+
+### 対象
+- `docs/04-development/03-データベース/マイグレーション/` 配下の最新スクリプト
+  - 例: `2025-08-13-AddWebhookEventsTable.sql`, `2025-08-24-AddGDPRTables.sql`, `2025-08-26-free-plan-feature-selection.sql`
+
+### 実施内容
+1. Staging DBへ順序通り適用（外部キー・依存関係に注意）
+2. 適用後に基本動作確認（WebhookEvents書き込み、FeatureSelection既存データ整合）
+3. `docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` を更新（✅ 適用済 (YYYY-MM-DD HH:mm)）
+4. 本番適用手順の確認（リハーサル項目洗い出し）
+
+### 連携
+- Takashi: 手順レビュー/適用後検証/不具合切り分け支援
+- Kenji: tracking.mdレビュー・承認
+
+### 報告
+- 実施結果と更新箇所を `ai-team/conversations/to_kenji.md` へ記載

@@ -1,303 +1,94 @@
-# Yukiへの依頼事項
-From: Kenji (PM)
-Date: 2025-08-24
-Priority: 🚨緊急
-
-## TypeScriptエラー修正依頼
-
-Yukiさん、フロントエンドでTypeScriptエラーが発生しています。
-至急修正をお願いします。
-
-### エラー内容
-```
-npx tsc --noEmit
-src/hooks/useFeatureAccess.ts:211:35 - error TS2345: Argument of type 'PlanId' is not assignable to parameter of type '"enterprise"'.
-  Type '"starter"' is not assignable to type '"enterprise"'.
-
-211     return feature.plans.includes(currentPlanId);
-                                      ~~~~~~~~~~~~~
-
-// 同様のエラーが6箇所
-```
-
-### 問題の原因
-`feature.plans`の型定義が`['enterprise']`などの具体的な配列型になっているため、
-`PlanId`型との互換性エラーが発生しています。
-
-### 修正方法
-```typescript
-// 修正前
-plans: ['enterprise'] as const
-
-// 修正後
-plans: ['enterprise'] as PlanId[]
-```
-
-または、型定義を修正：
-```typescript
-interface Feature {
-  plans: PlanId[];  // ReadonlyArray<'enterprise'> ではなく PlanId[] にする
-}
-```
-
-### 影響箇所
-- `src/hooks/useFeatureAccess.ts` の以下の行:
-  - 211行目
-  - 230行目
-  - 249行目
-  - 260行目
-  - 337行目
-  - 348行目
-
-## 以前の実装タスク（完了済み）
-
-#### PlanSelectorコンポーネント
-```typescript
-// frontend/src/components/billing/PlanSelector.tsx
-// プラン選択UI
-// $50 Starter / $80 Professional / $100 Enterprise
-```
-
-#### BillingStatusコンポーネント
-```typescript
-// frontend/src/components/billing/BillingStatus.tsx
-// 現在の課金状態表示
-// トライアル期間の残り日数表示
-```
-
-#### TrialBannerコンポーネント
-```typescript
-// frontend/src/components/billing/TrialBanner.tsx
-// トライアル期間中の通知バナー
-// アップグレードへの誘導
-```
-
-### 2. 画面実装
-
-#### /settings/billing ページ作成
-- 課金プラン一覧表示
-- 現在のプラン強調表示
-- アップグレード/ダウングレードボタン
-- 支払い履歴表示（可能なら）
-
-#### UIフロー
-1. プラン選択
-2. Shopify課金承認画面へリダイレクト
-3. 承認後のコールバック処理
-4. 成功/失敗メッセージ表示
-
-### 3. Context/Hook実装
-
-#### SubscriptionContext
-```typescript
-// frontend/src/contexts/SubscriptionContext.tsx
-export interface SubscriptionContextType {
-  currentPlan: Plan | null;
-  isTrialing: boolean;
-  trialDaysLeft: number;
-  canAccessFeature: (feature: string) => boolean;
-  upgradePlan: (planId: string) => Promise<void>;
-}
-```
-
-#### useSubscription Hook
-```typescript
-// frontend/src/hooks/useSubscription.ts
-// 課金状態の管理
-// APIとの通信
-// リアルタイム更新
-```
-
-#### useFeatureAccess Hook
-```typescript
-// frontend/src/hooks/useFeatureAccess.ts
-// 機能制限のチェック
-// プランごとの機能アクセス制御
-```
-
-### 4. 機能制限UI
-
-#### 制限表示の実装
-- 無料トライアルの制限表示
-- プランごとの機能差分表示
-- アップグレード促進メッセージ
-
-#### 実装例
-```typescript
-// 機能制限チェック
-if (!canAccessFeature('advanced-analytics')) {
-  return <UpgradePrompt feature="高度な分析機能" />;
-}
-```
-
----
-
-## 技術仕様
-
-### APIエンドポイント
-```typescript
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://localhost:7140'
-
-// 課金管理API
-GET  /api/subscription/plans         // プラン一覧取得
-GET  /api/subscription/current       // 現在の課金状態
-POST /api/subscription/create        // 課金作成
-POST /api/subscription/upgrade       // アップグレード
-POST /api/subscription/cancel        // キャンセル
-GET  /api/subscription/history       // 支払い履歴
-```
-
-### 状態管理
-- Zustandまたは Context APIで課金状態を管理
-- リアルタイム更新（WebSocket検討）
-- ローカルストレージでキャッシュ
-
-### デザイン要件
-- Shopify Polarisに準拠
-- レスポンシブ対応
-- ダークモード対応（可能なら）
-
----
-
-## 成果物
-
-1. 完成したコンポーネント群
-   - PlanSelector
-   - BillingStatus
-   - TrialBanner
-   - UpgradePrompt
-
-2. 課金管理画面
-   - /settings/billing
-
-3. Context/Hooks
-   - SubscriptionContext
-   - useSubscription
-   - useFeatureAccess
-
-4. 基本的な動作確認完了
-
----
-
-## 進捗報告
-
-- 11:00 - コンポーネント実装状況
-- 13:00 - 画面実装完了見込み
-- 14:00 - 統合テスト準備完了
-
-## 連携事項
-
-### Takashiとの連携
-- APIエンドポイントの確認
-- 認証トークンの扱い
-- エラーレスポンスの形式
-
-### テスト時の注意
-- ngrokでのテスト環境構築
-- Shopifyテストストアでの動作確認
-- 課金承認フローのモック対応
-
----
-
-## 質問・ブロッカー
-
-不明点があれば即座に連絡してください。
-Takashiとの連携が必要な部分は調整します。
-
-参考資料:
-- `docs\06-shopify\02-課金システム\`
-- Shopify Polaris デザインガイド
-- 既存の設定画面実装
-
-よろしくお願いします！
-
----
-
-# 過去の作業指示履歴
-
-## 2025年8月24日（土）- 無料プラン機能選択UI実装
-
-【開発指示 - 無料プラン機能選択UI実装】
-
-### 概要
-ERISさんの文書統一が完了しました。以下の仕様で無料プラン機能選択UIを実装してください。
-
-### 実装対象機能（分析3機能）
-1. **休眠顧客分析** (dormant_analysis)
-2. **前年同月比分析** (yoy_comparison)  
-3. **購入回数詳細分析** (purchase_frequency)
-
-### 実装ファイルパス（App Router準拠）
-```
-frontend/src/app/billing/free-plan-setup/page.tsx  # メインページ
-frontend/src/components/billing/FeatureSelector.tsx  # 機能選択コンポーネント
-frontend/src/components/billing/FeatureComparison.tsx  # 機能比較表
-frontend/src/hooks/useFeatureSelection.ts  # カスタムフック
-```
-
-### API仕様（統一済み）
-```typescript
-// エンドポイント
-GET  /api/feature-selection/current  // 現在の選択状態
-POST /api/feature-selection/select   // 機能選択
-GET  /api/feature-selection/available-features  // 利用可能機能一覧
-GET  /api/feature-selection/usage/{feature}  // 使用状況
-
-// レスポンス型（参考）
-interface CurrentSelectionResponse {
-  selectedFeature: 'dormant_analysis' | 'yoy_comparison' | 'purchase_frequency' | null;
-  canChangeToday: boolean;
-  nextChangeAvailableDate: string; // ISO 8601
-  usageLimit: {
-    remaining: number;
-    total: number;
-  };
-}
-```
-
-### 実装要件
-
-#### 必須要件
-1. **権限制御**: フロントは表示制御のみ。実際の権限はAPIが判定
-2. **30日制限表示**: 「次回変更可能まであとXX日」を明確に表示
-3. **冪等性**: POST時は必ずX-Idempotency-Tokenヘッダーを送信
-4. **エラーハンドリング**: 409（変更不可）時は理由とnextChangeDateを表示
-
-#### UI要件
-1. **初回選択画面**
-   - 3機能の比較表（特徴・メリット明記）
-   - ワンクリック選択（確認ダイアログ付き）
-   - 「後で決める」オプション
-
-2. **選択済み画面**
-   - 現在選択中の機能を強調表示
-   - 残り変更可能日数のカウントダウン
-   - 他機能のプレビュー（ダミーデータ表示）
-
-3. **アップグレード誘導**
-   - 未選択機能アクセス時はUpgradePromptコンポーネント表示
-   - /billing へのディープリンク
-
-### スケジュール
-- **Day 1 (8/26)**: 基盤実装（API連携、状態管理）
-- **Day 2 (8/27)**: UI実装（選択画面、比較表）
-- **Day 3 (8/28)**: 統合テスト、エラーハンドリング
-
-### 注意事項
-- TypeScriptの型定義を厳密に
-- レスポンシブデザイン対応必須
-- アクセシビリティ（ARIA属性）考慮
-- キャッシュは5分TTL（SWR使用推奨）
-
-### 進捗報告
-- 毎日report_yuki.mdに進捗を記載
-- ブロッカーは即座にto_kenji.mdへ
-
-頑張ってください！質問があればいつでも連絡してください。
-
-Kenji
-
-## 2025年8月12日（火）12:40
-
-
-
+# Yukiへの依頼事項（2025-09-17）
+
+## 21:45 指示（実装集中：認証/URL統一/モック外し/課金UI）
+
+- 注記: スクリーンショット取得は福田さんが担当。Yukiは実装に専念してください。
+
+### タスク（優先順）
+1) 認証チェック実装の確定
+   - 対象: `app/(authenticated)/layout.tsx`
+   - 現状は既存方式でOK（Clerk移行は後続）。
+2) API URL参照の統一
+   - `NEXT_PUBLIC_API_URL` に一本化。
+   - `NEXT_PUBLIC_BACKEND_URL` と `localhost` フォールバックは排除。
+3) モック/サンプルの段階的無効化
+   - 順序: ダッシュボード → 顧客/購買頻度 → FreeTier 周辺。
+   - `MOCK_PLANS` 等の置換、`useSampleData` 無効化。
+4) 課金UIのAPI接続仕上げ
+   - プラン取得/アップグレード/状態反映のAPI接続完了。
+5) 本番で開発用ルートの非表示/遮断最終チェック
+
+### 依存/前提
+- API: 課金・機能選択系のエンドポイント契約に追従。
+- 環境: `NEXT_PUBLIC_API_URL` をステージング/本番で正設定。
+
+### 期限/報告
+- 期限: 9/18 AM（E2E開始前）
+- 報告: `ai-team/conversations/report_yuki.md`
+
+## 21:58 開始合図
+- 指示どおり、認証→URL統一→モック外し→課金UIの順で着手。
+- 進捗は`report_yuki.md`へ、ブロッカーは`to_kenji.md`へ。
+
+## 2025-09-17 23:18 Kenji → Yuki 回答
+
+- 認証トークン: MVPはCookie `authToken` を使用。`localStorage`は使用しない（XSS耐性）。
+- 署名/有効期限/リフレッシュ: 既存ガイドに従う（当面は短期有効＋自動リフレッシュなし）。
+- APIベースURL: `NEXT_PUBLIC_API_URL`
+  - Staging: https://stg-api.ec-ranger.example.com
+  - Production: https://api.ec-ranger.example.com
+- 課金API: `create`（新規作成）/`upgrade`（プラン変更）でOK。成功時キーは`confirmationUrl`で確定。
+- 無料プラン機能選択API:
+  - 409時は`nextChangeAvailableDate`を返すで確定。
+  - `available-features` の`limits`/`currentUsage`スキーマは現行のままでOK。
+- 本番での開発用ルート遮断: `/dev`, `/design-system`, `/playground` は非表示・遮断対象に含めてください。
+
+## 2025-09-17 23:22 次アクション
+
+1) 無料プラン制限UIの最終仕上げ
+   - 409/403時の理由表示、次回変更可能日、Upgrade導線、残日数の表示を実装完了まで。
+2) ダッシュボード/分析画面のモック完全排除
+   - `useSampleData` 等の無効化、API実データ連携の確認。
+3) 課金UIの通し確認
+   - `create`/`upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映の通し。
+4) middleware遮断の本番フラグ確認
+   - ステージングでの無害化、本番でのみ遮断する条件分岐の確認。
+
+報告: `report_yuki.md` にPRリンク・確認キャプチャを貼付してください。
+
+## 2025-09-17 23:52 指示（仕上げタスクと受け入れ基準）
+
+### 仕上げタスク
+1) 無料プラン制限UIの最終仕上げ
+   - 403/409時の理由表示、次回変更可能日、Upgrade導線、残日数の表示が正しく出ること。
+2) モック排除の完了
+   - ダッシュボード/分析系の`useSampleData`やダミーを全除去、API実データ連携で描画。
+3) 課金UI通し確認
+   - `create`/`upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映まで通しで確認。
+4) middleware遮断の本番条件
+   - 本番のみ遮断、ステージングでは影響しない条件分岐を確認。
+
+### 受け入れ基準（抜粋）
+- 409時に`nextChangeAvailableDate`がUI表示される。
+- 403/409時にUpgrade導線が提示される。
+- ダッシュボードにモック依存が一切無い（コード確認含む）。
+- 課金承認完了後、UIが自動で最新状態（プラン/トライアル残）に反映。
+
+提出物
+- PRリンク、確認キャプチャ（403/409ケース、課金通し）、影響範囲メモ
+
+ブロッカーは `to_kenji.md` へ。
+
+## 2025-09-18 00:11 受領・次タスク
+
+- 受領: 認証/URL統一/middleware遮断/ダッシュボード実API化/課金UI接続/Upgrade導線 ありがとうございます。
+
+次タスク（優先順）
+1) 分析画面のモック完全排除＋API接続
+   - `CustomerSegmentAnalysis`, `PurchaseFrequencyDetailAnalysis`, `ProductPurchaseFrequencyAnalysis`, `CustomerPurchaseAnalysis`
+2) 課金E2E通し
+   - `create|upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映
+3) 403/409表示の受け入れ基準検証
+   - 理由・`nextChangeAvailableDate`・Upgrade導線の表示
+
+提出: PRリンクとキャプチャを`report_yuki.md`へ。

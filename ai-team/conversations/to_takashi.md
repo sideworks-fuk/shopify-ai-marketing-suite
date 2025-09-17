@@ -1,266 +1,160 @@
-# Takashiへの依頼事項
-From: Kenji (PM)
-Date: 2025-08-24
-Priority: 最優先
+# Takashiへの依頼事項（2025-09-17）
 
-## 本日の課金システム実装依頼
+## 21:40 指示（GDPR/マイグレーション/課金）
 
-Takashiさん、本日は課金システムのバックエンド実装を完了させる必要があります。
-以下のタスクを優先順位順に実装してください。
+### 1) GDPR Webhook 実装/再検証（最優先）
+- エンドポイント
+  - POST `/api/webhooks/customers/data_request`
+  - POST `/api/webhooks/customers/redact`
+  - POST `/api/webhooks/shop/redact`
+  - POST `/api/webhooks/app/uninstalled`（サブスクリプションキャンセル必須）
+- 必須事項
+  - HMAC署名検証、Idempotency、監査ログ（WebhookEvents 記録）
+  - リトライ/順不同到達の耐性、冪等処理、5秒以内の応答
 
-## 実装タスク（10:00-14:00）
+### 2) DBマイグレーション（支援/検証）
+- 福田さんがStaging適用を担当。Takashiは手順確認・適用後の検証・問題切り分けを支援。
+- `docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` の更新点レビュー。
 
-### 1. GraphQL API完全実装（最優先）
-既存の`SubscriptionController.cs`と`ShopifySubscriptionService.cs`を完成させてください。
+### 3) 課金/BillingController 最終統合
+- 課金作成/キャンセル/更新フローの通し確認
+- Postman/Insomnia コレクション更新（共有可能な形）
 
-**必要な実装:**
-- RecurringApplicationCharge作成処理
-- 課金承認URL生成
-- 承認状態確認（Callback処理）
-- 課金アクティベート処理
+### 期限/報告
+- 期限: 9/18 AM（E2E開始前）
+- 報告: `ai-team/conversations/report_takashi.md`
 
-**参考:**
-- `docs\06-shopify\02-課金システム\02-技術仕様\GraphQL_API最新仕様.md`
-- Shopify公式ドキュメント
+## 21:58 開始合図
+- 指示どおり、GDPR→app_uninstalled課金キャンセル→Billing統合の順で着手。
+- 進捗は`report_takashi.md`へ、ブロッカーは`to_kenji.md`へ。
 
-### 2. Webhook処理実装
-以下のWebhookイベントハンドラーを実装:
-- `app_subscriptions/update` - 課金状態更新
-- `app_subscriptions/cancel` - キャンセル処理
-- `app/uninstalled` - アプリアンインストール時の処理
+## 2025-09-17 23:14 Kenji → Takashi 回答（GDPR/課金/DB）
 
-**注意事項:**
-- 署名検証を必ず実装
-- 冪等性を考慮（重複処理防止）
-- エラー時のリトライ機構
+- 【app/uninstalled連動】
+  - 了承。`WebhookController`経由で `ShopifySubscriptionService.CancelSubscriptionAsync` を必ず呼ぶ実装にしてください。ローカルDBのCANCELLED更新とShopify側キャンセルの双方を必須（順不同到達を考慮し冪等に）。
 
-### 3. データベース処理
-- StoreSubscriptionsテーブルへの保存・更新
-- BillingHistoryテーブルへの履歴記録
-- WebhookEventsテーブルへのイベント記録
+- 【Webhook監査の冪等性】
+  - 了承。`IdempotencyKey = hash(StoreDomain + Topic + created_at + X-Shopify-Webhook-Id)` を推奨。`WebhookEvents(IdempotencyKey)` にユニーク制約を設定し、重複はUPSERTで無視。
 
-### 4. エラーハンドリング
-- Rate Limit対策（429エラー）
-- ネットワークエラー時のリトライ
-- 適切なログ記録
+- 【GDPRの非同期化】
+  - 了承。Hangfireジョブ名「GDPR:ProcessPendingRequests」、CRON「*/5 * * * *」で進めてください。5秒応答要件は受付ACKで満たし、実処理は非同期。
 
-## 以前のエラー（解決済みか要確認）
-### 1. StoreAwareControllerBase コンストラクターエラー
-- Controllers/SubscriptionController.cs:29
+- 【セキュリティ】
+  - 了承。HMAC比較は`FixedTimeEquals`へ切替。ヘッダ未在/不正時は即403、検証OK後のみ処理。
 
-### 2. ShopifyDbContext プロパティ不足
-- `StoreSubscriptions`
-- `SubscriptionPlans`
+- 【DBマイグレーション検証観点】
+  - 合意。「Subscription/Feature/GDPR/Indices」。加えて`WebhookEvents.IdempotencyKey`のユニーク制約確認も含めてください。
 
-### 3. GetStoreId メソッド未定義
-- Controllers/SubscriptionController.cs:45, 133, 239, 301, 341
+- 【E2E前提（値確認）】
+  - Frontend: `NEXT_PUBLIC_API_URL` = https://stg-api.ec-ranger.example.com
+  - Backend: `AppUrl` = https://stg-api.ec-ranger.example.com
+  - Shopify: `WebhookSecret` = （Staging値。to_fukuda.mdに記載のもの）
+  - 上記で問題なければ明日のE2Eで固定使用。値差異があれば`to_kenji.md`で指摘お願いします。
 
-## テスト要件
-- 単体テストの作成（最低限の動作確認）
-- Postmanでの動作確認用コレクション作成
+## 2025-09-17 23:18 Kenji → Takashi 指示（提案承認と実装順）
 
-## 成果物
-1. 完成したControllerとService
-2. Webhook処理クラス
-3. 基本的な単体テスト
-4. API動作確認結果
+- 提案1) app/uninstalledでの`CancelSubscriptionAsync`呼び出し: 承認。PR#1で実装。
+- 提案2) `LogWebhookEvent`への`IdempotencyKey`設定＋ユニーク制約: 承認。PR#2。
+- 提案3) GDPR pending処理のHangfire定期実行（*/5分）: 承認。PR#3。
+- 提案4) HMAC比較の固定時間比較: 承認。PR#4（セキュリティ改善）。
 
-## 進捗報告
-- 11:00 - 実装状況の中間報告
-- 13:00 - 実装完了見込みの報告
-- 14:00 - 完了報告とテスト結果
+実装順: 1 → 2 → 4 → 3（E2E準備の都合でキャンセル→冪等→セキュリティ→非同期の順）
 
-## 質問・ブロッカー
-不明点があれば即座に連絡してください。
-Yukiとの連携が必要な部分は調整します。
+テスト: Postman/Insomniaのコレクション更新、監査ログの重複抑止確認、app/uninstalledの再送冪等確認を含めること。
 
-よろしくお願いします！
+## 2025-09-17 23:41 指示（短期実装と受け入れ基準）
 
----
+### 実装タスク（PRを分割）
+1) app/uninstalledでのサブスクリプション取消
+   - `WebhookController`から`ShopifySubscriptionService.CancelSubscriptionAsync`を必ず呼ぶ
+   - ローカルDB更新とShopify側取消の冪等を担保（重複/順不同）
+2) 監査ログのIdempotencyKey対応
+   - `IdempotencyKey = hash(StoreDomain + Topic + created_at + X-Shopify-Webhook-Id)`
+   - `WebhookEvents(IdempotencyKey)`にユニーク制約、重複UPSERT無視
+3) HMAC固定時間比較
+   - `CryptographicOperations.FixedTimeEquals`へ切替、失敗時は403で副作用なし
+4) GDPR非同期化（Hangfire）
+   - ジョブ名: `GDPR:ProcessPendingRequests`、CRON: `*/5 * * * *`
+   - 受付ACKで5秒応答、実処理は非同期
 
-## 🚨 緊急：バックエンドエラー修正依頼
-From: Kenji (PM)
-Date: 2025-08-24 15:00
+### 受け入れ基準（抜粋）
+- app/uninstalled: 再送/順不同でもDBとShopifyの状態が正しく最終一致
+- 監査ログ: 重複登録が発生しない（ユニーク制約で抑止）
+- HMAC: 署名不正時は403・副作用なし、正当時のみ処理
+- GDPR: pendingが5分以内に処理され、Overdue警告が出ない
 
-Takashiさん、バックエンドでコンパイルエラーが発生しています。
-至急修正をお願いします。
+### 提出物
+- 分割PRリンク、Postman/Insomniaコレクション更新、簡易テスト結果
 
-### エラー内容
-```
-重大度レベル: エラー (アクティブ)
-コード: CS0101
-説明: 名前空間 'ShopifyAnalyticsApi.Models' は既に 'WebhookEvent' の定義を含んでいます
-ファイル: C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Models\WebhookModels.cs
-行: 10
-```
+ブロッカーがあれば即 `to_kenji.md` へ。
 
-### 問題の原因
-`WebhookEvent`クラスが重複定義されています：
-1. `Models\WebhookEvent.cs`（新規作成）
-2. `Models\WebhookModels.cs`（既存）
+## 2025-09-17 23:52 Kenji → Takashi 受領・次アクション
 
-### 修正方法
-以下のいずれかの対応をお願いします：
-1. 既存の`WebhookModels.cs`の`WebhookEvent`クラスを削除
-2. 新規作成した`WebhookEvent.cs`を削除して既存を使用
-3. クラス名を変更して競合を解消
+- 受領: HMAC固定時間比較、app/uninstalledのShopify側キャンセル呼出し、監査ログIdempotencyKey、Hangfire登録の実装を確認しました。ありがとうございます。
 
-### 緊急度
-統合テストがブロックされているため、至急の対応をお願いします。
+### 次アクション（検証重点）
+1) 冪等性検証
+   - app/uninstalled 再送/順不同ケースで最終状態一致を確認（DB/Shopify双方）。
+2) 監査ログ重複抑止
+   - `WebhookEvents(IdempotencyKey)`ユニーク制約で重複無しを確認（意図的重送テスト）。
+3) コレクション更新
+   - Postman/Insomnia に 正常/重複/順不同/403 のケースを追加し共有。
+4) PR提出
+   - 分割PR（1→2→4→3の順）を作成し、`report_takashi.md`へリンク貼付。
 
----
+ブロッカーは `to_kenji.md` へ。
 
-## 2025年8月24日（土）- 無料プラン機能制限API実装
+## 2025-09-17 23:56 追加指示（検証強化/テスト/運用準備）
 
-【開発指示 - 無料プラン機能制限バックエンド実装】
+### 検証強化
+- 署名不正/HMAC欠落ヘッダ時の403応答・副作用ゼロの確認
+- Webhook受信の順不同（shop.redact → customers.redact など）でも整合が崩れないこと
+- Hangfire停止時の挙動（キュー滞留）と再起動後の追従処理確認
 
-### 概要
-ERISさんの文書統一が完了しました。以下の仕様で無料プラン機能制限のAPIを実装してください。
+### テスト
+- Postman/Insomnia: シナリオフォルダを作成（正常/重複/順不同/403）し、環境変数でURL/シークレット差し替え可能に
+- 監査ログ: 重複キー投入テスト（ユニーク制約/UPSERT）
+- 負荷: app/uninstalledを連続10回送信した際の冪等確認
 
-### 実装対象機能（分析3機能）
-1. **休眠顧客分析** (dormant_analysis)
-2. **前年同月比分析** (yoy_comparison)  
-3. **購入回数詳細分析** (purchase_frequency)
+### 運用準備
+- `database-migration-tracking.md`の更新レビュー（福田作業）
+- 例外時のアラート設計（Application Insights/LogAnalyticsのクエリとダッシュボード雛形）
+- Readmeに「GDPR5秒応答/非同期化/監査ログ/IdempotencyKey」方針を追記
 
-### データベース設計（統一済み）
-```sql
--- UserFeatureSelections: 現在の選択状態（IsActive=1はStoreId毎に1件）
--- FeatureUsageLogs: 使用/変更/制限の記録
--- FeatureLimits: 制限マスタ
--- FeatureSelectionChangeHistory: 履歴
+完了したら`report_takashi.md`に結果とPRリンクを記載してください。
 
--- マイグレーションファイル配置先
-docs/04-development/03-データベース/マイグレーション/2025-08-26-free-plan-feature-selection.sql
-```
+## 2025-09-18 00:14 指示（Staging検証の受け入れ基準/提出物）
 
-### API実装仕様
+### 受け入れ基準（Staging）
+- Webhook
+  - 正常（customers/data_request, customers/redact, shop/redact, app/uninstalled）: 200応答、監査ログ記録
+  - 重複/順不同: 最終状態の整合（DB/Shopify）と監査ログ重複なし
+  - 403（HMAC不正/欠落）: 副作用ゼロ
+- Billing
+  - `subscribe|upgrade`→`confirmationUrl`→承認→`/api/subscription/confirm`→status/history更新
+  - app/uninstalledでキャンセル→Shopify/DBともにCANCELLED
+- GDPR非同期
+  - pendingが5分以内に処理、停止→再起動後も追従
 
-#### エンドポイント
-```csharp
-// FeatureSelectionController.cs
-[Route("api/feature-selection")]
-public class FeatureSelectionController : StoreAwareControllerBase
-{
-    // GET /api/feature-selection/current
-    [HttpGet("current")]
-    public async Task<IActionResult> GetCurrentSelection()
-    
-    // POST /api/feature-selection/select
-    [HttpPost("select")]
-    public async Task<IActionResult> SelectFeature([FromBody] SelectFeatureRequest request)
-    
-    // GET /api/feature-selection/available-features
-    [HttpGet("available-features")]
-    public async Task<IActionResult> GetAvailableFeatures()
-    
-    // GET /api/feature-selection/usage/{feature}
-    [HttpGet("usage/{feature}")]
-    public async Task<IActionResult> GetFeatureUsage(string feature)
-}
-```
+### 提出物
+- Postman/Insomniaコレクション（環境付き）
+- 実行ログ/監査ログの抜粋（IdempotencyKey確認）
+- 分割PRリンク（#1, #2, #4, #3）
+- 検証結果サマリを`report_takashi.md`へ
 
-#### レスポンス型
-```csharp
-public class CurrentSelectionResponse
-{
-    public string? SelectedFeature { get; set; } // 'dormant_analysis' | 'yoy_comparison' | 'purchase_frequency' | null
-    public bool CanChangeToday { get; set; }
-    public DateTime NextChangeAvailableDate { get; set; } // UTC
-    public UsageLimit UsageLimit { get; set; }
-}
+## 2025-09-18 00:16 追加指示（監視/耐障害/セキュリティ強化）
 
-public class UsageLimit
-{
-    public int Remaining { get; set; }
-    public int Total { get; set; }
-}
-```
+### 監視/ログ
+- 構造化ログに必須フィールドを追加: `store`, `topic`, `webhookId`, `idempotencyKey`, `result`, `latencyMs`, `correlationId`
+- Application Insights: 403/5xx 監視用のKQLクエリとアラート（5分間に>=3件で通知）
 
-### 必須実装要件
+### 耐障害
+- Hangfire: GDPRジョブのワーカー/再試行設定を安全側に（並列1、指数バックオフ）
+- リプレイ手順: 監査ログからの再処理手順を手順mdに1章追加（Webhook再送、GDPR再実行）
 
-#### 1. 権限制御ミドルウェア
-```csharp
-// サーバー側で「プラン×選択機能」を必ず判定
-public class FeatureAccessMiddleware
-{
-    // フロントからのリクエストはここで必ず検証
-    // 無料プランの場合：選択された1機能のみアクセス可
-    // 有料プランの場合：全機能アクセス可
-}
-```
+### セキュリティ
+- Topic許可リスト（4種+必要な課金系）のみ受理、それ以外は早期403
+- リクエストサイズ上限の確認と設定（過大ペイロード拒否）
+- 署名検証前に`X-Shopify-Topic`/`X-Shopify-Shop-Domain`/`X-Shopify-Webhook-Id` の存在チェック
 
-#### 2. 30日制限の厳密管理
-- すべてUTCで管理
-- 切替判定: `lastChangeDate + 30日 <= now`
-- 月初リセットではなく「30日後」
-
-#### 3. 冪等性とロック
-- POST /selectは`X-Idempotency-Token`必須
-- 楽観ロック（RowVersion使用）
-- 同一StoreIdからの同時POSTは単一フライト化
-
-#### 4. 監査ログ
-```csharp
-// FeatureUsageLogsに記録
-public class FeatureUsageLog
-{
-    public string EventType { get; set; } // 'change' | 'access' | 'limit_reached'
-    public string? BeforeFeature { get; set; }
-    public string? AfterFeature { get; set; }
-    public string Result { get; set; } // 'success' | 'limited' | 'error'
-    public DateTime CreatedAt { get; set; } // UTC
-}
-```
-
-#### 5. エラーコード仕様
-- 409 Conflict + `change_not_allowed`: 30日未満の変更
-- 400 BadRequest + `invalid_feature_id`: 無効な機能ID
-- 429 TooManyRequests: 同時リクエスト制限
-
-### Shopify Webhook連携
-```csharp
-// APP_SUBSCRIPTIONS_UPDATE処理
-public async Task HandleSubscriptionUpdate(WebhookPayload payload)
-{
-    if (payload.Plan == "free")
-    {
-        // 無料化：直近の選択機能だけ有効化
-    }
-    else
-    {
-        // 有料化：即全機能解放
-    }
-}
-```
-
-### キャッシュ戦略
-- 選択状態は5分TTLでキャッシュ
-- 変更時はサーバー側から確実に無効化
-- MemoryCacheまたはRedis使用
-
-### スケジュール
-- **Day 1 (8/26)**: DB構築、基本API実装
-- **Day 2 (8/27)**: ビジネスロジック、Webhook連携
-- **Day 3 (8/28)**: 統合テスト、パフォーマンス最適化
-
-### テスト要件
-- 単体テスト全ケースカバレッジ70%以上
-- 統合テスト：初回選択→利用→変更不可→期日後変更
-- 並行性テスト：同時POST処理の検証
-
-### 注意事項
-- Entity Frameworkのマイグレーション管理
-- トランザクション処理の適切な実装
-- 適切なログ出力（Application Insights連携）
-
-### 進捗報告
-- 毎日report_takashi.mdに進捗を記載
-- ブロッカーは即座にto_kenji.mdへ
-
-参考資料:
-- `/docs/06-shopify/02-課金システム/05-無料プラン機能制限/`
-- ERISさんの開発指示プロンプト
-
-頑張ってください！質問があればいつでも連絡してください。
-
-Takashi
+提出: 変更PRリンクとアラートKQL、手順mdの該当章を`report_takashi.md`へ。
