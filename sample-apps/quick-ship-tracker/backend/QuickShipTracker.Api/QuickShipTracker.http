@@ -1,0 +1,6 @@
+@QuickShipTracker_HostAddress = http://localhost:5262
+
+GET {{QuickShipTracker_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
