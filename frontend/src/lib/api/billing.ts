@@ -34,7 +34,7 @@ export async function getAvailablePlans(): Promise<BillingPlan[]> {
  */
 export async function getCurrentSubscription(): Promise<Subscription | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/subscription/current`, {
+    const response = await fetch(`${API_BASE_URL}/api/subscription/status`, {
       method: 'GET',
       headers: defaultHeaders,
       credentials: 'include',

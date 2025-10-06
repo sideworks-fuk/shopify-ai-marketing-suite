@@ -18,12 +18,20 @@
 - Source: 出典ドキュメントへの相対パス
 - Evidence: PR/スクショ/ログなどのリンク
 
-## 運用
-1. CSVで管理し、必要に応じてExcelへインポート。
-2. Excel提出が必要な場合、列構成はそのままExport。
-3. 出典は`RELEASE-TASK-DASHBOARD.md`の該当行を参照して記載。
+## 自動生成（推奨）
+1. 依存インストール（初回のみ）
+   - ルートで `npm install` を実行（`exceljs`/`csv-parse` を導入済み）
+2. 生成コマンド
+   - ルートで `npm run generate:excel`
+3. 出力先
+   - `docs/00-production-release/EC-Ranger-Progress-Board.xlsx`
+4. 生成内容
+   - シート: `ReleaseTasks`, `Issues`
+   - ヘッダー太字、1行目固定、オートフィルタ、列幅自動調整
+   - `Due` 列の `YYYY-MM-DD` は日付型に整形
+   - `Status` による行の色分け（Blocked/Not Started=赤、In Progress/Verify Pending=黄、Done=緑）
 
-## Excel作成手順（実務）
+## 手動でのExcel作成手順（参考）
 1. 新規ブックを作成 → シート名を `ReleaseTasks` / `Issues` に変更
 2. データ取り込み
    - Data > From Text/CSV で `excel_release_tasks.csv` を `ReleaseTasks` に、`excel_issue_tracker.csv` を `Issues` に読み込み

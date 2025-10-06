@@ -159,7 +159,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const fetchSelectedFeature = useCallback(async () => {
     try {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${backendUrl}/api/subscription/selected-feature`, {
+      const response = await fetch(`${backendUrl}/api/feature-selection/current`, {
         headers: {
           'Content-Type': 'application/json'
         },
@@ -184,7 +184,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       
       // Fetch current subscription
-      const subResponse = await fetch(`${backendUrl}/api/subscription/current`, {
+      const subResponse = await fetch(`${backendUrl}/api/subscription/status`, {
         headers: {
           'Content-Type': 'application/json'
         },

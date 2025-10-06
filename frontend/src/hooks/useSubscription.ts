@@ -124,7 +124,7 @@ export function useSubscription(
 
       // Parallel fetch for better performance
       const [subResponse, plansResponse] = await Promise.all([
-        fetch(`${backendUrl}/api/subscription/current`, {
+        fetch(`${backendUrl}/api/subscription/status`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
         }),

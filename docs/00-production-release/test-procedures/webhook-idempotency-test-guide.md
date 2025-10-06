@@ -22,3 +22,11 @@
 ## 補足
 - 順不同到達検証: `shop-redact`→`customers-redact`の順で送付し整合性が保たれること
 - 負荷: `app/uninstalled`を連続10回送信して最終状態が正しく一致
+
+
+
+
+
+
+
+

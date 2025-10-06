@@ -31,11 +31,11 @@
 - `isFeatureLimited(feature: string): boolean`
 
 APIコール（例）:
-- `GET /api/subscription/current`
+- `GET /api/subscription/status`
 - `GET /api/subscription/plans`
 - `POST /api/subscription/upgrade`
 - `POST /api/subscription/cancel`
-- `GET /api/subscription/selected-feature`
+- `GET /api/feature-selection/current`
 
 挙動メモ:
 - `NEXT_PUBLIC_BACKEND_URL` が未設定時は `https://localhost:7140` をフォールバック。

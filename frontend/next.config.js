@@ -2,7 +2,7 @@
 
 // 本番環境で除外する開発用ページのパターン
 const DEV_PAGE_PATTERNS = [
-  '**/dev-bookmarks/**',
+  //'**/dev-bookmarks/**',
   '**/dev/**',
   '**/test/**',
   '**/debug/**',

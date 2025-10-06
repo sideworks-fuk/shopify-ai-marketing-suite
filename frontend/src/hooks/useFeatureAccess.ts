@@ -206,10 +206,17 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
   const [hasAccess, setHasAccess] = useState(false);
   
   const currentPlanId = (currentPlan?.id as PlanId) || 'starter'; // Default to starter (free) plan
+  const gateDisabled = process.env.NEXT_PUBLIC_DISABLE_FEATURE_GATES === 'true';
 
   useEffect(() => {
     const checkAccess = async () => {
       setIsLoading(true);
+      // 環境フラグで機能ゲートを一時無効化
+      if (gateDisabled) {
+        setHasAccess(true);
+        setIsLoading(false);
+        return;
+      }
       
       // If user has a paid plan, they have access to all features
       if (currentPlanId && currentPlanId !== 'starter') {
@@ -230,7 +237,7 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
     };
 
     checkAccess();
-  }, [currentPlanId, featureId]);
+  }, [currentPlanId, featureId, gateDisabled]);
 
   return {
     hasAccess,
@@ -245,19 +252,24 @@ export function useComprehensiveFeatureAccess(): UseFeatureAccessReturn {
   const { currentPlan } = useSubscriptionContext();
   
   const currentPlanId = (currentPlan?.id as PlanId) || null;
+  const gateDisabled = process.env.NEXT_PUBLIC_DISABLE_FEATURE_GATES === 'true';
 
   // Check if user can access a specific feature
   const canAccess = useCallback((featureId: FeatureId | string): boolean => {
+    if (gateDisabled) return true;
     if (!currentPlanId) return false;
 
     const feature = Object.values(FEATURES).find(f => f.id === featureId);
     if (!feature) return false;
 
     return feature.plans.includes(currentPlanId);
-  }, [currentPlanId]);
+  }, [currentPlanId, gateDisabled]);
 
   // Check feature access with details
   const checkFeatureAccess = useCallback((featureId: FeatureId | string): FeatureAccessResult => {
+    if (gateDisabled) {
+      return { hasAccess: true };
+    }
     const feature = Object.values(FEATURES).find(f => f.id === featureId);
     
     if (!feature) {
@@ -284,19 +296,21 @@ export function useComprehensiveFeatureAccess(): UseFeatureAccessReturn {
     }
 
     return { hasAccess: true };
-  }, [currentPlanId]);
+  }, [currentPlanId, gateDisabled]);
 
   // Get all accessible features for current plan
   const getAccessibleFeatures = useCallback(() => {
+    if (gateDisabled) return Object.values(FEATURES);
     if (!currentPlanId) return [];
     
     return Object.values(FEATURES).filter(feature => 
       feature.plans.includes(currentPlanId)
     );
-  }, [currentPlanId]);
+  }, [currentPlanId, gateDisabled]);
 
   // Get all blocked features for current plan
   const getBlockedFeatures = useCallback(() => {
+    if (gateDisabled) return [] as typeof FEATURES[FeatureId][];
     if (!currentPlanId) {
       return Object.values(FEATURES);
     }
@@ -304,7 +318,7 @@ export function useComprehensiveFeatureAccess(): UseFeatureAccessReturn {
     return Object.values(FEATURES).filter(feature => 
       !feature.plans.includes(currentPlanId)
     );
-  }, [currentPlanId]);
+  }, [currentPlanId, gateDisabled]);
 
   // Check usage limit for a specific metric
   const checkUsageLimit = useCallback((metric: keyof typeof USAGE_LIMITS.starter): UsageStatus => {
