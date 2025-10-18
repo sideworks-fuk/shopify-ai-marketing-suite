@@ -1,8 +1,13 @@
 # 🚀 Shopify AIマーケティングスイート - クイックリファレンス
 
-## 📅 最終更新: 2025年7月20日 [[memory:3773065]]
+## 📅 最終更新: 2025年10月18日
 
 ---
+
+### 🔗 正本リンク（重要）
+- GDPR 正本: `docs/00-production-release/03-gdpr-compliance/`
+- 整理ハブ: `docs/01-project-management/04-organization/doc-cleanup/`
+- ADR-002: `docs/02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md`
 
 ## 📍 **主要URL - ワンクリックアクセス** 
 

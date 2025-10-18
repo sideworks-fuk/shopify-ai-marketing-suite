@@ -97,6 +97,7 @@ sqlcmd -S [server] -d [database] -i [script.sql]
    -- 作成者: Kenji
    -- 目的: エラー修正
    -- 影響: 影響範囲の説明
+   -- EF Migration: [MigrationName]
    ```
 
 ### 適用時
@@ -134,6 +135,17 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 - 新規環境専用のスクリプトです
 
 ---
+
+## 提案: 更新案（Takashi提案の反映）
+- WebhookEvents.IdempotencyKey のユニークインデックス（Filtered Unique）を明記し、該当DDLファイル名と適用状況を表に追記する
+  - 対象行: `2025-08-25-FIX-AddIdempotencyKeyToWebhookEvents.sql`
+  - 提案セル値: Development → ✅ 適用済 (2025-08-25 13:10) / Staging → ⏳ 未適用 / Production → ⏳ 未適用
+- 課金DDL（CreateBillingTables ほか）の環境別適用状況を最新に更新する
+  - 対象行: `2025-08-24-CreateBillingTables.sql`
+  - 提案セル値: Development → ✅ 適用済 (2025-08-25) / Staging → ⏳ / Production → ⏳
+- GDPR関連DDL（AddGDPRTables）の適用状況を最新化し、コントローラ実装との整合コメントを追加する
+  - 対象行: `2025-08-24-AddGDPRTables.sql`
+  - 提案セル値: Development → ✅ 適用済 (2025-08-25) / Staging → ⏳ / Production → ⏳
 
 最終更新: 2025-09-04 10:00
 管理者: 福田

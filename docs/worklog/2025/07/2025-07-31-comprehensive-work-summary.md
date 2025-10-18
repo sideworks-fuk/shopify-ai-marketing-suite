@@ -240,7 +240,7 @@ private string GetRedirectUri()
 - **お客様向け資料の作成**: 詳細な技術資料を基に、お客様向けの簡潔な資料に変換
 
 #### 作成した資料
-- **ファイル**: `docs/customer/azure-proxy-work-request-guide.md`
+- **ファイル**: `docs/05-operations/05-external-communications/archive/2025-07-31-azure-proxy-work-request-guide.md`
 - **内容**:
   - Azure代行作業の概要説明
   - 構築予定インフラの詳細（5つのサービス、月額コスト目安¥3,000）

@@ -1,6 +1,6 @@
 # 📚 Shopify AI Marketing Suite - ドキュメント索引
 
-## 📅 最終更新: 2025年7月20日 [[memory:3773065]]
+## 📅 最終更新: 2025年10月18日
 
 ## 🎯 プロジェクト概要
 
@@ -8,6 +8,14 @@ Shopifyストア運営者向けの**AIを活用した購買データ分析**ア�
 Azure SQL Database統合完了済み、開発環境での動作確認済み、feature ブランチ戦略導入済みの包括的なドキュメントを提供しています。
 
 ---
+
+### 🔗 正本と重要リンク
+- GDPR 正本: `docs/00-production-release/03-gdpr-compliance/`
+- 整理ハブ: `docs/01-project-management/04-organization/doc-cleanup/`
+- ADR: `docs/02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md`
+- 環境再構築計画: `docs/01-project-management/01-planning/environment-rebuild-plan-2025-10-申請前.md`
+- E2Eテスト計画: `docs/01-project-management/01-planning/full-e2e-test-plan-2025-10-申請前.md`
+- ドキュメント構成ガイド: `docs/ドキュメント構成ガイド.md`
 
 ## 📂 ドキュメント構成
 

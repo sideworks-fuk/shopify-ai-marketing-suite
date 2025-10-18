@@ -1,8 +1,16 @@
 # 🔖 EC Ranger (Shopify AIマーケティングスイート) - ブックマークリンク集
 
-## 📅 最終更新: 2025年8月11日
+## 📅 最終更新: 2025年10月18日
 
 ---
+
+### 🔗 正本/計画
+- GDPR 正本: `docs/00-production-release/03-gdpr-compliance/`
+- 整理ハブ: `docs/01-project-management/04-organization/doc-cleanup/`
+- ADR-002: `docs/02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md`
+- 環境再構築計画: `docs/01-project-management/01-planning/environment-rebuild-plan-2025-10-申請前.md`
+- E2Eテスト計画: `docs/01-project-management/01-planning/full-e2e-test-plan-2025-10-申請前.md`
+- ドキュメント構成ガイド: `docs/ドキュメント構成ガイド.md`
 
 ## 🌐 **開発環境 - ワンクリックアクセス**
 

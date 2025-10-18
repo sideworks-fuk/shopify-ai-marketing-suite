@@ -44,7 +44,7 @@ Starter: `ai-team/templates/agents/kenji-starter.md`
 - `/docs/01-project-management/` — プロジェクト管理文書
 - `/docs/worklog/` — 作業ログ（毎日記録）
 - `/docs/02-architecture/05-ADR/` — アーキテクチャ決定記録（ADR）
-- `/docs/tasks/` — タスク管理
+- `docs/01-project-management/01-planning/` — タスク/WBS管理（正本）
 
 ### 作業ログフォーマット
 - `docs/worklog/YYYY/MM/YYYY-MM-DD-説明.md` または `docs/worklog/YYYY/MM/YYYYMMDD-HHmmss-説明.md`（`@.cursor/rules/02-workflow.mdc` 準拠）
