@@ -230,7 +230,7 @@ Yuki
   - `/billing/success`（決済後の一時ページ→自動で `/billing` リダイレクト）
   - 本番遮断の確認（`/dev`, `/dev-bookmarks`, `/design-system`, `/playground` が遮断）
 - API 期待挙動（すべて Cookie 送信）
-  - GET `/api/subscription/plans`, GET `/api/subscription/current(404=未契約)`,
+  - GET `/api/subscription/plans`, GET `/api/subscription/status(404=未契約)`,
   - POST `/api/subscription/create`（初回作成）/`/upgrade`（変更）→ `confirmationUrl` 返却で外部承認へ
   - POST `/cancel`, POST `/reactivate`, GET `/history`, GET `/usage`
 - E2E シナリオ
