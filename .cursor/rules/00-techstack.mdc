@@ -1,0 +1,139 @@
+---
+description: Shopify AI Marketing Suite 技術スタック完全定義。常に適用されプロジェクト全体の技術選定を規定。
+globs:
+  - docs/**
+  - frontend/**
+  - backend/**
+alwaysApply: true
+---
+
+# 技術スタック定義
+
+## プロジェクト情報
+- **プロジェクト名**: Shopify AI Marketing Suite
+- **種別**: マルチテナントSaaS Shopifyアプリ
+- **開発フェーズ**: Phase 1完了、Phase 2進行中
+- **最終更新**: 2025-10-18
+
+## フロントエンド
+
+### コアフレームワーク
+- **Next.js**: 14.2.3 (App Router)
+  - Server Components優先使用
+  - API Routesは用途に応じてGET/POST等を使用（OAuth等のGET実装を許容）
+  - データフェッチはServer Componentsで実施
+- **React**: 18.x
+  - 関数コンポーネント推奨
+  - React.FC非推奨（直接型定義を使用）
+- **TypeScript**: 5.x
+  - strict mode必須（`tsconfig.json` で `strict: true`）
+  - any型禁止（unknown型を使用）
+
+### UIライブラリ
+- **Tailwind CSS**: ^3.4.x
+- **shadcn/ui**: 導入済（`frontend/src/components/ui/*` に配置）
+- **Radix UI**: コンポーネント基盤
+- **Lucide React**: ^0.454.x（アイコンライブラリ）
+- **Shopify Polaris**: ^13.9.x（埋め込みUIの一部で使用）
+
+### 認証・状態管理
+- **Shopify App Bridge**: v3/v4 系（埋め込みアプリ連携）
+- **React Context API**: 状態管理
+- **Zustand**: ^4.5.x（一部使用）
+- **Zod**: 現時点では未使用
+
+### データ取得/ユーティリティ
+- **SWR**: ^2.3.x
+- **date-fns**: ^3.6.x（日付処理）
+- **jwt-decode**: ^4.x（トークン処理）
+- **Recharts**: ^2.12.x（チャート）
+- **Server Actions**: Next.jsによるフォーム/サーバ処理
+
+## バックエンド
+
+### フレームワーク・言語
+- **.NET**: 8.0
+- **ASP.NET Core Web API**
+- **C#**
+
+### データベース・ORM
+- **データベース**: Azure SQL Database
+- **ORM**:
+  - **Entity Framework Core 8.0.x**（メイン・バックエンド）
+- **マイグレーション**: EF Core Migrations（必須）
+
+### ロギング/診断・信頼性
+- **Serilog**: ASP.NET Core Console/File/Application Insights Sinks
+- **Application Insights**
+- **Swagger/Swashbuckle**
+- **Polly**（HTTPリトライ/サーキットブレーカ）
+- **Hangfire**（バックグラウンドジョブ）
+
+### キャッシュ/分散
+- **IMemoryCache**（アプリ内キャッシュ）
+- Redis（現時点では記載のみ。実装導入は未確認）
+
+### AI/ML
+- Azure OpenAI Service（現時点では記載のみ。実装導入は未確認）
+- Semantic Kernel（現時点では記載のみ。実装導入は未確認）
+
+### 認証
+- **JWT**
+- **Shopify OAuth 2.0**
+
+## インフラ・デプロイ
+
+### Azure サービス
+- **フロントエンド**: Azure Static Web Apps
+- **バックエンド**: Azure App Service
+- **データベース**: Azure SQL Database (Basic→S2予定)
+- **ストレージ**: Azure Blob Storage
+- **監視**: Application Insights
+- **セキュリティ**: Azure Key Vault
+
+### CI/CD
+- **GitHub Actions**
+
+### 開発環境
+- **フロントエンド開発**: VS Code
+- **バックエンド開発**: Visual Studio 2022
+- **ターミナル**: PowerShell
+- **バージョン管理**: Git/GitHub
+
+## API・外部統合
+
+### Shopify API
+- **Shopify GraphQL API**（優先）
+- **Shopify Admin REST API**（補助）
+
+### 外部サービス
+- **コーデンベルクAPI**（DM印刷・郵送）
+
+## 開発ツール
+- **ESLint**: ^8
+- **Autoprefixer**: ^10
+- **PostCSS**: ^8
+
+## 重要な開発方針・制約
+
+### Next.js 開発方針
+1. **Server Componentsをデフォルト使用**
+2. **Client Componentsは最小限**（'use client'必須時のみ）
+3. **API Routesはユースケースに応じGET/POST等を選択**（OAuthフローなどのGETは許容）
+4. **データフェッチはServer Componentsで実施**
+
+### データベース方針
+1. **EF Core Migrationsによるスキーマ管理必須**
+2. **マイグレーション実行時は必ず `/docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` を更新**
+
+### コーディング規約
+1. **TypeScript strict mode**
+2. **any型禁止**
+3. **関数コンポーネント**（React.FC非推奨）
+4. **日本語レスポンス**
+5. **PowerShellターミナル使用**
+
+## 参考ドキュメント
+- プロジェクトアーキテクチャ: `@docs/02-architecture/system-architecture.md`
+- 技術ガイド: `@docs/02-architecture/Shopifyアプリ開発技術ガイド.md`
+- クイックリファレンス: `@docs/QUICK-REFERENCE.md`

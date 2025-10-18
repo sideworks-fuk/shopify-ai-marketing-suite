@@ -1,0 +1,532 @@
+---
+description: Next.js 固有ルール。App Router、Server Components、パフォーマンス最適化、キャッシング戦略を規定。
+globs:
+  - "frontend/src/app/**/*.tsx"
+  - "frontend/src/app/**/*.ts"
+alwaysApply: false
+---
+
+# Next.js 固有ルール
+
+## プロジェクト情報
+- **Next.js バージョン**: 14.2.3
+- **React バージョン**: 18.x
+- **ルーティング**: App Router（ルートは `frontend/src/app`）
+
+## コンポーネント設計原則
+
+### Server Components（デフォルト）
+
+**基本方針**: すべてのコンポーネントはデフォルトでServer Componentsとして実装
+```typescript
+// ✅ Good: Server Component（デフォルト）
+// frontend/src/app/customers/page.tsx
+const CustomersPage = async () => {
+  // サーバーサイドでデータ取得
+  const customers = await fetchCustomers();
+  
+  return (
+    <div>
+      <h1>顧客一覧</h1>
+      <CustomerList customers={customers} />
+    </div>
+  );
+};
+
+export default CustomersPage;
+```
+
+**Server Componentsの利点**:
+- SEO対応が容易
+- 初期読み込みが高速
+- バンドルサイズが小さい
+- サーバーサイドリソースに直接アクセス可能
+
+### Client Components（必要最小限）
+
+**使用条件**: 以下のいずれかに該当する場合のみ
+
+1. **ブラウザAPIの使用**: `window`, `document`, `localStorage` など
+2. **イベントリスナー**: `onClick`, `onChange`, `onSubmit` など
+3. **React Hooks**: `useState`, `useEffect`, `useContext` など
+4. **クライアント状態管理**: ユーザー操作による状態変化
+```typescript
+// ✅ Good: Client Component（必要な場合のみ）
+// components/CustomerFilter.tsx
+"use client";
+
+import { useState } from 'react';
+
+const CustomerFilter = () => {
+  const [filter, setFilter] = useState("");
+  
+  return (
+    <input 
+      value={filter} 
+      onChange={(e) => setFilter(e.target.value)} 
+    />
+  );
+};
+
+export default CustomerFilter;
+```
+
+### Server/Client境界の最適化
+
+**原則**: Client Componentsはツリーの葉（リーフ）に配置
+```typescript
+// ✅ Good: Client Componentを最小限に
+// frontend/src/app/customers/page.tsx (Server Component)
+const CustomersPage = async () => {
+  const customers = await fetchCustomers();
+  
+  return (
+    <div>
+      <h1>顧客一覧</h1>
+      {/* Server Component */}
+      <CustomerList customers={customers}>
+        {/* Client Componentは葉に配置 */}
+        <CustomerFilter />
+      </CustomerList>
+    </div>
+  );
+};
+
+// ❌ Bad: 不必要に大きなClient Component
+"use client";
+
+const CustomersPage = () => {
+  const [filter, setFilter] = useState("");
+  // すべてがClient Componentになってしまう
+  
+  return (
+    <div>
+      <h1>顧客一覧</h1>
+      <CustomerList />
+      <CustomerFilter />
+    </div>
+  );
+};
+```
+
+## ルーティング規約
+
+### ファイル構造
+```
+frontend/src/app/
+├── layout.tsx              # ルートレイアウト
+├── page.tsx               # トップページ
+├── loading.tsx            # ローディングUI
+├── error.tsx              # エラーUI
+├── not-found.tsx          # 404ページ
+├── customers/
+│   ├── layout.tsx         # /customers レイアウト
+│   ├── page.tsx           # /customers
+│   ├── loading.tsx        # /customers ローディング
+│   ├── [id]/
+│   │   ├── page.tsx       # /customers/[id]
+│   │   └── loading.tsx
+│   └── new/
+│       └── page.tsx       # /customers/new
+└── api/
+    └── customers/
+        └── route.ts       # API Route
+```
+
+### ページコンポーネント
+```typescript
+// frontend/src/app/customers/page.tsx
+import { Suspense } from 'react';
+import CustomerList from '@/components/features/customer/CustomerList';
+import CustomerListSkeleton from '@/components/features/customer/CustomerListSkeleton';
+
+const CustomersPage = async () => {
+  return (
+    <div>
+      <h1>顧客一覧</h1>
+      <Suspense fallback={<CustomerListSkeleton />}>
+        <CustomerList />
+      </Suspense>
+    </div>
+  );
+};
+
+export default CustomersPage;
+```
+
+### 動的ルート
+```typescript
+// frontend/src/app/customers/[id]/page.tsx
+interface CustomerDetailPageProps {
+  params: { id: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+const CustomerDetailPage = async ({ params, searchParams }: CustomerDetailPageProps) => {
+  const customer = await fetchCustomer(params.id);
+  
+  return (
+    <div>
+      <h1>{customer.name}</h1>
+      {/* ... */}
+    </div>
+  );
+};
+
+export default CustomerDetailPage;
+```
+
+## データフェッチング
+
+### Server Componentsでのフェッチ
+```typescript
+// ✅ Good: Server Componentで直接fetch
+const CustomersPage = async () => {
+  const customers = await fetch('https://api.example.com/customers', {
+    cache: 'force-cache', // デフォルトでキャッシュ
+  }).then(res => res.json());
+  
+  return <CustomerList customers={customers} />;
+};
+
+// ✅ Good: 複数のfetchを並行実行
+const DashboardPage = async () => {
+  const [customers, orders, analytics] = await Promise.all([
+    fetchCustomers(),
+    fetchOrders(),
+    fetchAnalytics(),
+  ]);
+  
+  return (
+    <Dashboard 
+      customers={customers}
+      orders={orders}
+      analytics={analytics}
+    />
+  );
+};
+```
+
+### キャッシング戦略
+
+**fetch APIのキャッシュオプション**:
+```typescript
+// 1. force-cache（デフォルト）: 可能な限りキャッシュを使用
+fetch(url, { cache: 'force-cache' });
+
+// 2. no-store: キャッシュを使用しない（常に最新データ）
+fetch(url, { cache: 'no-store' });
+
+// 3. revalidate: 指定秒数後に再検証
+fetch(url, { next: { revalidate: 3600 } }); // 1時間
+```
+
+**使い分けの指針**:
+```typescript
+// ✅ 静的データ（マスタデータ等）
+const categories = await fetch('/api/categories', {
+  cache: 'force-cache',
+});
+
+// ✅ 動的データ（ユーザー固有データ）
+const userProfile = await fetch(`/api/users/${userId}`, {
+  cache: 'no-store',
+});
+
+// ✅ 準静的データ（定期更新）
+const analytics = await fetch('/api/analytics', {
+  next: { revalidate: 300 }, // 5分ごとに更新
+});
+```
+
+## API Routes
+
+### 基本原則
+
+**重要**: データ取得目的のGET API Routesは原則として作成しない
+- データ取得はServer Componentsで直接実施
+- API RoutesはPOST/PATCH/PUT/DELETEのみ使用
+
+**例外**: 外部サービスからのコールバックなど、Next.js外からの呼び出しが必要な場合のみGETを許可
+- プロジェクト実装例: `frontend/src/app/api/shopify/callback/route.ts`（Shopify OAuthコールバック）
+
+### POST/PATCH/PUT/DELETE実装
+```typescript
+// frontend/src/app/api/customers/route.ts
+import { NextResponse } from 'next/server';
+
+// ✅ Good: POST
+export async function POST(request: Request) {
+  try {
+    const data = await request.json();
+    
+    // バリデーション
+    if (!data.name || !data.email) {
+      return NextResponse.json(
+        { error: 'Name and email are required' },
+        { status: 400 }
+      );
+    }
+    
+    // データ作成
+    const customer = await createCustomer(data);
+    
+    return NextResponse.json(customer, { status: 201 });
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// ✅ Good: PATCH
+export async function PATCH(request: Request) {
+  try {
+    const data = await request.json();
+    const customer = await updateCustomer(data.id, data);
+    return NextResponse.json(customer);
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// ✅ Good: DELETE
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    await deleteCustomer(id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// ❌ Bad: データ取得目的のGET（Server Componentsで直接fetchすべき）
+export async function GET(request: Request) {
+  const customers = await fetchCustomers();
+  return NextResponse.json(customers);
+}
+```
+
+### 動的API Routes
+```typescript
+// frontend/src/app/api/customers/[id]/route.ts
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const data = await request.json();
+  const customer = await updateCustomer(params.id, data);
+  return NextResponse.json(customer);
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  await deleteCustomer(params.id);
+  return NextResponse.json({ success: true });
+}
+```
+
+## パフォーマンス最適化
+
+### 画像最適化
+```typescript
+import Image from 'next/image';
+
+// ✅ Good: next/image使用
+<Image
+  src="/images/customer-avatar.jpg"
+  alt="顧客アバター"
+  width={100}
+  height={100}
+  priority={false} // Above the foldの画像のみtrue
+/>
+
+// ❌ Bad: 通常のimgタグ
+<img src="/images/customer-avatar.jpg" alt="顧客アバター" />
+```
+
+### スクリプト最適化
+```typescript
+import Script from 'next/script';
+
+// ✅ Good: next/script使用
+<Script
+  src="https://analytics.example.com/script.js"
+  strategy="lazyOnload" // ページロード後に読み込み
+/>
+
+// Strategy options:
+// - beforeInteractive: ページがインタラクティブになる前
+// - afterInteractive: ページがインタラクティブになった後（デフォルト）
+// - lazyOnload: ブラウザのアイドル時
+```
+
+### コード分割
+```typescript
+// ✅ Good: 動的インポート
+import dynamic from 'next/dynamic';
+
+const HeavyComponent = dynamic(() => import('@/components/HeavyComponent'), {
+  loading: () => <p>読み込み中...</p>,
+  ssr: false, // クライアントサイドのみで実行
+});
+
+const MyPage = () => {
+  return (
+    <div>
+      <h1>マイページ</h1>
+      <HeavyComponent />
+    </div>
+  );
+};
+```
+
+## エラーハンドリング
+
+### error.tsx
+```typescript
+// frontend/src/app/customers/error.tsx
+'use client';
+
+import { useEffect } from 'react';
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error('Customer page error:', error);
+  }, [error]);
+
+  return (
+    <div>
+      <h2>エラーが発生しました</h2>
+      <p>{error.message}</p>
+      <button onClick={() => reset()}>再試行</button>
+    </div>
+  );
+}
+```
+
+### not-found.tsx
+```typescript
+// frontend/src/app/customers/not-found.tsx
+export default function NotFound() {
+  return (
+    <div>
+      <h2>顧客が見つかりません</h2>
+      <p>指定された顧客は存在しません。</p>
+      <a href="/customers">顧客一覧に戻る</a>
+    </div>
+  );
+}
+```
+
+## メタデータ管理
+
+### 静的メタデータ
+```typescript
+// frontend/src/app/customers/page.tsx
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: '顧客一覧 | EC Ranger',
+  description: 'Shopifyストアの顧客一覧を表示',
+};
+
+const CustomersPage = () => {
+  return <div>顧客一覧</div>;
+};
+
+export default CustomersPage;
+```
+
+### 動的メタデータ
+```typescript
+// frontend/src/app/customers/[id]/page.tsx
+import { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const customer = await fetchCustomer(params.id);
+  
+  return {
+    title: `${customer.name} | EC Ranger`,
+    description: `${customer.name}の詳細情報`,
+  };
+}
+
+const CustomerDetailPage = ({ params }: { params: { id: string } }) => {
+  return <div>顧客詳細</div>;
+};
+
+export default CustomerDetailPage;
+```
+
+## レイアウトとテンプレート
+
+### layout.tsx
+```typescript
+// frontend/src/app/layout.tsx
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ja">
+      <body>
+        <Header />
+        <main>{children}</main>
+        <Footer />
+      </body>
+    </html>
+  );
+}
+```
+
+### ネストされたレイアウト
+```typescript
+// frontend/src/app/customers/layout.tsx
+export default function CustomersLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="customers-container">
+      <CustomersSidebar />
+      <div className="customers-content">
+        {children}
+      </div>
+    </div>
+  );
+}
+```
+
+## 参考ドキュメント
+- 技術スタック: `@.cursor/rules/00-techstack.mdc`
+- コーディング規約: `@.cursor/rules/03-coding-standards.mdc`
+- Next.js公式ドキュメント: https://nextjs.org/docs
