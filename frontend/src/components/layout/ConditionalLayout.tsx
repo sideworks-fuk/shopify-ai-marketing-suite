@@ -23,7 +23,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   ]
   
   // 現在のパスがnoLayoutPathsに含まれているかチェック
-  const shouldUseMainLayout = !noLayoutPaths.some(path => pathname.startsWith(path))
+  const shouldUseMainLayout = pathname ? !noLayoutPaths.some(path => pathname.startsWith(path)) : false
   
   // Shopify埋め込みモードの場合
   if (isEmbedded) {

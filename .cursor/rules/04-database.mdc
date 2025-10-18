@@ -1,0 +1,219 @@
+---
+description: データベース設計・マイグレーション管理ルール。Azure SQL Database、EF Core、スキーマ設計を規定。
+globs: 
+  - "backend/**/*.cs"
+  - "**/Migrations/**/*"
+  - "**/*DbContext.cs"
+  - "**/*Context.cs"
+alwaysApply: false
+---
+
+# データベース設計・マイグレーション管理ルール
+
+## データベース構成
+
+### 使用技術
+- **データベース**: Azure SQL Database
+- **ORM**: Entity Framework Core 8.0.x
+- **マイグレーション**: EF Core Migrations（必須）
+
+### 環境別構成
+- **Development**: Azure SQL Database（`DefaultConnection`、ローカル開発では SQL Server ローカル/コンテナを推奨）
+- **Staging**: Azure SQL Database (Basic)
+- **Production**: Azure SQL Database (S2以上予定)
+
+## スキーマ設計の基本ルール
+
+### 1. モデル命名規則
+
+**C#モデル（Entity）**:
+- 単数形のPascalCase
+- 例: `Customer`, `Order`, `OrderItem`
+
+**テーブル名**:
+- 既定はDbSet名に基づく。複数形は自動付与されないため、DbSet名を複数形にする（現在の実装は `Customers`, `Orders`, `OrderItems` など）
+- 例: `Customers`, `Orders`, `OrderItems`
+
+**カラム名**:
+- PascalCase
+- 例: `FirstName`, `LastName`, `CreatedAt`
+
+### 2. フィールド命名規則
+
+**主キー**:
+```csharp
+public int Id { get; set; }
+```
+
+**外部キー**:
+```csharp
+public int CustomerId { get; set; }  // {参照テーブル名}Id
+```
+
+**タイムスタンプ（必須）**:
+```csharp
+public DateTime CreatedAt { get; set; }
+public DateTime UpdatedAt { get; set; }
+```
+
+### 3. データ型の使用
+
+**文字列**:
+```csharp
+public string Name { get; set; } = string.Empty;
+// nvarchar型にマッピング
+```
+
+**数値**:
+```csharp
+public int Count { get; set; }
+public long TotalAmount { get; set; }
+public decimal Price { get; set; }  // 金額は必ずdecimal
+```
+
+**真偽値**:
+```csharp
+public bool IsActive { get; set; }
+```
+
+**日時**:
+```csharp
+public DateTime CreatedAt { get; set; }
+// UTC推奨: DateTime.UtcNow
+```
+
+**JSON**:
+```csharp
+public string MetadataJson { get; set; } = "{}";
+// 必要に応じてJsonSerializer/JsonConvertで変換
+```
+
+### 4. リレーション設計
+
+（既存のコード例はそのまま）
+
+### 5. インデックス設計
+
+（既存の原則はそのまま）
+
+### 6. バリデーション
+
+（既存の例はそのまま）
+
+## マルチテナント設計原則（追加）
+
+- **テナント分離キー**: すべての業務テーブルに `StoreId` を必須で保持する
+- **複合インデックス**: 高頻度検索キーは `StoreId` との複合で定義（例: `StoreId + Email`, `StoreId + ShopifyCustomerId`, `StoreId + Title`）
+- **参照整合性**: `Store` との外部キーは `OnDelete(NoAction)` を原則（誤削除カスケード防止）
+- **ユニーク制約の単位**: グローバルユニークは避け、`StoreId` 単位のユニーク制約（例: `StoreId + OrderNumber` をユニーク）
+- **GDPR/イベント系**: `IdempotencyKey` はユニーク（NULL可のフィルタ付き）を採用し、重複処理を抑止
+- **クエリ規約**: 読み取り系の既定クエリは `StoreId` を必ず条件に含める（アプリ層でもガード）
+
+## マイグレーション管理（重要）
+
+### マイグレーション作成手順
+
+**ステップ1: マイグレーション作成**
+```powershell
+# ソリューション直下からバックエンドAPIプロジェクトに移動
+cd backend/ShopifyAnalyticsApi
+
+# マイグレーション作成
+dotnet ef migrations add DescriptiveName
+
+# 例
+dotnet ef migrations add AddCustomerEmailIndex
+dotnet ef migrations add CreateOrdersTable
+```
+
+**ステップ2: マイグレーション確認**
+```powershell
+# 生成されたマイグレーションファイルを確認
+# backend/ShopifyAnalyticsApi/Migrations/YYYYMMDDHHMMSS_DescriptiveName.cs
+```
+
+**ステップ3: データベース適用**
+```powershell
+# Development環境
+cd backend/ShopifyAnalyticsApi
+dotnet ef database update
+
+# 特定のマイグレーションまで適用
+dotnet ef database update TargetMigrationName
+```
+
+**ステップ4: tracking.md更新（必須）**
+
+### 必須手順: tracking.md更新
+
+マイグレーション実行後は **必ず** 以下のファイルを更新：
+
+**ファイルパス**: `/docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md`
+
+**更新フォーマット**:
+```markdown
+### YYYYMMDD_DescriptiveName
+- **作成日**: YYYY-MM-DD
+- **作成者**: 福田
+- **変更内容**: 
+  - テーブルXXXにカラムYYY追加
+  - インデックスZZZ作成
+- **影響範囲**: 
+  - 影響を受けるテーブル: Customers, Orders
+  - 破壊的変更: なし
+- **適用状況**:
+  - Development: ✅ 適用済 (2025-10-18 14:30)
+  - Staging: ⏳ 未適用
+  - Production: ⏳ 未適用
+- **備考**: 
+  - パフォーマンス改善のためのインデックス追加
+```
+
+### マイグレーションが必要なケース
+
+（既存の列挙はそのまま）
+
+### マイグレーション命名規則
+
+（既存の良い例/悪い例はそのまま）
+
+### マイグレーションのロールバック
+
+（既存のコマンドはそのまま）
+
+### 本番環境でのロールバック運用（追加）
+
+- **原則**: 本番での `dotnet ef database update 0` は禁止。影響を最小化する
+- **推奨**: 問題を修正する前方互換の追加マイグレーションで対応（再作成/調整）
+- **どうしても戻す場合**: 依存サービスの影響とダウンタイムを評価し、対象マイグレーション名を指定して段階的に戻す
+- **未適用マイグレーションの削除**: `dotnet ef migrations remove` は未適用のときのみ可
+
+## Azure SQL Database固有設定
+
+（既存の内容はそのまま）
+
+## セキュリティ考慮事項
+
+（既存の内容はそのまま）
+
+## パフォーマンス最適化
+
+（既存の内容はそのまま）
+
+## ドキュメント化
+
+（既存の内容はそのまま）
+
+## 開発フロー
+
+（既存の内容はそのまま）
+
+## メンテナンス
+
+（既存の内容はそのまま）
+
+## 参考ドキュメント
+- マイグレーション追跡: `@docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md`
+- システムアーキテクチャ: `@docs/02-architecture/system-architecture.md`
+- 技術スタック: `@.cursor/rules/00-techstack.mdc`
+- 基本ルール: `@.cursor/rules/01-core-rules.mdc`

@@ -96,7 +96,7 @@ interface PurchaseFrequencyAnalysisProps {
 export default function PurchaseFrequencyAnalysis({
   shopDomain,
   accessToken,
-  useSampleData = true,
+  useSampleData = false,
 }: PurchaseFrequencyAnalysisProps) {
   const [purchaseFrequencyData, setPurchaseFrequencyData] = useState<PurchaseFrequencyData[]>([])
   const [isLoading, setIsLoading] = useState(false)

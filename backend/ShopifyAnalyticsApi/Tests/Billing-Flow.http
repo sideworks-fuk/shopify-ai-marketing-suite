@@ -1,0 +1,66 @@
+### プラン一覧取得
+GET {{API_BASE}}/api/billing/plans
+Authorization: Bearer {{TOKEN}}
+
+### 現在のサブスクリプション
+GET {{API_BASE}}/api/billing/current
+Authorization: Bearer {{TOKEN}}
+
+### 課金情報まとめ
+GET {{API_BASE}}/api/billing/info
+Authorization: Bearer {{TOKEN}}
+
+### サブスクリプション作成（確認URL発行）
+POST {{API_BASE}}/api/billing/subscribe
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "planId": "{{PLAN_ID}}",
+  "returnUrl": "/billing"
+}
+
+# 上記レスポンスの confirmationUrl をブラウザで開いて承認する
+
+### 承認コールバック（Shopifyからリダイレクトされる想定）
+GET {{API_BASE}}/api/subscription/confirm?charge_id={{CHARGE_ID}}&shop={{SHOP_DOMAIN}}
+
+### プラン変更
+POST {{API_BASE}}/api/billing/change-plan
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{NEW_PLAN_ID}}",
+  "returnUrl": "/billing"
+}
+
+### 無料トライアル開始
+POST {{API_BASE}}/api/billing/start-trial
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "trialDays": 14
+}
+
+### キャンセル
+POST {{API_BASE}}/api/billing/cancel
+Authorization: Bearer {{TOKEN}}
+
+### ステータス/履歴
+GET {{API_BASE}}/api/subscription/status
+Authorization: Bearer {{TOKEN}}
+
+GET {{API_BASE}}/api/subscription/history
+Authorization: Bearer {{TOKEN}}
+
+
+
+
+
+
+
+
+
+

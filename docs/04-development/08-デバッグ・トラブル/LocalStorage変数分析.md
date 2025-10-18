@@ -1,0 +1,90 @@
+# LocalStorage変数の使用状況分析レポート
+
+## 分析日時
+2025-08-13
+
+## 現在使用されているLocalStorage変数
+
+### 1. selectedStoreId
+- **使用箇所**:
+  - `StoreContext.tsx` - ストアコンテキストで現在選択されているストアIDを保存/復元
+  - `api-config.ts` - APIリクエスト時のstoreIdパラメータ取得用
+  - `dev/store2-debug/page.tsx` - デバッグページで表示用
+
+- **目的**: UIで選択されたストアIDの永続化
+
+### 2. currentStoreId  
+- **使用箇所**:
+  - `AuthProvider.tsx` - 認証時のストアID管理
+  - `auth-client.ts` - トークン再取得時のフォールバック
+  - `error-handler.ts` - エラーハンドリング時のコンテキスト情報
+  - `auth/success/page.tsx` - OAuth認証成功後の保存
+
+- **目的**: 認証に関連するストアIDの管理
+
+### 3. currentShopDomain
+- **使用箇所**:
+  - `auth/success/page.tsx` - OAuth認証成功後に保存（1箇所のみ）
+
+- **目的**: Shopifyストアのドメイン情報保存
+
+## 問題点と課題
+
+### 1. 重複する責務
+- `selectedStoreId` と `currentStoreId` が似た目的で使用されている
+- 両方とも「現在のストアID」を表すが、異なる変数名で管理
+
+### 2. 一貫性の欠如
+- StoreContextは `selectedStoreId` を使用
+- AuthProviderは `currentStoreId` を使用
+- 同じ値を表すのに2つの異なる変数が存在
+
+### 3. currentShopDomainの利用不足
+- OAuth認証成功時に保存されるが、その後どこでも使用されていない
+- 保存する必要性が不明確
+
+## 推奨事項
+
+### 1. 変数の統一
+- `selectedStoreId` と `currentStoreId` を `currentStoreId` に統一
+- 理由: "current"の方が現在の状態を表すのに適切
+
+### 2. 不要な変数の削除
+- `currentShopDomain` は現在使用されていないため、削除を検討
+- もし将来必要になる場合は、APIから取得可能
+
+### 3. 実装方針
+- すべてのコンポーネントで `currentStoreId` を使用
+- マイグレーション時は後方互換性を一時的に保持
+- 移行期間後に古い変数を削除
+
+## 移行計画
+
+### Phase 1: 互換性維持しながら統一（実施済み）
+1. すべての読み取り箇所で両方の変数をチェック
+2. 書き込み時は両方の変数を更新
+
+### Phase 2: 完全移行（2025-08-13 完了）
+1. ✅ `selectedStoreId` への参照を削除
+2. ✅ `currentShopDomain` の削除完了
+3. ✅ マイグレーションヘルパーの自動実行
+
+## 実装内容（Phase 2完了）
+
+### 更新済みファイル（2025-08-13）:
+1. ✅ `StoreContext.tsx` - currentStoreIdのみを使用
+2. ✅ `api-config.ts` - getCurrentStoreId関数をcurrentStoreIdのみに更新
+3. ✅ `auth/success/page.tsx` - currentShopDomainの保存を削除
+4. ✅ `AuthProvider.tsx` - currentStoreIdのみを使用
+5. ✅ `localstorage-migration.ts` - Phase 2自動マイグレーション機能追加
+
+### 自動マイグレーション機能
+- アプリ起動時に`AuthProvider`でマイグレーションヘルパーが実行
+- 初回起動時に自動で`selectedStoreId`→`currentStoreId`への移行
+- 不要な変数（`selectedStoreId`, `currentShopDomain`）の自動削除
+- マイグレーション完了フラグの設定
+
+## 現在の状態
+- **currentStoreId**: 唯一の有効な変数として使用中
+- **selectedStoreId**: 削除済み（マイグレーションで自動削除）
+- **currentShopDomain**: 削除済み（使用されていない変数）

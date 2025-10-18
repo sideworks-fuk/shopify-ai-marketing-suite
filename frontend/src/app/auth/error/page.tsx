@@ -17,8 +17,8 @@ export default function AuthErrorPage() {
   const [errorMessage, setErrorMessage] = useState('認証エラーが発生しました');
 
   useEffect(() => {
-    const message = searchParams.get('message');
-    const shop = searchParams.get('shop');
+    const message = searchParams?.get('message');
+    const shop = searchParams?.get('shop');
 
     if (message) {
       setErrorMessage(decodeURIComponent(message));
@@ -28,7 +28,7 @@ export default function AuthErrorPage() {
   }, [searchParams]);
 
   const handleRetry = () => {
-    const shop = searchParams.get('shop');
+    const shop = searchParams?.get('shop');
     if (shop) {
       // 同じストアで再インストール
       router.push(`/install?shop=${encodeURIComponent(shop)}`);
@@ -66,8 +66,8 @@ export default function AuthErrorPage() {
             <div className="mb-6 p-4 bg-gray-50 rounded-md text-left">
               <h3 className="text-sm font-medium text-gray-700 mb-2">デバッグ情報:</h3>
               <div className="text-xs text-gray-600 space-y-1">
-                <div>ショップ: {searchParams.get('shop') || '不明'}</div>
-                <div>エラー: {searchParams.get('message') || '不明'}</div>
+                <div>ショップ: {searchParams?.get('shop') || '不明'}</div>
+                <div>エラー: {searchParams?.get('message') || '不明'}</div>
                 <div>タイムスタンプ: {new Date().toISOString()}</div>
               </div>
             </div>

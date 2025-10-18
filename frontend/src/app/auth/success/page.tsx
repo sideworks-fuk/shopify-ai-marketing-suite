@@ -21,9 +21,9 @@ export default function AuthSuccessPage() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const shop = searchParams.get('shop');
-      const success = searchParams.get('success');
-      const error = searchParams.get('error');
+      const shop = searchParams?.get('shop');
+      const success = searchParams?.get('success');
+      const error = searchParams?.get('error');
 
       console.log('🔐 認証コールバック受信:', { shop, success, error });
 
@@ -47,12 +47,12 @@ export default function AuthSuccessPage() {
         await refreshStores();
         
         // 現在のストアを設定
-        const storeId = parseInt(searchParams.get('storeId') || '1');
+        const storeId = parseInt(searchParams?.get('storeId') || '1');
         setCurrentStore(storeId);
         
         // LocalStorageに保存
+        // Phase 2: currentStoreIdのみを使用
         localStorage.setItem('currentStoreId', storeId.toString());
-        localStorage.setItem('currentShopDomain', shop);
         
         setStatus('success');
         setMessage('認証が完了しました！ダッシュボードへ移動します...');
@@ -93,7 +93,7 @@ export default function AuthSuccessPage() {
               <p className="text-gray-600 mb-6">{message}</p>
               <div className="space-y-2">
                 <p className="text-sm text-gray-500">
-                  ショップ: {searchParams.get('shop')}
+                  ショップ: {searchParams?.get('shop')}
                 </p>
               </div>
             </>

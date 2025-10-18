@@ -96,7 +96,7 @@ export default function HttpsConfigTest() {
                   <li><code>.env.local</code>ファイルを作成: <code>cp .env.local.example .env.local</code></li>
                   <li><code>NEXT_PUBLIC_USE_HTTPS=true</code>を設定</li>
                   <li>バックエンドで証明書を信頼: <code>dotnet dev-certs https --trust</code></li>
-                  <li>ブラウザで<a href={process.env.NEXT_PUBLIC_BACKEND_URL?.replace('http://', 'https://').replace(':5000', ':7088') || 'https://localhost:7088'} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline mx-1">{process.env.NEXT_PUBLIC_BACKEND_URL?.replace('http://', 'https://').replace(':5000', ':7088') || 'https://localhost:7088'}</a>にアクセスして証明書を受け入れる</li>
+                  <li>ブラウザで<a href={process.env.NEXT_PUBLIC_API_URL?.replace('http://', 'https://') || 'https://localhost:7088'} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline mx-1">{process.env.NEXT_PUBLIC_API_URL?.replace('http://', 'https://') || 'https://localhost:7088'}</a>にアクセスして証明書を受け入れる</li>
                   <li>フロントエンドを再起動</li>
                 </ol>
               </div>

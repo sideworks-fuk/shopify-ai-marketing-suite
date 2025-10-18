@@ -36,7 +36,7 @@ export default function FTierTrendPage() {
       />
 
       {/* F階層傾向分析コンポーネント */}
-      <FTierTrendAnalysis useSampleData={true} />
+      <FTierTrendAnalysis useSampleData={false} />
     </div>
   )
 } 

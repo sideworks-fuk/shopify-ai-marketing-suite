@@ -24,6 +24,12 @@ namespace ShopifyAnalyticsApi.Models
         [NotMapped]
         public string? ShopUrl => Domain;
         
+        /// <summary>
+        /// ShopifyのショップURL（ShopUrlのエイリアス）
+        /// </summary>
+        [NotMapped]
+        public string? ShopifyUrl => Domain;
+        
         [MaxLength(100)]
         public string? ShopifyShopId { get; set; }
         
@@ -65,6 +71,7 @@ namespace ShopifyAnalyticsApi.Models
         public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
         public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+        public virtual ICollection<StoreSubscription> StoreSubscriptions { get; set; } = new List<StoreSubscription>();
     }
 
     /// <summary>

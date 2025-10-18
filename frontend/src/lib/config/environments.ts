@@ -12,17 +12,17 @@ const isBuildTime = typeof window === 'undefined';
 // 環境変数から設定を取得する関数
 const getApiBaseUrl = (): string => {
   // 環境変数の優先順位
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  
-  if (backendUrl) {
-    if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
-    return backendUrl;
-  }
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL; // legacy
   
   if (apiUrl) {
     if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
     return apiUrl;
+  }
+  
+  if (backendUrl) {
+    if (!isBuildTime) console.log('⚠️ Using legacy NEXT_PUBLIC_BACKEND_URL:', backendUrl);
+    return backendUrl;
   }
   
   // デフォルト値

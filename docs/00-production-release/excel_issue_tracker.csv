@@ -1,0 +1,10 @@
+No,Category,Issue,Detail,Owner,Due,Status,Source,Evidence
+1,Risk,Webhookリトライの冪等性,重複/順不同到達の処理確認,Takashi,2025-09-18,Not Started,docs/00-production-release/gdpr-compliance/GDPR_Webhook仕様.md,
+2,Decision,顧客数定義の高度化,将来拡張（アクティブ/期間平均等）,Kenji,,Not Started,docs/00-production-release/billing-system/mvp-billing-spec-2025-09-17.md,
+3,Dependency,CurrentPeriodEndのUI明示,E2E後に反映,Yuki,2025-09-19,Not Started,docs/00-production-release/billing-system/mvp-billing-spec-2025-09-17.md,
+4,Compliance,プライバシーポリシー改定反映,令和6年改定への整合,Fukuda,2025-09-19,Not Started,docs/00-production-release/legal/privacy-policy.md,
+5,Config,NEXT_PUBLIC_API_URL環境設定,Stg/Prodの値セットと整合確認,Fukuda,2025-09-18,In Progress,docs/05-operations/04-環境管理/環境設定マスターガイド.md,
+6,Config,AppUrl整合,Shopify設定/Webhook登録URLと一致確認,Fukuda,2025-09-18,Not Started,docs/05-operations/04-環境管理/環境設定マスターガイド.md,
+7,Monitoring,App Insightsアラート設定,403/5xx>=3/5minで通知のKQL/アラート,Takashi,2025-09-18,Not Started,docs/00-production-release/monitoring/app-insights-kql-and-alerts.md,
+8,Ops,Hangfireワーカー設定,並列1/指数バックオフ/ダッシュボード保護,Takashi,2025-09-18,Not Started,ai-team/conversations/to_takashi.md,
+9,Docs,Excel配布手順/版管理,ブック名/シート構成/更新頻度の明記,Kenji,2025-09-18,Not Started,docs/00-production-release/EXCEL-EXPORT-README.md,

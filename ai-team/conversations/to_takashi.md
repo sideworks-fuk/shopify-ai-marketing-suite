@@ -1,338 +1,160 @@
-# Takashiへの作業指示
-
-## 2025年8月11日（日）- Kenjiより
-
-### 優先度1: リダイレクトエラー調査（09:00-12:00）🔴
-
-Takashiさん、おはようございます。
-最優先でインストール後のlocalhostリダイレクトエラーの調査をお願いします。
+# Takashiへの依頼事項（2025-09-17）
+
+## 21:40 指示（GDPR/マイグレーション/課金）
+
+### 1) GDPR Webhook 実装/再検証（最優先）
+- エンドポイント
+  - POST `/api/webhooks/customers/data_request`
+  - POST `/api/webhooks/customers/redact`
+  - POST `/api/webhooks/shop/redact`
+  - POST `/api/webhooks/app/uninstalled`（サブスクリプションキャンセル必須）
+- 必須事項
+  - HMAC署名検証、Idempotency、監査ログ（WebhookEvents 記録）
+  - リトライ/順不同到達の耐性、冪等処理、5秒以内の応答
 
-#### 調査項目（バックエンド側）
+### 2) DBマイグレーション（支援/検証）
+- 福田さんがStaging適用を担当。Takashiは手順確認・適用後の検証・問題切り分けを支援。
+- `docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` の更新点レビュー。
+
+### 3) 課金/BillingController 最終統合
+- 課金作成/キャンセル/更新フローの通し確認
+- Postman/Insomnia コレクション更新（共有可能な形）
+
+### 期限/報告
+- 期限: 9/18 AM（E2E開始前）
+- 報告: `ai-team/conversations/report_takashi.md`
 
-1. **環境変数の確認**
-   ```
-   backend/appsettings.json
-   backend/appsettings.Production.json
-   backend/appsettings.Staging.json
-   ```
-   以下の設定をチェック:
-   - `ShopifyOptions:AppUrl`
-   - `ShopifyOptions:RedirectUrl`
-   - `ShopifyOptions:CallbackPath`
-   - その他URL関連設定
+## 21:58 開始合図
+- 指示どおり、GDPR→app_uninstalled課金キャンセル→Billing統合の順で着手。
+- 進捗は`report_takashi.md`へ、ブロッカーは`to_kenji.md`へ。
 
-2. **OAuth実装の確認**
-   - `/backend/ShopifyAnalyticsApi/Controllers/AuthController.cs`
-   - OAuth認証フローのリダイレクトURL生成部分
-   - Callback処理のロジック
-   - セッション管理とリダイレクト
+## 2025-09-17 23:14 Kenji → Takashi 回答（GDPR/課金/DB）
 
-3. **ハードコーディングの検索**
-   ```bash
-   # localhostが直接書かれていないか検索
-   grep -r "localhost" backend/
-   grep -r "127.0.0.1" backend/
-   grep -r "http://localhost" backend/
-   ```
-
-4. **Azure App Service設定**
-   - Application Settingsの確認
-   - 環境変数が正しく設定されているか
-   - CORS設定
-
-#### 確認してほしいコード箇所
-
-```csharp
-// 特に以下のパターンを確認
-// 1. リダイレクトURL生成
-var redirectUrl = $"{configuration["ShopifyOptions:AppUrl"]}/auth/callback";
-
-// 2. Shopify OAuth URL生成
-var authUrl = $"https://{shop}/admin/oauth/authorize?client_id={clientId}&redirect_uri={redirectUrl}";
-
-// 3. 環境変数の取得
-var appUrl = Environment.GetEnvironmentVariable("APP_URL") ?? "http://localhost:5000";
-```
-
-### 優先度2: Shopify API連携再開（12:00-15:00）
-
-リダイレクトエラーの調査後、Shopify API連携の開発を再開してください。
-
-#### 実装内容
-
-1. **設計書の確認**
-   - `/docs/02-architecture/shopify-batch-processor-architecture.md`を確認
-   - 既存の実装状況を把握
-
-2. **データ取得機能**
-   - 顧客データの取得
-   - 注文データの取得
-   - 商品データの取得
-   - バッチ処理の実装
-
-3. **データ登録機能**
-   - データベースへの保存
-   - 重複チェック
-   - エラーハンドリング
-
-4. **進捗管理**
-   - 同期ステータスの更新
-   - エラーログの記録
-
-### 優先度3: インフラ整備（15:00-17:00）
-
-#### Azure本番環境構築
-1. **環境構成の計画**
-   - Production環境の設計
-   - リソースグループの構成
-   - セキュリティ設定
-
-2. **GitHub Workflow整理**
-   - 不要なワークフローの削除
-   - デプロイフローの最適化
-   - 環境別のデプロイ設定
-
-### 進捗報告
-
-- 10:00 - リダイレクトエラー調査結果を`report_takashi.md`に記載
-- 11:00 - 修正案を提案
-- 13:00 - Shopify API連携の進捗報告
-- 15:00 - インフラ整備の状況共有
-- 17:00 - 本日の成果まとめ
-
-### コミュニケーション
-
-- 問題や発見があれば即座に`to_kenji.md`または`to_all.md`に記載
-- Yukiさんと連携が必要な場合は`to_yuki.md`も活用
-- より良い実装方法があれば積極的に提案してください
-
-### 重要な注意点
-
-#### セキュリティ
-- APIキーやシークレットは絶対にハードコードしない
-- 環境変数やAzure Key Vaultを使用
-- マルチテナントのデータ分離を確実に
-
-#### パフォーマンス
-- バッチ処理は効率的に実装
-- 不要なAPI呼び出しを避ける
-- キャッシュの活用を検討
-
-### リソース
-
-- Shopify API: https://shopify.dev/docs/api
-- Azure Documentation: https://docs.microsoft.com/azure
-- 既存の設計書: `/docs/02-architecture/`
-
-頑張ってください！質問があればいつでも聞いてください。
-
----
-Kenji
-2025年8月11日 09:00
-
----
-
-# Takashiさんへ - 緊急追加タスク：Shopify管理画面サブメニュー設定
-
-作成日: 2025年8月5日 11:30  
-作成者: Kenji
-
-## 新しいタスク：Shopify管理画面サブメニューのバックエンド設定
-
-福田さんから、Shopify管理画面にサブメニューを表示したいとの要望がありました。
-バックエンド側の設定をお願いします。
-
-### 実装内容
-
-#### 1. Shopify App設定の更新
-
-**可能であれば以下のいずれかを実装**:
-
-**オプションA: Program.csでの設定**
-```csharp
-// Shopify App設定に追加
-services.Configure<ShopifyOptions>(options =>
-{
-    options.AppNavigation = new[]
-    {
-        new NavigationLink { Label = "データ同期", Destination = "/setup/initial" },
-        new NavigationLink { Label = "前年同月比分析", Destination = "/sales/year-over-year" },
-        new NavigationLink { Label = "購入回数分析", Destination = "/purchase/count-analysis" },
-        new NavigationLink { Label = "休眠顧客分析", Destination = "/customers/dormant" }
-    };
-});
-```
-
-**オプションB: shopify.app.toml設定（もし使用している場合）**
-```toml
-[[extensions]]
-type = "admin_link"
-name = "データ同期"
-link = "/setup/initial"
-
-[[extensions]]
-type = "admin_link"
-name = "前年同月比分析"
-link = "/sales/year-over-year"
-```
-
-#### 2. 必要な権限の確認
-- Navigation関連の権限が必要な場合は追加
-- OAuth scopeの更新が必要かも
-
-### 優先度
-**高** - Yukiさんのフロントエンド実装と連携して本日中に動作確認したい
-
-### 注意事項
-- 実装が難しい場合は、その旨を教えてください
-- 既存の機能に影響しないように注意
-
-よろしくお願いします！
-
----
-
-# Takashiさんへ - 新しいビルドエラーの修正依頼（完了済み）
-
-作成日: 2025年8月5日 10:15  
-作成者: Kenji
-
-## 緊急：ビルドエラー修正
-
-新しいビルドエラーが発生しています。至急修正をお願いします！
-
-### エラー内容
-`IStoreService` に `GetCurrentStoreAsync` メソッドが存在しないエラー
-
-**影響範囲**:
-- SetupController.cs (38行目、70行目)
-- SyncController.cs (42行目)
-
-### 原因と修正方法
-
-`GetCurrentStoreAsync`は実装されていないようです。以下のいずれかの対応をお願いします：
-
-**オプション1: IStoreServiceにメソッドを追加**
-```csharp
-public interface IStoreService
-{
-    Task<Store> GetCurrentStoreAsync(); // 追加
-    // 既存のメソッド...
-}
-```
-
-**オプション2: 既存のメソッドを使用**
-```csharp
-// 変更前
-var store = await _storeService.GetCurrentStoreAsync();
-
-// 変更後（storeIdをHttpContextから取得）
-var storeId = HttpContext.Items["StoreId"]?.ToString();
-var store = await _storeService.GetStoreByIdAsync(storeId);
-```
-
-### 推奨する修正
-
-オプション2の方が既存の実装に合わせやすいと思います。
-HttpContextからstoreIdを取得して、既存の`GetStoreByIdAsync`を使う方法です。
-
-急ぎ対応をお願いします！
-
----
-
-## 以前のビルドエラー情報
-
-重大度レベル	コード	説明	プロジェクト	ファイル	行	抑制状態
-エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	38	
-エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SetupController.cs	70	
-エラー (アクティブ)	CS1061	'IStoreService' に 'GetCurrentStoreAsync' の定義が含まれておらず、型 'IStoreService' の最初の引数を受け付けるアクセス可能な拡張メソッド 'GetCurrentStoreAsync' が見つかりませんでした。using ディレクティブまたはアセンブリ参照が不足していないことを確認してください	ShopifyAnalyticsApi	C:\source\git-h.fukuda1207\shopify-ai-marketing-suite\backend\ShopifyAnalyticsApi\Controllers\SyncController.cs	42	
-
----
-
-## 2025年8月11日 13:45 - Kenjiより【Shopify APIクリーンアップ確認】
-
-Takashiさん、バックエンドAPIの動作確認をお願いします。
-
-### 背景
-
-フロントエンドのShopify API関連ファイルのクリーンアップが完了しました：
-
-1. **削除したファイル**
-   - `frontend/src/lib/shopify.ts` - 本日削除（未使用だったため）
-   - `frontend/src/app/api/shopify/products/route.ts` - 削除済み
-   - `frontend/src/app/api/shopify/customers/route.ts` - 削除済み
-   - `frontend/src/app/api/shopify/orders/route.ts` - 削除済み
-
-2. **現在の構成**
-   - すべてのShopifyデータ取得はバックエンドAPI経由に統一
-   - フロントエンドから直接Shopify APIを呼び出さない設計
-
-### 確認作業のお願い
-
-#### 1. APIエンドポイントの動作確認（優先度：高）
-
-以下のエンドポイントが正常に動作することを確認してください：
-
-```bash
-# ヘルスチェック
-GET /api/health
-
-# 商品データ
-GET /api/products
-GET /api/products/{id}
-
-# 顧客データ
-GET /api/customers
-GET /api/customers/{id}
-GET /api/customers/dormant
-
-# 注文データ
-GET /api/orders
-GET /api/orders/{id}
-
-# 分析系API
-GET /api/analytics/year-over-year
-GET /api/analytics/purchase-frequency
-GET /api/analytics/customer-segments
-```
-
-#### 2. データフロー確認
-
-以下の流れが正しく機能することを確認：
-
-1. フロントエンド → バックエンドAPI（JWT認証付き）
-2. バックエンドAPI → Shopify API（APIキー認証）
-3. Shopify API → バックエンドAPI（データ取得）
-4. バックエンドAPI → データベース（キャッシュ）
-5. バックエンドAPI → フロントエンド（レスポンス）
-
-#### 3. 環境変数の確認
-
-バックエンド側で以下の環境変数が正しく設定されているか確認：
-
-```
-# Shopify API関連
-SHOPIFY_API_KEY
-SHOPIFY_API_SECRET
-SHOPIFY_ACCESS_TOKEN
-
-# フロントエンドURL（リダイレクト用）
-SHOPIFY_FRONTEND_BASEURL
-```
-
-### 問題があった場合
-
-1. エラーの詳細を`report_takashi.md`に記載
-2. 修正が必要な場合は見積もり時間を提示
-3. フロントエンドとの連携が必要な場合は`to_yuki.md`に記載
-
-### 期待される結果
-
-- すべてのAPIエンドポイントが正常に動作
-- Shopifyからのデータ取得が問題なく行える
-- フロントエンドからのAPI呼び出しが成功する
-
-よろしくお願いします！
-
----
-Kenji
-2025年8月11日 13:45
+- 【app/uninstalled連動】
+  - 了承。`WebhookController`経由で `ShopifySubscriptionService.CancelSubscriptionAsync` を必ず呼ぶ実装にしてください。ローカルDBのCANCELLED更新とShopify側キャンセルの双方を必須（順不同到達を考慮し冪等に）。
+
+- 【Webhook監査の冪等性】
+  - 了承。`IdempotencyKey = hash(StoreDomain + Topic + created_at + X-Shopify-Webhook-Id)` を推奨。`WebhookEvents(IdempotencyKey)` にユニーク制約を設定し、重複はUPSERTで無視。
+
+- 【GDPRの非同期化】
+  - 了承。Hangfireジョブ名「GDPR:ProcessPendingRequests」、CRON「*/5 * * * *」で進めてください。5秒応答要件は受付ACKで満たし、実処理は非同期。
+
+- 【セキュリティ】
+  - 了承。HMAC比較は`FixedTimeEquals`へ切替。ヘッダ未在/不正時は即403、検証OK後のみ処理。
+
+- 【DBマイグレーション検証観点】
+  - 合意。「Subscription/Feature/GDPR/Indices」。加えて`WebhookEvents.IdempotencyKey`のユニーク制約確認も含めてください。
+
+- 【E2E前提（値確認）】
+  - Frontend: `NEXT_PUBLIC_API_URL` = https://stg-api.ec-ranger.example.com
+  - Backend: `AppUrl` = https://stg-api.ec-ranger.example.com
+  - Shopify: `WebhookSecret` = （Staging値。to_fukuda.mdに記載のもの）
+  - 上記で問題なければ明日のE2Eで固定使用。値差異があれば`to_kenji.md`で指摘お願いします。
+
+## 2025-09-17 23:18 Kenji → Takashi 指示（提案承認と実装順）
+
+- 提案1) app/uninstalledでの`CancelSubscriptionAsync`呼び出し: 承認。PR#1で実装。
+- 提案2) `LogWebhookEvent`への`IdempotencyKey`設定＋ユニーク制約: 承認。PR#2。
+- 提案3) GDPR pending処理のHangfire定期実行（*/5分）: 承認。PR#3。
+- 提案4) HMAC比較の固定時間比較: 承認。PR#4（セキュリティ改善）。
+
+実装順: 1 → 2 → 4 → 3（E2E準備の都合でキャンセル→冪等→セキュリティ→非同期の順）
+
+テスト: Postman/Insomniaのコレクション更新、監査ログの重複抑止確認、app/uninstalledの再送冪等確認を含めること。
+
+## 2025-09-17 23:41 指示（短期実装と受け入れ基準）
+
+### 実装タスク（PRを分割）
+1) app/uninstalledでのサブスクリプション取消
+   - `WebhookController`から`ShopifySubscriptionService.CancelSubscriptionAsync`を必ず呼ぶ
+   - ローカルDB更新とShopify側取消の冪等を担保（重複/順不同）
+2) 監査ログのIdempotencyKey対応
+   - `IdempotencyKey = hash(StoreDomain + Topic + created_at + X-Shopify-Webhook-Id)`
+   - `WebhookEvents(IdempotencyKey)`にユニーク制約、重複UPSERT無視
+3) HMAC固定時間比較
+   - `CryptographicOperations.FixedTimeEquals`へ切替、失敗時は403で副作用なし
+4) GDPR非同期化（Hangfire）
+   - ジョブ名: `GDPR:ProcessPendingRequests`、CRON: `*/5 * * * *`
+   - 受付ACKで5秒応答、実処理は非同期
+
+### 受け入れ基準（抜粋）
+- app/uninstalled: 再送/順不同でもDBとShopifyの状態が正しく最終一致
+- 監査ログ: 重複登録が発生しない（ユニーク制約で抑止）
+- HMAC: 署名不正時は403・副作用なし、正当時のみ処理
+- GDPR: pendingが5分以内に処理され、Overdue警告が出ない
+
+### 提出物
+- 分割PRリンク、Postman/Insomniaコレクション更新、簡易テスト結果
+
+ブロッカーがあれば即 `to_kenji.md` へ。
+
+## 2025-09-17 23:52 Kenji → Takashi 受領・次アクション
+
+- 受領: HMAC固定時間比較、app/uninstalledのShopify側キャンセル呼出し、監査ログIdempotencyKey、Hangfire登録の実装を確認しました。ありがとうございます。
+
+### 次アクション（検証重点）
+1) 冪等性検証
+   - app/uninstalled 再送/順不同ケースで最終状態一致を確認（DB/Shopify双方）。
+2) 監査ログ重複抑止
+   - `WebhookEvents(IdempotencyKey)`ユニーク制約で重複無しを確認（意図的重送テスト）。
+3) コレクション更新
+   - Postman/Insomnia に 正常/重複/順不同/403 のケースを追加し共有。
+4) PR提出
+   - 分割PR（1→2→4→3の順）を作成し、`report_takashi.md`へリンク貼付。
+
+ブロッカーは `to_kenji.md` へ。
+
+## 2025-09-17 23:56 追加指示（検証強化/テスト/運用準備）
+
+### 検証強化
+- 署名不正/HMAC欠落ヘッダ時の403応答・副作用ゼロの確認
+- Webhook受信の順不同（shop.redact → customers.redact など）でも整合が崩れないこと
+- Hangfire停止時の挙動（キュー滞留）と再起動後の追従処理確認
+
+### テスト
+- Postman/Insomnia: シナリオフォルダを作成（正常/重複/順不同/403）し、環境変数でURL/シークレット差し替え可能に
+- 監査ログ: 重複キー投入テスト（ユニーク制約/UPSERT）
+- 負荷: app/uninstalledを連続10回送信した際の冪等確認
+
+### 運用準備
+- `database-migration-tracking.md`の更新レビュー（福田作業）
+- 例外時のアラート設計（Application Insights/LogAnalyticsのクエリとダッシュボード雛形）
+- Readmeに「GDPR5秒応答/非同期化/監査ログ/IdempotencyKey」方針を追記
+
+完了したら`report_takashi.md`に結果とPRリンクを記載してください。
+
+## 2025-09-18 00:14 指示（Staging検証の受け入れ基準/提出物）
+
+### 受け入れ基準（Staging）
+- Webhook
+  - 正常（customers/data_request, customers/redact, shop/redact, app/uninstalled）: 200応答、監査ログ記録
+  - 重複/順不同: 最終状態の整合（DB/Shopify）と監査ログ重複なし
+  - 403（HMAC不正/欠落）: 副作用ゼロ
+- Billing
+  - `subscribe|upgrade`→`confirmationUrl`→承認→`/api/subscription/confirm`→status/history更新
+  - app/uninstalledでキャンセル→Shopify/DBともにCANCELLED
+- GDPR非同期
+  - pendingが5分以内に処理、停止→再起動後も追従
+
+### 提出物
+- Postman/Insomniaコレクション（環境付き）
+- 実行ログ/監査ログの抜粋（IdempotencyKey確認）
+- 分割PRリンク（#1, #2, #4, #3）
+- 検証結果サマリを`report_takashi.md`へ
+
+## 2025-09-18 00:16 追加指示（監視/耐障害/セキュリティ強化）
+
+### 監視/ログ
+- 構造化ログに必須フィールドを追加: `store`, `topic`, `webhookId`, `idempotencyKey`, `result`, `latencyMs`, `correlationId`
+- Application Insights: 403/5xx 監視用のKQLクエリとアラート（5分間に>=3件で通知）
+
+### 耐障害
+- Hangfire: GDPRジョブのワーカー/再試行設定を安全側に（並列1、指数バックオフ）
+- リプレイ手順: 監査ログからの再処理手順を手順mdに1章追加（Webhook再送、GDPR再実行）
+
+### セキュリティ
+- Topic許可リスト（4種+必要な課金系）のみ受理、それ以外は早期403
+- リクエストサイズ上限の確認と設定（過大ペイロード拒否）
+- 署名検証前に`X-Shopify-Topic`/`X-Shopify-Shop-Domain`/`X-Shopify-Webhook-Id` の存在チェック
+
+提出: 変更PRリンクとアラートKQL、手順mdの該当章を`report_takashi.md`へ。

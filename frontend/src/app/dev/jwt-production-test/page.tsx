@@ -18,7 +18,7 @@ export default function JWTProductionTestPage() {
     // 1. 環境変数チェック
     results.environment = {
       apiUrl: getApiUrl(),
-      backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
+      backendUrl: process.env.NEXT_PUBLIC_API_URL,
       hasToken: !!localStorage.getItem('accessToken'),
       hasRefreshToken: !!localStorage.getItem('refreshToken')
     }

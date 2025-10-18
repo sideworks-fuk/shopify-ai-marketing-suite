@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 const DormantCustomerAnalysis = React.lazy(() => import("@/components/dashboards/DormantCustomerAnalysis"))
 const DormantCustomerList = React.lazy(() => import("@/components/dashboards/dormant/DormantCustomerList").then(module => ({ default: module.DormantCustomerList })))
 const AnalyticsHeaderUnified = React.lazy(() => import("@/components/layout/AnalyticsHeaderUnified").then(module => ({ default: module.AnalyticsHeaderUnified })))
+const FeatureLockedScreen = React.lazy(() => import("@/components/billing/FeatureLockedScreen"))
 
 // ローディングコンポーネント
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
@@ -15,13 +16,30 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 import { api } from "@/lib/api-client"
 import { API_CONFIG, getCurrentStoreId } from "@/lib/api-config"
 import { useDormantFilters } from "@/contexts/FilterContext"
+import { useFeatureAccess } from "@/hooks/useFeatureAccess"
 
 export default function DormantCustomersPage() {
+  // 機能アクセス制御
+  const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
+  
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
+  // Note: All hooks must be called before any conditional returns
   const { filters } = useDormantFilters()
+  
+  // 段階的データ読み込みのための状態管理
+  const [summaryData, setSummaryData] = useState<any>(null)
+  const [dormantData, setDormantData] = useState<any[]>([])
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true)
+  const [isLoadingList, setIsLoadingList] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
+
+  // 主要3区分セグメント定義
+  const [detailedSegments, setDetailedSegments] = useState<any[]>([])
+  const [isLoadingSegments, setIsLoadingSegments] = useState(false)
 
   // 購入履歴のある顧客のみで平均休眠日数を計算
-  const calculateAdjustedAverageDormancyDays = (summaryData: any) => {
+  const calculateAdjustedAverageDormancyDays = useCallback((summaryData: any) => {
     if (!summaryData || !summaryData.segmentCounts) {
       return (summaryData?.averageDormancyDays || 0).toLocaleString()
     }
@@ -80,19 +98,7 @@ export default function DormantCustomersPage() {
     
     // フォールバック: 元の値を使用
     return (summaryData?.averageDormancyDays || 0).toLocaleString()
-  }
-  
-  // 段階的データ読み込みのための状態管理
-  const [summaryData, setSummaryData] = useState<any>(null)
-  const [dormantData, setDormantData] = useState<any[]>([])
-  const [isLoadingSummary, setIsLoadingSummary] = useState(true)
-  const [isLoadingList, setIsLoadingList] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
-
-  // 主要3区分セグメント定義
-  const [detailedSegments, setDetailedSegments] = useState<any[]>([])
-  const [isLoadingSegments, setIsLoadingSegments] = useState(false)
+  }, [])
 
   // Step 1: サマリーデータのみ先に取得（軽量・高速）
   useEffect(() => {
@@ -277,6 +283,26 @@ export default function DormantCustomersPage() {
     }
   }, [isLoadingSummary, summaryData, selectedSegment, loadCustomerList])
 
+  // アクセス権限の確認中
+  if (isAccessLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  // アクセス権限がない場合
+  if (!hasAccess) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <FeatureLockedScreen 
+          featureName="休眠顧客分析"
+          featureType="dormant_analysis"
+        />
+      </Suspense>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

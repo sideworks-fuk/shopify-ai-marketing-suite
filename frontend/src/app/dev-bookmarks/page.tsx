@@ -100,10 +100,10 @@ const bookmarkItems: BookmarkItem[] = [
   // 購買分析
   {
     title: "購入回数【購買】",
-    description: "顧客の購入回数分析",
-    href: "/purchase/frequency-detail",
+    description: "顧客の購入回数分析（5階層分析・実データ対応）",
+    href: "/purchase/count-analysis",
     icon: <ShoppingBag className="h-5 w-5" />,
-    status: 'in-progress',
+    status: 'implemented',
     category: 'purchase'
   },
   {
@@ -645,7 +645,7 @@ export default function DevBookmarksPage() {
                   <div className="text-sm space-y-1">
                     <div><span className="font-medium">テストストア:</span> fuk-dev1.myshopify.com</div>
                     <div><span className="font-medium">開発環境:</span> {process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}</div>
-                    <div><span className="font-medium">バックエンド:</span> {process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}</div>
+                    <div><span className="font-medium">バックエンド:</span> {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}</div>
                   </div>
                 </div>
                 <div className="space-y-2">

@@ -12,7 +12,12 @@
     "build:static": "next build && next export",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "e2e": "cypress run",
+    "e2e:basic": "cypress run --spec 'cypress/e2e/basic-navigation.cy.ts,cypress/e2e/component-tests.cy.ts,cypress/e2e/error-handling.cy.ts'",
+    "e2e:open": "cypress open --e2e"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -41,6 +46,7 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.12.7",
+    "swr": "^2.3.6",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^4.5.2"
@@ -50,6 +56,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.14",
+    "cypress": "^14.5.4",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
     "postcss": "^8",

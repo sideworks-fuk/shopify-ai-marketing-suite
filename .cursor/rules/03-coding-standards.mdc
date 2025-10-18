@@ -1,0 +1,589 @@
+---
+description: コーディング規約・ベストプラクティス。TypeScript、React、C#の命名規則、スタイル、パフォーマンス最適化を規定。
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.cs"
+  - "frontend/**/*"
+  - "backend/**/*"
+alwaysApply: false
+---
+
+# コーディング規約・ベストプラクティス
+
+## 言語設定
+- **すべてのレスポンスは日本語**
+- **ターミナルはPowerShell**
+- **ドキュメントは日本語優先**（技術用語は英語併記可）
+
+## TypeScript 規約
+
+### 型安全性
+- **strict mode必須**: `tsconfig.json` の `strict: true`
+- **any型禁止**: unknown型を使用
+- **型推論の活用**: 明示的な型定義が必要な箇所のみ記述
+
+**推奨**:
+```typescript
+// ✅ Good: 型推論
+const count = 5;
+const names = ["Alice", "Bob"];
+
+// ✅ Good: 明示的型定義が必要な場合
+const fetchUser = async (id: string): Promise<User> => {
+  // ...
+};
+
+// ❌ Bad: any型
+const data: any = fetchData();
+
+// ✅ Good: unknown型を使用
+const data: unknown = fetchData();
+if (isUser(data)) {
+  // 型ガードで安全に使用
+}
+```
+
+### 命名規則
+
+**変数・関数**: camelCase
+```typescript
+const userName = "John";
+const fetchUserData = async () => { /* ... */ };
+```
+
+**コンポーネント**: PascalCase
+```typescript
+const CustomerDashboard = () => { /* ... */ };
+export default CustomerDashboard;
+```
+
+**定数**: UPPER_SNAKE_CASE
+```typescript
+const API_BASE_URL = "https://api.example.com";
+const MAX_RETRY_COUNT = 3;
+```
+
+**型・インターフェース**: PascalCase
+```typescript
+interface UserData {
+  id: string;
+  name: string;
+}
+
+type CustomerStatus = "active" | "inactive" | "pending";
+```
+
+**プライベート変数（クラス）**: _camelCase（アンダースコア接頭辞）
+```typescript
+class UserService {
+  private _apiClient: ApiClient;
+  
+  constructor() {
+    this._apiClient = new ApiClient();
+  }
+}
+```
+
+### インポート順序
+```typescript
+// 1. 外部ライブラリ
+import React from 'react';
+import { useRouter } from 'next/navigation';
+
+// 2. 内部ライブラリ（shadcn/ui、共通コンポーネント）
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+// 3. 相対パス（同一機能内のモジュール）
+import { fetchCustomerData } from './utils';
+import { CustomerFilter } from './components/CustomerFilter';
+
+// 4. 型定義（最後）
+import type { Customer } from '@/types';
+import type { ApiResponse } from './types';
+```
+
+### 関数定義
+
+**アロー関数推奨**:
+```typescript
+// ✅ Good: アロー関数
+const calculateTotal = (items: Item[]): number => {
+  return items.reduce((sum, item) => sum + item.price, 0);
+};
+
+// ✅ Good: 短縮形（単一式）
+const double = (n: number) => n * 2;
+
+// ⚠️ 条件付きOK: function宣言（ホイスティングが必要な場合のみ）
+function initialize() {
+  // ...
+}
+```
+
+### 非同期処理
+
+**async/await推奨**:
+```typescript
+// ✅ Good: async/await
+const fetchUser = async (id: string): Promise<User> => {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch user:", error);
+    throw error;
+  }
+};
+
+// ❌ Bad: Promise.then()チェーン
+const fetchUser = (id: string): Promise<User> => {
+  return fetch(`/api/users/${id}`)
+    .then(response => response.json())
+    .catch(error => {
+      console.error("Failed to fetch user:", error);
+      throw error;
+    });
+};
+```
+
+## React/Next.js 規約
+
+### コンポーネント設計
+
+**関数コンポーネント推奨（React.FC非推奨）**:
+```typescript
+// ✅ Good: 直接型定義
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+}
+
+const Button = ({ label, onClick, variant = "primary" }: ButtonProps) => {
+  return <button onClick={onClick}>{label}</button>;
+};
+
+// ❌ Bad: React.FC（非推奨）
+const Button: React.FC<ButtonProps> = ({ label, onClick, variant = "primary" }) => {
+  return <button onClick={onClick}>{label}</button>;
+};
+```
+
+### Server Components vs Client Components
+
+**Server Components（デフォルト）**:
+```typescript
+// app/customers/page.tsx
+// ✅ Good: Server Component（デフォルト）
+const CustomersPage = async () => {
+  const customers = await fetchCustomers(); // サーバーサイドでデータ取得
+  
+  return (
+    <div>
+      <h1>顧客一覧</h1>
+      <CustomerList customers={customers} />
+    </div>
+  );
+};
+
+export default CustomersPage;
+```
+
+**Client Components（必要な場合のみ）**:
+```typescript
+// components/CustomerFilter.tsx
+"use client"; // 明示的に宣言
+
+import { useState } from 'react';
+
+const CustomerFilter = () => {
+  const [filter, setFilter] = useState("");
+  
+  return (
+    <input 
+      value={filter} 
+      onChange={(e) => setFilter(e.target.value)} 
+    />
+  );
+};
+```
+
+### フックの使用
+
+**カスタムフック**:
+```typescript
+// hooks/useCustomerData.ts
+import { useState, useEffect } from 'react';
+
+export const useCustomerData = (customerId: string) => {
+  const [data, setData] = useState<Customer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const result = await fetchCustomer(customerId);
+        setData(result);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [customerId]);
+
+  return { data, loading, error };
+};
+```
+
+**useMemo/useCallback**:
+```typescript
+import { useMemo, useCallback } from 'react';
+
+const CustomerList = ({ customers }: CustomerListProps) => {
+  // ✅ Good: 計算コストが高い場合にuseMemo
+  const sortedCustomers = useMemo(() => {
+    return customers.sort((a, b) => a.name.localeCompare(b.name));
+  }, [customers]);
+
+  // ✅ Good: 子コンポーネントにpropsとして渡す関数
+  const handleDelete = useCallback((id: string) => {
+    deleteCustomer(id);
+  }, []);
+
+  return (
+    <div>
+      {sortedCustomers.map(customer => (
+        <CustomerCard 
+          key={customer.id} 
+          customer={customer}
+          onDelete={handleDelete}
+        />
+      ))}
+    </div>
+  );
+};
+```
+
+### ディレクトリ構造
+```
+frontend/src/
+├── app/                    # Next.js App Router
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── customers/
+│       └── page.tsx
+├── components/
+│   ├── ui/                # shadcn/ui コンポーネント
+│   ├── features/          # 機能別コンポーネント
+│   │   ├── customer/
+│   │   └── analytics/
+│   └── layouts/           # レイアウトコンポーネント
+├── lib/                   # ユーティリティ関数
+├── hooks/                 # カスタムフック
+├── types/                 # 型定義
+└── data/                  # モックデータ
+```
+
+## C# / .NET 規約
+
+### 命名規則
+
+**クラス・メソッド・プロパティ**: PascalCase
+```csharp
+public class CustomerService
+{
+    public async Task<Customer> GetCustomerAsync(int id)
+    {
+        // ...
+    }
+    
+    public string CustomerName { get; set; }
+}
+```
+
+**プライベートフィールド**: _camelCase（アンダースコア接頭辞）
+```csharp
+public class CustomerService
+{
+    private readonly ILogger<CustomerService> _logger;
+    private readonly ApplicationDbContext _context;
+    
+    public CustomerService(
+        ILogger<CustomerService> logger,
+        ApplicationDbContext context)
+    {
+        _logger = logger;
+        _context = context;
+    }
+}
+```
+
+**定数**: PascalCase
+```csharp
+public const int MaxRetryCount = 3;
+public const string ApiVersion = "v1";
+```
+
+**ローカル変数**: camelCase
+```csharp
+public void ProcessOrder()
+{
+    var orderItems = GetOrderItems();
+    var totalAmount = CalculateTotal(orderItems);
+}
+```
+
+### 非同期処理
+
+**async/await必須**:
+```csharp
+// ✅ Good: async/await
+public async Task<Customer> GetCustomerAsync(int id)
+{
+    return await _context.Customers
+        .FirstOrDefaultAsync(c => c.Id == id);
+}
+
+// ✅ Good: ConfigureAwait(false)（ライブラリコード）
+public async Task<Customer> GetCustomerAsync(int id)
+{
+    return await _context.Customers
+        .FirstOrDefaultAsync(c => c.Id == id)
+        .ConfigureAwait(false);
+}
+```
+
+### エラーハンドリング
+```csharp
+// ✅ Good: 具体的な例外型
+public async Task<Customer> GetCustomerAsync(int id)
+{
+    var customer = await _context.Customers
+        .FirstOrDefaultAsync(c => c.Id == id);
+    
+    if (customer == null)
+    {
+        throw new NotFoundException($"Customer with ID {id} not found");
+    }
+    
+    return customer;
+}
+
+// ✅ Good: try-catchで適切に処理
+public async Task<ActionResult<Customer>> GetCustomer(int id)
+{
+    try
+    {
+        var customer = await _customerService.GetCustomerAsync(id);
+        return Ok(customer);
+    }
+    catch (NotFoundException ex)
+    {
+        _logger.LogWarning(ex, "Customer not found: {CustomerId}", id);
+        return NotFound(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving customer: {CustomerId}", id);
+        return StatusCode(500, new { error = "Internal server error" });
+    }
+}
+```
+
+### 依存性注入
+```csharp
+// ✅ Good: コンストラクタインジェクション
+public class CustomerService
+{
+    private readonly ApplicationDbContext _context;
+    private readonly ILogger<CustomerService> _logger;
+    
+    public CustomerService(
+        ApplicationDbContext context,
+        ILogger<CustomerService> logger)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+}
+```
+
+## コメント・ドキュメント
+
+### JSDoc（TypeScript）
+```typescript
+/**
+ * 顧客データを取得
+ * @param customerId - 顧客ID
+ * @returns 顧客情報
+ * @throws {NotFoundException} 顧客が見つからない場合
+ */
+export async function fetchCustomer(customerId: string): Promise<Customer> {
+  // ...
+}
+```
+
+### XML Documentation Comments（C#）
+```csharp
+/// <summary>
+/// 顧客データを取得
+/// </summary>
+/// <param name="id">顧客ID</param>
+/// <returns>顧客情報</returns>
+/// <exception cref="NotFoundException">顧客が見つからない場合</exception>
+public async Task<Customer> GetCustomerAsync(int id)
+{
+    // ...
+}
+```
+
+### TODO コメント
+```typescript
+// TODO: パフォーマンス改善が必要
+// FIXME: エラーハンドリング追加
+// NOTE: この実装は一時的なもの
+// HACK: 回避策として実装（将来的に修正予定）
+```
+
+## パフォーマンス最適化
+
+### React パフォーマンス
+
+**React.memo（必要な場合のみ）**:
+```typescript
+// ✅ Good: 頻繁に再レンダリングされる重いコンポーネント
+const CustomerCard = React.memo(({ customer, onDelete }: CustomerCardProps) => {
+  return (
+    <div>
+      <h3>{customer.name}</h3>
+      <button onClick={() => onDelete(customer.id)}>削除</button>
+    </div>
+  );
+});
+
+// ❌ Bad: 軽量なコンポーネントにReact.memo（オーバーヘッド）
+const SimpleText = React.memo(({ text }: { text: string }) => {
+  return <span>{text}</span>;
+});
+```
+
+### データベースクエリ最適化
+```csharp
+// ✅ Good: 必要なカラムのみ取得
+var customers = await _context.Customers
+    .Where(c => c.IsActive)
+    .Select(c => new { c.Id, c.Name, c.Email })
+    .ToListAsync();
+
+// ✅ Good: AsNoTracking（読み取り専用）
+var customers = await _context.Customers
+    .AsNoTracking()
+    .ToListAsync();
+
+// ✅ Good: N+1問題の回避
+var orders = await _context.Orders
+    .Include(o => o.Customer)
+    .Include(o => o.OrderItems)
+    .ToListAsync();
+```
+
+## セキュリティ
+
+### 入力バリデーション
+```typescript
+// ✅ Good: バリデーション
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+if (!validateEmail(userInput)) {
+  throw new Error("Invalid email format");
+}
+```
+```csharp
+// ✅ Good: Data Annotations
+public class CreateCustomerDto
+{
+    [Required]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+    
+    [Required]
+    [EmailAddress]
+    public string Email { get; set; } = string.Empty;
+}
+```
+
+### 環境変数
+```typescript
+// ✅ Good: 環境変数の使用
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+if (!apiUrl) {
+  throw new Error("NEXT_PUBLIC_API_URL is not defined");
+}
+```
+```csharp
+// ✅ Good: 設定ファイル経由
+public class MyService
+{
+    private readonly string _apiKey;
+    
+    public MyService(IConfiguration configuration)
+    {
+        _apiKey = configuration["ApiKey"] 
+            ?? throw new InvalidOperationException("ApiKey not configured");
+    }
+}
+```
+
+## テストコード規約
+
+### ファイル命名
+- **TypeScript**: `*.test.ts`, `*.spec.ts`
+- **C#**: `*Tests.cs`, `*Test.cs`
+
+### テストケース命名
+```typescript
+// ✅ Good: わかりやすいテスト名
+describe("CustomerService", () => {
+  describe("fetchCustomer", () => {
+    it("顧客IDが有効な場合、顧客データを返す", async () => {
+      // ...
+    });
+    
+    it("顧客が見つからない場合、NotFoundエラーをスローする", async () => {
+      // ...
+    });
+  });
+});
+```
+```csharp
+// ✅ Good: わかりやすいテストメソッド名
+[Fact]
+public async Task GetCustomerAsync_ValidId_ReturnsCustomer()
+{
+    // Arrange
+    var customerId = 1;
+    
+    // Act
+    var result = await _service.GetCustomerAsync(customerId);
+    
+    // Assert
+    Assert.NotNull(result);
+    Assert.Equal(customerId, result.Id);
+}
+```
+
+## 参考ドキュメント
+- 技術スタック: `@.cursor/rules/00-techstack.mdc`
+- Next.jsルール: `@.cursor/rules/05-nextjs.mdc`
+- データベースルール: `@.cursor/rules/04-database.mdc`

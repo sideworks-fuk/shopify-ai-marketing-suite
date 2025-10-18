@@ -36,7 +36,7 @@ export default function CustomerProfilePage() {
       />
 
       {/* 顧客購買分析コンポーネント */}
-      <CustomerPurchaseAnalysis useSampleData={true} />
+      <CustomerPurchaseAnalysis useSampleData={false} />
     </div>
   )
 } 

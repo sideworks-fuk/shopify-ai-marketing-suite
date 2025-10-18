@@ -1,515 +1,94 @@
-# Yukiへの作業指示
-
-## 2025年8月11日（日）- Kenjiより
-
-### 優先度1: リダイレクトエラー調査（09:00-12:00）🔴
-
-Yukiさん、おはようございます。
-最優先でインストール後のlocalhostリダイレクトエラーの調査をお願いします。
-
-#### 調査項目（フロントエンド側）
-
-1. **環境変数の確認**
-   ```
-   frontend/.env
-   frontend/.env.production
-   frontend/.env.staging
-   ```
-   以下の変数をチェック:
-   - `NEXT_PUBLIC_APP_URL`
-   - `NEXT_PUBLIC_BACKEND_URL`
-   - `SHOPIFY_APP_URL`
-   - その他URL関連の設定
-
-2. **ハードコーディングの検索**
-   ```bash
-   # localhostが直接書かれていないか検索
-   grep -r "localhost" frontend/src/
-   grep -r "127.0.0.1" frontend/src/
-   grep -r "http://localhost" frontend/src/
-   ```
-
-3. **リダイレクト処理の確認**
-   - `/frontend/src/middleware.ts`
-   - `/frontend/src/app/api/auth/callback/route.ts`
-   - `/frontend/src/app/install/route.ts`（存在する場合）
-   - その他認証関連のコンポーネント
-
-4. **Shopify App Bridge設定**
-   - App Bridgeの初期化コード
-   - Host parameterの処理
-   - リダイレクトURL生成ロジック
-
-#### 確認してほしいコード箇所
-
-```typescript
-// 特に以下のパターンを確認
-// 1. 環境変数の取得方法
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-// 2. リダイレクトURL生成
-const redirectUrl = `${appUrl}/auth/callback`;
-
-// 3. Shopify OAuth URL生成
-const authUrl = `https://${shop}/admin/oauth/authorize?...`;
-```
-
-### 優先度2: 開発ページの本番除外（12:00-16:00）
-
-リダイレクトエラーの調査後、開発ページの整理をお願いします。
-
-#### 実装内容
-
-1. **ディレクトリ構造の変更**
-   ```
-   frontend/src/app/
-   ├── (production)/           # 本番用ページグループ
-   │   ├── customers/
-   │   ├── purchase/
-   │   ├── sales/
-   │   ├── ai-insights/
-   │   └── settings/
-   ├── (development)/          # 開発用ページグループ
-   │   ├── dev/
-   │   ├── test/
-   │   ├── debug/
-   │   ├── api-test/
-   │   └── [その他テストページ]
-   └── api/                    # APIルート（変更なし）
-   ```
-
-2. **環境変数による制御**
-   - `(development)`グループのmiddleware.tsを作成
-   - 本番環境では404を返すように設定
-
-3. **既存ページの移動**
-   - 開発用: dev/, test/, debug/, *-test/などを`(development)`へ
-   - 本番用: customers/, purchase/, sales/などを`(production)`へ
-
-#### 注意事項
-- **既存の本番ページの動作を壊さない**
-- **開発環境では全ページにアクセス可能を維持**
-- **ビルドサイズの削減を確認**
-
-### 進捗報告
-
-- 10:00 - リダイレクトエラー調査結果を`report_yuki.md`に記載
-- 11:00 - 修正案を提案
-- 13:00 - 開発ページ整理の進捗報告
-- 15:00 - 実装状況の共有
-- 17:00 - 本日の成果まとめ
-
-### コミュニケーション
-
-- 問題や発見があれば即座に`to_kenji.md`または`to_all.md`に記載
-- Takashiさんと連携が必要な場合は`to_takashi.md`も活用
-- より良い実装方法があれば積極的に提案してください
-
-### リソース
-
-- Shopify App開発ドキュメント: https://shopify.dev/docs/apps
-- Next.js App Router: https://nextjs.org/docs/app
-- 既存の設計書: `/docs/03-design-specs/`
-
-頑張ってください！質問があればいつでも聞いてください。
-
----
-Kenji
-2025年8月11日 09:00
-
----
-
-# Yukiさんへ - 緊急追加タスク：Shopify管理画面サブメニュー実装
-
-作成日: 2025年8月5日 11:30  
-作成者: Kenji
-
-## 新しいタスク：Shopify管理画面へのサブメニュー追加
-
-福田さんから、Shopify管理画面の左メニューに直接サブメニューを表示したいとの要望がありました。
-技術的な検証も含めて実装をお願いします。
-
-### 実装内容
-
-#### 1. App Bridge NavigationMenuの実装
-
-**新規ファイル作成**: `frontend/src/components/ShopifyNavigation.tsx`
-```typescript
-import { NavigationMenu } from '@shopify/app-bridge-react';
-
-export function ShopifyNavigation() {
-  return (
-    <NavigationMenu
-      navigationLinks={[
-        {
-          label: 'データ同期',
-          destination: '/setup/initial',
-        },
-        {
-          label: '前年同月比分析',
-          destination: '/sales/year-over-year',
-        },
-        {
-          label: '購入回数分析', 
-          destination: '/purchase/count-analysis',
-        },
-        {
-          label: '休眠顧客分析',
-          destination: '/customers/dormant',
-        },
-      ]}
-      matcher={(link, location) => link.destination === location.pathname}
-    />
-  );
-}
-```
-
-#### 2. App.tsxへの統合
-```typescript
-import { ShopifyNavigation } from './components/ShopifyNavigation';
-
-// AppProviderの中に追加
-<AppProvider>
-  <ShopifyNavigation />
-  {/* 既存のコンポーネント */}
-</AppProvider>
-```
-
-### 注意事項
-- Shopify環境でのみ動作するため、条件付きレンダリングが必要かも
-- App Bridgeが正しく初期化されているか確認
-- エラーが発生しても既存の機能に影響しないように
-
-### 優先度
-**高** - 本日中に実装して技術的検証を完了したい
-
-### 参考資料
-- 詳細な実装ガイド: `/docs/04-development/shopify-submenu-implementation-guide.md`
-- [Shopify App Bridge Navigation](https://shopify.dev/docs/api/app-bridge/actions/navigation)
-
-よろしくお願いします！
-
----
-
-# Yukiさんへ - 追加タスク：Shopify管理メニューへのリンク追加（完了済み）
-
-作成日: 2025年8月5日 09:00  
-作成者: Kenji
-
-## 初期設定画面の実装お疲れ様でした！
-
-素晴らしい仕事でした！初期設定画面が完成したとのこと、ありがとうございます。
-
-## 次のタスク：Shopify管理メニューへのリンク追加
-
-福田さんから新しいタスクの依頼です。Shopifyの管理画面に以下のメニューリンクを追加してください。
-
-### 追加するメニュー項目
-
-1. **データ同期**（新規）← 名称変更しました！
-   - パス: `/setup/initial`
-   - アイコン: 同期アイコン（🔄）または データベースアイコン
-   - 説明: データ同期設定・管理画面
-
-2. **前年同月比分析【商品】**
-   - パス: `/analytics/year-over-year` (確認してください)
-   - アイコン: グラフアイコン
-   - 説明: 商品の前年同月比較
-
-3. **購入回数分析【購買】**
-   - パス: `/analytics/purchase-frequency` (確認してください)
-   - アイコン: カートアイコン
-   - 説明: 顧客の購買頻度分析
-
-4. **休眠顧客分析【顧客】**
-   - パス: `/analytics/dormant-customers` (既存)
-   - アイコン: ユーザーアイコン
-   - 説明: 休眠顧客の分析
-
-### 実装方法
-
-Shopifyアプリのナビゲーションメニューは、通常以下の方法で実装します：
-
-1. **サイドバーメニューに追加**（MainLayout.tsx）
-   - 既存のメニュー構造に上記4項目を追加
-
-2. **Shopify App Bridgeのナビゲーション**（必要な場合）
-   - App Bridgeを使用してShopify管理画面との統合
-
-### 注意事項
-
-- パスが不明な画面は、既存のルーティングを確認してください
-- アイコンは適切なものを選んでください（react-iconsなど）
-- 順序は上記の通りでお願いします
-
-### 優先度
-
-中〜高（初期設定画面の次に重要）
-
-よろしくお願いします！
-
----
-
-# Yukiさんへ - 初期設定画面の実装指示（完了済み）
-
-作成日: 2025年8月5日 08:30  
-作成者: Kenji
-
-## 本日の最優先タスク
-
-初期設定画面の実装をお願いします！詳細設計書は以下にあります：
-`/docs/03-design-specs/screen-designs/initial-setup-design-2025-08-05.md`
-
-### 実装順序（推奨）
-
-1. **初期設定チェックロジック（30分）**
-   - `frontend/src/components/Layout.tsx` を修正
-   - アプリ起動時に `/api/setup/status` を呼び出し
-   - 未設定なら `/setup/initial` へリダイレクト
-
-2. **データ同期設定画面（1時間）**
-   - `frontend/src/pages/setup/initial.tsx` を新規作成
-   - シンプルなラジオボタンUI
-   - EC Rangerロゴを忘れずに！
-
-3. **同期実行中画面（1時間）**
-   - `frontend/src/pages/setup/syncing.tsx` を新規作成
-   - プログレスバーとステータス表示
-   - 5秒ごとにAPIポーリング
-
-4. **エラーハンドリング（30分）**
-   - try-catchでAPIエラーをキャッチ
-   - ユーザーフレンドリーなエラーメッセージ
-
-### 重要ポイント
-
-- **シンプルに作る**（完璧を求めない）
-- **EC Rangerブランド**を明確に
-- **TypeScriptの型**は最低限でOK（anyを使っても良い）
-
-### 困ったら
-
-- すぐに質問してください！
-- 既存のコードを参考にしてOK
-- 動けば良い精神で！
-
-頑張ってください！🚀
-
----
-
-# YukiさんへのEC Ranger名称変更タスク指示
-
-## From: Kenji（2025年8月4日 15:45）
-
-Yukiさん、お疲れ様です！
-
-アプリ名を「EC Ranger」に変更する作業をお願いしたいです。
-以下、フロントエンド関連の名称変更タスクをまとめました。
-
-## 🎯 優先度：最高（8月5日デモまでに完了希望）
-
-### 1. 必須変更項目（本日中）
-
-#### パッケージ設定
-- [ ] `frontend/package.json`
-  - name: "ec-ranger-frontend"
-  - description: "EC Ranger - Shopifyストア分析ツール"
-
-#### 公開設定
-- [ ] `frontend/public/manifest.json`
-  - name: "EC Ranger"
-  - short_name: "EC Ranger"
-
-#### UI表示
-- [ ] ヘッダーコンポーネント
-  - タイトル表示を「EC Ranger」に変更
-  - サブタイトルがあれば「Shopifyストア分析ツール」
-
-- [ ] ログインページ
-  - アプリ名表示を変更
-  - ウェルカムメッセージも更新
-
-#### メタ情報
-- [ ] HTMLメタタグ
-  - `<title>EC Ranger</title>`
-  - og:title、og:site_name なども更新
-
-### 2. 環境変数（確認・更新）
-- [ ] `NEXT_PUBLIC_APP_NAME` を "EC Ranger" に
-- [ ] `.env.local` の確認
-- [ ] `.env.production` の確認
-
-### 3. 動作確認項目
-- [ ] ブラウザタブにアプリ名が正しく表示される
-- [ ] ヘッダーのアプリ名表示
-- [ ] ログイン画面のアプリ名
-- [ ] PWAとしてインストールした時の名前
-
-### 4. 注意事項
-- URLやAPIエンドポイントは**変更しません**
-- 内部的な変数名（shopifyAnalytics等）は**そのまま**
-- 表示される部分のみ変更します
-
-### 5. 変更例
-
-```jsx
-// Before
-<h1>Shopify AIマーケティングアプリ</h1>
-
-// After  
-<h1>EC Ranger</h1>
-```
-
-```json
-// package.json
-{
-  "name": "ec-ranger-frontend",
-  "description": "EC Ranger - Shopifyストア分析ツール"
-}
-```
-
-### 作業完了後
-
-1. 変更内容をコミット（メッセージ: "feat: EC Rangerへの名称変更（フロントエンド）"）
-2. 動作確認の結果を `report_yuki.md` に記載
-3. 問題があれば `to_kenji.md` で相談
-
-明日のデモに向けて重要な作業なので、よろしくお願いします！
-不明点があれば遠慮なく質問してください。
-
----
-Kenji
-
----
-
-## 追加タスク：TypeScriptエラー修正（2025年8月4日 16:15）
-
-Yukiさん、追加でTypeScriptのエラー修正をお願いします。
-
-### エラー内容
-`npx tsc --noEmit` 実行時に以下のエラーが発生しています：
-
-```
-src/app/dev/jwt-production-test/page.tsx:51:38 - error TS18046: 'e' is of type 'unknown'.
-src/app/dev/jwt-production-test/page.tsx:75:37 - error TS18046: 'e' is of type 'unknown'.
-src/app/dev/jwt-production-test/page.tsx:102:40 - error TS18046: 'e' is of type 'unknown'.
-```
-
-### 修正方法
-catch節の`e`が`unknown`型のため、`.message`にアクセスできません。
-以下のように修正してください：
-
-```typescript
-// 修正前
-} catch (e) {
-  results.healthCheck = { error: e.message }
-}
-
-// 修正後
-} catch (e) {
-  results.healthCheck = { error: e instanceof Error ? e.message : String(e) }
-}
-```
-
-または、より明示的に：
-
-```typescript
-} catch (e) {
-  const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred'
-  results.healthCheck = { error: errorMessage }
-}
-```
-
-### 対象箇所
-1. 51行目: healthCheckのcatch節
-2. 75行目: authTestのcatch節
-3. 102行目: refreshTestのcatch節
-
-### 優先度
-中（デモには影響しないが、型安全性のため修正推奨）
-
-よろしくお願いします！
-
----
-
-## 2025年8月11日 13:40 - Kenjiより【Shopify APIクリーンアップ関連】
-
-Yukiさん、追加でShopify APIクリーンアップに関する確認をお願いします。
-
-### 完了事項の共有
-
-フロントエンドのShopify API関連のクリーンアップを実施しました：
-
-1. **削除済みファイル**
-   - `frontend/src/lib/shopify.ts` - 本日削除完了（266行のコード）
-   - `frontend/src/app/api/shopify/products/route.ts` - 削除済み
-   - `frontend/src/app/api/shopify/customers/route.ts` - 削除済み
-   - `frontend/src/app/api/shopify/orders/route.ts` - 削除済み
-
-2. **保持しているファイル**
-   - `frontend/src/lib/shopify-deprecated.ts` - 型定義のみ（参照用）
-
-### 確認作業のお願い
-
-#### 1. importチェック（優先度：高）
-
-以下のコマンドで、古いShopify関連のimportが残っていないか確認してください：
-
-```bash
-# shopify.tsのimportチェック
-grep -r "from.*['\"].*\/shopify['\"]" frontend/src/
-
-# shopify-deprecatedの使用状況確認
-grep -r "shopify-deprecated" frontend/src/
-
-# Shopify API関連の直接呼び出しチェック
-grep -r "ShopifyAPI" frontend/src/
-grep -r "calculatePurchaseFrequency" frontend/src/
-grep -r "calculateCustomerSegments" frontend/src/
-grep -r "calculateSalesMetrics" frontend/src/
-```
-
-#### 2. 特に確認が必要なディレクトリ
-
-以下のディレクトリ内のコンポーネントを重点的に確認してください：
-
-- `/src/components/dashboards/`
-  - CustomerDashboard.tsx
-  - SalesDashboard.tsx
-  - DormantCustomerAnalysis.tsx
-  - その他の分析系コンポーネント
-
-- `/src/app/`の各ページ
-  - sales/配下のページ
-  - customers/配下のページ
-  - purchase/配下のページ
-
-#### 3. 環境変数の確認
-
-フロントエンド側でShopify API関連の環境変数が使用されていないか確認：
-
-```bash
-# .envファイルでShopify API関連の変数をチェック
-grep -i "shopify_api" frontend/.env*
-grep -i "shopify_secret" frontend/.env*
-```
-
-### 発見した問題の報告方法
-
-もし古いimportや問題を発見した場合：
-
-1. `report_yuki.md`に詳細を記載
-2. 影響範囲と修正方法を提案
-3. 緊急度が高い場合は`to_all.md`にも共有
-
-### 期待される結果
-
-- 古いShopify関連のimportが一切ない状態
-- すべてのShopifyデータ取得がバックエンドAPI経由
-- フロントエンドにShopify APIキーなどの機密情報が含まれていない
-
-よろしくお願いします！
-
----
-Kenji
-2025年8月11日 13:40
+# Yukiへの依頼事項（2025-09-17）
+
+## 21:45 指示（実装集中：認証/URL統一/モック外し/課金UI）
+
+- 注記: スクリーンショット取得は福田さんが担当。Yukiは実装に専念してください。
+
+### タスク（優先順）
+1) 認証チェック実装の確定
+   - 対象: `app/(authenticated)/layout.tsx`
+   - 現状は既存方式でOK（Clerk移行は後続）。
+2) API URL参照の統一
+   - `NEXT_PUBLIC_API_URL` に一本化。
+   - `NEXT_PUBLIC_BACKEND_URL` と `localhost` フォールバックは排除。
+3) モック/サンプルの段階的無効化
+   - 順序: ダッシュボード → 顧客/購買頻度 → FreeTier 周辺。
+   - `MOCK_PLANS` 等の置換、`useSampleData` 無効化。
+4) 課金UIのAPI接続仕上げ
+   - プラン取得/アップグレード/状態反映のAPI接続完了。
+5) 本番で開発用ルートの非表示/遮断最終チェック
+
+### 依存/前提
+- API: 課金・機能選択系のエンドポイント契約に追従。
+- 環境: `NEXT_PUBLIC_API_URL` をステージング/本番で正設定。
+
+### 期限/報告
+- 期限: 9/18 AM（E2E開始前）
+- 報告: `ai-team/conversations/report_yuki.md`
+
+## 21:58 開始合図
+- 指示どおり、認証→URL統一→モック外し→課金UIの順で着手。
+- 進捗は`report_yuki.md`へ、ブロッカーは`to_kenji.md`へ。
+
+## 2025-09-17 23:18 Kenji → Yuki 回答
+
+- 認証トークン: MVPはCookie `authToken` を使用。`localStorage`は使用しない（XSS耐性）。
+- 署名/有効期限/リフレッシュ: 既存ガイドに従う（当面は短期有効＋自動リフレッシュなし）。
+- APIベースURL: `NEXT_PUBLIC_API_URL`
+  - Staging: https://stg-api.ec-ranger.example.com
+  - Production: https://api.ec-ranger.example.com
+- 課金API: `create`（新規作成）/`upgrade`（プラン変更）でOK。成功時キーは`confirmationUrl`で確定。
+- 無料プラン機能選択API:
+  - 409時は`nextChangeAvailableDate`を返すで確定。
+  - `available-features` の`limits`/`currentUsage`スキーマは現行のままでOK。
+- 本番での開発用ルート遮断: `/dev`, `/design-system`, `/playground` は非表示・遮断対象に含めてください。
+
+## 2025-09-17 23:22 次アクション
+
+1) 無料プラン制限UIの最終仕上げ
+   - 409/403時の理由表示、次回変更可能日、Upgrade導線、残日数の表示を実装完了まで。
+2) ダッシュボード/分析画面のモック完全排除
+   - `useSampleData` 等の無効化、API実データ連携の確認。
+3) 課金UIの通し確認
+   - `create`/`upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映の通し。
+4) middleware遮断の本番フラグ確認
+   - ステージングでの無害化、本番でのみ遮断する条件分岐の確認。
+
+報告: `report_yuki.md` にPRリンク・確認キャプチャを貼付してください。
+
+## 2025-09-17 23:52 指示（仕上げタスクと受け入れ基準）
+
+### 仕上げタスク
+1) 無料プラン制限UIの最終仕上げ
+   - 403/409時の理由表示、次回変更可能日、Upgrade導線、残日数の表示が正しく出ること。
+2) モック排除の完了
+   - ダッシュボード/分析系の`useSampleData`やダミーを全除去、API実データ連携で描画。
+3) 課金UI通し確認
+   - `create`/`upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映まで通しで確認。
+4) middleware遮断の本番条件
+   - 本番のみ遮断、ステージングでは影響しない条件分岐を確認。
+
+### 受け入れ基準（抜粋）
+- 409時に`nextChangeAvailableDate`がUI表示される。
+- 403/409時にUpgrade導線が提示される。
+- ダッシュボードにモック依存が一切無い（コード確認含む）。
+- 課金承認完了後、UIが自動で最新状態（プラン/トライアル残）に反映。
+
+提出物
+- PRリンク、確認キャプチャ（403/409ケース、課金通し）、影響範囲メモ
+
+ブロッカーは `to_kenji.md` へ。
+
+## 2025-09-18 00:11 受領・次タスク
+
+- 受領: 認証/URL統一/middleware遮断/ダッシュボード実API化/課金UI接続/Upgrade導線 ありがとうございます。
+
+次タスク（優先順）
+1) 分析画面のモック完全排除＋API接続
+   - `CustomerSegmentAnalysis`, `PurchaseFrequencyDetailAnalysis`, `ProductPurchaseFrequencyAnalysis`, `CustomerPurchaseAnalysis`
+2) 課金E2E通し
+   - `create|upgrade`→`confirmationUrl`→承認→Webhook反映→UI反映
+3) 403/409表示の受け入れ基準検証
+   - 理由・`nextChangeAvailableDate`・Upgrade導線の表示
+
+提出: PRリンクとキャプチャを`report_yuki.md`へ。

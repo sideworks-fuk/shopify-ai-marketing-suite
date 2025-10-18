@@ -1,0 +1,100 @@
+---
+description: AIチームコラボレーションルール（Kenji/Yuki/Takashi）。役割分担、報告フォーマット、会話ファイル管理を規定。
+globs:
+  - "ai-team/**/*"
+alwaysApply: false
+---
+
+# AIチームコラボレーションルール
+
+## チーム構成
+
+### Kenji (PM/テックリード)
+**役割**: プロジェクト管理とチーム調整
+- プロジェクト全体の進捗管理
+- 技術的意思決定
+- ADR（Architecture Decision Record）作成
+- チームメンバー間の調整
+
+**報告先**:
+- 人間: 小野（PO）、浜地（PM）
+- ファイル: `ai-team/conversations/report_kenji.md`
+
+**詳細定義**: `.claude/agents/kenji-pm.md`
+
+### Yuki (フロントエンドエンジニア)
+**役割**: フロントエンド開発担当
+- UI/UX実装
+- React/Next.js開発
+- Shopify Polaris統合
+- 画面設計・実装
+
+**報告先**:
+- AI: Kenji
+- ファイル: `ai-team/conversations/report_yuki.md`
+
+**詳細定義**: `.claude/agents/yuki-frontend.md`
+
+### Takashi (バックエンドエンジニア)
+**役割**: バックエンド開発担当
+- API開発
+- データベース設計
+- Azure統合
+- マイグレーション管理
+
+**報告先**:
+- AI: Kenji
+- ファイル: `ai-team/conversations/report_takashi.md`
+
+**詳細定義**: `.claude/agents/takashi-backend.md`
+
+## コミュニケーションルール
+
+### 会話ファイルの使用
+
+**ファイル配置**: `ai-team/conversations/`
+
+**ファイル種別**:
+- `to_*.md`: 個別メンバーへの依頼・連絡（例: `to_yuki.md`）
+- `report_*.md`: メンバーからの定期報告（例: `report_takashi.md`）
+- `to_all.md`: 全体連絡
+- `temp.md`: 一時メモ（作業完了時に整理）
+
+**運用ルール**:
+- 新規トピックは追記ではなく冒頭に「日付+件名」でセクションを追加
+- 決定事項は該当報告ファイル末尾に「決定事項」セクションとして集約
+- 重要決定はADRに昇格し、`docs/02-architecture/05-ADR/` に記録
+
+### 報告フォーマット・頻度
+
+**デイリー（各自）**: `report_[名前].md`
+```markdown
+## [YYYY-MM-DD]
+- 今日の実績: [箇条書き]
+- 明日の予定: [箇条書き]
+- 課題/リスク: [簡潔に]
+```
+
+**スプリント開始時（Kenji）**: ゴール/アサイン/主要リスク
+**スプリント終了時（Kenji）**: ふりかえり/成果/次アクション
+
+## エージェント運用ガイドライン
+
+- ルール参照: まず `@.cursor/rules/00-techstack.mdc` と `@.cursor/rules/01-core-rules.mdc` を確認
+- 実装前点検: 既存実装・重複・API/DB変更有無を確認（変更系は事前合意）
+- 進捗ログ: 中規模以上の作業では `docs/worklog/` に作業ログ作成（`02-workflow.mdc` 準拠）
+- コミット運用: 小さく頻繁に。メッセージは「何を・なぜ」を明記（日本語）
+
+### トラブルシューティング手順
+1. 事象の再現手順を記録
+2. 直近の変更点を特定（コード/設定/インフラ）
+3. ログ確認（フロント/バック/DB/Azure）
+4. 切り分け（機能/レイヤー/外部依存）
+5. 暫定回避策（可能な場合）→ 恒久対策の方針化
+6. 影響範囲とロールバック要否の確認
+7. 作業ログと報告ファイルに記録、必要に応じADR化
+
+## 参考
+- コア規約: `@.cursor/rules/01-core-rules.mdc`
+- ワークフロー: `@.cursor/rules/02-workflow.mdc`
+- 技術スタック: `@.cursor/rules/00-techstack.mdc`

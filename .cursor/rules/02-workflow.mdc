@@ -1,0 +1,284 @@
+---
+description: 作業フロー、進捗管理、ログ記録ルール。ブランチ戦略とドキュメント化を規定。
+globs:
+  - docs/**
+  - frontend/**
+  - backend/**
+alwaysApply: true
+---
+
+# 作業フロー・進捗管理ルール
+
+## 作業フロー
+
+### 1. 作業開始時
+実施事項：
+- タスクの理解と不明点の確認
+- 関連ルールファイルの確認（`.cursor/rules/*.mdc`）
+- 既存実装の調査（重複防止）
+- 作業計画の立案
+
+### 2. 実装中
+実施事項：
+- ステップごとの進捗報告
+- 問題発生時の即座報告
+- 中間成果物の検証
+- コードレビュー準備
+
+### 3. 作業完了時
+実施事項：
+- 最終確認
+- 作業ログ作成（**必須**）
+- 結果報告
+- 関連ドキュメントの更新
+
+## 作業ログ管理
+
+### 作業履歴ログ（必須）
+
+**目的**: 開発履歴を記録し、振り返りを可能にする
+
+**ファイル命名**: `./docs/worklog/YYYY/MM/YYYY-MM-DD-{作業内容の簡潔な説明}.md` または `./docs/worklog/YYYY/MM/YYYYMMDD-HHMMSS-{タスク概要}.md`
+
+**記録タイミング**: 作業完了時（必須）
+
+**記録場所**: `docs/worklog/YYYY/MM/` ディレクトリ
+
+**フォーマット**:
+```markdown
+# 作業ログ: {タスク概要}
+
+## 作業情報
+- 開始日時: YYYY-MM-DD HH:MM:SS
+- 完了日時: YYYY-MM-DD HH:MM:SS
+- 所要時間: X時間Y分
+- 担当: 福田＋AI Assistant
+
+## 作業概要
+[作業の要約を簡潔に記述]
+
+## 実施内容
+1. [具体的な実施内容]
+2. [実施内容続き]
+3. [実施内容続き]
+
+## 成果物
+- [作成・修正したファイル一覧]
+- [主要な変更点]
+
+## 課題・注意点
+- [発生した課題と対応]
+- [今後の注意点]
+
+## 関連ファイル
+- [関連するタスクファイルのパス]
+- [参照したドキュメントのパス]
+```
+
+**作成例**:
+```markdown
+# 作業ログ: 顧客分析画面フィルタ機能追加
+
+## 作業情報
+- 開始日時: 2025-10-18 10:00:00
+- 完了日時: 2025-10-18 15:30:00
+- 所要時間: 5時間30分
+- 担当: 福田＋AI Assistant
+
+## 作業概要
+顧客分析画面に日付範囲とステータスによるフィルタ機能を追加
+
+## 実施内容
+1. FilterContextの作成（frontend/src/contexts/FilterContext.tsx）
+2. DateRangeFilterコンポーネントの実装
+3. StatusFilterコンポーネントの実装
+4. フィルタリセット機能の追加
+
+## 成果物
+- frontend/src/contexts/FilterContext.tsx（新規）
+- frontend/src/components/filters/DateRangeFilter.tsx（新規）
+- frontend/src/components/filters/StatusFilter.tsx（新規）
+- frontend/src/app/customer-analysis/page.tsx（更新）
+
+## 課題・注意点
+- 日付フィルタのタイムゾーン処理に注意
+- パフォーマンス: 大量データ時の最適化が必要
+
+## 関連ファイル
+- docs/03-design-specs/frontend/filter-system.md
+```
+
+### タスク管理ファイル（条件付き）
+
+**作成条件**: 以下のいずれかに該当する場合
+- 複数ファイルにまたがる作業（3ファイル以上）
+- 推定作業時間が30分以上
+- 複数ステップに分かれる作業（3ステップ以上）
+
+**ファイル命名**: `./tasks/task-YYMMDD-{タスクID}.md`
+
+**フォーマット**:
+```markdown
+# タスク: {タスク名}
+
+## タスク情報
+- タスクID: {YYMMDD-タスクID}
+- 作成日: YYYY-MM-DD
+- 優先度: [高/中/低]
+- 状況: [未着手/進行中/完了/保留]
+
+## 作業内容
+
+### 目標
+[達成すべき目標を明確に記述]
+
+### 前提条件・制約
+[守るべき制約や前提条件]
+
+### 作業ステップ
+- [ ] ステップ1: [詳細説明]
+- [ ] ステップ2: [詳細説明]
+- [ ] ステップ3: [詳細説明]
+
+## 進捗メモ
+- [YYYY-MM-DD HH:MM] [進捗内容]
+- [YYYY-MM-DD HH:MM] [進捗内容]
+
+## 完了条件
+[完了の判定基準を明確に記述]
+
+## 関連ファイル
+[作業対象ファイル一覧]
+```
+
+### ログ記録の実行指示
+
+**タイミング別の対応**:
+1. **作業開始時**: タスク管理ファイル作成（条件に該当する場合）
+2. **作業完了時**: 作業履歴ログを必ず作成
+3. **長時間作業時**: 中間進捗をタスクファイルに記録
+4. **ファイル未存在時**: ログファイルを自動作成
+
+## ブランチ戦略
+
+### 現在のブランチ構成
+```
+main (本番環境 - 将来使用)
+  ├── develop (開発統合 - 現在メイン) ✅
+  └── feature/* (機能開発)
+```
+
+### 機能開発フロー
+
+**ステップ1: featureブランチ作成**
+```powershell
+# developから最新を取得
+git checkout develop
+git pull origin develop
+
+# featureブランチ作成
+git checkout -b feature/new-feature-name
+```
+
+**ステップ2: 開発・テスト**
+```powershell
+# 開発作業...
+# ローカルテスト...
+
+# 定期的にコミット
+git add [ファイル]
+git commit -m "commit message"
+```
+
+**ステップ3: developへのPR**
+```powershell
+# リモートにプッシュ
+git push origin feature/new-feature-name
+
+# GitHubでPR作成
+# - Base: develop
+# - Compare: feature/new-feature-name
+# - レビュワー指定
+# - 説明記入
+```
+
+**ステップ4: 開発環境で動作確認**
+- フロントエンド: https://brave-sea-038f17a00.1.azurestaticapps.net
+- バックエンドAPI: https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net
+
+### ブランチ命名規則
+```
+feature/機能名-簡潔な説明
+例:
+- feature/customer-filter
+- feature/db-migration-tracking
+- feature/api-error-handling
+```
+
+### コミット・プッシュのタイミング
+- **小さな単位で頻繁にコミット**: 機能単位、修正単位
+- **1日の終わりには必ずプッシュ**: バックアップとして
+- **大きな変更前にはコミット**: ロールバック可能な状態を維持
+
+## 日時の記録
+
+### 重要原則
+**ファイルに更新日などを記載する前に、必ず正確な実際の日時を確認すること**
+
+### 日時形式
+- **ISO 8601形式推奨**: `YYYY-MM-DD HH:MM:SS`
+- **タイムゾーン**: JST（日本標準時）
+- **ファイル名**: `YYYY/MM/YYYY-MM-DD-説明.md` または `YYYY/MM/YYYYMMDD-HHmmss-説明.md`
+
+### 日時取得方法
+```powershell
+# PowerShellで現在日時取得
+Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+# ファイル名用（例）
+Get-Date -Format "yyyy/MM/yyyy-MM-dd"
+Get-Date -Format "yyyy/MM/yyyyMMdd-HHmmss"
+```
+
+### 記録すべき日時
+- 作業開始日時
+- 作業完了日時
+- コミット日時
+- マイグレーション適用日時
+- ドキュメント更新日時
+
+## 進捗報告
+
+### 定期報告のタイミング
+- 作業完了時（必須）
+- 長時間作業時の中間報告（2時間以上の作業）
+- 問題発生時（即座）
+- 重要な判断が必要な時（事前）
+
+### 報告フォーマット
+```markdown
+## 進捗報告 - [YYYY-MM-DD]
+
+### 完了事項
+- [完了したタスク]
+
+### 進行中
+- [進行中のタスクと進捗率]
+
+### 課題・ブロッカー
+- [発生している問題]
+
+### 次のアクション
+- [次に予定している作業]
+```
+
+## PowerShell コマンド実行ルール
+- サブシェル（$(...)）やバッククォートは使用禁止
+- パイプ（|）やリダイレクト（>）を使う複合コマンドは避け、単純コマンドに分解
+- 日時が必要な場合は、まず単独コマンドで取得し、その出力を明示的に使用
+
+## 参考ドキュメント
+- 基本ルール: `@.cursor/rules/01-core-rules.mdc`
+- 技術スタック: `@.cursor/rules/00-techstack.mdc`
+- プロジェクト管理: `@docs/01-project-management/`
+- 作業ログ例: `@docs/worklog/`

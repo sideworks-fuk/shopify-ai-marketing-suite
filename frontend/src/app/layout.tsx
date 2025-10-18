@@ -5,6 +5,7 @@ import { ZustandProvider } from "@/components/providers/ZustandProvider"
 import { AuthProvider } from "@/components/providers/AuthProvider"
 import { FilterProvider } from "@/contexts/FilterContext"
 import { StoreProvider } from "@/contexts/StoreContext"
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext"
 import ConditionalLayout from "@/components/layout/ConditionalLayout"
 import "./globals.css"
 import "@shopify/polaris/build/esm/styles.css"
@@ -19,27 +20,25 @@ export const metadata: Metadata = {
     description: "EC Ranger - Shopifyストアの売上を最大化する包括的な分析ダッシュボード",
     siteName: "EC Ranger",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "EC Ranger - Shopifyストア分析ツール",
+      }
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "EC Ranger",
     description: "Shopifyストアの売上を最大化する分析ツール",
+    images: ["/twitter-image.png"],
   },
   icons: {
-    icon: [
-      {
-        url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏪</text></svg>",
-        type: "image/svg+xml",
-      },
-    ],
-    shortcut: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏪</text></svg>",
-    apple: [
-      {
-        url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏪</text></svg>",
-        sizes: "180x180",
-        type: "image/svg+xml",
-      },
-    ],
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+    shortcut: "/icon.png",
   },
 }
 
@@ -53,13 +52,15 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <StoreProvider>
-            <ZustandProvider>
-              <FilterProvider>
-                <ConditionalLayout>
-                  {children}
-                </ConditionalLayout>
-              </FilterProvider>
-            </ZustandProvider>
+            <SubscriptionProvider>
+              <ZustandProvider>
+                <FilterProvider>
+                  <ConditionalLayout>
+                    {children}
+                  </ConditionalLayout>
+                </FilterProvider>
+              </ZustandProvider>
+            </SubscriptionProvider>
           </StoreProvider>
         </AuthProvider>
       </body>

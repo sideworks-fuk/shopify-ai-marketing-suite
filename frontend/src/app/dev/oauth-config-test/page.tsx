@@ -338,8 +338,8 @@ export default function OAuthConfigTestPage() {
                 <pre className="text-sm text-gray-700">
 {`# .env.local
 NEXT_PUBLIC_ENVIRONMENT=development
-NEXT_PUBLIC_API_URL=${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}
-BACKEND_API_URL=${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}`}
+NEXT_PUBLIC_API_URL=${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}
+BACKEND_API_URL=${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}`}
                 </pre>
               </div>
             </div>

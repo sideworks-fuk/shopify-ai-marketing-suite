@@ -10,17 +10,17 @@ export function useIsEmbedded(): boolean {
   useEffect(() => {
     // Shopifyから埋め込まれている場合のパラメータチェック
     const embedded = 
-      searchParams.has('embedded') || 
-      searchParams.has('host') ||
+      searchParams?.has('embedded') || 
+      searchParams?.has('host') ||
       (typeof window !== 'undefined' && window.location !== window.parent.location)
     
-    setIsEmbedded(embedded)
+    setIsEmbedded(embedded || false)
     
     // デバッグ情報
     if (embedded) {
       console.log('🛍️ Shopify embedded mode detected')
-      console.log('  - embedded:', searchParams.get('embedded'))
-      console.log('  - host:', searchParams.get('host'))
+      console.log('  - embedded:', searchParams?.get('embedded'))
+      console.log('  - host:', searchParams?.get('host'))
     }
   }, [searchParams])
     

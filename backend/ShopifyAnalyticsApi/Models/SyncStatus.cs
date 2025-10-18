@@ -44,6 +44,9 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(50)]
         public string? SyncPeriod { get; set; } // '3months', '6months', '1year', 'all'
         
+        [MaxLength(50)]
+        public string? EntityType { get; set; } // 'Product', 'Customer', 'Order', 'All'
+        
         public string? Metadata { get; set; } // JSON形式の追加情報
     }
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { NavMenu, useAppBridge } from '@shopify/app-bridge-react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 /**
  * 高度なShopifyナビゲーション実装
@@ -67,14 +68,28 @@ export function ShopifyNavigationAdvanced() {
           href="/" 
           rel="home"
           onClick={(e) => handleNavigation(e, '/')}
+          className="flex items-center"
         >
-          EC Ranger
+          <Image
+            src="/branding/logo.png"
+            alt="EC Ranger"
+            width={150}
+            height={48}
+            className="h-8 md:h-9 w-auto"
+            priority
+          />
         </a>
         <a 
           href="/setup/initial"
           onClick={(e) => handleNavigation(e, '/setup/initial')}
         >
           データ同期
+        </a>
+        <a 
+          href="/sync"
+          onClick={(e) => handleNavigation(e, '/sync')}
+        >
+          同期ステータス
         </a>
         <a 
           href="/sales/year-over-year"

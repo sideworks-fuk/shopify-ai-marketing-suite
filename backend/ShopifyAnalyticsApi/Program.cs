@@ -13,6 +13,9 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Hangfire;
+using Hangfire.SqlServer;
+using ShopifyAnalyticsApi.Jobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,18 +139,61 @@ builder.Services.AddScoped<IMonthlySalesService, MonthlySalesService>();
 // Register Store Service (ストア管理サービス)
 builder.Services.AddScoped<IStoreService, StoreService>();
 
+// Register Feature Selection Service (無料プラン機能選択サービス)
+builder.Services.AddScoped<IFeatureSelectionService, FeatureSelectionService>();
+
 // Register Token Service (トークンサービス)
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Register Data Cleanup Service (データクリーンアップサービス)
 builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 
+// Register GDPR Service (GDPR準拠サービス)
+builder.Services.AddScoped<IGDPRService, GDPRService>();
+
 // Register Shopify Data Sync Service (Shopifyデータ同期サービス)
 builder.Services.AddScoped<ShopifyApiService>();
 builder.Services.AddScoped<ShopifyDataSyncService>();
 
+// Register Subscription Service (サブスクリプション管理サービス)
+builder.Services.AddScoped<ISubscriptionService, ShopifySubscriptionService>();
+
+// Register Sync Management Services (同期管理サービス)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ICheckpointManager, ShopifyAnalyticsApi.Services.Sync.CheckpointManager>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncRangeManager, ShopifyAnalyticsApi.Services.Sync.SyncRangeManager>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncProgressTracker, ShopifyAnalyticsApi.Services.Sync.SyncProgressTracker>();
+
+// Register Shopify Sync Jobs (Shopify同期ジョブ)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyProductSyncJob>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
+
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
+
+// HangFire設定
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new Hangfire.SqlServer.SqlServerStorageOptions
+    {
+        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+        QueuePollInterval = TimeSpan.Zero,
+        UseRecommendedIsolationLevel = true,
+        DisableGlobalLocks = true
+    }));
+
+// HangFireサーバー設定（安全側: 並列1）
+builder.Services.AddHangfireServer(options =>
+{
+    options.ServerName = "EC-Ranger-Server";
+    options.WorkerCount = 1;
+});
+
+// KeepAliveサービス登録（Azure App Service対策）
+builder.Services.AddHostedService<KeepAliveService>();
 
 // Application Insights接続文字列の環境変数対応
 var aiConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
@@ -262,6 +308,19 @@ else
 
 app.UseHttpsRedirection();
 
+// HangFireダッシュボード設定
+app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
+{
+    Authorization = new[] { new ShopifyAnalyticsApi.Filters.HangfireAuthorizationFilter() },
+    DashboardTitle = "EC Ranger - Job Dashboard"
+});
+
+// GDPR: pending処理の定期実行（*/5分）
+RecurringJob.AddOrUpdate<GdprProcessingJob>(
+    "gdpr-process-pending",
+    job => job.ProcessPendingRequests(),
+    "*/5 * * * *");
+
 // セキュリティヘッダーを追加
 app.Use(async (context, next) =>
 {
@@ -298,6 +357,9 @@ app.UseAuthentication();
 
 // ストアコンテキストミドルウェア（認証後、承認前）
 app.UseStoreContext();
+
+// 機能アクセス制御ミドルウェア（ストアコンテキスト後、承認前）
+app.UseFeatureAccess();
 
 app.UseAuthorization();
 
