@@ -148,3 +148,12 @@
 - [商品分析機能](../product-analysis/README.md)
 - [購買分析機能](../purchase-analysis/README.md)
 - [休眠顧客パフォーマンス最適化](../../performance/dormant-customer-optimization.md)
+
+## 提案（リンク整備）
+- [ ] `CUST-01-DORMANT.md` への相対リンク確認
+- [ ] `CUST-02-ANALYSIS.md` への相対リンク確認
+- [ ] パフォーマンス関連の相対リンク（`../../performance/..`）の有無確認
+- [ ] 親README（`../README.md`）への戻りリンク追記
+
+### 親READMEへ戻る
+- [全体（クイックアクセス）に戻る](../README.md#🔍-クイックアクセス)

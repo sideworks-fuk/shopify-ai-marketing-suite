@@ -1,207 +1,109 @@
-# Takashi からの報告書
+# Report: Takashi (Backend) - 2025-10-18
 
-## 更新履歴
+宛先: Kenji（PM/Tech Lead）
 
-### 2025-09-06: Quick Ship Tracker バックエンド実装
+## 概要
+GDPR/DB関連ドキュメントの棚卸しを実施し、正本・重複・要更新箇所を確定。再編アクション案を提示し、DBトレーサビリティ（実装/DDL/追跡）の突合を完了しました。
 
-#### 実装完了内容
+## 実施詳細（完了）
+- `docs/01-project-management/04-organization/doc-cleanup/audit-checklist.md` に監査結果を追記（GDPR正本・重複・要更新の明確化、DbContext整合の行を追加）
+- `docs/01-project-management/04-organization/doc-cleanup/reorg-action-plan.md` に統合・表記整合・DDL追補・設計差分解消の具体案を追記
+- DBトレーサビリティ突合：実装（DbContext/各Controller・Service）とDDL（個別/MASTER）/追跡（tracking.md）の整合を確認
+ - controllers.md: `/api/webhook/...` 統一・旧表記注記、正本への相対リンク、変更点節を追加
+ - データベースモデル一覧.md: IdempotencyKey列/Filtered Unique名、GDPR/監査テーブル主要項目/インデックスを本文反映、変更点節追記
+ - database-migration-tracking.md: 具体セル更新案を追記（IdempotencyKey FIX、課金DDL、GDPR DDL）
+ - gdpr-unification-plan.md: 旧→正本（章レベル）対応表を新規作成
 
-##### 1. プロジェクト構造の作成 ✅
-- **QuickShipTracker.sln** - ソリューションファイル
-- **QuickShipTracker.Api** - Web APIプロジェクト (.NET 8.0)
-- **QuickShipTracker.Core** - ビジネスロジック層
-- **QuickShipTracker.Data** - データアクセス層
+## 監査結果（要点）
+- 正本維持: `docs/00-production-release/gdpr-compliance/*`（仕様・計画・実装状況）
+- 重複/旧版: `docs/06-shopify/03-GDPR/*`, `docs/06-shopify/04-GDPR対応/*` → 正本参照化を提案
+- 要更新: `docs/03-design-specs/backend/controllers.md`（GDPRエンドポイントのルート表記統一）
+- 要更新: `docs/02-architecture/02-データベース設計/データベースモデル一覧.md`（GDPR/監査系の最新差分反映）
 
-##### 2. データモデルとEntity Framework ✅
-**Core Models**
-- Shop (ストア情報)
-- Order (注文情報)
-- TrackingInfo (配送追跡)
-- BillingPlan (料金プラン)
+## GDPR正本統合方針（提案）
+- `docs/06-shopify/03-* / 04-*` の重複は内容を精査のうえ、`docs/00-production-release/gdpr-compliance/*` を正本に統合（旧ファイルは参照化）
+- `controllers.md` はルート表記を `/api/webhook/...` に統一し、過去表記 `/api/webhooks/...` との差異は注記
+- DDL追補: `WebhookEvents.IdempotencyKey` に Filtered Unique を明文化（既存DDLは確認済）
 
-**DTOs完備**
-- 認証、注文、追跡、課金用のDTO一式
+## DBトレーサビリティ突合結果
+- 冪等性キー（WebhookEvents.IdempotencyKey）
+  - DDL: 2025-08-24 追加、2025-08-25 修正版でFiltered Unique作成、MASTERスクリプトにも収録済
+  - 実装: `WebhookController` で事前Existsチェックとキー生成を実装済
+  - 追跡: `database-migration-tracking.md` の表にユニークインデックス適用の明記が必要（適用状況の列更新）
+- 課金テーブル（SubscriptionPlans / StoreSubscriptions）
+  - DDL: 個別DDL（2025-08-24-CreateBillingTables.sql）および MASTER に収録済
+  - 実装: `ShopifyDbContext` に `DbSet` 定義済、複数Controller/Serviceから参照・更新を確認
+  - 追跡: tracking.md に適用日時の明記はあるが、環境別（Staging/Production）の反映は未更新箇所がある可能性
 
-##### 3. REST API実装 ✅
-**認証** (`AuthController`)
-- OAuth認証フロー
-- JWT トークン発行
-- セッション管理
+## 差分・リスク
+- ルート表記の揺れ: `/api/webhook/*` と `/api/webhooks/*` が文書間で混在（実装は `/api/webhook/*`）
+- tracking.md の記載粒度: IdempotencyKey Unique の明記、課金DDLの環境別適用状況が最新ではない可能性
 
-**注文管理** (`OrdersController`)
-- 注文一覧/詳細取得
-- ページング/検索対応
+## 依頼事項（承認リクエスト）
+1) 文書再編の実施承認
+   - 対象: `docs/06-shopify/03-* / 04-*` → 正本への参照化（内容は正本へ統合）
+2) ドキュメント整合の実施承認
+   - `docs/03-design-specs/backend/controllers.md` のルート表記統一（注記追記）
+   - `docs/02-architecture/02-データベース設計/データベースモデル一覧.md` の最新差分反映
+3) tracking.md 更新の承認
+   - IdempotencyKey Unique の明記、課金DDLの環境別適用状況の更新
 
-**配送追跡** (`TrackingController`)
-- トラッキング情報CRUD
-- 一括登録機能
-- プラン制限チェック
+## 次のアクション（期限付き）
+- [2025-10-19 10:00] controllers.md の表記統一を反映（注記追記）
+- [2025-10-19 11:30] データベースモデル一覧の差分を本体反映
+- [2025-10-19 14:00] 06-shopify 側GDPR文書を正本参照化（旧に参照追記）
+- [2025-10-19 16:00] tracking.md の表更新（環境別適用状況/ユニーク制約の明記）
 
-**課金** (`BillingController`)
-- 3つの料金プラン (Free/Basic/Pro)
-- 使用量追跡
-- Shopify Billing API統合
+## ブロッカー
+- なし
 
-**Webhooks** (`WebhookController`)
-- GDPR必須Webhook対応
-- 署名検証実装
+## 参照（根拠）
+- 正本: `docs/00-production-release/gdpr-compliance/*`
+- 監査/棚卸し: `docs/01-project-management/04-organization/doc-cleanup/audit-checklist.md`
+- 統合方針: `docs/01-project-management/04-organization/doc-cleanup/reorg-action-plan.md`
+- DDL: `docs/04-development/03-データベース/マイグレーション/*.sql`, `2025-09-04-MASTER-CreateDatabaseFromScratch.sql`
+- 実装: `backend/ShopifyAnalyticsApi/Data/ShopifyDbContext.cs`, 各 `Controllers`/`Services`
 
-##### 4. セキュリティ実装 ✅
-- JWT Bearer認証
-- CSRF防止 (state parameter)
-- Webhook署名検証
-- セキュリティヘッダー
-- CORS設定
-
-##### 5. 技術仕様
-```
-Framework: ASP.NET Core 8.0
-Database: SQLite (EF Core 8.0.8)
-Shopify: ShopifySharp 6.18.0
-API Docs: Swagger/OpenAPI
-```
-
-#### ビルド状態
-✅ **ビルド成功** - 警告2件のみ
-
-#### アクセス情報
-- API: https://localhost:5001
-- Swagger: https://localhost:5001/swagger
+以上です。承認いただければ、上記順でPRを分割して進めます。
 
 ---
 
-### 2025-08-25: バックエンドコンパイルエラー修正
+# Report to Kenji from Takashi - 2025-10-18（統合）
 
-#### 実施内容
-バックエンドのコンパイルエラーを修正しました。
+## 概要
+TakashiがGDPR/DB関連ドキュメントの棚卸し・統合提案・DBトレーサビリティ突合を完了。正本/重複/要更新を明確化し、反映に向けた承認依頼と次アクションを提示します。
 
-#### 修正内容
+## 完了事項（Takashi）
+- 監査結果の反映
+  - `docs/01-project-management/04-organization/doc-cleanup/audit-checklist.md` へGDPR/DBの棚卸し結果を追記
+- 再編アクション案の明文化
+  - `docs/01-project-management/04-organization/doc-cleanup/reorg-action-plan.md` に統合・表記整合・DDL追補・設計差分解消の具体案を追記
+- DBトレーサビリティ突合の完了
+  - WebhookEvents.IdempotencyKey（Filtered Unique）: DDL/実装/MASTER で整合
+  - 課金テーブル（SubscriptionPlans/StoreSubscriptions）: DDL/実装/追跡で整合
+- 文書内提案の追記
+  - `docs/03-design-specs/backend/controllers.md`: GDPRルート表記統一の提案章（/api/webhook/...）
+  - `docs/02-architecture/02-データベース設計/データベースモデル一覧.md`: GDPR/監査テーブルの最新差分反映の提案章
+  - `audit-checklist.md`: tracking.md更新案（IdempotencyKey Unique明記、課金DDL環境別適用）
 
-##### 1. StoreSubscriptionモデルへのPlanNameプロパティ追加
-**ファイル**: `backend/ShopifyAnalyticsApi/Models/WebhookModels.cs`
-- StoreSubscriptionクラスにPlanNameプロパティ（string?型）を追加
-- WebhookController.csで使用されていたプロパティの不足を解消
+## 承認リクエスト
+1) 文書再編
+- 対象: `docs/06-shopify/03-* / 04-*` → `docs/00-production-release/gdpr-compliance/*` を正本とし、旧ファイルは参照化
 
-##### 2. StoreモデルへのShopifyUrlプロパティ追加
-**ファイル**: `backend/ShopifyAnalyticsApi/Models/DatabaseModels.cs`
-- ShopifyUrlプロパティを計算プロパティとして追加（Domainプロパティのエイリアス）
-- FeatureSelectionService.csで使用されていたプロパティの不足を解消
+2) ドキュメント整合
+- `controllers.md` のルート表記統一（注記付き）
+- `データベースモデル一覧.md` のGDPR/監査差分の本体反映
 
-##### 3. AvailableFeatureの型エラー修正
-**ファイル**: 
-- `backend/ShopifyAnalyticsApi/Controllers/WebhookController.cs`
-- `backend/ShopifyAnalyticsApi/Services/FeatureSelectionService.cs`
-- `backend/ShopifyAnalyticsApi.Tests/Services/FeatureSelectionServiceTests.cs`
+3) tracking.md 更新
+- IdempotencyKey Unique の明記
+- 課金DDLの環境別適用状況の最新化
 
-AvailableFeatureはenumではなくクラスとして定義されているため、以下の修正を実施：
-- Enum.GetValues<AvailableFeature>()をFeatureConstants.FreeSelectableFeaturesを使用した実装に変更
-- Enum.TryParse<AvailableFeature>()をFeatureConstants.IsValidFeature()を使用した実装に変更
-- テストコードのAvailableFeature.Analyticsなどの参照を適切なインスタンス生成に変更
+## 次アクション（承認後）
+- Day 0: 上記2)の整合反映（小PR）
+- Day 1: 06-shopify 側GDPR文書の参照化（正本へ統合、旧に参照追記）／tracking.md の表更新
 
-##### 4. テストコードの修正
-**ファイル**: `backend/ShopifyAnalyticsApi.Tests/Services/FeatureSelectionServiceTests.cs`
-- ShopifyUrlプロパティへの直接代入を削除（読み取り専用プロパティのため）
+## 補足（検証）
+- MASTERスクリプト（2025-09-04）にGDPR/課金/機能選択テーブルが収録済み
+- 実装側では `DbContext` と複数Controller/Serviceで課金テーブルを参照済み
 
-#### ビルド結果
-```
-0 エラー
-16 個の警告
-```
-すべてのコンパイルエラーが解消されました。
-
-#### 注意事項
-- 警告は残っていますが、ビルドは成功しています
-- 主な警告はnull参照に関するものが多く、今後のコード品質改善で対応可能です
-
-## 2025-09-17 22:52 進捗（GDPR/課金/DBマイグレーション）
-
-- GDPR Webhook 実装確認（`backend/ShopifyAnalyticsApi/Controllers/WebhookController.cs`）
-  - HMAC検証あり、各エンドポイントは即時200返却で5秒ルール対応
-  - 監査ログ: `LogWebhookEvent`で`WebhookEvents`に記録（ただし`IdempotencyKey`未設定）
-  - 冪等性: `GDPRService.CreateRequestAsync`で`IdempotencyKey`生成→`GDPRRequests`ユニーク制約で重複排除
-  - 本番非同期: 削除/エクスポートはTODOコメント（Hangfire/Queueでのスケジュール未実装）
-
-- app/uninstalled 連動（課金キャンセル）
-  - 現状: `CancelStoreSubscription`はローカルDBの`StoreSubscriptions`のみCANCELLEDに更新
-  - 不足: Shopify側への`appSubscriptionCancel`呼び出しなし（`ShopifySubscriptionService.CancelSubscription`未使用）
-
-- 課金/Billing統合
-  - `BillingController`/`SubscriptionController`/`ShopifySubscriptionService`のAPIは揃っており、Confirm用`/api/subscription/confirm`も実装済み
-  - `CreateSubscription`はGraphQLで`confirmationUrl`を取得→ローカルは`pending`で保存
-  - Webhook `subscriptions-update|cancel`でローカル状態を更新
-
-- DBマイグレーション支援
-  - 追跡: `docs/04-development/03-データベース/マイグレーション/database-migration-tracking.md` の更新前提
-  - 福田さんがStaging適用担当。適用後の検証（サブスク/Feature選択/GDPRテーブル）をこちらで実施予定
-
-### 提案（実装は承認後）
-1) `app/uninstalled`で`ShopifySubscriptionService.CancelSubscriptionAsync`を利用しShopify側も確実にキャンセル
-2) `LogWebhookEvent`に`IdempotencyKey`設定（`ShopDomain + Topic + created_at`等）で重複記録防止
-3) HangfireでGDPR`pending`処理の定期実行（例: 5分毎）と`Overdue`警告
-4) HMAC比較は固定時間比較へ（`CryptographicOperations.FixedTimeEquals`）
-
-### 次アクション
-- Kenji承認後、上記1)→2)→3)の順でPR分割実装します（テスト含む）
-
-### 2025-09-17 23:47 進捗報告（方針順守・実装完了項目）
-- 実装（承認済み内容に基づく）
-  - WebhookController:
-    - HMAC固定時間比較・失敗403化
-    - app/uninstalledで`ISubscriptionService.CancelSubscriptionAsync`呼出し（Shopify/ローカル冪等）
-    - `WebhookEvents.IdempotencyKey`生成・重複抑止
-  - Hangfire:
-    - `GdprProcessingJob`を追加し`*/5`分で`ProcessPendingRequests`登録
-- リンター: 新規エラーなし
-- 次: 課金E2E前提確認（確認URL→`/api/subscription/confirm`、環境値の最終チェック、コレクション更新）
-
-### 2025-09-17 23:59 追記（Billing E2E資材）
-- 追加: `backend/ShopifyAnalyticsApi/Tests/Billing-Flow.http`
-- 観点: 確認URL発行→承認→/api/subscription/confirm→status/history→change/cancel→再確認
-- 次: Staging値（NEXT_PUBLIC_API_URL/AppUrl/WebhookSecret）で動作確認、コレクションに環境・フォルダ分割
-
-## 2025-09-18 00:09 進捗（実装完了・次ステップ）
-
-- 実装済: app/uninstalledキャンセル連動 / WebhookEvents.IdempotencyKey / HMAC固定時間比較 / GDPR Hangfire登録
-- 資材: Webhook/Billingの.http と 手順md を追加
-- 次: 指定シナリオでStaging検証 → 結果と分割PRリンクを本ファイルへ記載
-
-## 2025-09-18 00:11 Staging検証（ドラフト）
-- 対象: Webhook（正常/重複/順不同/403）、Billing（subscribe→confirm→status/history→change→cancel）
-- 環境: `https://stg-api.ec-ranger.example.com`（AppUrl/NEXT_PUBLIC_API_URL整合）、WebhookSecret=Staging値
-- 手順資材:
-  - `backend/ShopifyAnalyticsApi/Tests/Webhook-Idempotency.http`
-  - `docs/00-production-release/test-procedures/webhook-idempotency-test-guide.md`
-  - `backend/ShopifyAnalyticsApi/Tests/Billing-Flow.http`
-
-### 結果
-- Webhook（customers-redact, app/uninstalled, customers-data-request）: [実行予定]
-- 監査ログ重複抑止（IdempotencyKeyユニーク）: [実行予定]
-- HMAC不正/欠落403・副作用なし: [実行予定]
-- Hangfire停止/再起動の追従処理: [実行予定]
-- Billing確認URL→/api/subscription/confirm→status/history→change/cancel: [実行予定]
-
-### 分割PRリンク
-- PR#1: uninstalledでCancelSubscriptionAsync呼出し … [リンク]
-- PR#2: WebhookEvents.IdempotencyKey付与と重複抑止 … [リンク]
-- PR#4: HMAC FixedTimeEquals/403対応 … [リンク]
-- PR#3: GDPR Hangfire（*/5分） … [リンク]
-
-## 2025-09-18 00:30 実装完了・検証ハンドオフ
-- 実装完了項目
-  - Webhook: HMAC固定時間比較/403、IdempotencyKey付与・重複抑止、必須ヘッダ検証、Topic許可、サイズ上限、構造化ログ（RequestId/CorrelationId/latencyMs）
-  - Billing: E2E資材（.http）追加、確認URL→/api/subscription/confirmの検証手順準備
-  - GDPR: Hangfire定期実行（*/5分）追加、pending処理実装
-  - 運用: 監視KQL/アラート手順、リプレイ手順ドキュメント追加
-  - Hangfire: ワーカー並列1へ調整
-- 残作業（検証・運用）
-  - Staging指定シナリオの実行と結果記録（Webhook正常/重複/順不同/403、Billing subscribe→confirm→status/history→change→cancel、GDPR pending）
-  - 分割PRリンクの作成・記載（#1, #2, #4, #3）
-  - Postman/Insomniaコレクション（環境付き）の共有
-- 担当引き継ぎ
-  - 検証担当: 福田さん
-  - 参照資料:
-    - `backend/ShopifyAnalyticsApi/Tests/Webhook-Idempotency.http`
-    - `backend/ShopifyAnalyticsApi/Tests/Billing-Flow.http`
-    - `docs/00-production-release/test-procedures/webhook-idempotency-test-guide.md`
-    - `docs/00-production-release/monitoring/app-insights-kql-and-alerts.md`
-    - `docs/00-production-release/operations/webhook-gdpr-replay-procedure.md`
+以上、ご確認と承認をお願いします。

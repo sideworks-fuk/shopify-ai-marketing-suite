@@ -1,9 +1,0 @@
-機能追加に入る前に現状機能を整理していきましょう
-インストールウィザードOKでした。
-
-LocalStrageで使用している以下の変数を整理したい。
-現状使用していない変数がないか？チェックして使っていない変数は整理したい。
-
-selectedStoreId
-currentStoreId
-currentShopDomain

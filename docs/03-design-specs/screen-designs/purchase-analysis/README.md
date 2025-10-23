@@ -124,3 +124,13 @@ RFM分析のF（Frequency：購入頻度）に特化した高度な顧客セグ�
 - [全体画面設計書一覧](../README.md)
 - [商品分析機能](../product-analysis/README.md)
 - [顧客分析機能](../customer-analysis/README.md)
+
+## 提案（リンク整備）
+- [ ] `PURCH-01-MONTHLY.md` への相対リンク確認
+- [ ] `PURCH-02-COUNT.md` への相対リンク確認
+- [ ] `PURCH-03-FTIER.md` への相対リンク確認
+- [ ] 親README（`../README.md`）への戻りリンク追記
+- [ ] 関連ドキュメント（商品/顧客）への相対リンク維持
+
+### 親READMEへ戻る
+- [全体（クイックアクセス）に戻る](../README.md#🔍-クイックアクセス)

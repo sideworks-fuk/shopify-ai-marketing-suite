@@ -1,41 +1,48 @@
 # 🚀 Shopify AIマーケティングスイート - クイックリファレンス
 
-## 📅 最終更新: 2025年7月20日 [[memory:3773065]]
+## 📅 最終更新: 2025年10月18日
 
 ---
 
+### 🔗 重要ドキュメント（正本・統合済み）
+| ドキュメント | パス | 説明 |
+|---|---|---|
+| **GDPR関連** | `docs/00-production-release/03-gdpr-compliance/` | GDPR対応の正本（統合済み） |
+| **ドキュメント整理** | `docs/01-project-management/04-organization/doc-cleanup/` | ドキュメント整理のハブ |
+| **ADR-002** | `docs/02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md` | ドキュメント統合の決定記録 |
+
 ## 📍 **主要URL - ワンクリックアクセス** 
 
-### **🌐 開発環境 (現在のメイン環境)**
-- **フロントエンド**: `https://brave-sea-038f17a00.1.azurestaticapps.net` ⭐
-- **バックエンドAPI**: `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net` ✅
-- **API接続テスト**: `https://brave-sea-038f17a00.1.azurestaticapps.net/api-test` ✅
-- **Database APIテスト**: `https://brave-sea-038f17a00.1.azurestaticapps.net/database-test` 🗄️ **新機能**
-
-### **🖥️ ローカル開発環境**
-- **フロントエンド**: `http://localhost:3000`
-- **バックエンドAPI**: `https://localhost:7177`
-- **Swagger**: `https://localhost:7177/swagger`
-- **Database APIテスト**: `http://localhost:3000/database-test`
-
-### **🏭 本番環境**
-```yaml
-状況: 未構築（Phase 2 で構築予定）
-方針: 現在は開発環境をメイン使用
-```
+| 環境 | サービス | URL | ステータス |
+|---|---|---|---|
+| **🌐 開発環境** | フロントエンド | `https://brave-sea-038f17a00.1.azurestaticapps.net` | ⭐ メイン |
+| | バックエンドAPI | `https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net` | ✅ 稼働中 |
+| | API接続テスト | `https://brave-sea-038f17a00.1.azurestaticapps.net/api-test` | ✅ 利用可能 |
+| | Database APIテスト | `https://brave-sea-038f17a00.1.azurestaticapps.net/database-test` | 🗄️ 新機能 |
+| **🖥️ ローカル環境** | フロントエンド | `http://localhost:3000` | 開発用 |
+| | バックエンドAPI | `https://localhost:7177` | 開発用 |
+| | Swagger | `https://localhost:7177/swagger` | API仕様確認 |
+| | Database APIテスト | `http://localhost:3000/database-test` | 開発用 |
+| **🏭 本番環境** | 状況 | 未構築（Phase 2 で構築予定） | ⏳ 計画中 |
 
 ---
 
 ## ⚡ **クイックスタート**
 
 ### **🖥️ ローカル開発**
-```bash
+```powershell
 # フロントエンド起動
-cd frontend && npm install && npm run dev
+cd frontend
+npm install
+npm run dev
 
-# バックエンド起動  
-cd backend/ShopifyTestApi && dotnet restore && dotnet run
+# バックエンド起動（別ウィンドウで）
+cd backend/ShopifyTestApi
+dotnet restore
+dotnet run
 ```
+
+**詳細なセットアップ手順**: [開発環境セットアップガイド](./04-development/01-環境構築/開発環境セットアップガイド.md)
 
 ### **🌳 ブランチ戦略**
 ```bash
@@ -53,30 +60,21 @@ git push origin feature/new-feature
 
 ## 🔌 **主要APIエンドポイント**
 
-### **✅ 実装済み - Database API**
-```yaml
-接続テスト: /api/database/test
-顧客データ: /api/database/customers  
-注文データ: /api/database/orders
-商品データ: /api/database/products
-DB初期化: /api/database/initialize (POST)
-```
-
-### **✅ 実装済み - Shopify API**
-```yaml
-Health Check: /api/health
-Customer Test: /api/customer/test
-Customer Segments: /api/customer/segments
-Dashboard Data: /api/customer/dashboard
-```
-
-### **🔄 開発予定**
-```yaml
-Shopify Products: /api/shopify/products
-Shopify Orders: /api/shopify/orders
-Batch Processing: /api/batch/*
-Authentication: /api/auth/*
-```
+| カテゴリ | エンドポイント | メソッド | 説明 | ステータス |
+|---|---|---|---|---|
+| **Database API** | `/api/database/test` | GET | 接続テスト | ✅ 実装済み |
+| | `/api/database/customers` | GET | 顧客データ取得 | ✅ 実装済み |
+| | `/api/database/orders` | GET | 注文データ取得 | ✅ 実装済み |
+| | `/api/database/products` | GET | 商品データ取得 | ✅ 実装済み |
+| | `/api/database/initialize` | POST | DB初期化 | ✅ 実装済み |
+| **Shopify API** | `/api/health` | GET | ヘルスチェック | ✅ 実装済み |
+| | `/api/customer/test` | GET | 顧客テスト | ✅ 実装済み |
+| | `/api/customer/segments` | GET | 顧客セグメント | ✅ 実装済み |
+| | `/api/customer/dashboard` | GET | ダッシュボードデータ | ✅ 実装済み |
+| | `/api/shopify/products` | GET | Shopify商品取得 | ✅ 実装済み |
+| | `/api/shopify/orders` | GET | Shopify注文取得 | ✅ 実装済み |
+| | `/api/batch/*` | - | バッチ処理 | 🔄 開発予定 |
+| | `/api/auth/*` | - | 認証システム | 🔄 開発予定 |
 
 ---
 
@@ -144,42 +142,13 @@ git push origin feature/orders-products-frontend
 
 ---
 
-## 📊 **現在の実装状況**
-
-### **✅ Phase 1 完了**
-- ✅ Azure SQL Database統合
-- ✅ Database API (接続、CRUD)
-- ✅ フロントエンド統合画面
-- ✅ develop ブランチ戦略
-
-### **🔄 Phase 2 開発中**
-- 🎯 注文・商品APIフロントエンド統合
-- 🎯 Shopify API連携
-- 🎯 バッチ処理 (Hangfire)
-
-### **⏳ Phase 3 計画**
-- 🎯 本番環境構築
-- 🎯 認証システム
-- 🎯 監視・ログ
-
----
 
 ## 🆘 **トラブルシューティング**
 
 ### **よくある問題**
-```yaml
-CORS エラー: 
-  - フロントエンド → バックエンド接続問題
-  - 解決: バックエンドのCORS設定確認
-
-Database 接続エラー:
-  - Azure SQL接続文字列確認
-  - ファイアウォール設定確認
-
-ビルドエラー:
-  - npm install で依存関係更新
-  - dotnet restore でNuGet復元
-```
+- **フロントエンド起動エラー**: [開発環境セットアップガイド](./04-development/01-環境構築/開発環境セットアップガイド.md#トラブルシューティング)を参照
+- **CORS エラー**: バックエンドのCORS設定確認
+- **Database 接続エラー**: Azure SQL接続文字列・ファイアウォール設定確認
 
 ### **ログ確認先**
 - **Azure App Service**: Portal > App Service > Log stream
@@ -192,6 +161,7 @@ Database 接続エラー:
 
 ### **開発者向け**
 - [📊 **ブックマーク集**](./BOOKMARKS.md) - 全URLワンクリック
+- [🛠️ **環境構築ガイド**](./04-development/01-環境構築/開発環境セットアップガイド.md) - 詳細セットアップ手順
 - [🌳 **ブランチ戦略**](./05-operations/branch-strategy-and-deployment-plan.md) - 開発フロー
 - [🏗️ **システム設計**](./02-architecture/system-architecture.md) - アーキテクチャ
 

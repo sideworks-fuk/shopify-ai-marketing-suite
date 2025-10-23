@@ -103,3 +103,13 @@
 - [全体画面設計書一覧](../README.md)
 - [購買分析機能](../purchase-analysis/README.md)
 - [顧客分析機能](../customer-analysis/README.md)
+
+## 提案（リンク整備）
+- [ ] `PROD-01-YOY.md` への相対リンク確認
+- [ ] `PROD-02-FREQ.md` への相対リンク確認
+- [ ] `PROD-03-BASKET.md` への相対リンク確認
+- [ ] 親README（`../README.md`）への戻りリンク追記
+- [ ] 関連ドキュメント（購買/顧客）への相対リンク維持
+
+### 親READMEへ戻る
+- [全体（クイックアクセス）に戻る](../README.md#🔍-クイックアクセス)
