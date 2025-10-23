@@ -1,13 +1,21 @@
 # 課金システム実装状況報告書
 
 **作成日**: 2025-10-06 13:00 JST
+**最終更新**: 2025-10-20 16:30 JST
 **作成者**: AI Project Assistant
+**更新者**: 福田 + AI Assistant
 **ステータス**: Active
-**全体完成度**: 80%
+**全体完成度**: 85%
 
 ## 1. エグゼクティブサマリー
 
-EC Ranger (Shopify AI Marketing Suite)の課金システムは、**基本機能の実装が80%完了**しており、Shopifyアプリ申請に必要な最小要件を満たしています。ただし、本番環境での動作確認とプラン初期データの投入が必要です。
+EC Ranger (Shopify AI Marketing Suite)の課金システムは、**基本機能の実装が85%完了**しており、Shopifyアプリ申請に必要な最小要件を満たしています。
+
+### 最新の更新（2025-10-20）
+- ✅ **機能ID統一完了**: データベースとコードで機能IDを統一
+  - `dormant_analysis`, `yoy_comparison`, `purchase_frequency` に統一
+- ✅ **機能制限システム実装確認完了**: フロントエンド・バックエンド・データベース全て実装済み
+- ✅ **開発環境での動作確認完了**: 機能ロック解除テスト成功
 
 ### 申請への影響度評価
 - **申請可能レベル**: ✅ 達成（条件付き）
@@ -86,10 +94,11 @@ EC Ranger (Shopify AI Marketing Suite)の課金システムは、**基本機能�
 - 詳細な制限アラート表示
 - 請求履歴表示
 
-### 2.3 データベース実装 (70%完了)
+### 2.3 データベース実装 (90%完了)
 
 #### ✅ 実装済みテーブル
 
+**課金テーブル**
 ```sql
 -- SubscriptionPlans
 CREATE TABLE SubscriptionPlans (
@@ -115,6 +124,40 @@ CREATE TABLE StoreSubscriptions (
     FOREIGN KEY (PlanId) REFERENCES SubscriptionPlans(Id)
 );
 ```
+
+**機能制限テーブル（2025-10-20 確認済み）**
+```sql
+-- FeatureLimits - 機能制限マスタ
+CREATE TABLE FeatureLimits (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    PlanType NVARCHAR(50) NOT NULL,
+    FeatureId NVARCHAR(100) NOT NULL,
+    DailyLimit INT NULL,
+    MonthlyLimit INT NULL,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
+);
+
+-- UserFeatureSelections - ユーザー機能選択
+CREATE TABLE UserFeatureSelections (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    StoreId INT NOT NULL,
+    SelectedFeatureId NVARCHAR(100),
+    LastChangeDate DATETIME2,
+    NextChangeAvailableDate DATETIME2,
+    IsActive BIT DEFAULT 1,
+    FOREIGN KEY (StoreId) REFERENCES Stores(Id)
+);
+
+-- FeatureUsageLogs - 機能使用ログ
+-- FeatureSelectionChangeHistories - 変更履歴
+```
+
+#### ✅ 機能ID統一完了（2025-10-20）
+データベースの機能IDを以下に統一：
+- `dormant_analysis` - 休眠顧客分析
+- `yoy_comparison` - 前年同月比分析
+- `purchase_frequency` - 購入回数詳細分析
 
 #### 🔴 未実装テーブル (MVP仕様で要求)
 - CustomerCountSnapshots - 顧客数履歴
@@ -172,8 +215,8 @@ POST {{baseUrl}}/api/billing/cancel
 -- 実行が必要なSQL
 INSERT INTO SubscriptionPlans (Id, Name, Price, CustomerLimit, Features, TrialDays)
 VALUES
-(1, 'Free', 0, NULL, '["dormant_customers"]', 0),
-(2, 'Basic', 50, 3000, '["dormant_customers","year_over_year","purchase_count"]', 30),
+(1, 'Free', 0, NULL, '["dormant_analysis"]', 0),
+(2, 'Basic', 50, 3000, '["dormant_analysis","yoy_comparison","purchase_frequency"]', 30),
 (3, 'Professional', 150, 10000, '["all_features"]', 30),
 (4, 'Enterprise', 300, 50000, '["all_features","priority_support"]', 30);
 ```

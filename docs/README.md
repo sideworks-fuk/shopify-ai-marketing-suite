@@ -9,7 +9,32 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 
 ---
 
+## 📖 **ドキュメント利用ガイド**
+
+### 👨‍💻 **開発者向け（最新）**
+1. **新規メンバー**: [オンボーディングガイド](00-onboarding.md) ✅ **新規作成**
+2. **クイックスタート**: [QUICK-REFERENCE.md](./QUICK-REFERENCE.md) ✅ **更新済み**
+3. **ブックマーク集**: [BOOKMARKS.md](./BOOKMARKS.md) ✅ **更新済み**
+4. **ブランチ戦略**: [branch-strategy-and-deployment-plan.md](./05-operations/03-デプロイメント/branch-strategy-and-deployment-plan.md) ✅ **新規**
+5. **システム理解**: [system-architecture.md](./02-architecture/01-システム設計/system-architecture.md) 📝 **更新推奨**
+
+### 🗄️ **データベース統合確認**
+1. **設定記録**: [azure-sql-setup-record.md](./06-infrastructure/01-azure-sql/azure-sql-setup-record.md) ✅ **完成**
+2. **統合成功ログ**: [docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md](../docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) ✅ **新規**
+3. **データアーキテクチャ**: [data-processing-architecture.md](./01-project-management/02-business-analysis/data-processing-architecture.md) ✅ **最新**
+
+### 📊 **プロジェクトマネージャー向け**
+1. **プロジェクト状況**: [project-status.md](./01-project-management/01-planning/project-status.md) 📝 **Phase 1完了反映要**
+2. **バックログ管理**: [backlog-management.md](./01-project-management/01-planning/backlog-management.md) 📝 **Database統合反映要**
+
+### 🚀 **運用チーム向け**
+1. **ブランチ戦略**: [branch-strategy-and-deployment-plan.md](./05-operations/03-デプロイメント/branch-strategy-and-deployment-plan.md) ✅ **最新**
+2. **環境URL**: [environment-urls-reference.md](./05-operations/04-環境管理/environment-urls-reference.md) 📝 **Database API反映要**
+
+---
+
 ### 🔗 正本と重要リンク
+- **新規メンバー向け**: [オンボーディングガイド](00-onboarding.md) ✅ **新規作成**
 - GDPR 正本: `docs/00-production-release/03-gdpr-compliance/`
 - 整理ハブ: `docs/01-project-management/04-organization/doc-cleanup/`
 - ADR: `docs/02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md`
@@ -50,10 +75,27 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 ### 🏗️ 02. アーキテクチャ・技術設計
 システム設計、技術的負債分析、アーキテクチャに関するドキュメント
 
+#### **01-システム設計**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [system-architecture.md](./02-architecture/system-architecture.md) | システム設計・プロジェクト構造・技術スタック | 四半期 | 2025-05-25 |
-| [technical-debt.md](./02-architecture/technical-debt.md) | 技術的負債分析・改善ガイド・リファクタリング計画 | 月次 | 2025-06-16 |
+| [system-architecture.md](./02-architecture/01-システム設計/system-architecture.md) | システム設計・プロジェクト構造・技術スタック | 四半期 | 2025-05-25 |
+| [technical-debt.md](./02-architecture/01-システム設計/technical-debt.md) | 技術的負債分析・改善ガイド・リファクタリング計画 | 月次 | 2025-06-16 |
+
+#### **02-データベース設計**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [データベースモデル一覧.md](./02-architecture/02-データベース設計/データベースモデル一覧.md) | エンティティ設計・リレーション・インデックス | 機能追加時 | 2025-10-18 |
+
+#### **03-技術スタック**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [Shopifyアプリ開発技術ガイド.md](./02-architecture/03-技術スタック/Shopifyアプリ開発技術ガイド.md) | 技術選定理由・実装パターン・ベストプラクティス | 四半期 | 2025-05-25 |
+
+#### **05-ADR（アーキテクチャ決定記録）**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [ADR-001-技術スタック選定.md](./02-architecture/05-ADR/ADR-001-技術スタック選定.md) | 技術選定の経緯と理由 | 必要時 | 2025-05-25 |
+| [ADR-002-gdpr-canonical-and-report-naming.md](./02-architecture/05-ADR/ADR-002-gdpr-canonical-and-report-naming.md) | GDPR正本統合とレポート命名規則 | 必要時 | 2025-10-18 |
 
 **📝 更新推奨:**
 - system-architecture.md: Azure SQL Database統合、.NET 8バックエンド反映要
@@ -64,28 +106,63 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 ### 📱 03. 設計・仕様
 画面設計、コンポーネント仕様、ビジネスロジックに関するドキュメント
 
+#### **01-frontend（フロントエンド設計）**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [screen-design.md](./03-design-specs/screen-design.md) | 画面設計仕様・UI/UX設計・機能別詳細仕様 | 機能追加時 | 2025-06-16 |
-| [user-interview-guide.md](./03-design-specs/user-interview-guide.md) | ユーザーインタビューガイド | 必要時 | 最新確認要 |
-| [user-research-framework.md](./03-design-specs/user-research-framework.md) | ユーザー調査フレームワーク | 必要時 | 最新確認要 |
-| [PROD-01-YOY-detailed-design.md](./03-design-specs/PROD-01-YOY-detailed-design.md) | 前年同月比詳細設計 | 機能更新時 | 2025-06-10 |
-| [year-over-year-detailed-design-review.md](./03-design-specs/year-over-year-detailed-design-review.md) | 前年同月比設計レビュー | 必要時 | 最新確認要 |
+| [README.md](./03-design-specs/01-frontend/README.md) | フロントエンド技術スタック・設計方針 | 四半期 | 2025-10-18 |
+| [routing-and-auth.md](./03-design-specs/01-frontend/routing-and-auth.md) | ルーティング・認証設計 | 機能追加時 | 2025-10-18 |
+| [page-billing.md](./03-design-specs/01-frontend/page-billing.md) | 課金ページ設計 | 機能追加時 | 2025-10-18 |
+
+#### **02-backend（バックエンド設計）**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./03-design-specs/02-backend/README.md) | バックエンド技術スタック・設計方針 | 四半期 | 2025-10-18 |
+| [controllers.md](./03-design-specs/02-backend/controllers.md) | APIエンドポイント設計 | 機能追加時 | 2025-10-18 |
+| [services.md](./03-design-specs/02-backend/services.md) | サービス層設計 | 機能追加時 | 2025-10-18 |
+
+#### **11-screen-designs（画面設計）**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./03-design-specs/11-screen-designs/README.md) | 画面設計概要・ナビゲーション | 機能追加時 | 2025-10-18 |
+
+#### **07-performance（パフォーマンス設計）**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [virtual-scroll-performance-measurement.md](./03-design-specs/07-performance/virtual-scroll-performance-measurement.md) | 仮想スクロール性能測定 | 必要時 | 2025-10-18 |
 
 **📝 更新推奨:**
-- screen-design.md: Database API統合画面追加要
-- PROD-01-YOY-detailed-design.md: Azure SQL Database実装反映要
+- 各README.md: 最新の実装状況反映要
+- screen-designs: Database API統合画面追加要
 
 ---
 
 ### 💻 04. 開発関連
 開発環境セットアップ、コーディング規約、テストに関するドキュメント
 
+#### **01-環境構築**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [setup-guide.md](./04-development/setup-guide.md) | 開発環境セットアップ・依存関係・環境変数設定 | 必要時 | 2025-05-25 |
-| [development-environment-setup.md](./04-development/development-environment-setup.md) | 開発環境詳細セットアップ | 必要時 | 最新確認要 |
-| [backend-foundation-setup.md](./04-development/backend-foundation-setup.md) | バックエンド基盤セットアップ | 必要時 | 最新確認要 |
+| [setup-guide.md](./04-development/01-環境構築/setup-guide.md) | 開発環境セットアップ・依存関係・環境変数設定 | 必要時 | 2025-05-25 |
+| [development-environment-setup.md](./04-development/01-環境構築/development-environment-setup.md) | 開発環境詳細セットアップ | 必要時 | 最新確認要 |
+| [backend-foundation-setup.md](./04-development/01-環境構築/backend-foundation-setup.md) | バックエンド基盤セットアップ | 必要時 | 最新確認要 |
+
+#### **02-インフラストラクチャ**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [Azureインフラ構成とコスト.md](./04-development/02-インフラストラクチャ/Azureアーキテクチャ/Azureインフラ構成とコスト.md) | Azureインフラ構成・コスト分析 | 四半期 | 最新確認要 |
+| [azure-infrastructure-overview.md](./04-development/02-インフラストラクチャ/Azureアーキテクチャ/azure-infrastructure-overview.md) | Azureインフラ概要 | 四半期 | 最新確認要 |
+
+#### **03-データベース**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [database-migration-tracking.md](./04-development/03-データベース/マイグレーション/database-migration-tracking.md) | データベースマイグレーション管理 | 変更時 | 2025-10-18 |
+| [azure-sql-setup-record.md](./04-development/03-データベース/Azure_SQL設定/azure-sql-setup-record.md) | Azure SQL Database設定記録 | 必要時 | 2025-07-20 |
+
+#### **05-コスト管理**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [azure-cost-estimation-guide.md](./04-development/05-コスト管理/azure-cost-estimation-guide.md) | Azureコスト見積もりガイド | 四半期 | 2025-01-10 |
+| [cost-monitoring-plan.md](./04-development/05-コスト管理/cost-monitoring-plan.md) | コスト監視計画 | 必要時 | 2025-01-10 |
 
 **📝 更新推奨:**
 - setup-guide.md: .NET 8、Azure SQL Database、ブランチ戦略反映要
@@ -96,14 +173,22 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 ### 🚀 05. 運用・デプロイ
 デプロイ手順、監視、トラブルシューティング、ブランチ戦略に関するドキュメント
 
+#### **03-デプロイメント**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [deployment-guide.md](./05-operations/deployment-guide.md) | デプロイ手順・本番環境設定・トラブルシューティング | 必要時 | 2025-05-25 |
-| [branch-strategy-and-deployment-plan.md](./05-operations/branch-strategy-and-deployment-plan.md) | ブランチ戦略・デプロイ戦略 ✅ **新規作成済み** | 必要時 | 2025-07-20 |
-| [environment-urls-reference.md](./05-operations/environment-urls-reference.md) | 環境URL参照 | 必要時 | 最新確認要 |
-| [azure-deployment-guide.md](./05-operations/azure-deployment-guide.md) | Azure デプロイガイド | 必要時 | 最新確認要 |
-| [azure-static-web-apps-setup-guide.md](./05-operations/azure-static-web-apps-setup-guide.md) | Azure Static Web Apps セットアップ | 必要時 | 最新確認要 |
-| [azure-app-service-basic-auth-fix.md](./05-operations/azure-app-service-basic-auth-fix.md) | Azure App Service 認証修正 | 必要時 | 最新確認要 |
+| [deployment-guide.md](./05-operations/03-デプロイメント/deployment-guide.md) | デプロイ手順・本番環境設定・トラブルシューティング | 必要時 | 2025-05-25 |
+| [branch-strategy-and-deployment-plan.md](./05-operations/03-デプロイメント/branch-strategy-and-deployment-plan.md) | ブランチ戦略・デプロイ戦略 ✅ **新規作成済み** | 必要時 | 2025-07-20 |
+| [azure-deployment-guide.md](./05-operations/03-デプロイメント/azure-deployment-guide.md) | Azure デプロイガイド | 必要時 | 最新確認要 |
+
+#### **04-環境管理**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [environment-urls-reference.md](./05-operations/04-環境管理/environment-urls-reference.md) | 環境URL参照 | 必要時 | 最新確認要 |
+
+#### **05-external-communications（外部連絡）**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [01-azure-proxy-work-request-guide-final.md](./05-operations/05-external-communications/01-azure-proxy-work-request-guide-final.md) | Azureプロキシ作業依頼ガイド | 必要時 | 2025-10-18 |
 
 **📝 更新推奨:**
 - environment-urls-reference.md: 開発環境URL・Database API反映要
@@ -111,90 +196,48 @@ Azure SQL Database統合完了済み、開発環境での動作確認済み、fe
 
 ---
 
-### 💰 06. インフラストラクチャ・コスト管理
-Azureインフラのコスト試算、監視、最適化、SQL Database管理に関するドキュメント
+### 🛍️ 06. Shopify関連
+Shopifyアプリ申請、課金システム、GDPR対応、法的文書、技術ガイドに関するドキュメント
 
-#### **01-azure-sql (Azure SQL管理)** ✅ **重要・最新**
+#### **01-申請関連**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [azure-sql-setup-record.md](./06-infrastructure/01-azure-sql/azure-sql-setup-record.md) | Azure SQL Database設定記録 ✅ **完成** | 必要時 | 2025-07-20 |
-| [database-development-strategy.md](./06-infrastructure/01-azure-sql/database-development-strategy.md) | データベース開発戦略 | 四半期 | 最新確認要 |
-| [azure-app-service-setup-record.md](./06-infrastructure/01-azure-sql/azure-app-service-setup-record.md) | App Service設定記録 | 必要時 | 最新確認要 |
-| [azure-sql-migration-guide.md](./06-infrastructure/01-azure-sql/azure-sql-migration-guide.md) | SQL移行ガイド | 必要時 | 最新確認要 |
-| [azure-sql-multi-database-strategy.md](./06-infrastructure/01-azure-sql/azure-sql-multi-database-strategy.md) | マルチDB戦略 | 四半期 | 最新確認要 |
-| [azure-sql-performance-guide.md](./06-infrastructure/01-azure-sql/azure-sql-performance-guide.md) | SQLパフォーマンスガイド | 必要時 | 最新確認要 |
+| [README.md](./06-shopify/01-申請関連/README.md) | Shopifyアプリ申請関連ドキュメント | 必要時 | 最新確認要 |
 
-#### **02-cost-management (コスト管理)**
+#### **02-課金システム**
 | ファイル | 内容 | 更新頻度 | 最終更新 |
 |---|---|---|---|
-| [azure-cost-estimation-guide.md](./06-infrastructure/02-cost-management/azure-cost-estimation-guide.md) | Azureサービス料金体系・規模別試算・最適化 | 四半期 | 2025-01-10 |
-| [cost-monitoring-plan.md](./06-infrastructure/02-cost-management/cost-monitoring-plan.md) | コスト監視計画（小規模向け簡略版） | 必要時 | 2025-01-10 |
-| [cost-monitoring-plan-detailed.md](./06-infrastructure/02-cost-management/cost-monitoring-plan-detailed.md) | コスト監視計画（大規模向け詳細版） | 必要時 | 2025-01-10 |
-| [azure-pricing-resources.md](./06-infrastructure/02-cost-management/azure-pricing-resources.md) | Azure価格情報・リソース集 | 四半期 | 2025-01-10 |
-| [cost-simulation-worksheet.md](./06-infrastructure/02-cost-management/cost-simulation-worksheet.md) | コストシミュレーション実践ワークシート | 必要時 | 2025-01-10 |
-| [cost-factors-checklist.md](./06-infrastructure/02-cost-management/cost-factors-checklist.md) | コスト影響要因チェックリスト | 四半期 | 2025-01-10 |
+| [README.md](./06-shopify/02-課金システム/README.md) | 課金システム関連ドキュメント | 必要時 | 最新確認要 |
 
----
+#### **03-GDPR**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./06-shopify/03-GDPR/README.md) | GDPR関連ドキュメント（旧版） | 必要時 | 最新確認要 |
 
-## 🚀 **Phase 1 完了状況 (2025年7月20日現在)**
+#### **04-GDPR対応**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./06-shopify/04-GDPR対応/README.md) | GDPR対応ドキュメント（旧版） | 必要時 | 最新確認要 |
 
-### ✅ **完了済み成果**
-- **Azure SQL Database完全統合**: Entity Framework Core 8.0 + 実データ
-- **Database API実装**: 接続テスト、CRUD操作、フロントエンド統合
-- **開発環境確立**: develop ブランチ戦略導入
-- **技術基盤確立**: .NET 8 + Next.js 14 + Azure SQL
+#### **05-法的文書**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./06-shopify/05-法的文書/README.md) | 法的文書関連ドキュメント | 必要時 | 最新確認要 |
 
-### 🗄️ **Database API統合詳細**
-- **フロントエンド画面**: `/database-test` - 顧客データリアルタイム表示
-- **バックエンドAPI**: 5つのエンドポイント実装済み
-- **データベース**: 3テーブル + サンプルデータ投入済み
-- **動作確認**: ローカル・クラウド両環境で成功
+#### **06-技術ガイド**
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./06-shopify/06-技術ガイド/README.md) | Shopify技術ガイド | 必要時 | 最新確認要 |
 
-### 🌳 **開発戦略**
-- **現在の環境**: 開発環境として統合活用
-- **ブランチ戦略**: develop → feature/ → PR → 統合テスト
-- **次回開発**: feature/orders-products-frontend 予定
+### 📖 07. 運用マニュアル
+UI操作ガイド、トラブルシューティング、FAQに関するドキュメント
 
----
-
-## 📖 **ドキュメント利用ガイド**
-
-### 👨‍💻 **開発者向け（最新）**
-1. **クイックスタート**: [QUICK-REFERENCE.md](./QUICK-REFERENCE.md) ✅ **更新済み**
-2. **ブックマーク集**: [BOOKMARKS.md](./BOOKMARKS.md) ✅ **更新済み**
-3. **ブランチ戦略**: [branch-strategy-and-deployment-plan.md](./05-operations/branch-strategy-and-deployment-plan.md) ✅ **新規**
-4. **システム理解**: [system-architecture.md](./02-architecture/system-architecture.md) 📝 **更新推奨**
-
-### 🗄️ **データベース統合確認**
-1. **設定記録**: [azure-sql-setup-record.md](./06-infrastructure/01-azure-sql/azure-sql-setup-record.md) ✅ **完成**
-2. **統合成功ログ**: [docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md](../docs/worklog/2025/07/2025-07-21-051500-azure-sql-database-integration-success.md) ✅ **新規**
-3. **データアーキテクチャ**: [data-processing-architecture.md](./01-project-management/02-data-architecture/data-processing-architecture.md) ✅ **最新**
-
-### 📊 **プロジェクトマネージャー向け**
-1. **プロジェクト状況**: [project-status.md](./01-project-management/01-planning/project-status.md) 📝 **Phase 1完了反映要**
-2. **バックログ管理**: [backlog-management.md](./01-project-management/01-planning/backlog-management.md) 📝 **Database統合反映要**
-
-### 🚀 **運用チーム向け**
-1. **ブランチ戦略**: [branch-strategy-and-deployment-plan.md](./05-operations/branch-strategy-and-deployment-plan.md) ✅ **最新**
-2. **環境URL**: [environment-urls-reference.md](./05-operations/environment-urls-reference.md) 📝 **Database API反映要**
-
----
-
-## 🔄 **即座に更新が必要なドキュメント**
-
-### 🔴 **高優先度（今週中）**
-1. [system-architecture.md](./02-architecture/system-architecture.md) - Azure SQL統合、.NET 8反映
-2. [project-status.md](./01-project-management/01-planning/project-status.md) - Phase 1完了状況反映
-3. [environment-urls-reference.md](./05-operations/environment-urls-reference.md) - Database API統合反映
-
-### 🟡 **中優先度（今月中）**
-1. [screen-design.md](./03-design-specs/screen-design.md) - Database API統合画面追加
-2. [technical-debt.md](./02-architecture/technical-debt.md) - Phase 1完了後の技術的負債状況
-3. [setup-guide.md](./04-development/setup-guide.md) - .NET 8、Azure SQL、ブランチ戦略
-
-### ⚪ **低優先度（必要時）**
-1. 各種設計・テスト関連ドキュメント
-2. コスト管理ドキュメント（現状維持）
+| ファイル | 内容 | 更新頻度 | 最終更新 |
+|---|---|---|---|
+| [README.md](./07-operations-manual/README.md) | 運用マニュアル概要 | 必要時 | 最新確認要 |
+| [01-UI操作ガイド.md](./07-operations-manual/01-UI操作ガイド.md) | UI操作ガイド | 必要時 | 最新確認要 |
+| [02-トラブルシューティングガイド.md](./07-operations-manual/02-トラブルシューティングガイド.md) | トラブルシューティングガイド | 必要時 | 最新確認要 |
+| [03-FAQ.md](./07-operations-manual/03-FAQ.md) | よくある質問 | 必要時 | 最新確認要 |
 
 ---
 
@@ -202,6 +245,7 @@ Azureインフラのコスト試算、監視、最適化、SQL Database管理に
 
 | 日付 | 変更内容 | 担当者 |
 |---|---|---|
+| 2025-10-18 | ✅ オンボーディングガイド新規作成・ドキュメント再編完了 | AI Assistant |
 | 2025-07-20 | ✅ ドキュメント索引全面更新・Phase 1完了反映・Azure SQL統合状況反映 | AI Assistant |
 | 2025-07-20 | ✅ QUICK-REFERENCE.md・BOOKMARKS.md更新完了 | AI Assistant |
 | 2025-07-20 | ✅ branch-strategy-and-deployment-plan.md新規作成 | AI Assistant |
@@ -210,8 +254,8 @@ Azureインフラのコスト試算、監視、最適化、SQL Database管理に
 
 ---
 
-**💡 次のアクション: 高優先度ドキュメント3件の更新を推奨します！** 🎯
+**💡 次のアクション: 新規メンバーは[オンボーディングガイド](00-onboarding.md)から開始！** 🎯
 
-*最終更新: 2025年7月20日*  
+*最終更新: 2025年10月18日*  
 *作成者: AI Assistant*  
-*次回レビュー: 2025年8月20日（月次）* 
+*次回レビュー: 2025年11月18日（月次）* 

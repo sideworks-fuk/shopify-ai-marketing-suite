@@ -14,13 +14,13 @@
 
 ## 🌐 **開発環境 - ワンクリックアクセス**
 
-### **📱 フロントエンド (Azure開発環境)**
-- [🏠 **メインサイト**](https://brave-sea-038f17a00.1.azurestaticapps.net) - Azure開発環境フロントエンド
-- [🔍 **プレビュー環境**](https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net) - 開発環境プレビューサイト
-
-### **🔌 バックエンドAPI (Azure開発環境)**
-- [❤️ **Health Check**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) - Azure API稼働確認
-- [📄 **Swagger API仕様**](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) - API仕様書
+| 環境 | サービス | URL | 説明 |
+|---|---|---|---|
+| **📱 フロントエンド** | メインサイト | [https://brave-sea-038f17a00.1.azurestaticapps.net](https://brave-sea-038f17a00.1.azurestaticapps.net) | Azure開発環境フロントエンド |
+| | プレビュー環境 | [https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net](https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net) | 開発環境プレビューサイト |
+| **🔌 バックエンドAPI** | Health Check | [https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/api/health) | Azure API稼働確認 |
+| | Swagger API仕様 | [https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger](https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/swagger) | API仕様書 |
+| | Database APIテスト | [https://brave-sea-038f17a00.1.azurestaticapps.net/database-test](https://brave-sea-038f17a00.1.azurestaticapps.net/database-test) | データベース接続テスト |
 
 ---
 
@@ -31,6 +31,8 @@
 - [📊 **App Service**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2Fsites) - バックエンド管理
 - [⚡ **Static Web Apps**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Web%2FStaticSites) - フロントエンド管理
 - [🗄️ **SQL Database**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Sql%2Fservers) - Azure SQL管理
+- [📈 **Application Insights**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/microsoft.insights%2Fcomponents) - 監視・ログ
+- [🔐 **Key Vault**](https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.KeyVault%2Fvaults) - シークレット管理
 
 ### **🔄 GitHub**
 - [📂 **リポジトリ**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite) - ソースコード
@@ -38,10 +40,17 @@
 - [📋 **Issues**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/issues) - 課題管理
 - [🔀 **Pull Requests**](https://github.com/sideworks-fuk/shopify-ai-marketing-suite/pulls) - コードレビュー
 
-### **🏪 Shopify開発**
+### **🏪 Shopify開発・公式ドキュメント**
 - [🔧 **Shopify Partner Dashboard**](https://partners.shopify.com) - アプリ管理
 - [📚 **Shopify Dev Docs**](https://shopify.dev) - 開発ドキュメント
 - [🧪 **開発ストア**](https://admin.shopify.com/store/fuk-dev1) - テストストア管理
+- [📖 **Shopify Admin API**](https://shopify.dev/docs/admin-api) - Admin API仕様
+- [🔌 **Shopify GraphQL API**](https://shopify.dev/docs/admin-api/graphql) - GraphQL API仕様
+- [📦 **Shopify App Bridge**](https://shopify.dev/docs/app-bridge) - 埋め込みアプリ開発
+- [🔐 **Shopify OAuth**](https://shopify.dev/docs/apps/auth/oauth) - OAuth認証
+- [📊 **Shopify Webhooks**](https://shopify.dev/docs/apps/webhooks) - Webhook設定
+- [💰 **Shopify Billing API**](https://shopify.dev/docs/apps/billing) - 課金システム
+- [🛡️ **Shopify GDPR**](https://shopify.dev/docs/apps/store/data-protection) - GDPR対応
 
 ---
 
