@@ -65,9 +65,10 @@ export default function AuthenticationRequired({ message }: Props) {
     'NODE_ENV': process.env.NODE_ENV,
     'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
     'hostname': typeof window !== 'undefined' ? window.location.hostname : 'SSR',
-    'isProduction': process.env.NODE_ENV === 'production',
-    'isNextPublicEnvProduction': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
-    'shouldShowDemoLink': process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production'
+    'isProduction (NODE_ENV)': process.env.NODE_ENV === 'production',
+    'isProduction (NEXT_PUBLIC_ENVIRONMENT)': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
+    'shouldShowDemoLink': process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production',
+    'titleWillBe': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' ? 'Shopify認証が必要です' : '認証が必要です'
   })
 
   // 本番環境かどうかを判定（複数の条件で判定）
