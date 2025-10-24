@@ -60,6 +60,24 @@ export default function AuthenticationRequired({ message }: Props) {
   const shopFromUrl = urlParams?.get('shop')
   const hasShopParam = !!shopFromUrl
 
+  // 環境判定のデバッグ情報
+  console.log('🔍 [AuthenticationRequired] Environment check:', {
+    'NODE_ENV': process.env.NODE_ENV,
+    'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
+    'hostname': typeof window !== 'undefined' ? window.location.hostname : 'SSR',
+    'isProduction': process.env.NODE_ENV === 'production',
+    'isNextPublicEnvProduction': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
+    'shouldShowDemoLink': process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production'
+  })
+
+  // 本番環境かどうかを判定（複数の条件で判定）
+  const isProductionEnvironment = 
+    process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' ||
+    (typeof window !== 'undefined' && 
+     !window.location.hostname.includes('development') &&
+     !window.location.hostname.includes('staging') &&
+     !window.location.hostname.includes('localhost'))
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-md w-full bg-white rounded-lg shadow p-8 text-center">
@@ -128,7 +146,7 @@ export default function AuthenticationRequired({ message }: Props) {
         )}
         
         {/* 検証環境: デモサイトへのリンク */}
-        {process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production' && (
+        {!isProductionEnvironment && (
           <div className="mt-6 pt-4 border-t border-gray-200">
             <div className="bg-blue-50 rounded-lg p-4 text-left border border-blue-100">
               <p className="text-sm font-semibold text-blue-800 mb-2">
