@@ -322,18 +322,20 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 }
 
 export default function DevBookmarksPage() {
+  // 🔍 デバッグ: コンポーネントが実行されたことを確認
+  console.log('🚀 [DevBookmarks] Component is rendering!')
+  console.log('🔍 [DevBookmarks] Environment check:', {
+    'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
+    'NEXT_PUBLIC_ENABLE_DEV_TOOLS': process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS,
+    'NODE_ENV': process.env.NODE_ENV,
+    'isProduction': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
+    'willShow404': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS
+  })
+
   const { currentStore, availableStores } = useStore()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-
-  // デバッグ情報をコンソールに出力
-  console.log('🔍 [DevBookmarks] Environment check:', {
-    'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
-    'NEXT_PUBLIC_ENABLE_DEV_TOOLS': process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS,
-    'isProduction': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
-    'willShow404': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS
-  })
 
   // 本番環境では404（一時的に無効化）
   if (false && process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
