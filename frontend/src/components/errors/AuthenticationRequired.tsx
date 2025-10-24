@@ -30,7 +30,7 @@ export default function AuthenticationRequired({ message }: Props) {
       })
       
       // より詳細なエラーメッセージ
-      const errorMessage = process.env.NODE_ENV === 'production'
+      const errorMessage = process.env.NEXT_PUBLIC_ENVIRONMENT === 'production'
         ? 'ストア情報が見つかりません。Shopifyアプリを再インストールしてください。'
         : `ストア情報が見つかりません。\n\n` +
           `現在のストア: ${currentStore.name} (ID: ${currentStore.id})\n` +
@@ -82,13 +82,13 @@ export default function AuthenticationRequired({ message }: Props) {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-md w-full bg-white rounded-lg shadow p-8 text-center">
         <h1 className="text-2xl font-bold mb-2">
-          {process.env.NODE_ENV === 'production' 
+          {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' 
             ? 'Shopify認証が必要です' 
             : '認証が必要です'}
         </h1>
         
         {/* 本番環境 + shop パラメータなし: Shopify管理画面に戻るよう促す */}
-        {process.env.NODE_ENV === 'production' && !hasShopParam ? (
+        {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !hasShopParam ? (
           <div>
             <p className="text-gray-600 mb-6">
               このアプリはShopify管理画面から起動してください。
@@ -115,20 +115,20 @@ export default function AuthenticationRequired({ message }: Props) {
         ) : (
           <div>
             <p className="text-gray-600 mb-6">
-              {process.env.NODE_ENV === 'production'
+              {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production'
                 ? (message ?? 'セッションが無効または期限切れです。Shopify認証を実行してください。')
                 : (message ?? 'このアプリにアクセスするには認証が必要です。')}
             </p>
         
         {/* 本番環境: Shopify認証のみ */}
-        {process.env.NODE_ENV === 'production' && (
+        {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && (
           <Button onClick={onShopifyAuth} disabled={isInitializing} className="w-full">
             Shopifyで認証する
           </Button>
         )}
         
         {/* 検証環境: Shopify認証ボタンのみ */}
-        {process.env.NODE_ENV !== 'production' && (
+        {process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production' && (
           <div className="space-y-3">
             <Button 
               onClick={onShopifyAuth} 
