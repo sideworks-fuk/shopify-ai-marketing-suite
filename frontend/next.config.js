@@ -14,8 +14,7 @@ const DEV_PAGE_PATTERNS = [
   '**/test-sync/**',
 ];
 
-const isProduction = process.env.NODE_ENV === 'production' || 
-                     process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT === 'production';
+const isProduction = process.env.NEXT_PUBLIC_ENVIRONMENT === 'production';
 
 const nextConfig = {
   typescript: {
