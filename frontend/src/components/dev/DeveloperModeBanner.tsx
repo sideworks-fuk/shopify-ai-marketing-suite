@@ -1,12 +1,31 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useDeveloperMode } from '@/contexts/DeveloperModeContext';
 import { LogOut } from 'lucide-react';
 
+const DEV_MODE_STORAGE_KEY = 'dev_mode_auth';
+const DEV_MODE_TIMESTAMP_KEY = 'dev_mode_timestamp';
+const SESSION_TIMEOUT = 8 * 60 * 60 * 1000; // 8時間
+
 export function DeveloperModeBanner() {
-  const { logout, getSessionExpiresAt } = useDeveloperMode();
   const [remainingTime, setRemainingTime] = useState<string>('計算中...');
+
+  // セッション有効期限を取得
+  const getSessionExpiresAt = (): number | null => {
+    if (typeof window === 'undefined') return null;
+    const timestamp = localStorage.getItem(DEV_MODE_TIMESTAMP_KEY);
+    if (!timestamp) return null;
+    return parseInt(timestamp, 10) + SESSION_TIMEOUT;
+  };
+
+  // ログアウト処理
+  const logout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(DEV_MODE_STORAGE_KEY);
+      localStorage.removeItem(DEV_MODE_TIMESTAMP_KEY);
+    }
+    console.log('🚪 デモモード: ログアウト');
+  };
 
   // セッション有効期限を計算
   const calculateRemainingTime = (): string => {
@@ -46,7 +65,7 @@ export function DeveloperModeBanner() {
     }, 60000); // 1分ごと
 
     return () => clearInterval(interval);
-  }, [logout]);
+  }, []);
 
   const handleLogout = () => {
     if (confirm('デモモードをログアウトしますか？')) {

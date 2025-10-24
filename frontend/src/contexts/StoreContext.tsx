@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { getApiUrl } from '@/lib/api-config'
 import { authClient } from '@/lib/auth-client'
-import { useDeveloperMode } from './DeveloperModeContext'
 
 interface StoreInfo {
   id: number
@@ -56,12 +55,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [availableStores, setAvailableStores] = useState<StoreInfo[]>(DEFAULT_STORES)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { isDeveloperMode } = useDeveloperMode()
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false)
 
-  // APIからストア一覧を取得（デモモード状態変化時も再取得）
+  // デモモード状態を監視
   useEffect(() => {
-    fetchStores()
-  }, [isDeveloperMode]) // 🆕 isDeveloperModeを依存配列に追加
+    const checkDeveloperMode = () => {
+      if (typeof window !== 'undefined') {
+        const devMode = localStorage.getItem('dev_mode_auth') === 'true'
+        setIsDeveloperMode(devMode)
+      }
+    }
+    
+    checkDeveloperMode()
+    
+    // localStorageの変更を監視
+    window.addEventListener('storage', checkDeveloperMode)
+    return () => window.removeEventListener('storage', checkDeveloperMode)
+  }, [])
 
   // ローカルストレージから復元
   useEffect(() => {
@@ -113,7 +123,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }, [isDeveloperMode]) // 🆕 useCallbackで依存配列を指定
+  }, [isDeveloperMode])
+
+  // APIからストア一覧を取得（デモモード状態変化時も再取得）
+  useEffect(() => {
+    fetchStores()
+  }, [fetchStores])
 
   const switchStore = (storeId: number) => {
     const store = availableStores.find(s => s.id === storeId)

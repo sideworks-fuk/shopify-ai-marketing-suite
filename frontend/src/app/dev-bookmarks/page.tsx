@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { StoreSelector } from '@/components/common/StoreSelector'
 import { useStore } from '@/contexts/StoreContext'
+import { DevPasswordPrompt } from '@/components/dev/DevPasswordPrompt'
+import { DeveloperModeBanner } from '@/components/dev/DeveloperModeBanner'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -36,8 +38,6 @@ import {
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { getEnvironmentInfo } from "@/lib/api-config"
-import { useDeveloperMode } from '@/contexts/DeveloperModeContext'
-import { DevPasswordPrompt } from '@/components/dev/DevPasswordPrompt'
 
 interface BookmarkItem {
   title: string
@@ -323,9 +323,9 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 
 export default function DevBookmarksPage() {
   const { currentStore, availableStores } = useStore()
-  const { isDeveloperMode, isAuthenticated, logout } = useDeveloperMode()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // 本番環境では404
   if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
@@ -339,10 +339,21 @@ export default function DevBookmarksPage() {
     )
   }
 
-  // 未認証の場合はパスワードプロンプト
-  if (!isAuthenticated) {
-    return <DevPasswordPrompt />
-  }
+  // 認証状態をチェック
+  useEffect(() => {
+    const checkAuth = () => {
+      if (typeof window !== 'undefined') {
+        const auth = localStorage.getItem('dev_mode_auth') === 'true'
+        setIsAuthenticated(auth)
+      }
+    }
+    
+    checkAuth()
+    
+    // localStorageの変更を監視
+    window.addEventListener('storage', checkAuth)
+    return () => window.removeEventListener('storage', checkAuth)
+  }, [])
 
   useEffect(() => {
     console.log('🔍 [DEBUG] DevBookmarksPage: Component mounted')
@@ -378,27 +389,25 @@ export default function DevBookmarksPage() {
     return () => clearInterval(timer)
   }, [])
 
+  // 認証されていない場合はパスワードプロンプトを表示
+  if (!isAuthenticated) {
+    return <DevPasswordPrompt />
+  }
+
+  // ログアウト処理
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dev_mode_auth')
+      localStorage.removeItem('dev_mode_timestamp')
+      console.log('🔓 デモモード: ログアウト')
+      window.location.reload()
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* 開発者モード警告バナー */}
-      {isDeveloperMode && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Shield className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-900">開発者モード</AlertTitle>
-          <AlertDescription className="text-blue-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <p>Shopify認証をスキップして、既存データを閲覧しています。</p>
-                <p className="text-sm mt-1">⚠️ データ同期機能は無効化されています。</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                ログアウト
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* デモモードバナー */}
+      <DeveloperModeBanner />
 
       {/* ヘッダー */}
       <div className="text-center">
@@ -412,6 +421,14 @@ export default function DevBookmarksPage() {
           <Badge variant="outline">開発効率向上</Badge>
           <Badge variant="outline">クイックアクセス</Badge>
           <Badge variant="outline">機能確認</Badge>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleLogout}
+            className="ml-4"
+          >
+            ログアウト
+          </Button>
         </div>
       </div>
 

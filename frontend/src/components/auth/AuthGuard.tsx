@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { useDeveloperMode } from '@/contexts/DeveloperModeContext'
 import AuthenticationRequired from '@/components/errors/AuthenticationRequired'
 import { DeveloperModeBanner } from '@/components/dev/DeveloperModeBanner'
 
@@ -22,8 +21,8 @@ const publicPaths = [
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { isAuthenticated, isInitializing, authError } = useAuth()
-  const { isDeveloperMode } = useDeveloperMode()
   const [showAuthRequired, setShowAuthRequired] = useState(false)
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false)
 
   const isPublic = useMemo(() => {
     if (!pathname) return true
@@ -31,6 +30,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     console.log('🔒 [AuthGuard] Path check:', { pathname, isPublic: result })
     return result
   }, [pathname])
+
+  // デモモード状態を監視
+  useEffect(() => {
+    const checkDeveloperMode = () => {
+      if (typeof window !== 'undefined') {
+        const devMode = localStorage.getItem('dev_mode_auth') === 'true'
+        setIsDeveloperMode(devMode)
+      }
+    }
+    
+    checkDeveloperMode()
+    
+    // localStorageの変更を監視
+    window.addEventListener('storage', checkDeveloperMode)
+    return () => window.removeEventListener('storage', checkDeveloperMode)
+  }, [])
 
   useEffect(() => {
     const handleAuthError = (event: Event) => {

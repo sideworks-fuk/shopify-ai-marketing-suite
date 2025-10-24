@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shield, Eye, EyeOff } from 'lucide-react'
-import { useDeveloperMode } from '@/contexts/DeveloperModeContext'
+
+const DEV_MODE_STORAGE_KEY = 'dev_mode_auth'
+const DEV_MODE_TIMESTAMP_KEY = 'dev_mode_timestamp'
 
 export function DevPasswordPrompt() {
-  const { login } = useDeveloperMode()
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -21,8 +22,18 @@ export function DevPasswordPrompt() {
     setIsLoading(true)
 
     try {
-      const success = await login(password)
-      if (!success) {
+      const correctPassword = process.env.NEXT_PUBLIC_DEV_PASSWORD || 'dev2025'
+
+      if (password === correctPassword) {
+        // ログイン成功
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(DEV_MODE_STORAGE_KEY, 'true')
+          localStorage.setItem(DEV_MODE_TIMESTAMP_KEY, Date.now().toString())
+        }
+        console.log('✅ デモモード: ログイン成功')
+        // ページをリロードして状態を反映
+        window.location.reload()
+      } else {
         setError('パスワードが正しくありません')
       }
     } catch (err) {
