@@ -1,7 +1,9 @@
+import { ReactNode } from 'react'
+
 export default function DevBookmarksLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return children
 }
