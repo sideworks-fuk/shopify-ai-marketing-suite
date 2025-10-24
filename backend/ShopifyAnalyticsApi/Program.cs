@@ -48,6 +48,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")))
         };
+        
+        // デモモード時は認証をスキップ
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                // デモモードフラグをチェック
+                if (context.HttpContext.Items.ContainsKey("IsDemoMode") && 
+                    context.HttpContext.Items["IsDemoMode"] is true)
+                {
+                    context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
+                        .LogInformation("🎯 [JWT] デモモード検出: JWT認証をスキップします (User.Identity.IsAuthenticated={IsAuthenticated})", 
+                            context.HttpContext.User.Identity?.IsAuthenticated);
+                    
+                    // 認証をスキップ（既にDemoModeMiddlewareでcontext.Userが設定されている）
+                    // NoResult()を使用してJWT認証をスキップ
+                    context.NoResult();
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // Add Entity Framework
@@ -351,6 +372,9 @@ app.UseRateLimiter();
 
 // Shopify埋め込みアプリミドルウェア（認証前に配置）
 app.UseShopifyEmbeddedApp();
+
+// デモモードミドルウェア（認証前に配置）
+app.UseDemoMode();
 
 // 認証を有効化
 app.UseAuthentication();

@@ -34,6 +34,12 @@ function ensureStoreIdInUrl(url: string): string {
   return urlObj.toString();
 }
 
+// デモモード判定
+function isDemoMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('dev_mode_auth') === 'true';
+}
+
 // HTTP クライアント実装
 class ApiClient {
   private async request<T>(
@@ -47,24 +53,33 @@ class ApiClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
     
+    // ヘッダーを構築
+    const headers: Record<string, string> = {
+      ...(API_CONFIG.HEADERS as Record<string, string>),
+      ...(authClient.getAuthHeaders() as Record<string, string>),
+      ...(options.headers as Record<string, string> || {}),
+    };
+    
+    // デモモード時は特別なヘッダーを追加
+    if (isDemoMode()) {
+      headers['X-Demo-Mode'] = 'true';
+      console.log('🎯 デモモード: X-Demo-Mode ヘッダーを追加しました');
+    }
+    
     const defaultOptions: RequestInit = {
-      headers: {
-        ...API_CONFIG.HEADERS,
-        ...authClient.getAuthHeaders(),
-        ...options.headers,
-      },
+      headers,
       signal: controller.signal,
       ...options,
     };
 
     try {
       console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
-      console.log('📋 Request Options:', defaultOptions);
+      console.log('📋 Request Headers:', headers);
       console.log('🔍 Full Request URL:', url);
       console.log('🔍 Base URL from config:', getApiUrl());
       console.log('🔍 Endpoint:', endpoint);
       
-      const response = await authClient.request(url, defaultOptions);
+      const response = await fetch(url, defaultOptions);
       
       // タイムアウトをクリア
       clearTimeout(timeoutId);
@@ -82,6 +97,17 @@ class ApiClient {
       if (!response.ok) {
         console.error('❌ HTTP Error:', response.status, response.statusText);
         console.error('❌ Response Text:', responseText);
+
+        // 401はグローバルに通知
+        if (response.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:error', {
+            detail: {
+              statusCode: 401,
+              message: 'Shopify認証が必要です'
+            }
+          }))
+        }
+
         throw new ApiError(
           `HTTP Error: ${response.status} ${response.statusText}`,
           response.status,
@@ -118,6 +144,15 @@ class ApiClient {
       });
       
       if (error instanceof ApiError) {
+        // ApiErrorに401が付いている場合も通知（バックエンド直例）
+        if (error.statusCode === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:error', {
+            detail: {
+              statusCode: 401,
+              message: 'Shopify認証が必要です'
+            }
+          }))
+        }
         throw error;
       }
       

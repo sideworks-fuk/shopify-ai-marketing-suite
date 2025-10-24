@@ -97,35 +97,27 @@ export const validateEnvironmentConfig = (
 
 // 現在の環境を取得
 export const getCurrentEnvironment = (): string => {
-  // Azure Static Web Appsの検出（最優先）
-  if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
-    console.log('✅ Detected Azure Static Web Apps - using production environment');
-    return 'production';
-  }
-
-  // 1. ビルド時の環境変数（最優先）
-  const buildTimeEnv = getBuildTimeEnvironment();
-  if (buildTimeEnv) {
-    console.log('🔍 Using build time environment:', buildTimeEnv);
-    return buildTimeEnv;
-  }
-  
-  // 2. 実行時の環境変数
+  // 1. NEXT_PUBLIC_ENVIRONMENT環境変数（最優先）
+  // Azure Static Web Appsの環境変数設定を信頼する
   if (process.env.NEXT_PUBLIC_ENVIRONMENT) {
-    console.log('🔍 Using NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
-    return process.env.NEXT_PUBLIC_ENVIRONMENT;
+    const env = process.env.NEXT_PUBLIC_ENVIRONMENT;
+    if (ENVIRONMENTS[env]) {
+      console.log('🔍 Using NEXT_PUBLIC_ENVIRONMENT:', env);
+      return env;
+    }
+    console.warn('⚠️ Invalid NEXT_PUBLIC_ENVIRONMENT value:', env);
   }
   
-  // 3. NODE_ENVがproductionの場合の処理
+  // 2. NODE_ENVがproductionの場合の処理
   // Next.jsはビルド時に常にNODE_ENV=productionを設定するため、
   // NEXT_PUBLIC_ENVIRONMENTが未設定の場合のみproductionにフォールバック
-  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_ENVIRONMENT) {
+  if (process.env.NODE_ENV === 'production') {
     console.warn('⚠️ NODE_ENV is production but no explicit NEXT_PUBLIC_ENVIRONMENT found');
     console.warn('⚠️ Falling back to production environment for security');
     return 'production';
   }
   
-  // 4. 開発環境でのローカルストレージ（開発環境のみ）
+  // 3. 開発環境でのローカルストレージ（開発環境のみ）
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const storedEnvironment = localStorage.getItem('selectedEnvironment');
     if (storedEnvironment && ENVIRONMENTS[storedEnvironment]) {
@@ -139,7 +131,7 @@ export const getCurrentEnvironment = (): string => {
     }
   }
   
-  // 5. デフォルトは開発環境（開発環境のみ）
+  // 4. デフォルトは開発環境（開発環境のみ）
   console.log('🔍 Using default development environment');
   return 'development';
 };

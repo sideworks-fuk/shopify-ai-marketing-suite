@@ -1,14 +1,16 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { getApiUrl } from '@/lib/api-config'
 import { authClient } from '@/lib/auth-client'
+import { useDeveloperMode } from './DeveloperModeContext'
 
 interface StoreInfo {
   id: number
   name: string
   description: string
-  dataType: 'production' | 'test'
+  dataType: 'production' | 'test' | 'demo' // 🆕 'demo' を追加
+  shopDomain?: string  // 🆕 Shopifyストアドメイン
 }
 
 interface StoreContextType {
@@ -21,19 +23,29 @@ interface StoreContextType {
   error: string | null
 }
 
+// URLパラメータからshopドメインを取得する関数
+const getShopFromUrl = (): string | null => {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  return params.get('shop')
+}
+
 // デフォルトストア（API取得失敗時のフォールバック）
+// 注意: shopDomainはURLパラメータから動的に取得されます
 const DEFAULT_STORES: StoreInfo[] = [
   {
     id: 1,
     name: "本番ストア",
     description: "実際のデータ",
-    dataType: "production"
+    dataType: "production",
+    shopDomain: getShopFromUrl() || undefined  // 🆕 URLパラメータから取得
   },
   {
     id: 2,
     name: "テストストア",
     description: "2020-2025年テストデータ",
-    dataType: "test"
+    dataType: "test",
+    shopDomain: getShopFromUrl() || undefined  // 🆕 URLパラメータから取得
   }
 ]
 
@@ -44,11 +56,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [availableStores, setAvailableStores] = useState<StoreInfo[]>(DEFAULT_STORES)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { isDeveloperMode } = useDeveloperMode()
 
-  // APIからストア一覧を取得
+  // APIからストア一覧を取得（デモモード状態変化時も再取得）
   useEffect(() => {
     fetchStores()
-  }, [])
+  }, [isDeveloperMode]) // 🆕 isDeveloperModeを依存配列に追加
 
   // ローカルストレージから復元
   useEffect(() => {
@@ -63,10 +76,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [availableStores])
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
+
+      console.log('🔄 ストア一覧を取得中... デモモード:', isDeveloperMode)
 
       const response = await authClient.request(`${getApiUrl()}/api/store`)
       if (!response.ok) {
@@ -75,8 +90,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const result = await response.json()
       if (result.success && result.data?.stores) {
-        setAvailableStores(result.data.stores)
-        console.log('APIからストア一覧を取得しました:', result.data.stores)
+        let stores = result.data.stores
+
+        // デモモード時は DataType = 'demo' のストアのみフィルタ
+        if (isDeveloperMode) {
+          stores = stores.filter((store: StoreInfo) => store.dataType === 'demo')
+          console.log('🎯 デモモード: デモ用ストアのみ表示', stores)
+        } else {
+          console.log('📋 通常モード: 全ストアを表示', stores)
+        }
+
+        setAvailableStores(stores)
+        console.log('✅ APIからストア一覧を取得しました:', stores)
       } else {
         console.warn('APIレスポンスが不正です。デフォルトストアを使用します。')
       }
@@ -88,7 +113,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isDeveloperMode]) // 🆕 useCallbackで依存配列を指定
 
   const switchStore = (storeId: number) => {
     const store = availableStores.find(s => s.id === storeId)

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { StoreSelector } from '@/components/common/StoreSelector'
 import { useStore } from '@/contexts/StoreContext'
 import { 
@@ -30,11 +30,14 @@ import {
   Store,
   Key,
   Info,
-  Shield
+  Shield,
+  LogOut
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { getEnvironmentInfo } from "@/lib/api-config"
+import { useDeveloperMode } from '@/contexts/DeveloperModeContext'
+import { DevPasswordPrompt } from '@/components/dev/DevPasswordPrompt'
 
 interface BookmarkItem {
   title: string
@@ -320,8 +323,26 @@ const getCategoryColor = (category: BookmarkItem['category']) => {
 
 export default function DevBookmarksPage() {
   const { currentStore, availableStores } = useStore()
+  const { isDeveloperMode, isAuthenticated, logout } = useDeveloperMode()
   const [environmentInfo, setEnvironmentInfo] = useState<any>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  // 本番環境では404
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
+          <p className="text-gray-600">ページが見つかりません</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 未認証の場合はパスワードプロンプト
+  if (!isAuthenticated) {
+    return <DevPasswordPrompt />
+  }
 
   useEffect(() => {
     console.log('🔍 [DEBUG] DevBookmarksPage: Component mounted')
@@ -359,6 +380,26 @@ export default function DevBookmarksPage() {
 
   return (
     <div className="space-y-6">
+      {/* 開発者モード警告バナー */}
+      {isDeveloperMode && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <Shield className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-900">開発者モード</AlertTitle>
+          <AlertDescription className="text-blue-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p>Shopify認証をスキップして、既存データを閲覧しています。</p>
+                <p className="text-sm mt-1">⚠️ データ同期機能は無効化されています。</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={logout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                ログアウト
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* ヘッダー */}
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">

@@ -146,16 +146,18 @@ export class AuthClient {
       this.loadTokensFromStorage()
     }
 
+    // ヘッダーを構築（X-Demo-Modeヘッダーを保持）
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...options.headers,
-      ...this.getAuthHeaders()
+      ...this.getAuthHeaders(),
+      ...options.headers, // 🆕 options.headersを最後に展開してX-Demo-Modeを保持
     }
 
     console.log('📤 認証付きリクエスト:', endpoint, { 
       method: options.method || 'GET',
-      hasAuthHeader: !!this.accessToken 
+      hasAuthHeader: !!this.accessToken,
+      headers: headers  // 🆕 ヘッダー全体をログ出力
     })
 
     let response = await fetch(endpoint, { 
@@ -173,7 +175,8 @@ export class AuthClient {
         // 更新されたトークンでリトライ
         const retryHeaders = {
           ...headers,
-          ...this.getAuthHeaders()
+          ...this.getAuthHeaders(),
+          ...options.headers, // 🆕 X-Demo-Modeヘッダーを保持
         }
         
         console.log('🔄 更新されたトークンでリトライします')
@@ -204,7 +207,8 @@ export class AuthClient {
               // 再認証後にリトライ
               const finalHeaders = {
                 ...headers,
-                ...this.getAuthHeaders()
+                ...this.getAuthHeaders(),
+                ...options.headers, // 🆕 X-Demo-Modeヘッダーを保持
               }
               
               response = await fetch(endpoint, {

@@ -11,6 +11,7 @@ namespace ShopifyAnalyticsApi.Controllers
     [ApiController]
     [Route("api/setup")]
     public class SetupController : StoreAwareControllerBase
+
     {
         private readonly ShopifyDbContext _context;
         private readonly IStoreService _storeService;

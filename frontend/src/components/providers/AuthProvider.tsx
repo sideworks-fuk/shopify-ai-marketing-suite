@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (storeId: number) => Promise<void>
   logout: () => void
   clearError: () => void
+  refreshAuth: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -46,48 +47,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🚀 認証の初期化を開始...')
-      
       try {
         setIsInitializing(true)
         setAuthError(null)
-
-        // LocalStorage変数のマイグレーションを実行
         migrateLocalStorageVariables()
-
-        // Phase 2: currentStoreIdのみを使用
         const savedStoreId = localStorage.getItem('currentStoreId')
         const storeId = savedStoreId ? parseInt(savedStoreId, 10) : 1
-
         console.log('🏪 Store ID:', storeId)
         setCurrentStoreId(storeId)
-
-        // 既存のトークンの確認
         if (authClient.isAuthenticated()) {
           console.log('✅ 既存のトークンが見つかりました')
           setIsAuthenticated(true)
           return
         }
-
-        // 自動認証を実行
-        console.log('🔐 自動認証を実行中...')
-        await authClient.authenticate(storeId)
-        
-        setIsAuthenticated(true)
-        console.log('✅ 自動認証が成功しました')
-
+        // 🚧 デモ用: 自動認証を一時的に無効化
+        console.log('⚠️ 自動認証がスキップされました（デモモード）')
+        setIsAuthenticated(false)
+        // console.log('🔐 自動認証を実行中...')
+        // await authClient.authenticate(storeId)
+        // setIsAuthenticated(true)
+        // console.log('✅ 自動認証が成功しました')
       } catch (error: any) {
         console.error('❌ 認証の初期化に失敗:', error)
         setAuthError(error.message || '認証に失敗しました')
         setIsAuthenticated(false)
-        
-        // 認証に失敗してもアプリケーションは動作させる（デバッグのため）
         console.log('⚠️ 認証なしでアプリケーションを継続します')
-        
       } finally {
         setIsInitializing(false)
       }
     }
-
     initializeAuth()
   }, [])
 
@@ -95,17 +83,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthError(null)
       console.log('🔐 ログイン開始:', storeId)
-      
       await authClient.authenticate(storeId)
-      
       setIsAuthenticated(true)
       setCurrentStoreId(storeId)
-      
-      // LocalStorageにstoreIdを保存
       localStorage.setItem('currentStoreId', storeId.toString())
-      
       console.log('✅ ログイン成功')
-      
     } catch (error: any) {
       console.error('❌ ログインエラー:', error)
       setAuthError(error.message || 'ログインに失敗しました')
@@ -115,18 +97,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     console.log('🚪 ログアウト実行')
-    
     authClient.clearTokens()
     setIsAuthenticated(false)
     setCurrentStoreId(null)
     setAuthError(null)
-    
     console.log('✅ ログアウト完了')
   }
 
   const clearError = () => {
     setAuthError(null)
   }
+
+  const refreshAuth = async () => {
+    try {
+      setAuthError(null)
+      const storeId = currentStoreId ?? 1
+      await authClient.authenticate(storeId)
+      setIsAuthenticated(true)
+    } catch (error: any) {
+      setIsAuthenticated(false)
+      setAuthError(error.message || '認証の更新に失敗しました')
+    }
+  }
+
+  // グローバルな認証エラーを監視
+  useEffect(() => {
+    const handler = (event: Event) => {
+      console.error('🔴 グローバル認証エラー発火')
+      setAuthError('Shopify認証が必要です')
+      setIsAuthenticated(false)
+    }
+    window.addEventListener('auth:error', handler)
+    return () => window.removeEventListener('auth:error', handler)
+  }, [])
 
   const value: AuthContextType = {
     isAuthenticated,
@@ -135,7 +138,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     authError,
     login,
     logout,
-    clearError
+    clearError,
+    refreshAuth,
   }
 
   return (
@@ -148,11 +152,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // 開発環境でのデバッグヘルパー
 export function AuthDebugInfo() {
   const auth = useAuth()
-  
   if (process.env.NODE_ENV !== 'development') {
     return null
   }
-
   return (
     <div className="fixed bottom-4 right-4 bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-50">
       <div className="font-bold mb-1">認証状態</div>
@@ -160,23 +162,11 @@ export function AuthDebugInfo() {
       <div>初期化中: {auth.isInitializing ? '⏳' : '✅'}</div>
       <div>Store ID: {auth.currentStoreId || 'N/A'}</div>
       {auth.authError && (
-        <div className="text-red-300 mt-1">
-          エラー: {auth.authError}
-        </div>
+        <div className="text-red-300 mt-1">エラー: {auth.authError}</div>
       )}
       <div className="mt-1">
-        <button
-          onClick={() => auth.clearError()}
-          className="text-blue-300 hover:text-blue-100 mr-2"
-        >
-          エラークリア
-        </button>
-        <button
-          onClick={() => auth.logout()}
-          className="text-red-300 hover:text-red-100"
-        >
-          ログアウト
-        </button>
+        <button onClick={() => auth.clearError()} className="text-blue-300 hover:text-blue-100 mr-2">エラークリア</button>
+        <button onClick={() => auth.logout()} className="text-red-300 hover:text-red-100">ログアウト</button>
       </div>
     </div>
   )

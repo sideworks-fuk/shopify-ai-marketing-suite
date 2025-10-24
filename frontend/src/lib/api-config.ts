@@ -93,12 +93,6 @@ export const getApiUrl = () => {
     return httpUrl;
   }
   
-  // Azure Static Web Appsの検出（本番環境）- 最優先
-  if (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) {
-    console.log('✅ Detected Azure Static Web Apps - using production environment');
-    return ENVIRONMENTS.production.apiBaseUrl;
-  }
-  
   // ローカル開発環境でのデバッグモード
   if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
     console.log('✅ Using direct Azure App Service URL (debug mode)');

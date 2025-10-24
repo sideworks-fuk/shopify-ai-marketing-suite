@@ -21,6 +21,7 @@ docs/04-development/03-データベース/マイグレーション/
 ├── 2025-08-26-free-plan-feature-selection.sql
 ├── 2025-09-04-MASTER-CreateDatabaseFromScratch.sql
 ├── 2025-10-20-FIX-FeatureLimits-IDs.sql
+├── 2025-10-23-ADD-MissingOrderAndCustomerColumns.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -42,6 +43,7 @@ docs/04-development/03-データベース/マイグレーション/
 | 2025-08-26-free-plan-feature-selection.sql | 2025-08-26 | Takashi | 無料プラン機能制限（元版） | ❌ エラー発生 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-09-04-MASTER-CreateDatabaseFromScratch.sql** | 2025-09-04 | Kenji | **完全なデータベース作成マスタースクリプト** | 🆕 新規作成 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-10-20-FIX-FeatureLimits-IDs.sql** | 2025-10-20 | 福田+AI | **機能ID統一修正（year_over_year→yoy_comparison等）** | ✅ 適用済 (2025-10-20 16:23) | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql** | 2025-10-23 | 福田+AI | **Orders/Customersテーブルに不足カラム追加（ShopifyCustomerId, Email, TotalTax, IsActive等）** | ✅ 適用済 (2025-10-24 08:31) | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -56,6 +58,7 @@ docs/04-development/03-データベース/マイグレーション/
 8. 2025-08-25-FIX-sp_GetCurrentFeatureSelection.sql
 9. 2025-08-25-FIX2-free-plan-feature-selection.sql
 10. **2025-10-20-FIX-FeatureLimits-IDs.sql**
+11. **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql**
 
 ### エラー発生（修正版で解決済み）❌→✅
 - 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
@@ -74,6 +77,22 @@ docs/04-development/03-データベース/マイグレーション/
   - `purchase_count` → `purchase_frequency`
   - `monthly_sales`, `analytics` を削除
   - コードとデータベースの整合性を確保
+
+### 🆕 Orders/Customersテーブル拡張（2025-10-23）
+- **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql** - 不足カラム追加
+  - **Ordersテーブル**:
+    - `ShopifyCustomerId` (NVARCHAR(50)) - Shopify顧客ID
+    - `Email` (NVARCHAR(255)) - 顧客メールアドレス
+    - `TotalTax` (DECIMAL(18,2)) - 税額合計
+    - `FinancialStatus` (NVARCHAR(50)) - 支払いステータス
+  - **Customersテーブル**:
+    - `IsActive` (BIT) - アクティブフラグ
+    - `TotalOrders` (INT) - 注文総数
+  - **インデックス追加**:
+    - `IX_Orders_ShopifyCustomerId`
+    - `IX_Orders_Email`
+    - `IX_Customers_IsActive`
+  - 休眠顧客分析機能の500エラー解消のために実施
 
 ## 適用手順
 

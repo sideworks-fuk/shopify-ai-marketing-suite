@@ -9,6 +9,8 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext"
 import ConditionalLayout from "@/components/layout/ConditionalLayout"
 import "./globals.css"
 import "@shopify/polaris/build/esm/styles.css"
+import { AuthGuard } from "@/components/auth/AuthGuard"
+import { DeveloperModeProvider } from "@/contexts/DeveloperModeContext"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -50,19 +52,23 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <AuthProvider>
-          <StoreProvider>
-            <SubscriptionProvider>
-              <ZustandProvider>
-                <FilterProvider>
-                  <ConditionalLayout>
-                    {children}
-                  </ConditionalLayout>
-                </FilterProvider>
-              </ZustandProvider>
-            </SubscriptionProvider>
-          </StoreProvider>
-        </AuthProvider>
+        <DeveloperModeProvider>
+          <AuthProvider>
+            <StoreProvider>
+              <AuthGuard>
+                <SubscriptionProvider>
+                  <ZustandProvider>
+                    <FilterProvider>
+                      <ConditionalLayout>
+                        {children}
+                      </ConditionalLayout>
+                    </FilterProvider>
+                  </ZustandProvider>
+                </SubscriptionProvider>
+              </AuthGuard>
+            </StoreProvider>
+          </AuthProvider>
+        </DeveloperModeProvider>
       </body>
     </html>
   )
