@@ -328,7 +328,7 @@ export default function DevBookmarksPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // 本番環境では404
-  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
