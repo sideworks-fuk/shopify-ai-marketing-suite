@@ -86,6 +86,10 @@ export default function AuthenticationRequired({ message }: Props) {
           {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' 
             ? 'Shopify認証が必要です' 
             : '認証が必要です'}
+          {/* デバッグ用: 環境変数の値を表示 */}
+          <span className="text-xs text-gray-500 block mt-1">
+            (ENV: {process.env.NEXT_PUBLIC_ENVIRONMENT || 'undefined'})
+          </span>
         </h1>
         
         {/* 本番環境 + shop パラメータなし: Shopify管理画面に戻るよう促す */}

@@ -327,13 +327,25 @@ export default function DevBookmarksPage() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  // 本番環境では404
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
+  // デバッグ情報をコンソールに出力
+  console.log('🔍 [DevBookmarks] Environment check:', {
+    'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
+    'NEXT_PUBLIC_ENABLE_DEV_TOOLS': process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS,
+    'isProduction': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
+    'willShow404': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS
+  })
+
+  // 本番環境では404（一時的に無効化）
+  if (false && process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
           <p className="text-gray-600">ページが見つかりません</p>
+          {/* デバッグ用 */}
+          <p className="text-xs text-gray-400 mt-4">
+            ENV: {process.env.NEXT_PUBLIC_ENVIRONMENT || 'undefined'}
+          </p>
         </div>
       </div>
     )
