@@ -69,12 +69,12 @@ const nextConfig = {
   // 実験的機能の設定
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    // 本番環境で開発用ページを除外
-    ...(isProduction && {
-      outputFileTracingExcludes: {
-        '*': DEV_PAGE_PATTERNS,
-      },
-    }),
+    // 本番環境で開発用ページを除外（一時的に無効化）
+    // ...(isProduction && {
+    //   outputFileTracingExcludes: {
+    //     '*': DEV_PAGE_PATTERNS,
+    //   },
+    // }),
   },
   // Azure Static Web Apps 対応（API機能を使用）
   // output: 'export', // 静的エクスポートを無効化（API Route対応のため）

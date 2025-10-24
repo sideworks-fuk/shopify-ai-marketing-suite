@@ -25,9 +25,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isDeveloperMode, setIsDeveloperMode] = useState(false)
 
   const isPublic = useMemo(() => {
-    if (!pathname) return true
-    const result = publicPaths.some(p => pathname.startsWith(p))
-    console.log('🔒 [AuthGuard] Path check:', { pathname, isPublic: result })
+    console.log('🔍 [AuthGuard] Path check DETAILED:', {
+      pathname: pathname,
+      pathnameType: typeof pathname,
+      pathnameLength: pathname?.length,
+      publicPaths: publicPaths,
+      publicPathsLength: publicPaths.length
+    })
+
+    if (!pathname) {
+      console.log('✅ [AuthGuard] pathname is null/undefined, returning isPublic=true')
+      return true
+    }
+
+    const result = publicPaths.some(p => {
+      const matches = pathname.startsWith(p)
+      console.log(`  - Checking "${p}": ${matches}`)
+      return matches
+    })
+
+    console.log('🔒 [AuthGuard] Path check result:', { pathname, isPublic: result })
     return result
   }, [pathname])
 
