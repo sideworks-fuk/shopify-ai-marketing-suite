@@ -27,3 +27,5 @@ export class AuthenticationError extends Error implements AppError {
     this.name = 'AuthenticationError';
   }
 }
+
+

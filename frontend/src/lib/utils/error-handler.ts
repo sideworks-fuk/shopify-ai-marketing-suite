@@ -46,3 +46,5 @@ export function handleApiError(error: unknown): AppError {
     details: error
   }
 }
+
+

@@ -33,7 +33,7 @@ const getApiBaseUrl = (): string => {
   
   // 本番環境のデフォルト（Azure Static Web Appsでのビルド時も含む）
   if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using production default');
-  return 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net';
+  return 'ki';
 };
 
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
