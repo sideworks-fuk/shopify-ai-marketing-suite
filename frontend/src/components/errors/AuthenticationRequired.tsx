@@ -128,7 +128,7 @@ export default function AuthenticationRequired({ message }: Props) {
         )}
         
         {/* 検証環境: デモサイトへのリンク */}
-        {process.env.NODE_ENV !== 'production' && (
+        {process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production' && (
           <div className="mt-6 pt-4 border-t border-gray-200">
             <div className="bg-blue-50 rounded-lg p-4 text-left border border-blue-100">
               <p className="text-sm font-semibold text-blue-800 mb-2">

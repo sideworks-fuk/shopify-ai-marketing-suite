@@ -78,6 +78,7 @@ jobs:
         NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: ${{ vars.NEXT_PUBLIC_DISABLE_FEATURE_GATES }}
+        NEXT_PUBLIC_DEV_PASSWORD: ${{ secrets.NEXT_PUBLIC_DEV_PASSWORD }}  # 環境別に設定可能
         NODE_VERSION: 20
 
     - name: ✅ Deployment complete
