@@ -380,7 +380,7 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
   }
 
   // 統計計算（選択期間に基づく、API データまたはサンプルデータ）
-  const calculateTotalAmount = (): number => {
+  const totalAmount = useMemo((): number => {
     if (!validateDateRange(dateRange).isValid) return 0
     
     if (!useSampleData && apiData?.summary) {
@@ -395,9 +395,9 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
       })
     })
     return total
-  }
+  }, [products, months, dateRange, apiData, useSampleData])
 
-  const calculateTotalQuantity = (): number => {
+  const totalQuantity = useMemo((): number => {
     if (!validateDateRange(dateRange).isValid) return 0
     
     if (!useSampleData && apiData?.summary) {
@@ -412,16 +412,15 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
       })
     })
     return total
-  }
+  }, [products, months, dateRange, apiData, useSampleData])
 
-  const calculateMonthlyAverage = (): number => {
+  const monthlyAverage = useMemo((): number => {
     if (!useSampleData && apiData?.summary) {
       return Math.floor(apiData.summary.monthlyAverage || 0)
     }
     
-    const totalAmount = calculateTotalAmount()
     return months.length > 0 ? Math.floor(totalAmount / months.length) : 0
-  }
+  }, [totalAmount, months, apiData, useSampleData])
 
   // CSVエクスポート機能（期間対応）
   const handleExport = () => {
@@ -649,7 +648,7 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">総売上金額</span>
             </div>
-            <div className="text-2xl font-bold">¥{calculateTotalAmount().toLocaleString()}</div>
+            <div className="text-2xl font-bold">¥{totalAmount.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -659,7 +658,7 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
               <Package className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">総販売数量</span>
             </div>
-            <div className="text-2xl font-bold">{calculateTotalQuantity().toLocaleString()}</div>
+            <div className="text-2xl font-bold">{totalQuantity.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -669,7 +668,7 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-muted-foreground">月平均売上</span>
             </div>
-            <div className="text-2xl font-bold">¥{calculateMonthlyAverage().toLocaleString()}</div>
+            <div className="text-2xl font-bold">¥{monthlyAverage.toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
