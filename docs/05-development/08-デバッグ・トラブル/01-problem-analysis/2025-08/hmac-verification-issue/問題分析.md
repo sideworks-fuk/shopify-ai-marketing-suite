@@ -1,0 +1,169 @@
+# HMAC検証エラー 根本原因分析
+
+## 🔴 問題の状況
+
+**重大度**: Critical - 本番環境でも発生
+**影響**: Shopifyアプリのインストールが完了できない
+
+### テスト結果
+- 受信HMAC: `73e68ab6c6542254b70a4e9966fda6b8cc3528652e7167c2d45bb59e79ea5941`
+- 計算HMAC: `3ee05bfb8b50de3e2e67fc6f21510c5f854c31e7a4d18b542e30c66a485ff71f`
+- **結果**: ❌ 一致しない
+
+## 🔍 調査結果
+
+### 1. テスト済みの方法
+- ✅ パラメータのアルファベット順ソート
+- ✅ UTF-8/ASCII/Latin-1エンコーディング
+- ✅ パラメータ順序の変更
+- ✅ Shopify公式ドキュメント準拠の実装
+- **すべて失敗**
+
+### 2. 根本原因の可能性
+
+#### 🔴 最も可能性が高い原因
+
+1. **APIシークレットの不一致**
+   - Shopifyアプリ管理画面のシークレットと設定ファイルのシークレットが異なる
+   - 新旧のシークレットが混在している
+   - コピー&ペースト時のエラー
+
+2. **Shopifyアプリの再生成**
+   - アプリが再作成され、新しいシークレットが生成されている
+   - 古いシークレットを使用している
+
+3. **複数のShopifyアプリ**
+   - 開発用と本番用で異なるアプリを使用
+   - 間違ったアプリの認証情報を使用
+
+## 🚨 緊急確認事項
+
+### 1. Shopify Partners管理画面で確認
+```
+1. https://partners.shopify.com にログイン
+2. Apps → EC Ranger を選択
+3. App setup → Client credentials を確認
+4. 以下を確認：
+   - Client ID: 2d7e0e1f5da14eb9d299aa746738e44b （一致するか？）
+   - Client secret: [表示] をクリックして確認
+```
+
+### 2. 設定ファイルの確認
+```bash
+# バックエンド設定
+cat backend/ShopifyAnalyticsApi/appsettings.json | grep -A5 Shopify
+cat backend/ShopifyAnalyticsApi/appsettings.Development.json | grep -A5 Shopify
+cat backend/ShopifyAnalyticsApi/appsettings.Production.json | grep -A5 Shopify
+```
+
+### 3. 環境変数の確認
+```bash
+# Windows
+echo %SHOPIFY_APISECRET%
+echo %SHOPIFY_API_SECRET%
+
+# PowerShell
+$env:SHOPIFY_APISECRET
+$env:SHOPIFY_API_SECRET
+```
+
+## 🔧 解決手順
+
+### ステップ1: Shopify Partnersで正しいシークレットを取得
+
+1. Shopify Partners管理画面にログイン
+2. EC Rangerアプリを選択
+3. Client secretを表示してコピー
+
+### ステップ2: 設定ファイルを更新
+
+```json
+// appsettings.json
+{
+  "Shopify": {
+    "ApiKey": "正しいClient ID",
+    "ApiSecret": "正しいClient Secret"
+  }
+}
+```
+
+### ステップ3: 環境変数を更新（本番環境）
+
+```bash
+# Azure App Service
+az webapp config appsettings set \
+  --name ec-ranger-backend \
+  --resource-group ec-ranger-rg \
+  --settings SHOPIFY_APISECRET="正しいシークレット"
+```
+
+### ステップ4: 新しいテストで検証
+
+```python
+# テストスクリプト
+import hmac
+import hashlib
+
+# Shopify Partnersから取得した正しいシークレット
+secret = "正しいシークレット"
+query = "code=xxx&shop=xxx&state=xxx&timestamp=xxx"
+computed = hmac.new(secret.encode('utf-8'), query.encode('utf-8'), hashlib.sha256).hexdigest()
+print(f"Computed: {computed}")
+```
+
+## 📋 チェックリスト
+
+- [ ] Shopify Partners管理画面でClient Secretを確認
+- [ ] appsettings.jsonのApiSecretを更新
+- [ ] 環境変数SHOPIFY_APISECRETを更新
+- [ ] 新しいシークレットでHMAC検証をテスト
+- [ ] 開発環境でインストールフローをテスト
+- [ ] 本番環境の設定を更新
+
+## 🎯 回避策（緊急対応）
+
+### 開発環境での一時的な回避
+
+```csharp
+// appsettings.Development.json
+{
+  "Shopify": {
+    "SkipHmacValidation": true
+  }
+}
+```
+
+### 本番環境での一時的な回避（非推奨）
+
+```csharp
+// ShopifyAuthController.cs
+if (_configuration["Shopify:EmergencyBypass"] == "true")
+{
+    _logger.LogWarning("緊急バイパスモード - HMAC検証をスキップ");
+    return true;
+}
+```
+
+## ⚠️ 重要な注意事項
+
+1. **セキュリティリスク**: HMAC検証をスキップすることは重大なセキュリティリスクです
+2. **Shopify審査**: HMAC検証が正しく実装されていないとApp Store審査に通りません
+3. **データ整合性**: 正しいシークレットを使用しないとデータの整合性が保証されません
+
+## 📞 エスカレーション
+
+この問題が解決しない場合：
+
+1. **Shopifyサポート**に問い合わせ
+   - Partners Dashboard → Support
+   - OAuth認証の問題として報告
+
+2. **新しいアプリの作成**を検討
+   - 既存のアプリに問題がある場合
+   - 新規作成で新しい認証情報を取得
+
+---
+
+**作成日**: 2025年8月12日
+**更新日**: 2025年8月12日
+**重要度**: 🔴 Critical - 即座の対応が必要

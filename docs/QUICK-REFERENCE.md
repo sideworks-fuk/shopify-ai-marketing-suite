@@ -162,6 +162,7 @@ git push origin feature/orders-products-frontend
 ### **開発者向け**
 - [📊 **ブックマーク集**](./BOOKMARKS.md) - 全URLワンクリック
 - [🛠️ **環境構築ガイド**](./04-development/01-環境構築/開発環境セットアップガイド.md) - 詳細セットアップ手順
+- [🔐 **環境変数設定ガイド**](./04-development/04-Azure_DevOps/デプロイメント/environment-variables-guide.md) - Azure & GitHub環境変数の完全ガイド
 - [🌳 **ブランチ戦略**](./05-operations/branch-strategy-and-deployment-plan.md) - 開発フロー
 - [🏗️ **システム設計**](./02-architecture/system-architecture.md) - アーキテクチャ
 
