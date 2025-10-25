@@ -727,6 +727,432 @@ describe('Access Control Security', () => {
 })
 ```
 
+#### 4.3 レート制限・ブルートフォース対策テスト
+
+```typescript
+// rate-limit-security.test.ts
+describe('Rate Limiting and Brute Force Protection Tests', () => {
+  test('レート制限を超えた認証試行がブロックされる', async () => {
+    // Arrange
+    const ipAddress = '192.168.1.100'
+    const maxAttempts = 5
+    
+    // Act: maxAttempts回失敗試行
+    for (let i = 0; i < maxAttempts; i++) {
+      await fetch('/api/auth/demo', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Forwarded-For': ipAddress
+        },
+        body: JSON.stringify({ password: 'wrong-password' })
+      })
+    }
+    
+    // Act: maxAttempts + 1回目の試行
+    const response = await fetch('/api/auth/demo', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': ipAddress
+      },
+      body: JSON.stringify({ password: 'correct-password' })
+    })
+    
+    // Assert
+    expect(response.status).toBe(429) // Too Many Requests
+    const result = await response.json()
+    expect(result.error).toContain('Too many attempts')
+  })
+  
+  test('ロックアウト閾値到達後にアカウントがロックされる', async () => {
+    // Arrange
+    const ipAddress = '192.168.1.101'
+    const lockoutThreshold = 10
+    
+    // Act: lockoutThreshold回失敗試行
+    for (let i = 0; i < lockoutThreshold; i++) {
+      await fetch('/api/auth/demo', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Forwarded-For': ipAddress
+        },
+        body: JSON.stringify({ password: 'wrong-password' })
+      })
+    }
+    
+    // Act: ロックアウト後の試行
+    const response = await fetch('/api/auth/demo', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': ipAddress
+      },
+      body: JSON.stringify({ password: 'correct-password' })
+    })
+    
+    // Assert
+    expect(response.status).toBe(403) // Forbidden
+    const result = await response.json()
+    expect(result.error).toContain('temporarily locked')
+  })
+  
+  test('成功認証後にレート制限カウンターがリセットされる', async () => {
+    // Arrange
+    const ipAddress = '192.168.1.102'
+    
+    // Act: 数回失敗試行
+    for (let i = 0; i < 3; i++) {
+      await fetch('/api/auth/demo', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Forwarded-For': ipAddress
+        },
+        body: JSON.stringify({ password: 'wrong-password' })
+      })
+    }
+    
+    // Act: 成功認証
+    await fetch('/api/auth/demo', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': ipAddress
+      },
+      body: JSON.stringify({ password: 'correct-password' })
+    })
+    
+    // Act: 再度認証試行（カウンターがリセットされているはず）
+    const response = await fetch('/api/auth/demo', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': ipAddress
+      },
+      body: JSON.stringify({ password: 'correct-password' })
+    })
+    
+    // Assert
+    expect(response.status).toBe(200)
+  })
+  
+  test('平文パスワードがログに記録されない', async () => {
+    // Arrange
+    const password = 'sensitive-password-123'
+    
+    // Act
+    await fetch('/api/auth/demo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+    
+    // Assert: ログファイルを確認
+    const logs = await readAuthenticationLogs()
+    expect(logs).not.toContain(password)
+  })
+})
+```
+
+#### 4.4 環境設定検証テスト
+
+```csharp
+// EnvironmentConfigurationSecurityTests.cs
+[TestFixture]
+public class EnvironmentConfigurationSecurityTests
+{
+    [Test]
+    public void Startup_ProductionWithDemoMode_ShouldThrowException()
+    {
+        // Arrange
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["ASPNETCORE_ENVIRONMENT"] = "Production",
+                ["Authentication:Mode"] = "DemoAllowed"
+            })
+            .Build();
+        
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var startup = new Startup(config);
+            startup.ConfigureServices(new ServiceCollection());
+        });
+    }
+    
+    [Test]
+    public void Startup_ProductionWithOAuthRequired_ShouldSucceed()
+    {
+        // Arrange
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["ASPNETCORE_ENVIRONMENT"] = "Production",
+                ["Authentication:Mode"] = "OAuthRequired"
+            })
+            .Build();
+        
+        // Act & Assert
+        Assert.DoesNotThrow(() =>
+        {
+            var startup = new Startup(config);
+            startup.ConfigureServices(new ServiceCollection());
+        });
+    }
+    
+    [Test]
+    public void Startup_MissingJwtSecret_ShouldThrowException()
+    {
+        // Arrange
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                ["Authentication:Mode"] = "AllAllowed"
+                // JwtSecretが欠落
+            })
+            .Build();
+        
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            var startup = new Startup(config);
+            startup.ConfigureServices(new ServiceCollection());
+        });
+    }
+}
+```
+
+#### 4.5 グローバル読み取り専用ポリシーテスト
+
+```csharp
+// DemoReadOnlyFilterTests.cs
+[TestFixture]
+public class DemoReadOnlyFilterTests
+{
+    [Test]
+    public void DemoMode_PostRequest_ShouldBeBlocked()
+    {
+        // Arrange
+        var filter = new DemoReadOnlyFilter(Mock.Of<ILogger<DemoReadOnlyFilter>>());
+        var context = CreateActionExecutingContext("POST");
+        context.HttpContext.Items["IsReadOnly"] = true;
+        
+        // Act
+        filter.OnActionExecuting(context);
+        
+        // Assert
+        Assert.IsInstanceOf<JsonResult>(context.Result);
+        var jsonResult = (JsonResult)context.Result;
+        Assert.AreEqual(403, jsonResult.StatusCode);
+    }
+    
+    [Test]
+    public void DemoMode_GetRequest_ShouldBeAllowed()
+    {
+        // Arrange
+        var filter = new DemoReadOnlyFilter(Mock.Of<ILogger<DemoReadOnlyFilter>>());
+        var context = CreateActionExecutingContext("GET");
+        context.HttpContext.Items["IsReadOnly"] = true;
+        
+        // Act
+        filter.OnActionExecuting(context);
+        
+        // Assert
+        Assert.IsNull(context.Result);
+    }
+    
+    [Test]
+    public void DemoMode_PostRequestWithAllowDemoWrite_ShouldBeAllowed()
+    {
+        // Arrange
+        var filter = new DemoReadOnlyFilter(Mock.Of<ILogger<DemoReadOnlyFilter>>());
+        var context = CreateActionExecutingContext("POST");
+        context.HttpContext.Items["IsReadOnly"] = true;
+        context.ActionDescriptor.EndpointMetadata.Add(new AllowDemoWriteAttribute());
+        
+        // Act
+        filter.OnActionExecuting(context);
+        
+        // Assert
+        Assert.IsNull(context.Result);
+    }
+    
+    [Test]
+    public void OAuthMode_PostRequest_ShouldBeAllowed()
+    {
+        // Arrange
+        var filter = new DemoReadOnlyFilter(Mock.Of<ILogger<DemoReadOnlyFilter>>());
+        var context = CreateActionExecutingContext("POST");
+        context.HttpContext.Items["IsReadOnly"] = false;
+        
+        // Act
+        filter.OnActionExecuting(context);
+        
+        // Assert
+        Assert.IsNull(context.Result);
+    }
+}
+```
+
+#### 4.6 Shopify App Bridge認証テスト
+
+```typescript
+// shopify-app-bridge-auth.test.ts
+describe('Shopify App Bridge Authentication Tests', () => {
+  test('セッショントークンがAuthorizationヘッダー経由で送信される', async () => {
+    // Arrange
+    const sessionToken = await getShopifySessionToken()
+    
+    // Act
+    const response = await fetch('/api/protected', {
+      headers: {
+        'Authorization': `Bearer ${sessionToken}`
+      }
+    })
+    
+    // Assert
+    expect(response.status).toBe(200)
+  })
+  
+  test('Cookieベースの認証が使用されない', async () => {
+    // Arrange
+    const sessionToken = await getShopifySessionToken()
+    
+    // Act: Cookieにトークンを設定してリクエスト
+    const response = await fetch('/api/protected', {
+      headers: {
+        'Cookie': `shopify_session=${sessionToken}`
+      }
+    })
+    
+    // Assert: Cookieのみでは認証されない
+    expect(response.status).toBe(401)
+  })
+  
+  test('無効なセッショントークンが拒否される', async () => {
+    // Arrange
+    const invalidToken = 'invalid-session-token'
+    
+    // Act
+    const response = await fetch('/api/protected', {
+      headers: {
+        'Authorization': `Bearer ${invalidToken}`
+      }
+    })
+    
+    // Assert
+    expect(response.status).toBe(401)
+  })
+  
+  test('期限切れセッショントークンが拒否される', async () => {
+    // Arrange
+    const expiredToken = await getExpiredShopifySessionToken()
+    
+    // Act
+    const response = await fetch('/api/protected', {
+      headers: {
+        'Authorization': `Bearer ${expiredToken}`
+      }
+    })
+    
+    // Assert
+    expect(response.status).toBe(401)
+  })
+})
+```
+
+#### 4.7 分散セッションストレージテスト
+
+```csharp
+// DistributedSessionStorageTests.cs
+[TestFixture]
+public class DistributedSessionStorageTests
+{
+    [Test]
+    public async Task DemoSession_ShouldPersistInDatabase()
+    {
+        // Arrange
+        var session = new DemoSession
+        {
+            Id = Guid.NewGuid(),
+            SessionId = Guid.NewGuid().ToString(),
+            ExpiresAt = DateTime.UtcNow.AddHours(1),
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+        
+        // Act
+        await _dbContext.DemoSessions.AddAsync(session);
+        await _dbContext.SaveChangesAsync();
+        
+        // Assert
+        var retrieved = await _dbContext.DemoSessions
+            .FirstOrDefaultAsync(s => s.SessionId == session.SessionId);
+        Assert.IsNotNull(retrieved);
+        Assert.AreEqual(session.SessionId, retrieved.SessionId);
+    }
+    
+    [Test]
+    public async Task DemoSession_ShouldBeCachedInRedis()
+    {
+        // Arrange
+        var session = new DemoSession
+        {
+            SessionId = Guid.NewGuid().ToString(),
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        };
+        
+        var cacheOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpiration = session.ExpiresAt
+        };
+        
+        // Act
+        await _distributedCache.SetStringAsync(
+            $"demo_session_{session.SessionId}",
+            JsonSerializer.Serialize(session),
+            cacheOptions
+        );
+        
+        // Assert
+        var cached = await _distributedCache.GetStringAsync($"demo_session_{session.SessionId}");
+        Assert.IsNotNull(cached);
+        var deserializedSession = JsonSerializer.Deserialize<DemoSession>(cached);
+        Assert.AreEqual(session.SessionId, deserializedSession.SessionId);
+    }
+    
+    [Test]
+    public async Task ExpiredSessions_ShouldBeCleanedUp()
+    {
+        // Arrange
+        var expiredSession = new DemoSession
+        {
+            Id = Guid.NewGuid(),
+            SessionId = Guid.NewGuid().ToString(),
+            ExpiresAt = DateTime.UtcNow.AddHours(-1), // 1時間前に期限切れ
+            CreatedAt = DateTime.UtcNow.AddHours(-2),
+            IsActive = true
+        };
+        
+        await _dbContext.DemoSessions.AddAsync(expiredSession);
+        await _dbContext.SaveChangesAsync();
+        
+        // Act
+        var cleanupService = new SessionCleanupService(_dbContext, _logger);
+        await cleanupService.CleanupExpiredSessionsAsync();
+        
+        // Assert
+        var retrieved = await _dbContext.DemoSessions
+            .FirstOrDefaultAsync(s => s.SessionId == expiredSession.SessionId);
+        Assert.IsNull(retrieved);
+    }
+}
+```
+
 ### 5. パフォーマンステスト
 
 #### 5.1 認証処理パフォーマンステスト
