@@ -54,8 +54,7 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(apiSecret)),
-                    ValidateIssuer = true,
-                    ValidIssuer = "https://shopify.com",
+                    ValidateIssuer = false, // Shopify App Bridgeトークンのissは動的
                     ValidateAudience = true,
                     ValidAudience = _config["Shopify:ApiKey"],
                     ValidateLifetime = true,
@@ -298,7 +297,8 @@ namespace ShopifyAnalyticsApi.Services
 
         /// <summary>
         /// Shopifyドメインを正規化する
-        /// dest claimからhttps://プレフィックスを削除し、ドメインのみを抽出
+        /// dest claimからドメインを正規化
+        /// URIパースとホスト抽出を使用してより安全に処理
         /// </summary>
         /// <param name="destClaim">dest claimの値</param>
         /// <returns>正規化されたドメイン</returns>
@@ -307,19 +307,36 @@ namespace ShopifyAnalyticsApi.Services
             if (string.IsNullOrEmpty(destClaim))
                 return destClaim;
 
-            // https://プレフィックスを削除
-            if (destClaim.StartsWith("https://"))
+            try
             {
-                return destClaim.Substring("https://".Length);
-            }
+                // URIとしてパースしてホストを抽出
+                if (Uri.TryCreate(destClaim, UriKind.Absolute, out var uri))
+                {
+                    return uri.Host; // example.myshopify.com
+                }
 
-            // http://プレフィックスを削除（念のため）
-            if (destClaim.StartsWith("http://"))
+                // フォールバック: スラッシュで分割して最初の部分を取得
+                var parts = destClaim.Split('/');
+                var firstPart = parts[0];
+                
+                // プロトコルプレフィックスを削除
+                if (firstPart.StartsWith("https://"))
+                {
+                    return firstPart.Substring("https://".Length);
+                }
+                
+                if (firstPart.StartsWith("http://"))
+                {
+                    return firstPart.Substring("http://".Length);
+                }
+
+                return firstPart;
+            }
+            catch (Exception)
             {
-                return destClaim.Substring("http://".Length);
+                // パースに失敗した場合は元の値を返す
+                return destClaim;
             }
-
-            return destClaim;
         }
     }
 }

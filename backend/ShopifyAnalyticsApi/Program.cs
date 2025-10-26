@@ -296,14 +296,33 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
-        httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.User?.Identity?.Name ?? "anonymous",
-            factory: partition => new FixedWindowRateLimiterOptions
+        httpContext => 
+        {
+            // 認証済みユーザーはユーザー名でパーティション分け
+            if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
-                AutoReplenishment = true,
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+                var userName = httpContext.User.Identity.Name ?? "authenticated-user";
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: userName,
+                    factory: partition => new FixedWindowRateLimiterOptions
+                    {
+                        AutoReplenishment = true,
+                        PermitLimit = 200, // 認証済みユーザーはより高い制限
+                        Window = TimeSpan.FromMinutes(1)
+                    });
+            }
+            
+            // 匿名ユーザーはIPアドレスでパーティション分け（DoS攻撃対策）
+            var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: $"anonymous-{clientIp}",
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 50, // 匿名ユーザーはより低い制限
+                    Window = TimeSpan.FromMinutes(1)
+                });
+        });
 });
 
 var app = builder.Build();
@@ -316,13 +335,8 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // 本番環境でもSwaggerを有効にする（必要に応じて）
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EC Ranger API v1");
-        c.RoutePrefix = "swagger";
-    });
+    // 本番環境ではSwaggerを無効化（セキュリティ上の理由）
+    Log.Information("Swagger disabled in production environment for security");
 }
 
 app.UseHttpsRedirection();
@@ -449,9 +463,30 @@ try
         {
             ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
             ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
-            ("Authentication:JwtSecret", app.Configuration["Authentication:JwtSecret"]),
             ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
         };
+
+        // JwtSecretはDemoAllowed/AllAllowedモードでのみ必須
+        if (authMode == "DemoAllowed" || authMode == "AllAllowed")
+        {
+            requiredSettings = requiredSettings.Concat(new[]
+            {
+                ("Authentication:JwtSecret", app.Configuration["Authentication:JwtSecret"])
+            }).ToArray();
+        }
+
+        // Redis設定チェック（Session:StorageTypeがRedisの場合）
+        var sessionStorageType = app.Configuration["Session:StorageType"];
+        if (sessionStorageType == "Redis")
+        {
+            var redisConnString = app.Configuration.GetConnectionString("Redis");
+            if (string.IsNullOrEmpty(redisConnString) || redisConnString.Contains("#"))
+            {
+                throw new InvalidOperationException(
+                    "SECURITY: Redis is configured as session storage but connection string is not set. " +
+                    "Production environment requires Redis for session management.");
+            }
+        }
 
         foreach (var (key, value) in requiredSettings)
         {

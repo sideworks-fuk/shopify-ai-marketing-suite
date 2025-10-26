@@ -20,22 +20,31 @@ public class DemoModeMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // 🆕 すべてのリクエストヘッダーをログ出力（デバッグ用）
-        _logger.LogInformation("🔍 [DemoMode] リクエストヘッダー: {Headers}", 
-            string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
+        // 開発環境のみでX-Demo-Modeヘッダーをチェック
+        var environment = context.RequestServices.GetRequiredService<IHostEnvironment>();
+        
+        if (!environment.IsDevelopment())
+        {
+            // 開発環境以外では何もしない（トークンベース認証のみ）
+            await _next(context);
+            return;
+        }
 
-        // X-Demo-Mode ヘッダーをチェック
+        // セキュリティ: Authorizationヘッダーをマスクしてログ出力（開発環境のみ）
+        var safeHeaders = context.Request.Headers
+            .Where(h => h.Key != "Authorization") // Authorizationヘッダーを除外
+            .Select(h => $"{h.Key}={h.Value}");
+        
+        var authHeader = context.Request.Headers.ContainsKey("Authorization") 
+            ? "Authorization=***MASKED***" 
+            : "Authorization=not-present";
+        
+        _logger.LogInformation("🔍 [DemoMode] リクエストヘッダー: {Headers}", 
+            string.Join(", ", safeHeaders.Concat(new[] { authHeader })));
+
+        // X-Demo-Mode ヘッダーをチェック（開発環境のみ）
         if (context.Request.Headers.TryGetValue("X-Demo-Mode", out var demoModeValue))
         {
-            // 本番環境ではX-Demo-Modeヘッダーを無視
-            var environment = context.RequestServices.GetRequiredService<IHostEnvironment>();
-            if (environment.IsProduction())
-            {
-                _logger.LogWarning("🚨 [DemoMode] X-Demo-Mode header ignored in production environment");
-                await _next(context);
-                return;
-            }
-
             _logger.LogInformation("🔍 [DemoMode] X-Demo-Mode ヘッダー検出: {Value}", demoModeValue);
 
             if (demoModeValue == "true")
@@ -47,30 +56,22 @@ public class DemoModeMiddleware
                 {
                     new Claim(ClaimTypes.Name, "demo-user"),
                     new Claim(ClaimTypes.Role, "demo"),
-                    new Claim("demo_mode", "true"),
-                    new Claim("store_id", "2") // デモ用ストアID
+                    new Claim("auth_mode", "demo"),
+                    new Claim("store_id", "1"),
+                    new Claim("is_read_only", "true")
                 };
 
-                var identity = new ClaimsIdentity(claims, "DemoMode");
+                var identity = new ClaimsIdentity(claims, "demo");
                 var principal = new ClaimsPrincipal(identity);
 
-                // HttpContextにデモユーザーを設定
                 context.User = principal;
-                
-                // デモモードフラグを設定（後続のミドルウェアで使用）
-                context.Items["IsDemoMode"] = true;
 
-                _logger.LogInformation("✅ デモモード: デモユーザーを設定しました (User.Identity.IsAuthenticated={IsAuthenticated})", 
-                    context.User.Identity?.IsAuthenticated);
+                // デモモードフラグを設定
+                context.Items["AuthMode"] = "demo";
+                context.Items["IsReadOnly"] = true;
+
+                _logger.LogInformation("✅ デモモード認証完了");
             }
-            else
-            {
-                _logger.LogWarning("⚠️ [DemoMode] X-Demo-Mode ヘッダーの値が 'true' ではありません: {Value}", demoModeValue);
-            }
-        }
-        else
-        {
-            _logger.LogInformation("ℹ️ [DemoMode] X-Demo-Mode ヘッダーが見つかりません");
         }
 
         await _next(context);
