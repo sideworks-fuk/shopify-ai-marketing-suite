@@ -22,6 +22,7 @@ docs/04-development/03-データベース/マイグレーション/
 ├── 2025-09-04-MASTER-CreateDatabaseFromScratch.sql
 ├── 2025-10-20-FIX-FeatureLimits-IDs.sql
 ├── 2025-10-23-ADD-MissingOrderAndCustomerColumns.sql
+├── 2025-10-26-AddAuthenticationTables.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -44,6 +45,7 @@ docs/04-development/03-データベース/マイグレーション/
 | **2025-09-04-MASTER-CreateDatabaseFromScratch.sql** | 2025-09-04 | Kenji | **完全なデータベース作成マスタースクリプト** | 🆕 新規作成 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-10-20-FIX-FeatureLimits-IDs.sql** | 2025-10-20 | 福田+AI | **機能ID統一修正（year_over_year→yoy_comparison等）** | ✅ 適用済 (2025-10-20 16:23) | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql** | 2025-10-23 | 福田+AI | **Orders/Customersテーブルに不足カラム追加（ShopifyCustomerId, Email, TotalTax, IsActive等）** | ✅ 適用済 (2025-10-24 08:31) | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-10-26-AddAuthenticationTables.sql** | 2025-10-26 | Takashi (福田+AI) | **認証テーブル追加（DemoSessions, AuthenticationLogs）認証モード制御機能のため** | ✅ 適用済 (2025-10-26 09:58) | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -59,6 +61,7 @@ docs/04-development/03-データベース/マイグレーション/
 9. 2025-08-25-FIX2-free-plan-feature-selection.sql
 10. **2025-10-20-FIX-FeatureLimits-IDs.sql**
 11. **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql**
+12. **2025-10-26-AddAuthenticationTables.sql**
 
 ### エラー発生（修正版で解決済み）❌→✅
 - 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
@@ -176,6 +179,13 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 対象行: `2025-08-24-AddGDPRTables.sql`
   - 提案セル値: Development → ✅ 適用済 (2025-08-25) / Staging → ⏳ / Production → ⏳
 
-最終更新: 2025-10-20 17:30
+### 🔐 認証テーブル追加（2025-10-26）
+- **2025-10-26-AddAuthenticationTables.sql** - 認証モード制御機能のためのテーブル追加
+  - **DemoSessions**: デモモード認証セッション管理（7カラム、2インデックス）
+  - **AuthenticationLogs**: すべての認証試行を記録（8カラム、2インデックス）
+  - 分散環境対応（Redis + Database）
+  - セキュリティ監査ログ機能
+
+最終更新: 2025-10-26 10:00
 管理者: 福田
-更新者: 福田 + AI Assistant
+更新者: Takashi (福田 + AI Assistant)

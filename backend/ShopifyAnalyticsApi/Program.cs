@@ -5,6 +5,7 @@ using System.Text;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Middleware;
+using ShopifyAnalyticsApi.Filters;
 using ShopifyAnalyticsApi.HealthChecks;
 using Serilog;
 using Serilog.Events;
@@ -28,7 +29,11 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Add services to the container.
-builder.Services.AddControllers();
+// グローバルフィルターとしてDemoReadOnlyFilterを追加
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<DemoReadOnlyFilter>(); // デモモードでの書き込み操作を制限
+});
 
 // HTTPクライアントファクトリーを追加（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
@@ -188,6 +193,14 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncProgressTracke
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyProductSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
+
+// Register Authentication Services (認証サービス)
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IDemoAuthService, DemoAuthService>();
+builder.Services.AddScoped<IRateLimiter, ShopifyAnalyticsApi.Services.RateLimiter>();
+
+// Add Distributed Cache (分散キャッシュ)
+builder.Services.AddDistributedMemoryCache(); // Developmentではメモリキャッシュ、ProductionではRedisに切り替え可能
 
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
@@ -366,6 +379,9 @@ app.UseGlobalExceptionHandler();
 
 // Shopify Webhook用のHMAC検証ミドルウェア
 app.UseHmacValidation();
+
+// 認証モード制御ミドルウェア（認証前に配置）
+app.UseAuthModeMiddleware();
 
 // Rate Limitingを有効化
 app.UseRateLimiter();

@@ -48,6 +48,10 @@ namespace ShopifyAnalyticsApi.Data
         public DbSet<UserFeatureSelection> UserFeatureSelections { get; set; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; set; }
         public DbSet<FeatureSelectionChangeHistory> FeatureSelectionChangeHistories { get; set; }
+        
+        // 認証・セキュリティ管理用のDbSets
+        public DbSet<DemoSession> DemoSessions { get; set; }
+        public DbSet<AuthenticationLog> AuthenticationLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -122,6 +126,20 @@ namespace ShopifyAnalyticsApi.Data
             modelBuilder.Entity<GDPRStatistics>()
                 .HasIndex(s => new { s.Period, s.RequestType })
                 .IsUnique();
+            
+            // 認証ログのインデックス設定
+            modelBuilder.Entity<DemoSession>()
+                .HasIndex(d => d.SessionId)
+                .IsUnique();
+            
+            modelBuilder.Entity<DemoSession>()
+                .HasIndex(d => d.ExpiresAt);
+            
+            modelBuilder.Entity<AuthenticationLog>()
+                .HasIndex(a => a.CreatedAt);
+            
+            modelBuilder.Entity<AuthenticationLog>()
+                .HasIndex(a => a.AuthMode);
 
             // Storeとのリレーション設定
             modelBuilder.Entity<Customer>()

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
 import AuthenticationRequired from '@/components/errors/AuthenticationRequired'
 import { DeveloperModeBanner } from '@/components/dev/DeveloperModeBanner'
+import { getAuthModeConfig } from '@/lib/config/environments'
 
 const publicPaths = [
   // '/', // 🔒 ルートページも認証が必要な場合はコメントアウト
@@ -23,6 +24,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isInitializing, authError } = useAuth()
   const [showAuthRequired, setShowAuthRequired] = useState(false)
   const [isDeveloperMode, setIsDeveloperMode] = useState(false)
+
+  // 環境設定を取得（UI表示用のみ）
+  const config = getAuthModeConfig()
 
   const isPublic = useMemo(() => {
     console.log('🔍 [AuthGuard] Path check DETAILED:', {
@@ -83,16 +87,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [authError, isAuthenticated])
 
-  console.log('🔒 [AuthGuard] Render:', {
-    pathname,
-    isPublic,
-    isInitializing,
-    isAuthenticated,
-    authError,
-    showAuthRequired,
-    isDeveloperMode,
-    willShowAuthScreen: !isPublic && !isInitializing && (!isAuthenticated || showAuthRequired)
-  })
+  // デバッグログ（環境設定に基づく）
+  if (config.debugMode) {
+    console.log('🔒 [AuthGuard] Render:', {
+      pathname,
+      isPublic,
+      isInitializing,
+      isAuthenticated,
+      authError,
+      showAuthRequired,
+      isDeveloperMode,
+      environment: config.environment,
+      authMode: config.authMode,
+      willShowAuthScreen: !isPublic && !isInitializing && (!isAuthenticated || showAuthRequired)
+    })
+  }
 
   // デモモードの場合は全ページで認証をスキップ（バナー付き）
   if (isDeveloperMode) {

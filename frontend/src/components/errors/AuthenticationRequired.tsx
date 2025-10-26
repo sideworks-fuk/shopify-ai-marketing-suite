@@ -4,6 +4,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useStore } from '@/contexts/StoreContext'
+import { getAuthModeConfig } from '@/lib/config/environments'
 
 type Props = {
   message?: string
@@ -12,6 +13,9 @@ type Props = {
 export default function AuthenticationRequired({ message }: Props) {
   const { login, currentStoreId, isInitializing } = useAuth()
   const { currentStore } = useStore()
+
+  // 環境設定を取得（UI表示用のみ）
+  const config = getAuthModeConfig()
 
   const onShopifyAuth = async () => {
     // Shopify OAuth認証を開始
@@ -30,7 +34,7 @@ export default function AuthenticationRequired({ message }: Props) {
       })
       
       // より詳細なエラーメッセージ
-      const errorMessage = process.env.NEXT_PUBLIC_ENVIRONMENT === 'production'
+      const errorMessage = config.environment === 'production'
         ? 'ストア情報が見つかりません。Shopifyアプリを再インストールしてください。'
         : `ストア情報が見つかりません。\n\n` +
           `現在のストア: ${currentStore.name} (ID: ${currentStore.id})\n` +
@@ -55,45 +59,57 @@ export default function AuthenticationRequired({ message }: Props) {
     window.location.href = shopifyAuthUrl
   }
 
+  const onDemoAuth = () => {
+    // デモモード認証ページへ遷移
+    window.location.href = '/dev-bookmarks'
+  }
+
   // URLパラメータから shop を取得
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const shopFromUrl = urlParams?.get('shop')
   const hasShopParam = !!shopFromUrl
 
-  // 環境判定のデバッグ情報
-  console.log('🔍 [AuthenticationRequired] Environment check:', {
-    'NODE_ENV': process.env.NODE_ENV,
-    'NEXT_PUBLIC_ENVIRONMENT': process.env.NEXT_PUBLIC_ENVIRONMENT,
-    'hostname': typeof window !== 'undefined' ? window.location.hostname : 'SSR',
-    'isProduction (NODE_ENV)': process.env.NODE_ENV === 'production',
-    'isProduction (NEXT_PUBLIC_ENVIRONMENT)': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production',
-    'shouldShowDemoLink': process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production',
-    'titleWillBe': process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' ? 'Shopify認証が必要です' : '認証が必要です'
-  })
+  // 環境に応じたタイトル
+  const title = config.environment === 'production' 
+    ? 'Shopify認証が必要です' 
+    : '認証が必要です'
+  
+  // 環境に応じたメッセージ
+  const defaultMessage = config.environment === 'production'
+    ? 'セッションが無効または期限切れです。Shopify認証を実行してください。'
+    : 'このアプリにアクセスするには認証が必要です。'
+  
+  // デモリンク表示判定（authMode設定に基づく）
+  const showDemoLink = config.authMode !== 'oauth_required'
 
-  // 本番環境かどうかを判定（複数の条件で判定）
-  const isProductionEnvironment = 
-    process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' ||
-    (typeof window !== 'undefined' && 
-     !window.location.hostname.includes('development') &&
-     !window.location.hostname.includes('staging') &&
-     !window.location.hostname.includes('localhost'))
+  // デバッグ情報
+  if (config.debugMode) {
+    console.log('🔍 [AuthenticationRequired] Config:', {
+      environment: config.environment,
+      authMode: config.authMode,
+      showDemoLink,
+      hasShopParam,
+      title,
+      enableDevTools: config.enableDevTools
+    })
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-md w-full bg-white rounded-lg shadow p-8 text-center">
+        {/* タイトル（環境別） */}
         <h1 className="text-2xl font-bold mb-2">
-          {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' 
-            ? 'Shopify認証が必要です' 
-            : '認証が必要です'}
-          {/* デバッグ用: 環境変数の値を表示 */}
-          <span className="text-xs text-gray-500 block mt-1">
-            (ENV: {process.env.NEXT_PUBLIC_ENVIRONMENT || 'undefined'})
-          </span>
+          {title}
+          {/* デバッグ用: 環境情報を表示 */}
+          {config.debugMode && (
+            <span className="text-xs text-gray-500 block mt-1">
+              (ENV: {config.environment} | AUTH: {config.authMode})
+            </span>
+          )}
         </h1>
         
         {/* 本番環境 + shop パラメータなし: Shopify管理画面に戻るよう促す */}
-        {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && !hasShopParam ? (
+        {config.environment === 'production' && !hasShopParam ? (
           <div>
             <p className="text-gray-600 mb-6">
               このアプリはShopify管理画面から起動してください。
@@ -119,61 +135,53 @@ export default function AuthenticationRequired({ message }: Props) {
           </div>
         ) : (
           <div>
+            {/* メッセージ（環境別） */}
             <p className="text-gray-600 mb-6">
-              {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production'
-                ? (message ?? 'セッションが無効または期限切れです。Shopify認証を実行してください。')
-                : (message ?? 'このアプリにアクセスするには認証が必要です。')}
+              {message ?? defaultMessage}
             </p>
         
-        {/* 本番環境: Shopify認証のみ */}
-        {process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' && (
-          <Button onClick={onShopifyAuth} disabled={isInitializing} className="w-full">
-            Shopifyで認証する
-          </Button>
-        )}
-        
-        {/* 検証環境: Shopify認証ボタンのみ */}
-        {process.env.NEXT_PUBLIC_ENVIRONMENT !== 'production' && (
-          <div className="space-y-3">
-            <Button 
-              onClick={onShopifyAuth} 
-              disabled={isInitializing} 
-              className="w-full"
-              variant="default"
-            >
-              Shopifyで認証する
-            </Button>
-            
-            <p className="text-xs text-gray-500 mt-2">
-              💡 Shopify OAuth認証フローをテストできます。
-            </p>
-          </div>
-        )}
-        
-        {/* 検証環境: デモサイトへのリンク */}
-        {/* 🔧 一時的に常に表示（デバッグ用） */}
-        {true && (
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <div className="bg-blue-50 rounded-lg p-4 text-left border border-blue-100">
-              <p className="text-sm font-semibold text-blue-800 mb-2">
-                🎯 デモ・プレゼンテーション用
-              </p>
-              <p className="text-xs text-blue-700 mb-3">
-                Shopify認証なしでデータを確認できます。<br/>
-                お客様へのデモやプレゼンテーションにご利用ください。
-              </p>
-              <a 
-                href="/dev-bookmarks" 
-                className="inline-block w-full px-4 py-2 text-center text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+            {/* Shopify OAuth認証ボタン */}
+            <div className="space-y-3">
+              <Button 
+                onClick={onShopifyAuth} 
+                disabled={isInitializing} 
+                className="w-full"
+                variant="default"
               >
-                デモサイトを開く
-              </a>
-              <p className="text-xs text-blue-600 mt-2">
-                ※ パスワード認証でアクセスできます
-              </p>
+                Shopifyで認証する
+              </Button>
+              
+              {config.environment !== 'production' && (
+                <p className="text-xs text-gray-500">
+                  💡 Shopify OAuth認証フローをテストできます。
+                </p>
+              )}
             </div>
-          </div>
-        )}
+        
+            {/* デモリンク（authMode設定に基づく） */}
+            {showDemoLink && (
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="bg-blue-50 rounded-lg p-4 text-left border border-blue-100">
+                  <p className="text-sm font-semibold text-blue-800 mb-2">
+                    🎯 デモ・プレゼンテーション用
+                  </p>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Shopify認証なしでデータを確認できます。<br/>
+                    お客様へのデモやプレゼンテーションにご利用ください。
+                  </p>
+                  <Button 
+                    onClick={onDemoAuth}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    デモサイトを開く
+                  </Button>
+                  <p className="text-xs text-blue-600 mt-2">
+                    ※ パスワード認証でアクセスできます
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
