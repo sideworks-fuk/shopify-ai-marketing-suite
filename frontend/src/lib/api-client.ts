@@ -69,7 +69,7 @@ export class ApiClient {
       console.error('❌ API Error:', response.status, errorText);
       
       // 401エラーの場合は1回だけリトライ
-      if (response.status === 401 && !options.headers?.['X-Retry']) {
+      if (response.status === 401 && !(options.headers as any)?.['X-Retry']) {
         console.log('🔄 401エラー: トークンを再取得してリトライします');
         
         // トークンを再取得
@@ -119,4 +119,52 @@ export class ApiClient {
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
+
+  // Shopifyトークンプロバイダーを設定
+  setShopifyTokenProvider(getToken: () => Promise<string>) {
+    this.options.getShopifyToken = getToken;
+  }
+
+  // デモトークンプロバイダーを設定
+  setDemoTokenProvider(getToken: () => string | null) {
+    this.options.getDemoToken = getToken;
+  }
+
+  // API メソッドを追加
+  async dormantSummary(storeId: number): Promise<any> {
+    return this.request(`${this.baseUrl}/api/customer/dormant-summary?storeId=${storeId}`);
+  }
+
+  async dormantDetailedSegments(storeId: number): Promise<any> {
+    return this.request(`${this.baseUrl}/api/customer/dormant-detailed-segments?storeId=${storeId}`);
+  }
+
+  async dormantCustomers(params: any): Promise<any> {
+    const queryParams = new URLSearchParams(params).toString();
+    return this.request(`${this.baseUrl}/api/customer/dormant?${queryParams}`);
+  }
+
+  async monthlySales(params: any): Promise<any> {
+    const queryParams = new URLSearchParams(params).toString();
+    return this.request(`${this.baseUrl}/api/sales/monthly?${queryParams}`);
+  }
+
+  async health(): Promise<any> {
+    return this.request(`${this.baseUrl}/api/health`);
+  }
+
+  async customerTest(): Promise<any> {
+    return this.request(`${this.baseUrl}/api/customer/test`);
+  }
+
+  async customerSegments(): Promise<any> {
+    return this.request(`${this.baseUrl}/api/customer/segments`);
+  }
+
+  async customerChurnProbability(customerId: number): Promise<any> {
+    return this.request(`${this.baseUrl}/api/customer/churn-probability?customerId=${customerId}`);
+  }
 }
+
+// デフォルトのapiインスタンスをエクスポート
+export const api = new ApiClient();

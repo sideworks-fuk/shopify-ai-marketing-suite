@@ -158,7 +158,7 @@ export default function DormantCustomersPage() {
         })
         
         if (response.data && Array.isArray(response.data)) {
-          console.log('🔍 フィルタリング前のデータ:', response.data.map(item => ({
+          console.log('🔍 フィルタリング前のデータ:', response.data.map((item: any) => ({
             label: item.label,
             count: item.count,
             range: item.range
@@ -167,8 +167,8 @@ export default function DormantCustomersPage() {
           // 主要3区分のみをフィルタして指定順でソート
           const segmentOrder = ['90-180日', '180-365日', '365日以上']
           const mainSegments = response.data
-            .filter(segment => segmentOrder.includes(segment.label))
-            .sort((a, b) => segmentOrder.indexOf(a.label) - segmentOrder.indexOf(b.label))
+            .filter((segment: any) => segmentOrder.includes(segment.label))
+            .sort((a: any, b: any) => segmentOrder.indexOf(a.label) - segmentOrder.indexOf(b.label))
           
           console.log('📊 フィルタリング後のデータ:', mainSegments)
           setDetailedSegments(mainSegments)

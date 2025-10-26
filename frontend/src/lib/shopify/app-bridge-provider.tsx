@@ -1,7 +1,8 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { createApp, Redirect } from '@shopify/app-bridge'
+import { createApp } from '@shopify/app-bridge'
+import { Redirect } from '@shopify/app-bridge/actions'
 import { getSessionToken } from '@shopify/app-bridge-utils'
 
 /**

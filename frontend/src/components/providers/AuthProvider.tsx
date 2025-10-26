@@ -58,7 +58,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     
     if (isEmbedded) {
       // Shopify埋め込みアプリの場合
-      client.setShopifyTokenProvider(getToken)
+      client.setShopifyTokenProvider(async () => {
+        const token = await getToken();
+        return token || '';
+      })
       setAuthMode('shopify')
       console.log('🔗 Shopify埋め込みアプリモードでAPIクライアントを初期化')
     } else {
