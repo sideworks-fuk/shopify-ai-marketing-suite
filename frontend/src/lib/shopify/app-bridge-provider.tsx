@@ -63,8 +63,11 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           setApp(appBridge)
           console.log('✅ Shopify App Bridge initialized', { shop: shopParam, host: hostParam })
           
-          // トップレベルリダイレクトの処理
-          appBridge.dispatch(Redirect.toApp({ path: window.location.pathname }))
+          // トップレベルリダイレクトの処理（条件付き）
+          if (window.top !== window.self) {
+            // iframeの中にいる場合のみリダイレクト
+            appBridge.dispatch(Redirect.toApp({ path: window.location.pathname }))
+          }
         } else {
           console.log('ℹ️ Not running in Shopify embedded context')
           setIsEmbedded(false)

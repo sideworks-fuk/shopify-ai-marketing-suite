@@ -54,7 +54,30 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(apiSecret)),
-                    ValidateIssuer = false, // Shopify App Bridgeトークンのissは動的
+                    ValidateIssuer = true, // trueに変更
+                    IssuerValidator = (issuer, token, parameters) =>
+                    {
+                        // Shopifyの正規のissuerのみを許可
+                        if (string.IsNullOrEmpty(issuer))
+                        {
+                            throw new SecurityTokenInvalidIssuerException("Issuer is null or empty");
+                        }
+
+                        try
+                        {
+                            var uri = new Uri(issuer);
+                            // Shopifyの正規ドメインをチェック
+                            if (uri.Host.EndsWith(".myshopify.com") || uri.Host == "admin.shopify.com")
+                            {
+                                return issuer;
+                            }
+                            throw new SecurityTokenInvalidIssuerException($"Invalid issuer: {issuer}");
+                        }
+                        catch (UriFormatException)
+                        {
+                            throw new SecurityTokenInvalidIssuerException($"Invalid issuer format: {issuer}");
+                        }
+                    },
                     ValidateAudience = true,
                     ValidAudience = _config["Shopify:ApiKey"],
                     ValidateLifetime = true,

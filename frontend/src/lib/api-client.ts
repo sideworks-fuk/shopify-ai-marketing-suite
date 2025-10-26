@@ -68,7 +68,25 @@ export class ApiClient {
       const errorText = await response.text();
       console.error('❌ API Error:', response.status, errorText);
       
-      // 401エラーの場合はグローバルイベントを発火
+      // 401エラーの場合は1回だけリトライ
+      if (response.status === 401 && !options.headers?.['X-Retry']) {
+        console.log('🔄 401エラー: トークンを再取得してリトライします');
+        
+        // トークンを再取得
+        const newHeaders = await this.getAuthHeaders();
+        
+        // リトライフラグを追加して無限ループを防ぐ
+        return this.request<T>(endpoint, {
+          ...options,
+          headers: {
+            ...options.headers,
+            ...newHeaders,
+            'X-Retry': 'true'
+          }
+        });
+      }
+      
+      // リトライ後も失敗した場合のみauth:errorを発火
       if (response.status === 401) {
         console.log('🔴 認証エラー: グローバルイベントを発火');
         window.dispatchEvent(new Event('auth:error'));

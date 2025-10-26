@@ -50,9 +50,6 @@ builder.Services.AddAuthentication("Custom")
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Memory Cache
-builder.Services.AddMemoryCache();
-
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -182,9 +179,16 @@ if (!string.IsNullOrEmpty(redisConnectionString) && !redisConnectionString.Conta
 }
 else
 {
-    // Redisが利用できない場合はメモリキャッシュを使用
+    // 本番環境ではRedis必須
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "CRITICAL: Redis connection string is required in production environment");
+    }
+    
+    // 開発環境のみメモリキャッシュを使用
     builder.Services.AddMemoryCache();
-    Log.Warning("Redis connection string not configured - using memory cache");
+    Log.Warning("Redis connection string not configured - using memory cache (Development only)");
 }
 
 // HttpClient Factory登録（Shopify API呼び出し用）

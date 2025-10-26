@@ -139,3 +139,4 @@ Shopify埋め込みアプリの認証システムを完全に再設計し、Shop
 - 作業指示書: `docs/04-development/02-認証システム/auth-mode-path-b-redesign.md`
 - 技術スタック: `.cursor/rules/00-techstack.mdc`
 - 基本ルール: `.cursor/rules/01-core-rules.mdc`
+

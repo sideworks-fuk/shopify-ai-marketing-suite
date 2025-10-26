@@ -10,7 +10,6 @@ import { DownloadIcon, TrendingUpIcon, UsersIcon, ShoppingCartIcon, AlertCircleI
 import { formatCurrency, formatPercentage, formatNumber } from "@/lib/format"
 import { getApiUrl, addStoreIdToParams } from "@/lib/api-config"
 import { handleError } from "@/lib/error-handler"
-import { authClient } from "@/lib/auth-client"
 
 // 購入回数の5階層定義
 const PURCHASE_TIERS = [
@@ -56,7 +55,7 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
         tierMode: "simplified" // 5階層モードを指定
       })
 
-      const response = await authClient.request(`${getApiUrl()}/api/purchase/count-analysis?${params}`)
+      const response = await fetch(`${getApiUrl()}/api/purchase/count-analysis?${params}`)
       if (!response.ok) {
         throw new Error(`APIエラー: ${response.status}`)
       }

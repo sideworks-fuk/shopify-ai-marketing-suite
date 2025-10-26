@@ -222,13 +222,10 @@ namespace ShopifyAnalyticsApi.Middleware
                     var claims = new List<Claim>
                     {
                         new Claim("auth_mode", "demo"),
-                        new Claim("read_only", "true")
+                        new Claim("read_only", "true"),
+                        new Claim(ClaimTypes.Name, authResult.UserId ?? "demo-user"), // Rate Limiter用
+                        new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "demo-user")
                     };
-
-                    if (authResult.UserId != null)
-                    {
-                        claims.Add(new Claim(ClaimTypes.NameIdentifier, authResult.UserId));
-                    }
 
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
 
@@ -244,13 +241,10 @@ namespace ShopifyAnalyticsApi.Middleware
                     var claims = new List<Claim>
                     {
                         new Claim("auth_mode", "oauth"),
-                        new Claim("read_only", "false")
+                        new Claim("read_only", "false"),
+                        new Claim(ClaimTypes.Name, authResult.UserId ?? "oauth-user"), // Rate Limiter用
+                        new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "oauth-user")
                     };
-
-                    if (authResult.UserId != null)
-                    {
-                        claims.Add(new Claim(ClaimTypes.NameIdentifier, authResult.UserId));
-                    }
 
                     if (authResult.StoreId.HasValue)
                     {
