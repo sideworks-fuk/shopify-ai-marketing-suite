@@ -33,12 +33,15 @@ namespace ShopifyAnalyticsApi.Filters
         public void OnActionExecuting(ActionExecutingContext context)
         {
             // HttpContext.Itemsから認証情報を取得
-            var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
-            var isDemoMode = context.HttpContext.Items["IsDemoMode"] as bool?;
             var authMode = context.HttpContext.Items["AuthMode"] as string;
+            var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
+
+            // デモモードの判定: AuthMode == "demo" または クレームに auth_mode=demo がある
+            var isDemoMode = authMode == "demo" || 
+                             context.HttpContext.User.HasClaim("auth_mode", "demo");
 
             // デモモードかつ読み取り専用の場合のみチェック
-            if (isReadOnly == true && isDemoMode == true)
+            if (isDemoMode && isReadOnly == true)
             {
                 var httpMethod = context.HttpContext.Request.Method;
 

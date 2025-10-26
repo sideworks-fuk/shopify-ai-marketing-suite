@@ -78,13 +78,19 @@ namespace ShopifyAnalyticsApi.Services
                     };
                 }
 
+                // dest claimの正規化（https://プレフィックスを削除）
+                var normalizedDomain = NormalizeShopDomain(shopDomainClaim);
+                _logger.LogDebug("Original dest claim: {Original}, Normalized: {Normalized}", 
+                    shopDomainClaim, normalizedDomain);
+
                 // データベースからストア情報を取得
                 var store = await _dbContext.Stores
-                    .FirstOrDefaultAsync(s => s.Domain == shopDomainClaim);
+                    .FirstOrDefaultAsync(s => s.Domain == normalizedDomain);
 
                 if (store == null)
                 {
-                    _logger.LogWarning("Store not found for domain: {Domain}", shopDomainClaim);
+                    _logger.LogWarning("Store not found for domain: {Domain} (normalized from: {Original})", 
+                        normalizedDomain, shopDomainClaim);
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -95,7 +101,7 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation(
                     "Shopify session token validated successfully. Store: {StoreId}, Domain: {Domain}",
                     store.Id,
-                    shopDomainClaim);
+                    normalizedDomain);
 
                 return new AuthenticationResult
                 {
@@ -288,6 +294,32 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogError(ex, "Error logging authentication attempt");
                 // ログ記録失敗は認証処理を停止しない
             }
+        }
+
+        /// <summary>
+        /// Shopifyドメインを正規化する
+        /// dest claimからhttps://プレフィックスを削除し、ドメインのみを抽出
+        /// </summary>
+        /// <param name="destClaim">dest claimの値</param>
+        /// <returns>正規化されたドメイン</returns>
+        private static string NormalizeShopDomain(string destClaim)
+        {
+            if (string.IsNullOrEmpty(destClaim))
+                return destClaim;
+
+            // https://プレフィックスを削除
+            if (destClaim.StartsWith("https://"))
+            {
+                return destClaim.Substring("https://".Length);
+            }
+
+            // http://プレフィックスを削除（念のため）
+            if (destClaim.StartsWith("http://"))
+            {
+                return destClaim.Substring("http://".Length);
+            }
+
+            return destClaim;
         }
     }
 }

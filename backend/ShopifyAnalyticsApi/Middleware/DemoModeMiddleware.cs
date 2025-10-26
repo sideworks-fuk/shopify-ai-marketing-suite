@@ -27,6 +27,15 @@ public class DemoModeMiddleware
         // X-Demo-Mode ヘッダーをチェック
         if (context.Request.Headers.TryGetValue("X-Demo-Mode", out var demoModeValue))
         {
+            // 本番環境ではX-Demo-Modeヘッダーを無視
+            var environment = context.RequestServices.GetRequiredService<IHostEnvironment>();
+            if (environment.IsProduction())
+            {
+                _logger.LogWarning("🚨 [DemoMode] X-Demo-Mode header ignored in production environment");
+                await _next(context);
+                return;
+            }
+
             _logger.LogInformation("🔍 [DemoMode] X-Demo-Mode ヘッダー検出: {Value}", demoModeValue);
 
             if (demoModeValue == "true")

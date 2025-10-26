@@ -79,24 +79,50 @@ namespace ShopifyAnalyticsApi.Middleware
             // トークン検証
             if (!string.IsNullOrEmpty(token))
             {
-                // Shopify App Bridgeセッショントークンの検証
-                var oauthResult = await authService.ValidateShopifySessionTokenAsync(token);
-                isOAuthValid = oauthResult.IsValid;
-
-                if (isOAuthValid)
+                try
                 {
-                    authResult = oauthResult;
-                }
-                else
-                {
-                    // デモトークンの検証
-                    var demoResult = await authService.ValidateDemoTokenAsync(token);
-                    isDemoValid = demoResult.IsValid;
+                    // Shopify App Bridgeセッショントークンの検証
+                    var oauthResult = await authService.ValidateShopifySessionTokenAsync(token);
+                    isOAuthValid = oauthResult.IsValid;
 
-                    if (isDemoValid)
+                    if (isOAuthValid)
                     {
-                        authResult = demoResult;
+                        authResult = oauthResult;
+                        _logger.LogDebug("Shopify OAuth token validation successful");
                     }
+                    else
+                    {
+                        // デモトークンの検証
+                        var demoResult = await authService.ValidateDemoTokenAsync(token);
+                        isDemoValid = demoResult.IsValid;
+
+                        if (isDemoValid)
+                        {
+                            authResult = demoResult;
+                            _logger.LogDebug("Demo token validation successful");
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Both OAuth and demo token validation failed");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Token validation error for path: {Path}", context.Request.Path);
+                    
+                    // 認証エラーをログに記録
+                    await authService.LogAuthenticationAttemptAsync(
+                        null,
+                        "unknown",
+                        false,
+                        $"Token validation error: {ex.Message}",
+                        context.Connection.RemoteIpAddress?.ToString(),
+                        context.Request.Headers["User-Agent"].FirstOrDefault());
+                    
+                    // エラーが発生した場合は認証失敗として扱う
+                    isOAuthValid = false;
+                    isDemoValid = false;
                 }
             }
 
@@ -190,6 +216,9 @@ namespace ShopifyAnalyticsApi.Middleware
                 // デモモード時のクレーム設定
                 if (isDemoValid && !isOAuthValid)
                 {
+                    // IsDemoModeフラグを設定（DemoReadOnlyFilterで使用）
+                    context.Items["IsDemoMode"] = true;
+                    
                     var claims = new List<Claim>
                     {
                         new Claim("auth_mode", "demo"),
@@ -209,6 +238,9 @@ namespace ShopifyAnalyticsApi.Middleware
                 }
                 else if (isOAuthValid)
                 {
+                    // IsDemoModeフラグは設定しない（OAuth認証）
+                    context.Items["IsDemoMode"] = false;
+                    
                     var claims = new List<Claim>
                     {
                         new Claim("auth_mode", "oauth"),

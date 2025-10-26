@@ -1,423 +1,96 @@
-import { API_CONFIG, buildApiUrl, getApiUrl, getCurrentStoreId } from './api-config';
-import { authClient } from './auth-client';
-import { 
-  type ApiResponse, 
-  type ApiErrorResponse,
-  type DormantCustomersResponse,
-  type YearOverYearResponse,
-  type PurchaseCountResponse,
-  type MonthlySalesResponse,
-  isApiResponse,
-  isApiErrorResponse
-} from './types/api-responses';
+import { getAuthModeConfig } from './config/environments';
 
-// エラー型定義
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode?: number,
-    public response?: ApiErrorResponse | unknown
-  ) {
-    super(message);
-    this.name = 'ApiError';
+interface ApiClientOptions {
+  getShopifyToken?: () => Promise<string>;
+  getDemoToken?: () => string | null;
+}
+
+export class ApiClient {
+  private baseUrl: string;
+  private options: ApiClientOptions;
+
+  constructor(baseUrl: string, options: ApiClientOptions = {}) {
+    this.baseUrl = baseUrl;
+    this.options = options;
   }
-}
 
-// URLにstoreIdを追加するヘルパー関数
-function ensureStoreIdInUrl(url: string): string {
-  const urlObj = new URL(url);
-  if (!urlObj.searchParams.has('storeId')) {
-    const storeId = getCurrentStoreId();
-    urlObj.searchParams.set('storeId', storeId.toString());
-    console.log(`🏪 Auto-added storeId=${storeId} to URL: ${urlObj.toString()}`);
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const config = getAuthModeConfig();
+
+    // Shopify埋め込みアプリの場合、セッショントークンを取得
+    if (this.options.getShopifyToken) {
+      try {
+        const token = await this.options.getShopifyToken();
+        return {
+          'Authorization': `Bearer ${token}`
+        };
+      } catch (error) {
+        console.error('Failed to get Shopify token:', error);
+      }
+    }
+
+    // デモモードの場合、デモトークンを使用
+    if (this.options.getDemoToken) {
+      const token = this.options.getDemoToken();
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`
+        };
+      }
+    }
+
+    return {};
   }
-  return urlObj.toString();
-}
 
-// デモモード判定
-function isDemoMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('dev_mode_auth') === 'true';
-}
-
-// HTTP クライアント実装
-class ApiClient {
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const baseUrl = buildApiUrl(endpoint);
-    const url = ensureStoreIdInUrl(baseUrl);
-    
-    // タイムアウト制御
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
-    
-    // ヘッダーを構築
-    const headers: Record<string, string> = {
-      ...(API_CONFIG.HEADERS as Record<string, string>),
-      ...(authClient.getAuthHeaders() as Record<string, string>),
-      ...(options.headers as Record<string, string> || {}),
+  ): Promise<T> {
+    const authHeaders = await this.getAuthHeaders();
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...authHeaders,
+      ...options.headers,
     };
-    
-    // デモモード時は特別なヘッダーを追加
-    if (isDemoMode()) {
-      headers['X-Demo-Mode'] = 'true';
-      console.log('🎯 デモモード: X-Demo-Mode ヘッダーを追加しました');
-    }
-    
-    const defaultOptions: RequestInit = {
-      headers,
-      signal: controller.signal,
+
+    const url = `${this.baseUrl}${endpoint}`;
+    console.log('📤 API Request:', { url, method: options.method || 'GET' });
+
+    const response = await fetch(url, {
       ...options,
-    };
-
-    try {
-      console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
-      console.log('📋 Request Headers:', headers);
-      console.log('🔍 Full Request URL:', url);
-      console.log('🔍 Base URL from config:', getApiUrl());
-      console.log('🔍 Endpoint:', endpoint);
-      
-      const response = await fetch(url, defaultOptions);
-      
-      // タイムアウトをクリア
-      clearTimeout(timeoutId);
-      
-      console.log('📡 Response Status:', response.status, response.statusText);
-      console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
-      
-      // レスポンスの内容を確認
-      const responseText = await response.text();
-      console.log('📡 Response Text (first 500 chars):', responseText.substring(0, 500));
-      console.log('📡 Full Response URL:', response.url);
-      console.log('📡 Response Type:', response.type);
-      console.log('📡 Request URL:', url);
-      
-      if (!response.ok) {
-        console.error('❌ HTTP Error:', response.status, response.statusText);
-        console.error('❌ Response Text:', responseText);
-
-        // 401はグローバルに通知
-        if (response.status === 401 && typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:error', {
-            detail: {
-              statusCode: 401,
-              message: 'Shopify認証が必要です'
-            }
-          }))
-        }
-
-        throw new ApiError(
-          `HTTP Error: ${response.status} ${response.statusText}`,
-          response.status,
-          response
-        );
-      }
-
-      // JSONとして解析を試行
-      let data: ApiResponse<T>;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('❌ JSON Parse Error:', parseError);
-        console.error('❌ Response Text:', responseText);
-        throw new ApiError(
-          `Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`,
-          response.status,
-          responseText
-        );
-      }
-      
-      console.log('✅ API Response:', data);
-      
-      return data;
-    } catch (error) {
-      // タイムアウトをクリア
-      clearTimeout(timeoutId);
-      
-      console.error('❌ API Error:', error);
-      console.error('❌ Error Details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      if (error instanceof ApiError) {
-        // ApiErrorに401が付いている場合も通知（バックエンド直例）
-        if (error.statusCode === 401 && typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:error', {
-            detail: {
-              statusCode: 401,
-              message: 'Shopify認証が必要です'
-            }
-          }))
-        }
-        throw error;
-      }
-      
-      // AbortErrorの処理（タイムアウト）
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiError(
-          `Request timeout after ${API_CONFIG.TIMEOUT}ms`,
-          408,
-          error
-        );
-      }
-      
-      // ネットワークエラーやその他のエラー
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        console.error('❌ Failed to fetch エラーが発生しました');
-        console.error('📍 API URL:', url);
-        console.error('🔍 考えられる原因:');
-        console.error('  1. バックエンドサーバーが起動していない');
-        console.error('  2. CORS設定の問題');
-        console.error('  3. HTTPS証明書の問題');
-        console.error('  4. ネットワーク接続の問題');
-        
-        const tips = [
-          `バックエンドサーバー（${getApiUrl()}）が起動していることを確認してください`,
-          'CORSが正しく設定されているか確認してください',
-          `HTTPSの場合、ブラウザで ${getApiUrl()} にアクセスして証明書を受け入れてください`,
-          '開発者ツールのNetworkタブでリクエストの詳細を確認してください'
-        ];
-        
-        throw new ApiError(
-          `ネットワーク接続エラー\n\n対処方法:\n${tips.map((tip, i) => `${i + 1}. ${tip}`).join('\n')}`,
-          0,
-          error
-        );
-      }
-      
-      throw new ApiError(
-        error instanceof Error ? error.message : 'Unknown API Error'
-      );
-    }
-  }
-
-  // GET リクエスト
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'GET',
+      headers,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ API Error:', response.status, errorText);
+      throw new Error(`API Error: ${response.status} ${errorText}`);
+    }
+
+    return response.json();
   }
 
-  // POST リクエスト
-  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  async post<T>(endpoint: string, data: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: JSON.stringify(data),
     });
   }
 
-  // PUT リクエスト
-  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data: any): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: JSON.stringify(data),
     });
   }
 
-  // DELETE リクエスト
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'DELETE',
-    });
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
   }
 }
-
-// シングルトンインスタンス
-export const apiClient = new ApiClient();
-
-// 便利なヘルパー関数
-export const api = {
-  // ヘルスチェック
-  health: () => 
-    apiClient.get<{ status: string; timestamp: string; message: string; environment: string }>(
-      API_CONFIG.ENDPOINTS.HEALTH
-    ),
-  
-  // Customer API テスト
-  customerTest: () =>
-    apiClient.get<{ 
-      message: string; 
-      serverTime: string; 
-      availableEndpoints: string[] 
-    }>(API_CONFIG.ENDPOINTS.CUSTOMER_TEST),
-  
-  // 顧客セグメント取得
-  customerSegments: () =>
-    apiClient.get<Array<{ name: string; value: number; color: string }>>(
-      API_CONFIG.ENDPOINTS.CUSTOMER_SEGMENTS
-    ),
-  
-  // ダッシュボードデータ取得
-  customerDashboard: () =>
-    apiClient.get<unknown>(API_CONFIG.ENDPOINTS.CUSTOMER_DASHBOARD),
-  
-  // 顧客詳細一覧取得
-  customerDetails: () =>
-    apiClient.get<unknown[]>(API_CONFIG.ENDPOINTS.CUSTOMER_DETAILS),
-  
-  // 特定顧客詳細取得
-  customerDetail: (id: string) =>
-    apiClient.get<unknown>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DETAIL}/${id}`),
-  
-  // トップ顧客取得
-  customerTop: () =>
-    apiClient.get<unknown[]>(API_CONFIG.ENDPOINTS.CUSTOMER_TOP),
-  
-  // 休眠顧客分析API
-  dormantCustomers: (params?: {
-    storeId?: number;
-    segment?: string;
-    riskLevel?: string;
-    minTotalSpent?: number;
-    maxTotalSpent?: number;
-    pageNumber?: number;
-    pageSize?: number;
-    sortBy?: string;
-    descending?: boolean;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.append(key, value.toString());
-        }
-      });
-    }
-    const queryString = searchParams.toString();
-    const url = queryString ? `${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT}?${queryString}` : API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT;
-    return apiClient.get<any>(url);
-  },
-  
-  // 休眠顧客サマリー統計取得
-  dormantSummary: (storeId: number = 1) =>
-    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_SUMMARY}?storeId=${storeId}`),
-  
-  // 詳細な期間別セグメント分布取得
-  dormantDetailedSegments: (storeId: number = 1) =>
-    apiClient.get<any>(`${API_CONFIG.ENDPOINTS.CUSTOMER_DORMANT_DETAILED_SEGMENTS}?storeId=${storeId}`),
-  
-  // 顧客離脱確率取得
-  customerChurnProbability: (customerId: number) =>
-    apiClient.get<{ data: number }>(`${API_CONFIG.ENDPOINTS.CUSTOMER_CHURN_PROBABILITY}/${customerId}/churn-probability`),
-  
-  // 月別売上統計API
-  monthlySales: (params?: {
-    storeId?: number;
-    startYear?: number;
-    startMonth?: number;
-    endYear?: number;
-    endMonth?: number;
-    productIds?: string[];
-    displayMode?: string;
-    maxProducts?: number;
-    categoryFilter?: string;
-    minAmount?: number;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            value.forEach(item => searchParams.append(key, item.toString()));
-          } else {
-            searchParams.append(key, value.toString());
-          }
-        }
-      });
-    }
-    const queryString = searchParams.toString();
-    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES;
-    return apiClient.get<any>(url);
-  },
-  
-  // 月別売上サマリー取得
-  monthlySalesSummary: (params?: {
-    storeId?: number;
-    startYear?: number;
-    startMonth?: number;
-    endYear?: number;
-    endMonth?: number;
-    productIds?: string[];
-    displayMode?: string;
-    maxProducts?: number;
-    categoryFilter?: string;
-    minAmount?: number;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            value.forEach(item => searchParams.append(key, item.toString()));
-          } else {
-            searchParams.append(key, value.toString());
-          }
-        }
-      });
-    }
-    const queryString = searchParams.toString();
-    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_SUMMARY;
-    return apiClient.get<any>(url);
-  },
-  
-  // カテゴリ別売上統計取得
-  monthlySalesCategories: (params?: {
-    storeId?: number;
-    startYear?: number;
-    startMonth?: number;
-    endYear?: number;
-    endMonth?: number;
-    productIds?: string[];
-    displayMode?: string;
-    maxProducts?: number;
-    categoryFilter?: string;
-    minAmount?: number;
-  }) => {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            value.forEach(item => searchParams.append(key, item.toString()));
-          } else {
-            searchParams.append(key, value.toString());
-          }
-        }
-      });
-    }
-    const queryString = searchParams.toString();
-    const url = queryString ? `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES}?${queryString}` : API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_CATEGORIES;
-    return apiClient.get<any>(url);
-  },
-  
-  // 月別売上トレンド取得
-  monthlySalesTrends: (storeId: number = 1, year: number = new Date().getFullYear()) => {
-    const searchParams = new URLSearchParams();
-    searchParams.append('storeId', storeId.toString());
-    searchParams.append('year', year.toString());
-    const url = `${API_CONFIG.ENDPOINTS.ANALYTICS_MONTHLY_SALES_TRENDS}?${searchParams.toString()}`;
-    return apiClient.get<any>(url);
-  },
-  
-  // Authentication API
-  generateToken: (request: { storeId: number; shopDomain: string }) =>
-    apiClient.post<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }>(
-      API_CONFIG.ENDPOINTS.AUTH_TOKEN,
-      request
-    ),
-  
-  refreshToken: (request: { accessToken: string; refreshToken: string }) =>
-    apiClient.post<{ accessToken: string; refreshToken: string; expiresIn: number; tokenType: string }>(
-      API_CONFIG.ENDPOINTS.AUTH_REFRESH,
-      request
-    ),
-  
-  validateToken: () =>
-    apiClient.post<{ valid: boolean; storeId: string; shopDomain: string }>(
-      API_CONFIG.ENDPOINTS.AUTH_VALIDATE
-    ),
-}; 

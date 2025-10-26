@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ShopifyAnalyticsApi.Data;
@@ -7,6 +8,7 @@ using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Middleware;
 using ShopifyAnalyticsApi.Filters;
 using ShopifyAnalyticsApi.HealthChecks;
+using ShopifyAnalyticsApi.Authentication;
 using Serilog;
 using Serilog.Events;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -38,43 +40,11 @@ builder.Services.AddControllers(options =>
 // HTTPクライアントファクトリーを追加（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
 
-// JWT認証の設定
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")))
-        };
-        
-        // デモモード時は認証をスキップ
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                // デモモードフラグをチェック
-                if (context.HttpContext.Items.ContainsKey("IsDemoMode") && 
-                    context.HttpContext.Items["IsDemoMode"] is true)
-                {
-                    context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
-                        .LogInformation("🎯 [JWT] デモモード検出: JWT認証をスキップします (User.Identity.IsAuthenticated={IsAuthenticated})", 
-                            context.HttpContext.User.Identity?.IsAuthenticated);
-                    
-                    // 認証をスキップ（既にDemoModeMiddlewareでcontext.Userが設定されている）
-                    // NoResult()を使用してJWT認証をスキップ
-                    context.NoResult();
-                }
-                return Task.CompletedTask;
-            }
-        };
-    });
+// 認証設定（カスタムミドルウェアで処理するため、JwtBearerは使用しない）
+// AuthModeMiddlewareがすべての認証を処理する
+builder.Services.AddAuthentication("Custom")
+    .AddScheme<AuthenticationSchemeOptions, CustomAuthenticationHandler>("Custom", options => { });
+// 注: CustomAuthenticationHandlerは何もしない（AuthModeMiddlewareが処理済み）
 
 // Add Entity Framework
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
@@ -195,12 +165,27 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
 
 // Register Authentication Services (認証サービス)
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IAuthenticationService, ShopifyAnalyticsApi.Services.AuthenticationService>();
 builder.Services.AddScoped<IDemoAuthService, DemoAuthService>();
 builder.Services.AddScoped<IRateLimiter, ShopifyAnalyticsApi.Services.RateLimiter>();
 
-// Add Distributed Cache (分散キャッシュ)
-builder.Services.AddDistributedMemoryCache(); // Developmentではメモリキャッシュ、ProductionではRedisに切り替え可能
+// Redis Cache Configuration
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrEmpty(redisConnectionString) && !redisConnectionString.Contains("#"))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "ShopifyAnalyticsApi";
+    });
+    Log.Information("Redis cache configured with connection string");
+}
+else
+{
+    // Redisが利用できない場合はメモリキャッシュを使用
+    builder.Services.AddMemoryCache();
+    Log.Warning("Redis connection string not configured - using memory cache");
+}
 
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
@@ -377,20 +362,20 @@ app.UseCors("AllowAll");
 // グローバル例外ハンドラーを最初に配置
 app.UseGlobalExceptionHandler();
 
+// Rate Limitingを有効化（早期に配置してリソースを節約）
+app.UseRateLimiter();
+
 // Shopify Webhook用のHMAC検証ミドルウェア
 app.UseHmacValidation();
-
-// 認証モード制御ミドルウェア（認証前に配置）
-app.UseAuthModeMiddleware();
-
-// Rate Limitingを有効化
-app.UseRateLimiter();
 
 // Shopify埋め込みアプリミドルウェア（認証前に配置）
 app.UseShopifyEmbeddedApp();
 
 // デモモードミドルウェア（認証前に配置）
 app.UseDemoMode();
+
+// 認証モード制御ミドルウェア（認証処理の統合制御）
+app.UseAuthModeMiddleware();
 
 // 認証を有効化
 app.UseAuthentication();
@@ -439,6 +424,58 @@ app.MapGet("/env-info", () =>
     });
 });
 
+// 起動時の環境設定検証
+try
+{
+    var authMode = app.Configuration["Authentication:Mode"];
+    var environment = app.Environment.EnvironmentName;
+
+    Log.Information("Starting application with Environment: {Environment}, AuthMode: {AuthMode}", 
+        environment, authMode);
+
+    // 本番環境での必須チェック
+    if (environment == "Production")
+    {
+        // 認証モードチェック
+        if (authMode != "OAuthRequired")
+        {
+            throw new InvalidOperationException(
+                $"SECURITY: Production environment must use OAuthRequired mode, but '{authMode}' is configured. " +
+                "This is a critical security requirement.");
+        }
+
+        // 必須環境変数チェック
+        var requiredSettings = new[]
+        {
+            ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
+            ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
+            ("Authentication:JwtSecret", app.Configuration["Authentication:JwtSecret"]),
+            ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
+        };
+
+        foreach (var (key, value) in requiredSettings)
+        {
+            if (string.IsNullOrEmpty(value) || value.Contains("#"))
+            {
+                throw new InvalidOperationException(
+                    $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
+                    "Production environment requires all secrets to be properly configured.");
+            }
+        }
+
+        Log.Information("✅ Production environment validation passed");
+    }
+    else
+    {
+        Log.Information("ℹ️ Non-production environment: {Environment}", environment);
+    }
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application startup validation failed");
+    throw;
+}
+
 try
 {
     Log.Information("Starting EC Ranger API");
@@ -452,3 +489,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// テスト用にProgramクラスをpublicにする
+public partial class Program { }

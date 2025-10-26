@@ -43,9 +43,11 @@ const getApiBaseUrl = (): string => {
     return 'https://localhost:7088';
   }
   
-  // 本番環境のデフォルト（Azure Static Web Appsでのビルド時も含む）
-  if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using production default');
-  return 'ki';
+  // 本番環境では必須
+  if (!isBuildTime) {
+    console.error('🚨 CRITICAL: NEXT_PUBLIC_API_URL is not set in production environment');
+  }
+  throw new Error('NEXT_PUBLIC_API_URL must be set in production environment');
 };
 
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
