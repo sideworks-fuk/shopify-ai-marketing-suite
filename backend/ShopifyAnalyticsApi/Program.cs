@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Net;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Middleware;
@@ -46,8 +47,32 @@ builder.Services.AddHttpClient();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    options.ForwardLimit = 1; // 最初のプロキシのヘッダーのみを信頼
+    
+    // 本番環境: 設定から信頼するプロキシを読み込む
+    var knownProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>();
+    if (knownProxies != null && knownProxies.Length > 0)
+    {
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        
+        foreach (var proxy in knownProxies)
+        {
+            if (IPAddress.TryParse(proxy, out var ip))
+            {
+                options.KnownProxies.Add(ip);
+                Log.Information("Added known proxy: {ProxyIP}", proxy);
+            }
+        }
+    }
+    else
+    {
+        // 開発環境またはAzure App Serviceのデフォルト動作
+        // Azure App ServiceはX-Forwarded-Forを自動的に追加するため、全てを信頼
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        Log.Warning("No known proxies configured - trusting all proxies (Development/Azure default)");
+    }
 });
 
 // AuthModeMiddlewareがすべての認証を処理する
@@ -308,15 +333,49 @@ builder.Services.AddCors(options =>
 // Rate Limiting設定
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests; // 標準的な429ステータスコード
+    
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
         httpContext => 
         {
-            // 認証済みユーザーはユーザー名でパーティション分け
+            // 認証済みユーザー: 複合キー（ユーザーID + ストアドメイン）でパーティション分け（200回/分）
             if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
-                var userName = httpContext.User.Identity.Name ?? "authenticated-user";
+                // ユーザーIDを取得（NameIdentifierまたはsub）
+                var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                             ?? httpContext.User.FindFirst("sub")?.Value;
+                
+                // ストアドメインを取得（destまたはiss）
+                var storeDomain = httpContext.User.FindFirst("dest")?.Value
+                                 ?? httpContext.User.FindFirst("iss")?.Value;
+                
+                // 複合キーを作成（ユーザーIDとストアドメインの組み合わせ）
+                string partitionKey;
+                if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(storeDomain))
+                {
+                    // ドメインを正規化（https://プレフィックスやパスを除去）
+                    var normalizedDomain = storeDomain;
+                    try
+                    {
+                        var uri = new Uri(storeDomain);
+                        normalizedDomain = uri.Host;
+                    }
+                    catch
+                    {
+                        normalizedDomain = storeDomain.Replace("https://", "").Replace("http://", "").Split('/')[0];
+                    }
+                    
+                    partitionKey = $"user-{userId}-{normalizedDomain}";
+                }
+                else
+                {
+                    // フォールバック: IPアドレスを使用
+                    var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    partitionKey = $"authenticated-ip-{clientIp}";
+                }
+                
                 return RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: userName,
+                    partitionKey: partitionKey,
                     factory: partition => new FixedWindowRateLimiterOptions
                     {
                         AutoReplenishment = true,
@@ -326,9 +385,9 @@ builder.Services.AddRateLimiter(options =>
             }
             
             // 匿名ユーザーはIPアドレスでパーティション分け（DoS攻撃対策）
-            var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var anonymousIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             return RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: $"anonymous-{clientIp}",
+                partitionKey: $"anonymous-{anonymousIp}",
                 factory: partition => new FixedWindowRateLimiterOptions
                 {
                     AutoReplenishment = true,

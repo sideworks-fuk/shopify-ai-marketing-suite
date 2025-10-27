@@ -86,13 +86,37 @@ namespace ShopifyAnalyticsApi.Services
 
                 var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
 
-                // トークンからストア情報を取得
+                // トークンからストア情報を取得（destクレーム、なければissクレームにフォールバック）
                 var shopDomainClaim = principal.FindFirst("dest")?.Value;
+                
+                // destが存在しない場合、issクレームからドメインを抽出
+                if (string.IsNullOrEmpty(shopDomainClaim))
+                {
+                    var issuerClaim = principal.FindFirst("iss")?.Value;
+                    if (!string.IsNullOrEmpty(issuerClaim))
+                    {
+                        try
+                        {
+                            var issuerUri = new Uri(issuerClaim);
+                            if (issuerUri.Host.EndsWith(".myshopify.com"))
+                            {
+                                shopDomainClaim = issuerUri.Host;
+                                _logger.LogDebug("Using iss claim as fallback for shop domain: {Issuer} -> {Domain}", 
+                                    issuerClaim, shopDomainClaim);
+                            }
+                        }
+                        catch (UriFormatException)
+                        {
+                            _logger.LogWarning("Invalid iss claim format: {Issuer}", issuerClaim);
+                        }
+                    }
+                }
+                
                 var userId = principal.FindFirst("sub")?.Value;
 
                 if (string.IsNullOrEmpty(shopDomainClaim))
                 {
-                    _logger.LogWarning("Shop domain not found in token");
+                    _logger.LogWarning("Shop domain not found in token (neither dest nor iss)");
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -104,6 +128,17 @@ namespace ShopifyAnalyticsApi.Services
                 var normalizedDomain = NormalizeShopDomain(shopDomainClaim);
                 _logger.LogDebug("Original dest claim: {Original}, Normalized: {Normalized}", 
                     shopDomainClaim, normalizedDomain);
+
+                // 正規化後のドメインを検証
+                if (!normalizedDomain.EndsWith(".myshopify.com"))
+                {
+                    _logger.LogWarning("Invalid shop domain: {Domain}", normalizedDomain);
+                    return new AuthenticationResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid shop domain"
+                    };
+                }
 
                 // データベースからストア情報を取得
                 var store = await _dbContext.Stores
