@@ -40,7 +40,7 @@ const getApiBaseUrl = (): string => {
   // デフォルト値
   if (process.env.NODE_ENV === 'development') {
     if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using default for development');
-    return 'https://localhost:7088';
+    return 'https://localhost:7089';
   }
   
   // 本番環境では必須

@@ -141,3 +141,4 @@ Shopify埋め込みアプリの認証システムを完全に再設計し、Shop
 - 基本ルール: `.cursor/rules/01-core-rules.mdc`
 
 
+
