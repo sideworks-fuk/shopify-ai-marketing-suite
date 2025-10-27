@@ -220,13 +220,15 @@ else
             "CRITICAL: Redis connection string is required in production environment");
     }
     
-    // 開発環境のみメモリキャッシュを使用
-    builder.Services.AddMemoryCache();
-    Log.Warning("Redis connection string not configured - using memory cache (Development only)");
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddMemoryCache(); // IMemoryCacheも必要な場合のため
+    Log.Warning("Redis connection string not configured - using distributed memory cache (Development only)");
 }
 
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
+
+builder.Services.AddHttpContextAccessor();
 
 // HangFire設定
 builder.Services.AddHangfire(configuration => configuration
