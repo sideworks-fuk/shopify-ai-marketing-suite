@@ -140,3 +140,4 @@ Shopify埋め込みアプリの認証システムを完全に再設計し、Shop
 - 技術スタック: `.cursor/rules/00-techstack.mdc`
 - 基本ルール: `.cursor/rules/01-core-rules.mdc`
 
+
