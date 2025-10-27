@@ -30,7 +30,7 @@ import { DormantCustomerTableVirtual } from "@/components/dashboards/dormant/Dor
 import { ReactivationInsights } from "@/components/dashboards/dormant/ReactivationInsights"
 import { DormantCustomerTableSkeleton, DormantKPISkeleton, DormantTableSkeleton } from "@/components/dashboards/dormant/DormantCustomerTableSkeleton"
 
-import { api } from "@/lib/api-client"
+import { useAuth } from "@/components/providers/AuthProvider"
 import { useDormantFilters } from "@/contexts/FilterContext"
 import { useAppStore } from "@/stores/appStore"
 import { handleApiError, handleError } from "@/lib/error-handler"
@@ -57,6 +57,8 @@ function debounce<T extends (...args: any[]) => Promise<any>>(
 
 // React.memoでメモ化したコンポーネント
 const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
+  const { getApiClient } = useAuth()
+  const api = getApiClient()
   const [showConditions, setShowConditions] = useState(true)
   const [dormantData, setDormantData] = useState<any[]>([])
   const [summaryData, setSummaryData] = useState<any>(null)

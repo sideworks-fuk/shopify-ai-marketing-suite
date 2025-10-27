@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api } from '../../lib/api-client';
+import { useAuth } from '../providers/AuthProvider';
 
 interface TestResult {
   endpoint: string;
@@ -12,6 +12,8 @@ interface TestResult {
 }
 
 export default function ApiTestComponent() {
+  const { getApiClient } = useAuth();
+  const api = getApiClient();
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 

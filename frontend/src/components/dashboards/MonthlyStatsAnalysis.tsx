@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react"
 import { useAppStore } from "../../stores/appStore"
-import { api } from "@/lib/api-client"
+import { useAuth } from "@/components/providers/AuthProvider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -35,6 +35,8 @@ interface MonthlyStatsAnalysisProps {
 const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
   useSampleData = false, // Changed to false to use API by default
 }: MonthlyStatsAnalysisProps) {
+  const { getApiClient } = useAuth()
+  const api = getApiClient()
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const [displayMode, setDisplayMode] = useState<'quantity' | 'amount' | 'both'>('amount')
   const [showConditions, setShowConditions] = useState(true)
