@@ -45,7 +45,8 @@ export class ApiClient {
 
   async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    __retried: boolean = false
   ): Promise<T> {
     const authHeaders = await this.getAuthHeaders();
 
@@ -69,21 +70,20 @@ export class ApiClient {
       console.error('❌ API Error:', response.status, errorText);
       
       // 401エラーの場合は1回だけリトライ
-      if (response.status === 401 && !(options.headers as any)?.['X-Retry']) {
+      if (response.status === 401 && !__retried) {
         console.log('🔄 401エラー: トークンを再取得してリトライします');
         
         // トークンを再取得
         const newHeaders = await this.getAuthHeaders();
         
-        // リトライフラグを追加して無限ループを防ぐ
+        // リトライフラグを渡して無限ループを防ぐ
         return this.request<T>(endpoint, {
           ...options,
           headers: {
             ...options.headers,
             ...newHeaders,
-            'X-Retry': 'true'
           }
-        });
+        }, true);
       }
       
       // リトライ後も失敗した場合のみauth:errorを発火
@@ -94,7 +94,7 @@ export class ApiClient {
       
       throw new Error(`API Error: ${response.status} ${errorText}`);
     }
-
+    
     return response.json();
   }
 
@@ -132,39 +132,36 @@ export class ApiClient {
 
   // API メソッドを追加
   async dormantSummary(storeId: number): Promise<any> {
-    return this.request(`${this.baseUrl}/api/customer/dormant-summary?storeId=${storeId}`);
+    return this.request(`/api/customer/dormant-summary?storeId=${storeId}`);
   }
 
   async dormantDetailedSegments(storeId: number): Promise<any> {
-    return this.request(`${this.baseUrl}/api/customer/dormant-detailed-segments?storeId=${storeId}`);
+    return this.request(`/api/customer/dormant-detailed-segments?storeId=${storeId}`);
   }
 
   async dormantCustomers(params: any): Promise<any> {
     const queryParams = new URLSearchParams(params).toString();
-    return this.request(`${this.baseUrl}/api/customer/dormant?${queryParams}`);
+    return this.request(`/api/customer/dormant?${queryParams}`);
   }
 
   async monthlySales(params: any): Promise<any> {
     const queryParams = new URLSearchParams(params).toString();
-    return this.request(`${this.baseUrl}/api/sales/monthly?${queryParams}`);
+    return this.request(`/api/sales/monthly?${queryParams}`);
   }
 
   async health(): Promise<any> {
-    return this.request(`${this.baseUrl}/api/health`);
+    return this.request(`/api/health`);
   }
 
   async customerTest(): Promise<any> {
-    return this.request(`${this.baseUrl}/api/customer/test`);
+    return this.request(`/api/customer/test`);
   }
 
   async customerSegments(): Promise<any> {
-    return this.request(`${this.baseUrl}/api/customer/segments`);
+    return this.request(`/api/customer/segments`);
   }
 
   async customerChurnProbability(customerId: number): Promise<any> {
-    return this.request(`${this.baseUrl}/api/customer/churn-probability?customerId=${customerId}`);
+    return this.request(`/api/customer/churn-probability?customerId=${customerId}`);
   }
 }
-
-// デフォルトのapiインスタンスをエクスポート
-export const api = new ApiClient();

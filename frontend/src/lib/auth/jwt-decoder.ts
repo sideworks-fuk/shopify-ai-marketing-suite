@@ -74,3 +74,4 @@ export function getTokenInfo(): JWTPayload | null {
   
   return decodeToken(token);
 }
+

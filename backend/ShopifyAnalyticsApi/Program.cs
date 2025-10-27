@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Hangfire;
 using Hangfire.SqlServer;
 using ShopifyAnalyticsApi.Jobs;
@@ -41,6 +42,14 @@ builder.Services.AddControllers(options =>
 builder.Services.AddHttpClient();
 
 // 認証設定（カスタムミドルウェアで処理するため、JwtBearerは使用しない）
+// ForwardedHeaders設定（リバースプロキシ対応）
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // AuthModeMiddlewareがすべての認証を処理する
 builder.Services.AddAuthentication("Custom")
     .AddScheme<AuthenticationSchemeOptions, CustomAuthenticationHandler>("Custom", options => { });
@@ -374,14 +383,14 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// ForwardedHeadersを有効化（リバースプロキシ対応）
+app.UseForwardedHeaders();
+
 // Use CORS
 app.UseCors("AllowAll");
 
 // グローバル例外ハンドラーを最初に配置
 app.UseGlobalExceptionHandler();
-
-// Rate Limitingを有効化（早期に配置してリソースを節約）
-app.UseRateLimiter();
 
 // Shopify Webhook用のHMAC検証ミドルウェア
 app.UseHmacValidation();
@@ -397,6 +406,9 @@ app.UseAuthModeMiddleware();
 
 // 認証を有効化
 app.UseAuthentication();
+
+// Rate Limitingを有効化（認証後に配置してユーザー別にパーティション分け）
+app.UseRateLimiter();
 
 // ストアコンテキストミドルウェア（認証後、承認前）
 app.UseStoreContext();
@@ -415,32 +427,36 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready")
 });
 
-// データベース接続テストエンドポイントを追加
-app.MapGet("/db-test", async (ShopifyDbContext context) =>
+// 開発環境専用エンドポイント
+if (app.Environment.IsDevelopment())
 {
-    try
+    // データベース接続テストエンドポイント
+    app.MapGet("/db-test", async (ShopifyDbContext context) =>
     {
-        var canConnect = await context.Database.CanConnectAsync();
-        return Results.Ok(new { success = canConnect, message = canConnect ? "Connected" : "Failed" });
-    }
-    catch (Exception ex)
-    {
-        return Results.Ok(new { success = false, message = ex.Message });
-    }
-});
-
-// 環境情報エンドポイントを追加
-app.MapGet("/env-info", () =>
-{
-    return Results.Ok(new
-    {
-        environment = app.Environment.EnvironmentName,
-        isDevelopment = app.Environment.IsDevelopment(),
-        applicationName = app.Environment.ApplicationName,
-        contentRootPath = app.Environment.ContentRootPath,
-        webRootPath = app.Environment.WebRootPath
+        try
+        {
+            var canConnect = await context.Database.CanConnectAsync();
+            return Results.Ok(new { success = canConnect, message = canConnect ? "Connected" : "Failed" });
+        }
+        catch (Exception ex)
+        {
+            return Results.Ok(new { success = false, message = ex.Message });
+        }
     });
-});
+
+    // 環境情報エンドポイント
+    app.MapGet("/env-info", () =>
+    {
+        return Results.Ok(new
+        {
+            environment = app.Environment.EnvironmentName,
+            isDevelopment = app.Environment.IsDevelopment(),
+            applicationName = app.Environment.ApplicationName,
+            contentRootPath = app.Environment.ContentRootPath,
+            webRootPath = app.Environment.WebRootPath
+        });
+    });
+}
 
 // 起動時の環境設定検証
 try

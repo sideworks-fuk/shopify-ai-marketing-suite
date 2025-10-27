@@ -13,14 +13,16 @@ const FeatureLockedScreen = React.lazy(() => import("@/components/billing/Featur
 // ローディングコンポーネント
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
 
-import { api } from "@/lib/api-client"
 import { API_CONFIG, getCurrentStoreId } from "@/lib/api-config"
 import { useDormantFilters } from "@/contexts/FilterContext"
 import { useFeatureAccess } from "@/hooks/useFeatureAccess"
+import { useAuth } from "@/components/providers/AuthProvider"
 
 export default function DormantCustomersPage() {
   // 機能アクセス制御
   const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
+  const { getApiClient } = useAuth()
+  const api = getApiClient()
   
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   // Note: All hooks must be called before any conditional returns

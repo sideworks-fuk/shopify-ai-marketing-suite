@@ -60,7 +60,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       // Shopify埋め込みアプリの場合
       client.setShopifyTokenProvider(async () => {
         const token = await getToken();
-        return token || '';
+        if (!token) {
+          throw new Error('Shopify session token not available');
+        }
+        return token;
       })
       setAuthMode('shopify')
       console.log('🔗 Shopify埋め込みアプリモードでAPIクライアントを初期化')

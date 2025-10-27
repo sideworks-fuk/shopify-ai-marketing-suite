@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { api } from '../../lib/api-client';
+import { useAuth } from '../providers/AuthProvider';
 import { getApiUrl } from '../../lib/api-config';
 
 interface TestResult {
@@ -26,6 +26,8 @@ interface DormantTestParams {
 }
 
 export default function DormantApiTestComponent() {
+  const { getApiClient } = useAuth();
+  const api = getApiClient();
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
