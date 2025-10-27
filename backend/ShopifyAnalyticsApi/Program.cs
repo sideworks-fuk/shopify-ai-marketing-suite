@@ -213,16 +213,19 @@ if (!string.IsNullOrEmpty(redisConnectionString) && !redisConnectionString.Conta
 }
 else
 {
-    // 本番環境ではRedis必須
+    // 本番環境・開発環境の両方で分散メモリキャッシュを使用（IDistributedCache実装）
+    // 注意: 本番環境ではRedisの使用を推奨しますが、IDistributedCacheの実装が必要なため、
+    // デフォルトでDistributedMemoryCacheを使用します
+    builder.Services.AddDistributedMemoryCache();
     if (builder.Environment.IsProduction())
     {
-        throw new InvalidOperationException(
-            "CRITICAL: Redis connection string is required in production environment");
+        Log.Warning("⚠️ Redis connection string not configured - using distributed memory cache. " +
+                   "This is NOT recommended for production. For multi-instance deployments, Redis is required.");
     }
-    
-    // 開発環境のみメモリキャッシュを使用
-    builder.Services.AddMemoryCache();
-    Log.Warning("Redis connection string not configured - using memory cache (Development only)");
+    else
+    {
+        Log.Warning("Redis connection string not configured - using distributed memory cache (Development only)");
+    }
 }
 
 // HttpClient Factory登録（Shopify API呼び出し用）
