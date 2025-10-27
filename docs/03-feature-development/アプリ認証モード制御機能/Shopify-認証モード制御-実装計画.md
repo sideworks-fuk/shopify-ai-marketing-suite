@@ -251,6 +251,12 @@ export const validateEnvironmentConfig = () => {
     "LockoutThreshold": 10, // ロックアウト閾値
     "LockoutDurationMinutes": 30 // ロックアウト期間
   },
+  "Developer": {
+    "Enabled": false, // 開発環境のみtrue
+    "PasswordHash": "$2a$10$...", // デモとは別のパスワード
+    "SessionTimeoutHours": 8,
+    "RateLimitPerIp": 10
+  },
   "Session": {
     "StorageType": "Redis", // Redis or Database（IMemoryCacheは使用しない）
     "RedisConnectionString": "localhost:6379",
