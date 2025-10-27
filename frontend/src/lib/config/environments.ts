@@ -1,3 +1,15 @@
+// 認証モード制御の型定義
+export type AuthMode = 'oauth_required' | 'demo_allowed' | 'all_allowed'
+export type Environment = 'production' | 'staging' | 'development'
+
+// 環境設定インターフェース（拡張版）
+export interface EnvironmentAuthConfig {
+  environment: Environment
+  authMode: AuthMode
+  enableDevTools: boolean
+  debugMode: boolean
+}
+
 // 環境別API設定
 export interface EnvironmentConfig {
   name: string;
@@ -31,9 +43,11 @@ const getApiBaseUrl = (): string => {
     return 'https://localhost:7088';
   }
   
-  // 本番環境のデフォルト（Azure Static Web Appsでのビルド時も含む）
-  if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using production default');
-  return 'ki';
+  // 本番環境では必須
+  if (!isBuildTime) {
+    console.error('🚨 CRITICAL: NEXT_PUBLIC_API_URL is not set in production environment');
+  }
+  throw new Error('NEXT_PUBLIC_API_URL must be set in production environment');
 };
 
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
@@ -219,4 +233,44 @@ export const getEnvironmentDebugInfo = () => {
       })()
     }
   };
-}; 
+};
+
+// 認証モード制御設定を取得（UI表示用のみ）
+// ⚠️ 重要: この設定はUI表示のヒントとしてのみ使用し、セキュリティ判定には使用しない
+//           すべての認証・認可判定はサーバー側で実施する
+export const getAuthModeConfig = (): EnvironmentAuthConfig => {
+  const environment = (process.env.NEXT_PUBLIC_ENVIRONMENT || 'development') as Environment
+  const authMode = (process.env.NEXT_PUBLIC_AUTH_MODE || 'all_allowed') as AuthMode
+  const enableDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === 'true'
+  const debugMode = process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
+
+  // クライアント側では警告のみ（セキュリティ制御はサーバー側）
+  if (!isBuildTime && environment === 'production' && authMode !== 'oauth_required') {
+    console.warn('⚠️ Warning: Production environment should use oauth_required mode')
+    console.warn('⚠️ This is a UI display hint only. Server-side authentication will enforce security.')
+  }
+
+  return {
+    environment,
+    authMode,
+    enableDevTools,
+    debugMode
+  }
+}
+
+// 認証モード設定の検証（UI表示用）
+export const validateAuthModeConfig = (config: EnvironmentAuthConfig): boolean => {
+  // 環境と認証モードの整合性チェック（推奨設定）
+  const recommendations: Record<Environment, AuthMode> = {
+    production: 'oauth_required',
+    staging: 'demo_allowed',
+    development: 'all_allowed'
+  }
+
+  const recommended = recommendations[config.environment]
+  if (config.authMode !== recommended) {
+    console.warn(`⚠️ Recommended auth mode for ${config.environment} is "${recommended}", but "${config.authMode}" is configured`)
+  }
+
+  return true
+} 

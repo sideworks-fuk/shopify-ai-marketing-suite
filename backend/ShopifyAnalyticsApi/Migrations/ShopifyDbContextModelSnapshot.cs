@@ -127,7 +127,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "ShopifyCustomerId");
 
-                    b.ToTable("Customers");
+                    b.ToTable("Customers", (string)null);
 
                     b.HasData(
                         new
@@ -238,7 +238,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "OrderNumber");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
 
                     b.HasData(
                         new
@@ -359,7 +359,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
 
                     b.HasData(
                         new
@@ -480,7 +480,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "Title");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", (string)null);
 
                     b.HasData(
                         new
@@ -593,7 +593,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ProductVariants");
+                    b.ToTable("ProductVariants", (string)null);
                 });
 
             modelBuilder.Entity("ShopifyTestApi.Models.Store", b =>
@@ -625,7 +625,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Stores");
+                    b.ToTable("Stores", (string)null);
 
                     b.HasData(
                         new

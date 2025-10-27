@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Net;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Middleware;
+using ShopifyAnalyticsApi.Filters;
 using ShopifyAnalyticsApi.HealthChecks;
+using ShopifyAnalyticsApi.Authentication;
 using Serilog;
 using Serilog.Events;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -13,6 +17,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Hangfire;
 using Hangfire.SqlServer;
 using ShopifyAnalyticsApi.Jobs;
@@ -28,55 +33,56 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Add services to the container.
-builder.Services.AddControllers();
+// グローバルフィルターとしてDemoReadOnlyFilterを追加
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<DemoReadOnlyFilter>(); // デモモードでの書き込み操作を制限
+});
 
 // HTTPクライアントファクトリーを追加（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
 
-// JWT認証の設定
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// 認証設定（カスタムミドルウェアで処理するため、JwtBearerは使用しない）
+// ForwardedHeaders設定（リバースプロキシ対応）
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1; // 最初のプロキシのヘッダーのみを信頼
+    
+    // 本番環境: 設定から信頼するプロキシを読み込む
+    var knownProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>();
+    if (knownProxies != null && knownProxies.Length > 0)
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured")))
-        };
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
         
-        // デモモード時は認証をスキップ
-        options.Events = new JwtBearerEvents
+        foreach (var proxy in knownProxies)
         {
-            OnMessageReceived = context =>
+            if (IPAddress.TryParse(proxy, out var ip))
             {
-                // デモモードフラグをチェック
-                if (context.HttpContext.Items.ContainsKey("IsDemoMode") && 
-                    context.HttpContext.Items["IsDemoMode"] is true)
-                {
-                    context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
-                        .LogInformation("🎯 [JWT] デモモード検出: JWT認証をスキップします (User.Identity.IsAuthenticated={IsAuthenticated})", 
-                            context.HttpContext.User.Identity?.IsAuthenticated);
-                    
-                    // 認証をスキップ（既にDemoModeMiddlewareでcontext.Userが設定されている）
-                    // NoResult()を使用してJWT認証をスキップ
-                    context.NoResult();
-                }
-                return Task.CompletedTask;
+                options.KnownProxies.Add(ip);
+                Log.Information("Added known proxy: {ProxyIP}", proxy);
             }
-        };
-    });
+        }
+    }
+    else
+    {
+        // 開発環境またはAzure App Serviceのデフォルト動作
+        // Azure App ServiceはX-Forwarded-Forを自動的に追加するため、全てを信頼
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        Log.Warning("No known proxies configured - trusting all proxies (Development/Azure default)");
+    }
+});
+
+// AuthModeMiddlewareがすべての認証を処理する
+builder.Services.AddAuthentication("Custom")
+    .AddScheme<AuthenticationSchemeOptions, CustomAuthenticationHandler>("Custom", options => { });
+// 注: CustomAuthenticationHandlerは何もしない（AuthModeMiddlewareが処理済み）
 
 // Add Entity Framework
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add Memory Cache
-builder.Services.AddMemoryCache();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -189,6 +195,36 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyProductSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
 
+// Register Authentication Services (認証サービス)
+builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IAuthenticationService, ShopifyAnalyticsApi.Services.AuthenticationService>();
+builder.Services.AddScoped<IDemoAuthService, DemoAuthService>();
+builder.Services.AddScoped<IRateLimiter, ShopifyAnalyticsApi.Services.RateLimiter>();
+
+// Redis Cache Configuration
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrEmpty(redisConnectionString) && !redisConnectionString.Contains("#"))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "ShopifyAnalyticsApi";
+    });
+    Log.Information("Redis cache configured with connection string");
+}
+else
+{
+    // 本番環境ではRedis必須
+    if (builder.Environment.IsProduction())
+    {
+        throw new InvalidOperationException(
+            "CRITICAL: Redis connection string is required in production environment");
+    }
+    
+    // 開発環境のみメモリキャッシュを使用
+    builder.Services.AddMemoryCache();
+    Log.Warning("Redis connection string not configured - using memory cache (Development only)");
+}
+
 // HttpClient Factory登録（Shopify API呼び出し用）
 builder.Services.AddHttpClient();
 
@@ -297,15 +333,68 @@ builder.Services.AddCors(options =>
 // Rate Limiting設定
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests; // 標準的な429ステータスコード
+    
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
-        httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.User?.Identity?.Name ?? "anonymous",
-            factory: partition => new FixedWindowRateLimiterOptions
+        httpContext => 
+        {
+            // 認証済みユーザー: 複合キー（ユーザーID + ストアドメイン）でパーティション分け（200回/分）
+            if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
-                AutoReplenishment = true,
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1)
-            }));
+                // ユーザーIDを取得（NameIdentifierまたはsub）
+                var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                             ?? httpContext.User.FindFirst("sub")?.Value;
+                
+                // ストアドメインを取得（destまたはiss）
+                var storeDomain = httpContext.User.FindFirst("dest")?.Value
+                                 ?? httpContext.User.FindFirst("iss")?.Value;
+                
+                // 複合キーを作成（ユーザーIDとストアドメインの組み合わせ）
+                string partitionKey;
+                if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(storeDomain))
+                {
+                    // ドメインを正規化（https://プレフィックスやパスを除去）
+                    var normalizedDomain = storeDomain;
+                    try
+                    {
+                        var uri = new Uri(storeDomain);
+                        normalizedDomain = uri.Host;
+                    }
+                    catch
+                    {
+                        normalizedDomain = storeDomain.Replace("https://", "").Replace("http://", "").Split('/')[0];
+                    }
+                    
+                    partitionKey = $"user-{userId}-{normalizedDomain}";
+                }
+                else
+                {
+                    // フォールバック: IPアドレスを使用
+                    var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    partitionKey = $"authenticated-ip-{clientIp}";
+                }
+                
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: partitionKey,
+                    factory: partition => new FixedWindowRateLimiterOptions
+                    {
+                        AutoReplenishment = true,
+                        PermitLimit = 200, // 認証済みユーザーはより高い制限
+                        Window = TimeSpan.FromMinutes(1)
+                    });
+            }
+            
+            // 匿名ユーザーはIPアドレスでパーティション分け（DoS攻撃対策）
+            var anonymousIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: $"anonymous-{anonymousIp}",
+                factory: partition => new FixedWindowRateLimiterOptions
+                {
+                    AutoReplenishment = true,
+                    PermitLimit = 50, // 匿名ユーザーはより低い制限
+                    Window = TimeSpan.FromMinutes(1)
+                });
+        });
 });
 
 var app = builder.Build();
@@ -318,13 +407,8 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // 本番環境でもSwaggerを有効にする（必要に応じて）
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EC Ranger API v1");
-        c.RoutePrefix = "swagger";
-    });
+    // 本番環境ではSwaggerを無効化（セキュリティ上の理由）
+    Log.Information("Swagger disabled in production environment for security");
 }
 
 app.UseHttpsRedirection();
@@ -358,6 +442,9 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// ForwardedHeadersを有効化（リバースプロキシ対応）
+app.UseForwardedHeaders();
+
 // Use CORS
 app.UseCors("AllowAll");
 
@@ -367,17 +454,20 @@ app.UseGlobalExceptionHandler();
 // Shopify Webhook用のHMAC検証ミドルウェア
 app.UseHmacValidation();
 
-// Rate Limitingを有効化
-app.UseRateLimiter();
-
 // Shopify埋め込みアプリミドルウェア（認証前に配置）
 app.UseShopifyEmbeddedApp();
 
 // デモモードミドルウェア（認証前に配置）
 app.UseDemoMode();
 
+// 認証モード制御ミドルウェア（認証処理の統合制御）
+app.UseAuthModeMiddleware();
+
 // 認証を有効化
 app.UseAuthentication();
+
+// Rate Limitingを有効化（認証後に配置してユーザー別にパーティション分け）
+app.UseRateLimiter();
 
 // ストアコンテキストミドルウェア（認証後、承認前）
 app.UseStoreContext();
@@ -396,32 +486,109 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready")
 });
 
-// データベース接続テストエンドポイントを追加
-app.MapGet("/db-test", async (ShopifyDbContext context) =>
+// 開発環境専用エンドポイント
+if (app.Environment.IsDevelopment())
 {
-    try
+    // データベース接続テストエンドポイント
+    app.MapGet("/db-test", async (ShopifyDbContext context) =>
     {
-        var canConnect = await context.Database.CanConnectAsync();
-        return Results.Ok(new { success = canConnect, message = canConnect ? "Connected" : "Failed" });
-    }
-    catch (Exception ex)
-    {
-        return Results.Ok(new { success = false, message = ex.Message });
-    }
-});
-
-// 環境情報エンドポイントを追加
-app.MapGet("/env-info", () =>
-{
-    return Results.Ok(new
-    {
-        environment = app.Environment.EnvironmentName,
-        isDevelopment = app.Environment.IsDevelopment(),
-        applicationName = app.Environment.ApplicationName,
-        contentRootPath = app.Environment.ContentRootPath,
-        webRootPath = app.Environment.WebRootPath
+        try
+        {
+            var canConnect = await context.Database.CanConnectAsync();
+            return Results.Ok(new { success = canConnect, message = canConnect ? "Connected" : "Failed" });
+        }
+        catch (Exception ex)
+        {
+            return Results.Ok(new { success = false, message = ex.Message });
+        }
     });
-});
+
+    // 環境情報エンドポイント
+    app.MapGet("/env-info", () =>
+    {
+        return Results.Ok(new
+        {
+            environment = app.Environment.EnvironmentName,
+            isDevelopment = app.Environment.IsDevelopment(),
+            applicationName = app.Environment.ApplicationName,
+            contentRootPath = app.Environment.ContentRootPath,
+            webRootPath = app.Environment.WebRootPath
+        });
+    });
+}
+
+// 起動時の環境設定検証
+try
+{
+    var authMode = app.Configuration["Authentication:Mode"];
+    var environment = app.Environment.EnvironmentName;
+
+    Log.Information("Starting application with Environment: {Environment}, AuthMode: {AuthMode}", 
+        environment, authMode);
+
+    // 本番環境での必須チェック
+    if (environment == "Production")
+    {
+        // 認証モードチェック
+        if (authMode != "OAuthRequired")
+        {
+            throw new InvalidOperationException(
+                $"SECURITY: Production environment must use OAuthRequired mode, but '{authMode}' is configured. " +
+                "This is a critical security requirement.");
+        }
+
+        // 必須環境変数チェック
+        var requiredSettings = new[]
+        {
+            ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
+            ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
+            ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
+        };
+
+        // JwtSecretはDemoAllowed/AllAllowedモードでのみ必須
+        if (authMode == "DemoAllowed" || authMode == "AllAllowed")
+        {
+            requiredSettings = requiredSettings.Concat(new[]
+            {
+                ("Authentication:JwtSecret", app.Configuration["Authentication:JwtSecret"])
+            }).ToArray();
+        }
+
+        // Redis設定チェック（Session:StorageTypeがRedisの場合）
+        var sessionStorageType = app.Configuration["Session:StorageType"];
+        if (sessionStorageType == "Redis")
+        {
+            var redisConnString = app.Configuration.GetConnectionString("Redis");
+            if (string.IsNullOrEmpty(redisConnString) || redisConnString.Contains("#"))
+            {
+                throw new InvalidOperationException(
+                    "SECURITY: Redis is configured as session storage but connection string is not set. " +
+                    "Production environment requires Redis for session management.");
+            }
+        }
+
+        foreach (var (key, value) in requiredSettings)
+        {
+            if (string.IsNullOrEmpty(value) || value.Contains("#"))
+            {
+                throw new InvalidOperationException(
+                    $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
+                    "Production environment requires all secrets to be properly configured.");
+            }
+        }
+
+        Log.Information("✅ Production environment validation passed");
+    }
+    else
+    {
+        Log.Information("ℹ️ Non-production environment: {Environment}", environment);
+    }
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application startup validation failed");
+    throw;
+}
 
 try
 {
@@ -436,3 +603,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// テスト用にProgramクラスをpublicにする
+public partial class Program { }

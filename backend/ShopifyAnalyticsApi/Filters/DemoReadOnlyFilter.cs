@@ -1,0 +1,115 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
+using ShopifyAnalyticsApi.Attributes;
+using System.Linq;
+
+namespace ShopifyAnalyticsApi.Filters
+{
+    /// <summary>
+    /// デモモードでの読み取り専用ポリシーを強制するグローバルフィルター
+    /// 
+    /// 機能:
+    /// - デモモード時、すべての変更操作（POST/PUT/PATCH/DELETE）をデフォルトでブロック
+    /// - [AllowDemoWrite]属性が付与されたエンドポイントのみ例外的に許可
+    /// - すべてのブロック試行をログに記録
+    /// 
+    /// セキュリティ設計:
+    /// - ホワイトリスト方式: デフォルトでブロック、明示的に許可する
+    /// - 付け忘れのリスクを排除: グローバル適用により全エンドポイントをカバー
+    /// </summary>
+    public class DemoReadOnlyFilter : IActionFilter
+    {
+        private readonly ILogger<DemoReadOnlyFilter> _logger;
+
+        public DemoReadOnlyFilter(ILogger<DemoReadOnlyFilter> logger)
+        {
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// アクション実行前にデモモードの書き込み制限をチェック
+        /// </summary>
+        public void OnActionExecuting(ActionExecutingContext context)
+        {
+            // HttpContext.Itemsから認証情報を取得
+            var authMode = context.HttpContext.Items["AuthMode"] as string;
+            var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
+
+            // デモモードの判定: AuthMode == "demo" または クレームに auth_mode=demo がある
+            var isDemoMode = authMode == "demo" || 
+                             context.HttpContext.User.HasClaim("auth_mode", "demo");
+
+            // デモモードかつ読み取り専用の場合のみチェック
+            if (isDemoMode && isReadOnly == true)
+            {
+                var httpMethod = context.HttpContext.Request.Method;
+
+                // 変更操作（POST/PUT/PATCH/DELETE）をチェック
+                if (IsWriteOperation(httpMethod))
+                {
+                    // [AllowDemoWrite]属性の有無を確認
+                    var allowDemoWrite = context.ActionDescriptor.EndpointMetadata
+                        .OfType<AllowDemoWriteAttribute>()
+                        .FirstOrDefault();
+
+                    if (allowDemoWrite == null)
+                    {
+                        // デモモードでの書き込み試行をブロック
+                        _logger.LogWarning(
+                            "Demo mode write operation blocked. " +
+                            "Method: {Method}, Path: {Path}, AuthMode: {AuthMode}",
+                            httpMethod,
+                            context.HttpContext.Request.Path,
+                            authMode);
+
+                        // 403 Forbiddenレスポンスを返す
+                        context.Result = new JsonResult(new
+                        {
+                            error = "Forbidden",
+                            message = "Write operations are not allowed in demo mode. This is a read-only demonstration environment.",
+                            suggestion = "Please sign up for a full account to enable write operations."
+                        })
+                        {
+                            StatusCode = 403
+                        };
+
+                        return;
+                    }
+                    else
+                    {
+                        // [AllowDemoWrite]属性が付与されている場合は警告ログのみ
+                        _logger.LogInformation(
+                            "Demo mode write operation explicitly allowed. " +
+                            "Method: {Method}, Path: {Path}, Reason: {Reason}",
+                            httpMethod,
+                            context.HttpContext.Request.Path,
+                            allowDemoWrite.Reason ?? "Not specified");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// アクション実行後の処理（現在は何もしない）
+        /// </summary>
+        public void OnActionExecuted(ActionExecutedContext context)
+        {
+            // 必要に応じて実装
+        }
+
+        /// <summary>
+        /// HTTPメソッドが書き込み操作かどうかを判定
+        /// </summary>
+        /// <param name="httpMethod">HTTPメソッド（GET, POST, PUT, PATCH, DELETEなど）</param>
+        /// <returns>書き込み操作の場合true</returns>
+        private static bool IsWriteOperation(string httpMethod)
+        {
+            return httpMethod == "POST" ||
+                   httpMethod == "PUT" ||
+                   httpMethod == "PATCH" ||
+                   httpMethod == "DELETE";
+        }
+    }
+}
+

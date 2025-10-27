@@ -33,6 +33,7 @@
     "@radix-ui/react-tabs": "^1.0.4",
     "@shopify/app-bridge": "^3.7.10",
     "@shopify/app-bridge-react": "^4.2.1",
+    "@shopify/app-bridge-utils": "^3.5.1",
     "@shopify/polaris": "^13.9.5",
     "@shopify/polaris-icons": "^9.3.1",
     "@types/jwt-decode": "^2.2.1",

@@ -84,39 +84,58 @@ graph TB
 
 #### フロントエンド環境変数
 
+**重要**: フロントエンド環境変数（`NEXT_PUBLIC_*`）はUI表示のヒントとしてのみ使用し、セキュリティ判定には使用しない。すべての認証・認可判定はサーバー側で実施する。
+
 ```typescript
-// 環境識別
+// 環境識別（UI表示用のみ）
 NEXT_PUBLIC_ENVIRONMENT: 'production' | 'staging' | 'development'
 
-// 認証モード制御
+// 認証モード制御（UI表示用のみ、セキュリティ判定には使用しない）
 NEXT_PUBLIC_AUTH_MODE: 'oauth_required' | 'demo_allowed' | 'all_allowed'
-
-// デモモード設定
-NEXT_PUBLIC_DEV_PASSWORD: string
-NEXT_PUBLIC_DEMO_SESSION_TIMEOUT: number (分)
 
 // セキュリティ設定
 NEXT_PUBLIC_ENABLE_DEV_TOOLS: boolean
 NEXT_PUBLIC_DEBUG_MODE: boolean
+
+// 削除された変数（セキュリティリスクのため）:
+// - NEXT_PUBLIC_DEV_PASSWORD: クライアントにパスワードを露出しない
+// - NEXT_PUBLIC_DEMO_SESSION_TIMEOUT: サーバー側で管理
 ```
 
 #### バックエンド環境変数
 
+**重要**: すべての認証・認可判定はサーバー側の環境変数のみを使用する。クライアント側の環境変数は信頼しない。
+
 ```csharp
+// 環境設定
+ASPNETCORE_ENVIRONMENT: "Production" | "Staging" | "Development"
+Environment__AllowedHostnames: string[] // 環境ごとの許可されたホスト名リスト
+
 // 認証設定
 Authentication__Mode: "OAuthRequired" | "DemoAllowed" | "AllAllowed"
 Authentication__JwtSecret: string
 Authentication__JwtExpiryHours: number
+Authentication__ShopifyApiKey: string
+Authentication__ShopifyApiSecret: string
 
 // デモモード設定
-Demo__PasswordHash: string (bcrypt)
+Demo__PasswordHash: string (bcrypt) // 平文パスワードは保存しない
 Demo__SessionTimeoutHours: number
 Demo__MaxSessionsPerUser: number
+Demo__RateLimitPerIp: number // ブルートフォース対策
+Demo__LockoutThreshold: number // ロックアウト閾値
+Demo__LockoutDurationMinutes: number // ロックアウト期間
+
+// セッションストレージ設定
+Session__StorageType: "Redis" | "Database" // IMemoryCacheは使用しない
+Session__RedisConnectionString: string (if Redis)
+Session__CleanupIntervalMinutes: number
 
 // セキュリティ設定
 Security__RequireHttps: boolean
 Security__EnableCors: boolean
 Security__AllowedOrigins: string[]
+Security__RateLimitPerMinute: number
 ```
 
 ---
@@ -268,6 +287,8 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 
 #### 1. 認証ミドルウェア
 
+**重要**: Shopify埋め込みアプリでは、Cookieではなく、App BridgeセッショントークンをAuthorizationヘッダーで受け取る。
+
 ```csharp
 // AuthModeMiddleware.cs
 public class AuthModeMiddleware
@@ -275,35 +296,73 @@ public class AuthModeMiddleware
     private readonly RequestDelegate _next;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthModeMiddleware> _logger;
+    private readonly IHostEnvironment _env;
 
     public async Task InvokeAsync(HttpContext context)
     {
         var authMode = _config["Authentication:Mode"];
-        var environment = _config["Environment"];
+        var environment = _env.EnvironmentName;
         
-        // 本番環境安全弁
+        // 起動時環境チェック（本番環境安全弁）
         if (environment == "Production" && authMode != "OAuthRequired")
         {
-            _logger.LogError("Invalid authentication mode for production environment");
+            _logger.LogCritical("SECURITY: Invalid authentication mode for production environment");
             context.Response.StatusCode = 500;
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = "Configuration Error",
+                message = "Production environment must use OAuthRequired mode"
+            });
             return;
         }
         
-        var oauthToken = context.Request.Cookies["shopify_oauth_token"];
-        var demoToken = context.Request.Cookies["demo_auth_token"];
+        // ホスト名検証
+        var allowedHostnames = _config.GetSection("Environment:AllowedHostnames").Get<string[]>();
+        if (allowedHostnames?.Length > 0)
+        {
+            var hostname = context.Request.Host.Host;
+            if (!allowedHostnames.Contains(hostname))
+            {
+                _logger.LogWarning("Request from unauthorized hostname: {Hostname}", hostname);
+            }
+        }
         
-        var isOAuthValid = !string.IsNullOrEmpty(oauthToken) && 
-                          await ValidateOAuthTokenAsync(oauthToken);
-        var isDemoValid = !string.IsNullOrEmpty(demoToken) && 
-                         await ValidateDemoTokenAsync(demoToken);
+        // Authorizationヘッダーからトークンを取得（Cookieではなく）
+        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+        string token = null;
         
-        // 認証モード別の処理
+        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+        {
+            token = authHeader.Substring("Bearer ".Length).Trim();
+        }
+        
+        bool isOAuthValid = false;
+        bool isDemoValid = false;
+        
+        if (!string.IsNullOrEmpty(token))
+        {
+            // Shopify App Bridgeセッショントークンの検証
+            isOAuthValid = await ValidateShopifySessionTokenAsync(token);
+            
+            // デモトークンの検証
+            if (!isOAuthValid)
+            {
+                isDemoValid = await ValidateDemoTokenAsync(token);
+            }
+        }
+        
+        // 認証モード別の処理（サーバー側設定のみを信頼）
         switch (authMode)
         {
             case "OAuthRequired":
                 if (!isOAuthValid)
                 {
                     context.Response.StatusCode = 401;
+                    await context.Response.WriteAsJsonAsync(new 
+                    { 
+                        error = "Unauthorized",
+                        message = "OAuth authentication required"
+                    });
                     return;
                 }
                 break;
@@ -312,31 +371,119 @@ public class AuthModeMiddleware
                 if (!isOAuthValid && !isDemoValid)
                 {
                     context.Response.StatusCode = 401;
+                    await context.Response.WriteAsJsonAsync(new 
+                    { 
+                        error = "Unauthorized",
+                        message = "OAuth or demo authentication required"
+                    });
                     return;
                 }
                 break;
                 
             case "AllAllowed":
-                // すべての認証方式を許可
+                // すべての認証方式を許可（開発環境のみ）
                 break;
         }
         
-        // デモモード時の制限設定
+        // デモモード時の制限設定（クレームに追加）
         if (isDemoValid && !isOAuthValid)
         {
             context.Items["AuthMode"] = "Demo";
-            context.Items["ShopifyApiRestricted"] = true;
+            context.Items["IsReadOnly"] = true;
+            
+            // デモモードクレームを設定
+            var claims = new List<Claim>
+            {
+                new Claim("auth_mode", "demo"),
+                new Claim("read_only", "true")
+            };
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
+        }
+        else if (isOAuthValid)
+        {
+            context.Items["AuthMode"] = "OAuth";
+            context.Items["IsReadOnly"] = false;
         }
         
         await _next(context);
     }
+    
+    private async Task<bool> ValidateShopifySessionTokenAsync(string token)
+    {
+        // Shopify App Bridgeセッショントークンの検証
+        // JWT署名検証、有効期限チェック、ショップドメイン検証
+        // 実装詳細は省略
+        return await Task.FromResult(true); // 実装時に適切な検証ロジックを追加
+    }
 }
 ```
 
-#### 2. アクセス制御属性
+#### 2. グローバル読み取り専用ポリシー（推奨）
+
+**重要**: 属性ベースのアクセス制御は付け忘れのリスクがあるため、グローバルポリシーを使用してデフォルトですべての変更操作をブロックする。
 
 ```csharp
-// RequireOAuthAttribute.cs
+// DemoReadOnlyFilter.cs
+public class DemoReadOnlyFilter : IActionFilter
+{
+    private readonly ILogger<DemoReadOnlyFilter> _logger;
+
+    public void OnActionExecuting(ActionExecutingContext context)
+    {
+        var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
+        
+        if (isReadOnly == true)
+        {
+            var httpMethod = context.HttpContext.Request.Method;
+            
+            // デモモードでは変更操作（POST/PUT/PATCH/DELETE）をブロック
+            if (httpMethod == "POST" || httpMethod == "PUT" || 
+                httpMethod == "PATCH" || httpMethod == "DELETE")
+            {
+                // [AllowDemoWrite]属性がある場合のみ許可
+                var allowDemoWrite = context.ActionDescriptor.EndpointMetadata
+                    .OfType<AllowDemoWriteAttribute>()
+                    .Any();
+                
+                if (!allowDemoWrite)
+                {
+                    _logger.LogWarning("Demo mode write attempt blocked: {Method} {Path}", 
+                        httpMethod, context.HttpContext.Request.Path);
+                    
+                    context.Result = new JsonResult(new
+                    {
+                        error = "Forbidden",
+                        message = "Write operations are not allowed in demo mode"
+                    })
+                    {
+                        StatusCode = 403
+                    };
+                }
+            }
+        }
+    }
+
+    public void OnActionExecuted(ActionExecutedContext context) { }
+}
+
+// AllowDemoWriteAttribute.cs（明示的に許可する場合のみ使用）
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public class AllowDemoWriteAttribute : Attribute
+{
+    // 理想的にはこの属性を使用するエンドポイントはゼロ
+}
+
+// Startup.cs での登録
+services.AddControllers(options =>
+{
+    options.Filters.Add<DemoReadOnlyFilter>();
+});
+```
+
+#### 3. アクセス制御属性（レガシー、非推奨）
+
+```csharp
+// RequireOAuthAttribute.cs（グローバルポリシーを使用する場合は不要）
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
 public class RequireOAuthAttribute : ActionFilterAttribute
 {
@@ -357,37 +504,86 @@ public class RequireOAuthAttribute : ActionFilterAttribute
         }
     }
 }
-
-// 使用例
-[RequireOAuth]
-[HttpGet("api/shopify/orders")]
-public async Task<IActionResult> GetOrders()
-{
-    // Shopify API呼び出し
-}
 ```
 
-#### 3. デモ認証サービス
+#### 4. デモ認証サービス（分散セッションストレージ + レート制限）
+
+**重要**: `IMemoryCache` は使用せず、Redisまたはデータベースによる分散セッションストレージを使用する。
 
 ```csharp
 // DemoAuthService.cs
 public class DemoAuthService
 {
     private readonly IConfiguration _config;
-    private readonly IMemoryCache _cache;
+    private readonly IDistributedCache _distributedCache; // IMemoryCacheではなくIDistributedCache
     private readonly ILogger<DemoAuthService> _logger;
+    private readonly IRateLimiter _rateLimiter;
+    private readonly ApplicationDbContext _dbContext;
 
-    public async Task<DemoAuthResult> AuthenticateAsync(string password)
+    public async Task<DemoAuthResult> AuthenticateAsync(string password, string ipAddress)
     {
+        // レート制限チェック（ブルートフォース対策）
+        var rateLimitKey = $"demo_auth_rate_{ipAddress}";
+        var attempts = await _rateLimiter.GetAttemptsAsync(rateLimitKey);
+        var maxAttempts = _config.GetValue<int>("Demo:RateLimitPerIp");
+        
+        if (attempts >= maxAttempts)
+        {
+            _logger.LogWarning("Rate limit exceeded for IP: {IpAddress}", ipAddress);
+            return new DemoAuthResult 
+            { 
+                Success = false,
+                Error = "Too many attempts. Please try again later."
+            };
+        }
+        
+        // ロックアウトチェック
+        var lockoutKey = $"demo_auth_lockout_{ipAddress}";
+        var isLockedOut = await _distributedCache.GetStringAsync(lockoutKey);
+        
+        if (!string.IsNullOrEmpty(isLockedOut))
+        {
+            _logger.LogWarning("Locked out IP attempting login: {IpAddress}", ipAddress);
+            return new DemoAuthResult 
+            { 
+                Success = false,
+                Error = "Account temporarily locked. Please try again later."
+            };
+        }
+        
+        // パスワード検証
         var hashedPassword = _config["Demo:PasswordHash"];
         var isValid = BCrypt.Verify(password, hashedPassword);
         
         if (!isValid)
         {
-            _logger.LogWarning("Invalid demo password attempt");
-            return new DemoAuthResult { Success = false };
+            // 失敗試行を記録（平文パスワードは記録しない）
+            await _rateLimiter.IncrementAsync(rateLimitKey);
+            
+            var failedAttempts = await _rateLimiter.GetAttemptsAsync(rateLimitKey);
+            var lockoutThreshold = _config.GetValue<int>("Demo:LockoutThreshold");
+            
+            // ロックアウト閾値に達した場合
+            if (failedAttempts >= lockoutThreshold)
+            {
+                var lockoutDuration = TimeSpan.FromMinutes(
+                    _config.GetValue<int>("Demo:LockoutDurationMinutes")
+                );
+                await _distributedCache.SetStringAsync(lockoutKey, "locked", 
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = lockoutDuration });
+                
+                _logger.LogWarning("IP locked out due to failed attempts: {IpAddress}", ipAddress);
+            }
+            
+            _logger.LogWarning("Invalid demo password attempt from IP: {IpAddress}", ipAddress);
+            
+            // 認証ログに記録
+            await LogAuthenticationAttemptAsync(ipAddress, "demo", false, "Invalid password");
+            
+            return new DemoAuthResult { Success = false, Error = "Invalid password" };
         }
         
+        // セッション作成
         var sessionId = Guid.NewGuid().ToString();
         var expiresAt = DateTime.UtcNow.AddHours(
             _config.GetValue<int>("Demo:SessionTimeoutHours")
@@ -395,14 +591,38 @@ public class DemoAuthService
         
         var session = new DemoSession
         {
+            Id = Guid.NewGuid(),
             SessionId = sessionId,
             ExpiresAt = expiresAt,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            LastAccessedAt = DateTime.UtcNow,
+            IsActive = true,
+            CreatedBy = ipAddress
         };
         
-        _cache.Set($"demo_session_{sessionId}", session, expiresAt);
+        // データベースに保存（分散セッションストレージ）
+        _dbContext.DemoSessions.Add(session);
+        await _dbContext.SaveChangesAsync();
         
+        // Redisにもキャッシュ（高速アクセス用）
+        var cacheOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpiration = expiresAt
+        };
+        await _distributedCache.SetStringAsync(
+            $"demo_session_{sessionId}", 
+            JsonSerializer.Serialize(session),
+            cacheOptions
+        );
+        
+        // トークン生成
         var token = GenerateDemoToken(session);
+        
+        // 成功ログ記録
+        await LogAuthenticationAttemptAsync(ipAddress, "demo", true, null);
+        
+        // レート制限カウンターをリセット
+        await _rateLimiter.ResetAsync(rateLimitKey);
         
         return new DemoAuthResult
         {
@@ -423,6 +643,7 @@ public class DemoAuthService
             {
                 new Claim("session_id", session.SessionId),
                 new Claim("auth_mode", "demo"),
+                new Claim("read_only", "true"), // デモモードは読み取り専用
                 new Claim("expires_at", session.ExpiresAt.ToString("O"))
             }),
             Expires = session.ExpiresAt,
@@ -434,6 +655,22 @@ public class DemoAuthService
         
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+    
+    private async Task LogAuthenticationAttemptAsync(string ipAddress, string authMode, bool success, string failureReason)
+    {
+        var log = new AuthenticationLog
+        {
+            Id = Guid.NewGuid(),
+            AuthMode = authMode,
+            Success = success,
+            FailureReason = failureReason,
+            IpAddress = ipAddress,
+            CreatedAt = DateTime.UtcNow
+        };
+        
+        _dbContext.AuthenticationLogs.Add(log);
+        await _dbContext.SaveChangesAsync();
     }
 }
 ```
@@ -648,15 +885,20 @@ public async Task DemoMode_ShouldRestrictShopifyApiAccess()
 
 ### キャッシュ戦略
 
-#### 1. セッションキャッシュ
-- **IMemoryCache**: デモセッションのメモリキャッシュ
-- **有効期限**: セッションタイムアウトと同期
-- **サイズ制限**: 最大1000セッション
+#### 1. セッションキャッシュ（分散キャッシュ）
+- **Redis + Database**: デモセッションの分散ストレージ
+  - **Redis**: 高速アクセス用のキャッシュ層
+  - **Database**: 永続化とスケールアウト対応
+- **有効期限**: セッションタイムアウトと同期（TTL設定）
+- **クリーンアップ**: 定期的な期限切れセッションの削除ジョブ
+- **スケーラビリティ**: 複数サーバーインスタンス間でセッション共有
+- **注意**: `IMemoryCache` は使用しない（サーバー再起動やスケールアウトで失われる）
 
 #### 2. 設定キャッシュ
 - **Configuration**: 環境設定のキャッシュ
 - **更新頻度**: アプリケーション起動時
 - **フォールバック**: デフォルト値の使用
+- **検証**: 起動時の環境設定検証（本番環境チェック）
 
 ### 最適化戦略
 

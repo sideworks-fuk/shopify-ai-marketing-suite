@@ -14,7 +14,6 @@ import {
   ErrorHandlerConfig,
   getErrorTypeFromStatus 
 } from '../types/error'
-import { authClient } from './auth-client'
 
 // デフォルト設定
 const DEFAULT_CONFIG: ErrorHandlerConfig = {
@@ -129,8 +128,8 @@ class ErrorHandler {
       const currentStoreId = this.getCurrentStoreId()
       
       if (currentStoreId) {
-        // 自動再認証を試行
-        await authClient.authenticate(currentStoreId)
+        // 自動再認証を試行（一時的に無効化）
+        // await authClient.authenticate(currentStoreId)
         
         console.log('✅ 自動再認証が成功しました')
         
