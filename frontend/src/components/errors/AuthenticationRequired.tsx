@@ -61,7 +61,8 @@ export default function AuthenticationRequired({ message }: Props) {
 
   const onDemoAuth = () => {
     // デモモード認証ページへ遷移
-    window.location.href = '/dev-bookmarks'
+    // TODO: /demo/loginページを実装後に有効化
+    window.location.href = '/demo/login'
   }
 
   // URLパラメータから shop を取得
@@ -80,7 +81,9 @@ export default function AuthenticationRequired({ message }: Props) {
     : 'このアプリにアクセスするには認証が必要です。'
   
   // デモリンク表示判定（authMode設定に基づく）
-  const showDemoLink = config.authMode !== 'oauth_required'
+  // TODO: デモモードUI未実装のため一時的に無効化
+  // const showDemoLink = config.authMode !== 'oauth_required'
+  const showDemoLink = false // 一時的に無効化（/demo/loginページ未実装）
 
   // デバッグ情報
   if (config.debugMode) {
