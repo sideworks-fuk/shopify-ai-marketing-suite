@@ -77,6 +77,8 @@ jobs:
         NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
         NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
+        NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_URL }}  # 認証モード制御機能で必須（2025-10-27追加）
+        NEXT_PUBLIC_USE_HTTPS: ${{ vars.NEXT_PUBLIC_USE_HTTPS }}  # HTTPS使用設定（開発環境用）
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: ${{ vars.NEXT_PUBLIC_DISABLE_FEATURE_GATES }}
         NEXT_PUBLIC_DEV_PASSWORD: ${{ secrets.NEXT_PUBLIC_DEV_PASSWORD }}  # 環境別に設定可能
         NODE_VERSION: 20
