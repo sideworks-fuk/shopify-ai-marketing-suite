@@ -2,7 +2,10 @@
 
 ## 概要
 
-環境別に認証方式を安全に切り替える「認証モード制御機能」の技術設計書です。本番環境ではShopify OAuth認証を強制し、検証・デモ環境では開発者パスワードによる限定的アクセスを許可します。
+環境別に認証方式を安全に切り替える「3段階認証レベル制御機能」の技術設計書です。本番環境ではShopify OAuth認証を強制し、ステージング環境ではデモモード（読み取り専用）を許可し、開発環境では開発者モード（全機能+開発ツール）を追加で許可します。
+
+**最終更新日**: 2025年10月27日  
+**バージョン**: 2.0（3段階認証レベル統合版）
 
 ---
 
@@ -13,39 +16,41 @@
 ```mermaid
 graph TB
     A[ユーザー] --> B{環境判定}
-    B -->|Production| C[OAuth認証モード]
-    B -->|Staging| D[認証選択モード]
-    B -->|Development| E[全認証モード]
+    B -->|Production| C[Level 3: OAuth認証のみ]
+    B -->|Staging| D[Level 3 + Level 2]
+    B -->|Development| E[Level 3 + Level 2 + Level 1]
     
     C --> F[Shopify OAuth認証]
-    D --> G[OAuth認証]
-    D --> H[デモモード認証]
-    E --> I[OAuth認証]
-    E --> J[デモモード認証]
-    E --> K[開発者ツール]
+    D --> G[OAuth認証 / デモモード]
+    E --> H[OAuth / デモ / 開発者モード]
     
-    F --> L[フルアクセス]
+    F --> L[フルアクセス<br/>read_only: false]
     G --> L
-    H --> M[制限付きアクセス]
-    I --> L
-    J --> M
-    K --> N[デバッグアクセス]
+    G --> M[読み取り専用<br/>read_only: true]
+    H --> L
+    H --> M
+    H --> N[開発ツール<br/>can_access_dev_tools: true]
     
-    subgraph "フロントエンド"
-        B
-        O[認証画面]
-        P[デモモードバナー]
+    subgraph "Level 3: OAuth認証"
+        F
+        L
+    end
+    
+    subgraph "Level 2: デモモード"
+        M
+        O[デモパスワード認証<br/>bcrypt, サーバー側]
+    end
+    
+    subgraph "Level 1: 開発者モード"
+        N
+        P[開発者パスワード認証<br/>bcrypt, サーバー側]
+        Q[/dev-bookmarks]
     end
     
     subgraph "バックエンド"
-        Q[認証ミドルウェア]
-        R[アクセス制御]
-        S[セッション管理]
-    end
-    
-    subgraph "外部サービス"
-        T[Shopify OAuth]
-        U[Shopify API]
+        R[AuthModeMiddleware]
+        S[DemoReadOnlyFilter<br/>read_onlyクレーム判定]
+        T[セッション管理]
     end
 ```
 
@@ -118,13 +123,20 @@ Authentication__JwtExpiryHours: number
 Authentication__ShopifyApiKey: string
 Authentication__ShopifyApiSecret: string
 
-// デモモード設定
+// デモモード設定（Level 2）
+Demo__Enabled: boolean
 Demo__PasswordHash: string (bcrypt) // 平文パスワードは保存しない
 Demo__SessionTimeoutHours: number
 Demo__MaxSessionsPerUser: number
 Demo__RateLimitPerIp: number // ブルートフォース対策
 Demo__LockoutThreshold: number // ロックアウト閾値
 Demo__LockoutDurationMinutes: number // ロックアウト期間
+
+// 開発者モード設定（Level 1、開発環境のみ）
+Developer__Enabled: boolean // 開発環境のみtrue
+Developer__PasswordHash: string (bcrypt) // デモとは別のパスワード
+Developer__SessionTimeoutHours: number
+Developer__RateLimitPerIp: number
 
 // セッションストレージ設定
 Session__StorageType: "Redis" | "Database" // IMemoryCacheは使用しない
@@ -154,6 +166,7 @@ interface AuthenticationRequiredProps {
   hasShopParam: boolean
   onShopifyAuth: () => void
   onDemoAuth: () => void
+  onDeveloperAuth?: () => void // 開発環境のみ
 }
 
 const AuthenticationRequired: React.FC<AuthenticationRequiredProps> = ({
@@ -161,7 +174,8 @@ const AuthenticationRequired: React.FC<AuthenticationRequiredProps> = ({
   authMode,
   hasShopParam,
   onShopifyAuth,
-  onDemoAuth
+  onDemoAuth,
+  onDeveloperAuth
 }) => {
   // 環境に応じた表示制御
   const title = environment === 'production' 
@@ -169,6 +183,7 @@ const AuthenticationRequired: React.FC<AuthenticationRequiredProps> = ({
     : '認証が必要です'
   
   const showDemoLink = authMode !== 'oauth_required'
+  const showDeveloperLink = environment === 'development' && authMode === 'all_allowed'
   
   return (
     <div className="auth-container">
@@ -179,8 +194,10 @@ const AuthenticationRequired: React.FC<AuthenticationRequiredProps> = ({
         <AuthOptions 
           showOAuth={true}
           showDemo={showDemoLink}
+          showDeveloper={showDeveloperLink}
           onShopifyAuth={onShopifyAuth}
           onDemoAuth={onDemoAuth}
+          onDeveloperAuth={onDeveloperAuth}
         />
       )}
     </div>
@@ -385,13 +402,22 @@ public class AuthModeMiddleware
                 break;
         }
         
-        // デモモード時の制限設定（クレームに追加）
-        if (isDemoValid && !isOAuthValid)
+        // 認証レベル別のクレーム設定
+        if (isOAuthValid)
         {
+            // Level 3: OAuth認証
+            context.Items["AuthMode"] = "OAuth";
+            var claims = new List<Claim>
+            {
+                new Claim("auth_mode", "oauth"),
+                new Claim("read_only", "false")
+            };
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "OAuth"));
+        }
+        else if (isDemoValid)
+        {
+            // Level 2: デモモード
             context.Items["AuthMode"] = "Demo";
-            context.Items["IsReadOnly"] = true;
-            
-            // デモモードクレームを設定
             var claims = new List<Claim>
             {
                 new Claim("auth_mode", "demo"),
@@ -399,10 +425,17 @@ public class AuthModeMiddleware
             };
             context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
         }
-        else if (isOAuthValid)
+        else if (isDeveloperValid && environment == "Development")
         {
-            context.Items["AuthMode"] = "OAuth";
-            context.Items["IsReadOnly"] = false;
+            // Level 1: 開発者モード（開発環境のみ）
+            context.Items["AuthMode"] = "Developer";
+            var claims = new List<Claim>
+            {
+                new Claim("auth_mode", "developer"),
+                new Claim("read_only", "false"),
+                new Claim("can_access_dev_tools", "true")
+            };
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Developer"));
         }
         
         await _next(context);
@@ -424,19 +457,22 @@ public class AuthModeMiddleware
 
 ```csharp
 // DemoReadOnlyFilter.cs
+// 重要: auth_modeではなくread_onlyクレームで判定
 public class DemoReadOnlyFilter : IActionFilter
 {
     private readonly ILogger<DemoReadOnlyFilter> _logger;
 
     public void OnActionExecuting(ActionExecutingContext context)
     {
-        var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
+        // read_onlyクレームで判定（auth_modeは見ない）
+        var readOnlyClaim = context.HttpContext.User.FindFirst("read_only");
+        var isReadOnly = readOnlyClaim?.Value == "true";
         
-        if (isReadOnly == true)
+        if (isReadOnly)
         {
             var httpMethod = context.HttpContext.Request.Method;
             
-            // デモモードでは変更操作（POST/PUT/PATCH/DELETE）をブロック
+            // read_only: trueの場合、変更操作（POST/PUT/PATCH/DELETE）をブロック
             if (httpMethod == "POST" || httpMethod == "PUT" || 
                 httpMethod == "PATCH" || httpMethod == "DELETE")
             {
@@ -447,13 +483,14 @@ public class DemoReadOnlyFilter : IActionFilter
                 
                 if (!allowDemoWrite)
                 {
-                    _logger.LogWarning("Demo mode write attempt blocked: {Method} {Path}", 
-                        httpMethod, context.HttpContext.Request.Path);
+                    var authMode = context.HttpContext.User.FindFirst("auth_mode")?.Value ?? "unknown";
+                    _logger.LogWarning("Read-only mode write attempt blocked: {AuthMode} {Method} {Path}", 
+                        authMode, httpMethod, context.HttpContext.Request.Path);
                     
                     context.Result = new JsonResult(new
                     {
                         error = "Forbidden",
-                        message = "Write operations are not allowed in demo mode"
+                        message = "Write operations are not allowed in read-only mode"
                     })
                     {
                         StatusCode = 403
