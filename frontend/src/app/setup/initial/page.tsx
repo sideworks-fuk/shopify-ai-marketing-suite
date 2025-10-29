@@ -60,6 +60,16 @@ export default function InitialSetupPage() {
   const [syncStats, setSyncStats] = useState<SyncStats | null>(null)
   const [activeTab, setActiveTab] = useState('setup')
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  
+  // デモモード判定
+  const [isDemoMode, setIsDemoMode] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const demoToken = localStorage.getItem('demoToken')
+      setIsDemoMode(!!demoToken)
+    }
+  }, [])
 
   // ダミーデータで履歴を表示
   useEffect(() => {
@@ -265,6 +275,16 @@ export default function InitialSetupPage() {
                 </Alert>
               )}
 
+              {isDemoMode && (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>デモモード</strong><br />
+                    デモモードではデータ同期を実行できません。実際のデータ同期を行うには、Shopifyアプリとしてインストールしてください。
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-4">
                 <Label className="text-base">データ取得期間を選択してください：</Label>
                 <RadioGroup value={syncPeriod} onValueChange={(value) => setSyncPeriod(value as SyncPeriod)}>
@@ -298,7 +318,7 @@ export default function InitialSetupPage() {
               <div className="flex gap-3">
                 <Button 
                   onClick={handleStartSync} 
-                  disabled={isLoading}
+                  disabled={isLoading || isDemoMode}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   size="lg"
                 >
@@ -408,6 +428,16 @@ export default function InitialSetupPage() {
                 </p>
               </div>
 
+              {isDemoMode && (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>デモモード</strong><br />
+                    デモモードではデータ同期を実行できません。実際のデータ同期を行うには、Shopifyアプリとしてインストールしてください。
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <Alert className="border-blue-200 bg-blue-50">
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">
@@ -435,7 +465,7 @@ export default function InitialSetupPage() {
                       size="lg" 
                       className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
                       onClick={handleStartSync}
-                      disabled={isLoading}
+                      disabled={isLoading || isDemoMode}
                     >
                       {isLoading ? (
                         <>

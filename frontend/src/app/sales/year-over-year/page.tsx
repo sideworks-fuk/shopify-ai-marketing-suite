@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // React.lazy を使用したコード分割
 const AnalyticsHeaderUnified = React.lazy(() => import("@/components/layout/AnalyticsHeaderUnified").then(module => ({ default: module.AnalyticsHeaderUnified })))
-const AnalysisDescriptionCard = React.lazy(() => import("@/components/common/AnalysisDescriptionCard").then(module => ({ default: module.AnalysisDescriptionCard })))
 const YearOverYearProductAnalysis = React.lazy(() => import("@/components/dashboards/YearOverYearProductAnalysis"))
 const FeatureLockedScreen = React.lazy(() => import("@/components/billing/FeatureLockedScreen"))
 
@@ -66,12 +65,12 @@ export default function YearOverYearPage() {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden px-4 lg:px-6">
+    <div className="space-y-6">
       {/* 統一ヘッダー */}
       <Suspense fallback={<LoadingSpinner />}>
         <AnalyticsHeaderUnified
           mainTitle="前年同月比分析【商品】"
-          description="商品別の売上トレンドを前年と比較し、成長商品と要注意商品を特定できます"
+          description="商品の成長性を前年と比較し、好調商品の特徴把握と要注意商品の早期発見に活用できます。季節性の高い商品トレンドを把握し、在庫戦略と営業戦略の最適化に役立てます"
           badges={[
             { label: "年選択機能", variant: "outline" },
             { label: "サマリー/月別表示", variant: "secondary" }
@@ -79,14 +78,6 @@ export default function YearOverYearPage() {
         />
       </Suspense>
 
-      {/* 説明カード */}
-      <Suspense fallback={<div className="h-20 bg-gray-100 rounded animate-pulse" />}>
-        <AnalysisDescriptionCard
-          variant="purpose"
-          title="前年同月比分析の活用法"
-          description="商品の成長性を前年と比較することで、好調商品の特徴と要注意商品の早期発見ができます。季節性の高い商品トレンドを把握し、在庫戦略と営業戦略の最適化に活用してください。"
-        />
-      </Suspense>
 
       {/* メインコンテンツ - 年選択と表示モード切り替え機能付き */}
       <Suspense fallback={<LoadingSpinner />}>

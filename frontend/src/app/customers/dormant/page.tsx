@@ -311,12 +311,7 @@ export default function DormantCustomersPage() {
       <Suspense fallback={<LoadingSpinner />}>
         <AnalyticsHeaderUnified 
           mainTitle="休眠顧客分析【顧客】"
-          description="最終購入からの経過期間別に顧客を分析し、復帰施策の効果的な立案と実行に活用できます"
-          currentAnalysis={{
-            title: "期間別休眠顧客セグメント分析",
-            description: "90日以上購入のない顧客を期間別に分析し、復帰可能性を評価します",
-            targetCount: dormantData.length
-          }}
+          description="最終購入からの期間で顧客を分析し、休眠期間に応じた復帰施策の立案と効果測定に役立てます"
           badges={[
             { label: `${dormantData.length}名`, variant: "outline" },
             { label: "復帰施策", variant: "secondary" },
@@ -405,17 +400,6 @@ export default function DormantCustomersPage() {
               <p className="text-sm text-gray-600 mb-4">
                 休眠期間を3つの主要区分に分けて、効率的な分析と施策立案を支援します
               </p>
-              
-              {/* 全件表示ボタン */}
-              <div className="mb-4">
-                <Button
-                  variant={selectedSegment === null ? "default" : "outline"}
-                  onClick={() => loadCustomerList()}
-                  className="text-sm"
-                >
-                  全件表示
-                </Button>
-              </div>
 
               {/* 詳細な期間別セグメント */}
               {detailedSegments.length > 0 ? (
@@ -428,7 +412,14 @@ export default function DormantCustomersPage() {
                           ? 'bg-blue-50 border-blue-300 shadow-md'
                           : 'bg-white border-gray-200 hover:bg-gray-50'
                       }`}
-                      onClick={() => loadCustomerList(segment.range)}
+                      onClick={() => {
+                        // 既に選択されているセグメントの場合は全件表示に戻す（トグル動作）
+                        if (selectedSegment === segment.range) {
+                          loadCustomerList()
+                        } else {
+                          loadCustomerList(segment.range)
+                        }
+                      }}
                     >
                       <div className="text-center">
                         <div className="text-3xl mb-3">

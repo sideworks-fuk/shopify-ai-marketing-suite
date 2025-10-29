@@ -146,7 +146,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
         {/* ナビゲーションメニュー */}
         <nav className="p-4">
-          <div className="space-y-2">
+          <div className="space-y-1">
             {categories.map(category => {
               const menuItems = getMenuByCategory(category.id)
               const isExpanded = expandedCategories.includes(category.id)
@@ -156,7 +156,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   {/* カテゴリヘッダー */}
                   <button
                     onClick={() => toggleCategory(category.id)}
-                    className="w-full flex items-center justify-between p-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{category.label}</span>
@@ -173,18 +173,18 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
                   {/* メニューアイテム */}
                   {isExpanded && (
-                    <div className="ml-4 space-y-1">
+                    <div className="pl-4 space-y-1">
                       {menuItems.map(item => (
                         <button
                           key={item.id}
                           onClick={() => handleMenuClick(item)}
                           disabled={!item.isImplemented}
-                          className={`w-full flex items-center justify-between p-3 text-left rounded-lg text-sm transition-colors ${
+                          className={`w-full flex items-center justify-between px-3 py-3 text-left rounded-lg text-sm transition-colors box-border ${
                             isActiveRoute(item.href)
                               ? "bg-blue-50 text-blue-700 border border-blue-200"
                               : item.isImplemented
-                                ? "hover:bg-gray-50 text-gray-700"
-                                : "text-gray-400 cursor-not-allowed"
+                                ? "hover:bg-gray-50 text-gray-700 border border-transparent"
+                                : "text-gray-400 cursor-not-allowed border border-transparent"
                           }`}
                         >
                           <div className="flex items-center gap-3">

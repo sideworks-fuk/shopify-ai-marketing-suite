@@ -128,7 +128,7 @@ export const AnalyticsHeaderUnified: React.FC<AnalyticsHeaderUnifiedProps> = ({
                       <span>期間: {currentAnalysis.period}</span>
                     </div>
                   )}
-                  {currentAnalysis.targetCount && (
+                  {currentAnalysis.targetCount && currentAnalysis.targetCount > 0 && (
                     <div className="flex items-center gap-1 text-blue-700">
                       <Filter className="h-3 w-3" />
                       <span>対象: {currentAnalysis.targetCount}件</span>
