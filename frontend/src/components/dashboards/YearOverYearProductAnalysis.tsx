@@ -6,6 +6,7 @@ import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Badge } from "../ui/badge"
+import { VirtualScroll } from "../ui/VirtualScroll"
 import {
   Search,
   Download,
@@ -90,6 +91,67 @@ const ProductTableRow = React.memo(({
 
 ProductTableRow.displayName = "ProductTableRow"
 
+// 仮想スクロール用のテーブル行コンポーネント（divベース）
+const ProductTableRowVirtual = React.memo(({
+  product,
+  productIndex,
+  viewMode,
+  formatValue,
+  getGrowthBadgeColor,
+}: {
+  product: MonthlyProductData
+  productIndex: number
+  viewMode: "sales" | "quantity" | "orders"
+  formatValue: (value: number, mode: string) => string
+  getGrowthBadgeColor: (growth: number) => string
+}) => {
+  const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+  const bgColor = productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
+  
+  return (
+    <div className={`flex border-b border-gray-100 hover:bg-gray-50 transition-colors ${bgColor}`}>
+      {/* 商品名列（固定） */}
+      <div className={`sticky left-0 z-10 w-[250px] py-4 px-3 border-r border-gray-200 flex-shrink-0 ${bgColor}`}>
+        <div className="space-y-2">
+          <div className="font-medium text-gray-900 text-sm leading-tight">
+            {product.productName}
+          </div>
+          <div className="text-xs text-gray-500">
+            {product.category}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={getGrowthBadgeColor(avgGrowth)}>
+              平均: {avgGrowth > 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+            </Badge>
+          </div>
+        </div>
+      </div>
+      {/* 月別データ列 */}
+      <div className="flex flex-1 min-w-[1440px]">
+        {product.monthlyData.map((monthData, index) => (
+          <div key={index} className="flex-1 py-4 px-2 text-center border-r border-gray-200 min-w-[120px]">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-gray-900">
+                {formatValue(monthData.current, viewMode)}
+              </div>
+              <div className="text-xs text-gray-500">
+                前年: {formatValue(monthData.previous, viewMode)}
+              </div>
+              <Badge 
+                className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
+              >
+                {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+})
+
+ProductTableRowVirtual.displayName = "ProductTableRowVirtual"
+
 const YearOverYearProductAnalysis = () => {
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
@@ -98,6 +160,10 @@ const YearOverYearProductAnalysis = () => {
   
   // ✅ 分析条件トグル状態
   const [showConditions, setShowConditions] = useState(true)
+  
+  // 仮想スクロール用の設定
+  const ROW_HEIGHT = 100 // 行の高さ（px）
+  const TABLE_HEIGHT = 600 // テーブルの高さ（px）
   
   const [viewMode, setViewMode] = useState<"sales" | "quantity" | "orders">("sales")
   const [sortBy, setSortBy] = useState<"growth" | "total" | "name">("growth")
@@ -578,37 +644,53 @@ const YearOverYearProductAnalysis = () => {
             </div>
           ) : (
             <>
-              {/* 月別詳細表示（改良版） */}
-              <div className="overflow-x-auto border rounded-lg max-w-full">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-50">
-                    <tr className="border-b-2 border-gray-200">
-                      <th className="text-left py-4 px-3 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[250px] border-r">
-                        商品情報
-                      </th>
-                      {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
-                        <th key={month} className="text-center py-4 px-2 font-semibold text-gray-900 min-w-[120px] border-r">
-                          <div className="text-sm">{month}</div>
-                          <div className="text-xs text-gray-500 font-normal">
-                            {selectedYear} / {previousYear}
+              {/* 月別詳細表示（仮想スクロール対応版） */}
+              <div className="border rounded-lg max-w-full overflow-hidden">
+                <div className="relative">
+                  {/* テーブルヘッダー（固定） */}
+                  <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200">
+                    <div className="flex overflow-x-auto">
+                      <div className="sticky left-0 bg-gray-50 z-30 w-[250px] flex-shrink-0 border-r border-gray-200">
+                        <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
+                          商品情報
+                        </div>
+                      </div>
+                      <div className="flex flex-1 min-w-[1440px]">
+                        {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
+                          <div key={month} className="flex-1 py-4 px-2 text-center font-semibold text-gray-900 min-w-[120px] border-r border-gray-200">
+                            <div className="text-sm">{month}</div>
+                            <div className="text-xs text-gray-500 font-normal">
+                              {selectedYear} / {previousYear}
+                            </div>
                           </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {sortedData.map((product, productIndex) => (
-                      <ProductTableRow
-                        key={product.productId}
-                        product={product}
-                        productIndex={productIndex}
-                        viewMode={viewMode}
-                        formatValue={formatValue}
-                        getGrowthBadgeColor={getGrowthBadgeColor}
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* テーブルボディ（仮想スクロール） */}
+                  <div className="overflow-x-auto bg-white">
+                    <div className="min-w-[1690px]">
+                      <VirtualScroll
+                        items={sortedData}
+                        itemHeight={ROW_HEIGHT}
+                        containerHeight={TABLE_HEIGHT - 64}
+                        renderItem={(product, index) => (
+                          <ProductTableRowVirtual
+                            key={product.productId}
+                            product={product}
+                            productIndex={index}
+                            viewMode={viewMode}
+                            formatValue={formatValue}
+                            getGrowthBadgeColor={getGrowthBadgeColor}
+                          />
+                        )}
+                        overscan={10}
+                        className="bg-white"
                       />
-                    ))}
-                  </tbody>
-                </table>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {sortedData.length === 0 && !loading && (
