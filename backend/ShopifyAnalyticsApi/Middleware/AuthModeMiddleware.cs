@@ -290,12 +290,12 @@ namespace ShopifyAnalyticsApi.Middleware
                     };
 
                     // デモトークンから追加のクレームを取得
-                    if (authResult.Token != null)
+                    if (!string.IsNullOrEmpty(token))
                     {
                         try
                         {
                             var tokenHandler = new JwtSecurityTokenHandler();
-                            var jwtToken = tokenHandler.ReadJwtToken(authResult.Token);
+                            var jwtToken = tokenHandler.ReadJwtToken(token);
                             
                             // 元のJWTトークンからクレームを追加
                             var storeIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "store_id");

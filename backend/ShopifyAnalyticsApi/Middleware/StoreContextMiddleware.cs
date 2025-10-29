@@ -40,11 +40,18 @@ namespace ShopifyAnalyticsApi.Middleware
 
                 if (user?.Identity?.IsAuthenticated == true)
                 {
-                    // すべてのクレームをログ出力
-                    var allClaims = user.Claims.Select(c => $"{c.Type}={c.Value}").ToArray();
-                    _logger.LogDebug("StoreContextMiddleware - All claims: [{Claims}]", string.Join(", ", allClaims));
+                    try
+                    {
+                        // すべてのクレームをログ出力
+                        var allClaims = user.Claims.Select(c => $"{c.Type}={c.Value}").ToArray();
+                        _logger.LogDebug("StoreContextMiddleware - All claims: [{Claims}]", string.Join(", ", allClaims));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "StoreContextMiddleware - Error processing claims");
+                    }
 
-                    var storeIdClaim = c.FindFirst("store_id")?.Value;
+                    var storeIdClaim = user.FindFirst("store_id")?.Value;
                     var tenantIdClaim = user.FindFirst("tenant_id")?.Value;
                     var shopDomainClaim = user.FindFirst("shop_domain")?.Value;
 
