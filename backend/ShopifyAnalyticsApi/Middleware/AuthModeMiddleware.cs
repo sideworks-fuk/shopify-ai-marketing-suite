@@ -29,7 +29,7 @@ namespace ShopifyAnalyticsApi.Middleware
         public async Task InvokeAsync(
             HttpContext context, 
             IAuthenticationService authService,
-            IDeveloperAuthService? developerAuthService = null)
+            IDeveloperAuthService developerAuthService)
         {
             // 認証モード取得
             var authMode = _config["Authentication:Mode"] ?? "OAuthRequired";
@@ -108,7 +108,7 @@ namespace ShopifyAnalyticsApi.Middleware
                         else
                         {
                             // 開発者トークンの検証（開発環境のみ）
-                            if (_env.EnvironmentName == "Development" && developerAuthService != null)
+                            if (_env.EnvironmentName == "Development")
                             {
                                 var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token);
                                 isDeveloperValid = developerResult.IsValid;
