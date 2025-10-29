@@ -294,7 +294,7 @@ namespace ShopifyAnalyticsApi.Services
         /// </summary>
         private string GenerateDeveloperToken()
         {
-            var jwtSecret = _config["Authentication:JwtSecret"];
+            var jwtSecret = _config["Jwt:Key"];
             if (string.IsNullOrEmpty(jwtSecret))
             {
                 throw new InvalidOperationException("JWT Secret is not configured");

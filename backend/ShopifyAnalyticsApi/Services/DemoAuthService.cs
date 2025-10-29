@@ -330,7 +330,7 @@ namespace ShopifyAnalyticsApi.Services
         private string GenerateDemoToken(DemoSession session)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtSecret = _config["Authentication:JwtSecret"];
+            var jwtSecret = _config["Jwt:Key"];
 
             if (string.IsNullOrEmpty(jwtSecret))
             {
