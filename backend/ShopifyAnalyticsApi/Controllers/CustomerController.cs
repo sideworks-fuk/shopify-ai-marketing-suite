@@ -23,7 +23,7 @@ namespace ShopifyAnalyticsApi.Controllers
             IMockDataService mockDataService,
             IDormantCustomerService dormantCustomerService,
             ILogger<CustomerController> logger,
-            ShopifyDbContext context)
+            ShopifyDbContext context) : base(logger)
         {
             _mockDataService = mockDataService;
             _dormantCustomerService = dormantCustomerService;

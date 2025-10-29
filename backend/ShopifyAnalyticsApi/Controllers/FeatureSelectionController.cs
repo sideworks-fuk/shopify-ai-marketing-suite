@@ -17,7 +17,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
         public FeatureSelectionController(
             IFeatureSelectionService featureSelectionService,
-            ILogger<FeatureSelectionController> logger)
+            ILogger<FeatureSelectionController> logger) : base(logger)
         {
             _featureSelectionService = featureSelectionService;
             _logger = logger;

@@ -16,7 +16,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
         public EmbeddedAppController(
             IConfiguration configuration,
-            ILogger<EmbeddedAppController> logger)
+            ILogger<EmbeddedAppController> logger) : base(logger)
         {
             _configuration = configuration;
             _logger = logger;

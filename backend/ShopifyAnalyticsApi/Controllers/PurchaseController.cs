@@ -16,7 +16,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
         public PurchaseController(
             IPurchaseCountAnalysisService purchaseCountAnalysisService,
-            ILogger<PurchaseController> logger)
+            ILogger<PurchaseController> logger) : base(logger)
         {
             _purchaseCountAnalysisService = purchaseCountAnalysisService;
             _logger = logger;

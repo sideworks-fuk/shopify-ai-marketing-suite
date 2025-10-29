@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -11,6 +12,12 @@ namespace ShopifyAnalyticsApi.Controllers
     [ApiController]
     public abstract class StoreAwareControllerBase : ControllerBase
     {
+        private readonly ILogger _logger;
+
+        protected StoreAwareControllerBase(ILogger logger)
+        {
+            _logger = logger;
+        }
         /// <summary>
         /// 現在のストアID
         /// </summary>
@@ -18,10 +25,29 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             get
             {
+                // HttpContext.Itemsの内容をデバッグログに出力
+                var itemsKeys = HttpContext.Items.Keys.Cast<string>().ToArray();
+                _logger.LogDebug("StoreAwareControllerBase - HttpContext.Items keys: [{Keys}]", string.Join(", ", itemsKeys));
+                
+                // ユーザー情報も確認
+                var user = HttpContext.User;
+                _logger.LogDebug("StoreAwareControllerBase - User: {User}, IsAuthenticated: {IsAuthenticated}", 
+                    user?.Identity?.Name ?? "null", user?.Identity?.IsAuthenticated ?? false);
+                
+                if (user?.Identity?.IsAuthenticated == true)
+                {
+                    var allClaims = user.Claims.Select(c => $"{c.Type}={c.Value}").ToArray();
+                    _logger.LogDebug("StoreAwareControllerBase - All claims: [{Claims}]", string.Join(", ", allClaims));
+                }
+
                 if (HttpContext.Items.TryGetValue("StoreId", out var storeId) && storeId is int id)
                 {
+                    _logger.LogDebug("StoreAwareControllerBase - StoreId found: {StoreId}", id);
                     return id;
                 }
+                
+                _logger.LogError("StoreAwareControllerBase - StoreId not found in HttpContext.Items. Available keys: [{Keys}]", 
+                    string.Join(", ", itemsKeys));
                 throw new UnauthorizedAccessException("Store context is not available");
             }
         }

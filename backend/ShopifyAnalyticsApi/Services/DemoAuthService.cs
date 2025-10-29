@@ -348,7 +348,10 @@ namespace ShopifyAnalyticsApi.Services
                     new Claim("auth_mode", "demo"),
                     new Claim("read_only", "true"), // デモモードは読み取り専用
                     new Claim("expires_at", session.ExpiresAt.ToString("O")),
-                    new Claim("created_by", session.CreatedBy ?? "unknown")
+                    new Claim("created_by", session.CreatedBy ?? "unknown"),
+                    new Claim("store_id", "1"), // デモモード用のストアID
+                    new Claim("tenant_id", "demo-tenant"), // デモモード用のテナントID
+                    new Claim("shop_domain", "demo-shop.myshopify.com") // デモモード用のショップドメイン
                 }),
                 Expires = session.ExpiresAt,
                 SigningCredentials = new SigningCredentials(

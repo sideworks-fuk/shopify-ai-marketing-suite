@@ -12,7 +12,7 @@ namespace ShopifyAnalyticsApi.Controllers
 		private readonly ShopifyDbContext _dbContext;
 		private readonly ILogger<ShopifyProductsController> _logger;
 
-		public ShopifyProductsController(ShopifyDbContext dbContext, ILogger<ShopifyProductsController> logger)
+		public ShopifyProductsController(ShopifyDbContext dbContext, ILogger<ShopifyProductsController> logger) : base(logger)
 		{
 			_dbContext = dbContext;
 			_logger = logger;

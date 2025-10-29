@@ -33,11 +33,23 @@ namespace ShopifyAnalyticsApi.Middleware
 
                 // JWTトークンからクレームを取得
                 var user = context.User;
+                _logger.LogDebug("StoreContextMiddleware - User: {User}, IsAuthenticated: {IsAuthenticated}, Identity: {Identity}", 
+                    user?.Identity?.Name ?? "null", 
+                    user?.Identity?.IsAuthenticated ?? false,
+                    user?.Identity?.AuthenticationType ?? "null");
+
                 if (user?.Identity?.IsAuthenticated == true)
                 {
-                    var storeIdClaim = user.FindFirst("store_id")?.Value;
+                    // すべてのクレームをログ出力
+                    var allClaims = user.Claims.Select(c => $"{c.Type}={c.Value}").ToArray();
+                    _logger.LogDebug("StoreContextMiddleware - All claims: [{Claims}]", string.Join(", ", allClaims));
+
+                    var storeIdClaim = c.FindFirst("store_id")?.Value;
                     var tenantIdClaim = user.FindFirst("tenant_id")?.Value;
                     var shopDomainClaim = user.FindFirst("shop_domain")?.Value;
+
+                    _logger.LogDebug("StoreContextMiddleware - Extracted claims: store_id={StoreId}, tenant_id={TenantId}, shop_domain={ShopDomain}", 
+                        storeIdClaim ?? "null", tenantIdClaim ?? "null", shopDomainClaim ?? "null");
 
                     if (!string.IsNullOrEmpty(storeIdClaim) && int.TryParse(storeIdClaim, out var storeId))
                     {
@@ -75,7 +87,7 @@ namespace ShopifyAnalyticsApi.Middleware
                     }
                     else
                     {
-                        _logger.LogWarning("Store ID not found in JWT claims for authenticated user");
+                        _logger.LogWarning("Store ID not found in JWT claims for authenticated user. store_id claim: {StoreIdClaim}", storeIdClaim ?? "null");
                     }
                 }
                 else
@@ -117,6 +129,8 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/shopify/process-callback",
                 "/api/auth/login",
                 "/api/auth/refresh",
+                "/api/demo/login",
+                "/api/developer/login",
                 "/api/health",
                 "/swagger"
             };

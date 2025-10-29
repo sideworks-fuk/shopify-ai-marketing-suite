@@ -132,11 +132,11 @@ export class ApiClient {
 
   // API メソッドを追加
   async dormantSummary(storeId: number): Promise<any> {
-    return this.request(`/api/customer/dormant-summary?storeId=${storeId}`);
+    return this.request(`/api/customer/dormant/summary?storeId=${storeId}`);
   }
 
   async dormantDetailedSegments(storeId: number): Promise<any> {
-    return this.request(`/api/customer/dormant-detailed-segments?storeId=${storeId}`);
+    return this.request(`/api/customer/dormant/detailed-segments?storeId=${storeId}`);
   }
 
   async dormantCustomers(params: any): Promise<any> {

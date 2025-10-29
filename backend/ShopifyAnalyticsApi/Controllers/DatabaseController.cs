@@ -24,7 +24,7 @@ namespace ShopifyAnalyticsApi.Controllers
         public DatabaseController(
             ShopifyDbContext context,
             IDatabaseService databaseService,
-            ILogger<DatabaseController> logger)
+            ILogger<DatabaseController> logger) : base(logger)
         {
             _context = context;
             _databaseService = databaseService;

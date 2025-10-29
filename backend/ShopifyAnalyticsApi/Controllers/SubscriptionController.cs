@@ -26,7 +26,7 @@ namespace ShopifyAnalyticsApi.Controllers
             ILogger<SubscriptionController> logger,
             ShopifyDbContext context,
             ISubscriptionService subscriptionService,
-            IConfiguration configuration)
+            IConfiguration configuration) : base(logger)
         {
             _logger = logger;
             _context = context;

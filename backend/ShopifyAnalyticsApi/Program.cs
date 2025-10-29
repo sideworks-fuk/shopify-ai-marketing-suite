@@ -305,12 +305,13 @@ builder.Services.AddCors(options =>
     
     if (environment == "Development")
     {
-        // 開発環境: 緩い設定
+        // 開発環境: credentials対応の設定
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                   .AllowAnyMethod()
-                  .AllowAnyHeader();
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         });
     }
     else

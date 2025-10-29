@@ -20,7 +20,7 @@ namespace ShopifyAnalyticsApi.Controllers
         public SetupController(
             ShopifyDbContext context,
             IStoreService storeService,
-            ILogger<SetupController> logger)
+            ILogger<SetupController> logger) : base(logger)
         {
             _context = context;
             _storeService = storeService;

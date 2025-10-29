@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using ShopifyAnalyticsApi.Services;
 
 namespace ShopifyAnalyticsApi.Middleware
@@ -287,6 +288,32 @@ namespace ShopifyAnalyticsApi.Middleware
                         new Claim(ClaimTypes.Name, authResult.UserId ?? "demo-user"), // Rate Limiter用
                         new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "demo-user")
                     };
+
+                    // デモトークンから追加のクレームを取得
+                    if (authResult.Token != null)
+                    {
+                        try
+                        {
+                            var tokenHandler = new JwtSecurityTokenHandler();
+                            var jwtToken = tokenHandler.ReadJwtToken(authResult.Token);
+                            
+                            // 元のJWTトークンからクレームを追加
+                            var storeIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "store_id");
+                            var tenantIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "tenant_id");
+                            var shopDomainClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "shop_domain");
+                            
+                            if (storeIdClaim != null) claims.Add(storeIdClaim);
+                            if (tenantIdClaim != null) claims.Add(tenantIdClaim);
+                            if (shopDomainClaim != null) claims.Add(shopDomainClaim);
+                            
+                            _logger.LogDebug("Added claims from demo token: store_id={StoreId}, tenant_id={TenantId}, shop_domain={ShopDomain}", 
+                                storeIdClaim?.Value ?? "null", tenantIdClaim?.Value ?? "null", shopDomainClaim?.Value ?? "null");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to extract claims from demo token");
+                        }
+                    }
 
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
 

@@ -25,7 +25,7 @@ namespace ShopifyAnalyticsApi.Controllers
             IStoreService storeService,
             ShopifyDataSyncService syncService,
             ShopifyApiService apiService,
-            ILogger<SyncController> logger)
+            ILogger<SyncController> logger) : base(logger)
         {
             _context = context;
             _storeService = storeService;

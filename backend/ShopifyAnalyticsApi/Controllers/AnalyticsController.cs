@@ -21,7 +21,7 @@ namespace ShopifyAnalyticsApi.Controllers
         public AnalyticsController(
             IYearOverYearService yearOverYearService,
             IMonthlySalesService monthlySalesService,
-            ILogger<AnalyticsController> logger)
+            ILogger<AnalyticsController> logger) : base(logger)
         {
             _yearOverYearService = yearOverYearService;
             _monthlySalesService = monthlySalesService;
