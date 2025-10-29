@@ -86,6 +86,8 @@ jobs:
         app-name: ShopifyTestApi20250720173320
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_ShopifyTestApi }}
         package: backend/ShopifyAnalyticsApi/published
+        app-settings: |
+          ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment }}
 
     - name: ✅ Deployment complete
       run: |
