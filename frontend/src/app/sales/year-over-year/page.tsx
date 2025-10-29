@@ -66,7 +66,7 @@ export default function YearOverYearPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden px-4 lg:px-6">
       {/* 統一ヘッダー */}
       <Suspense fallback={<LoadingSpinner />}>
         <AnalyticsHeaderUnified

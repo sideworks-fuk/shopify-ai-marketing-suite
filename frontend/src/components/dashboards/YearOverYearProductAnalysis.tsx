@@ -272,7 +272,7 @@ const YearOverYearProductAnalysis = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* ✅ 分析条件トグル機能付きフィルターセクション */}
       <Card>
         <CardHeader>
@@ -522,7 +522,7 @@ const YearOverYearProductAnalysis = () => {
           ) : (
             <>
               {/* 月別詳細表示（改良版） */}
-              <div className="overflow-x-auto border rounded-lg">
+              <div className="overflow-x-auto border rounded-lg max-w-full">
                 <table className="w-full text-sm border-collapse">
                   <thead className="bg-gray-50">
                     <tr className="border-b-2 border-gray-200">

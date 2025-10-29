@@ -118,9 +118,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
       )}
       
       {/* サイドナビゲーション */}
-      <div className={`w-80 bg-white border-r border-gray-200 overflow-y-auto transition-transform duration-300 ease-in-out ${
-        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static lg:block fixed inset-y-0 left-0 z-50`}>
+      <div className={`w-80 bg-white border-r border-gray-200 overflow-y-auto fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
         {/* ヘッダー */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -220,7 +220,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* メインコンテンツエリア */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="flex-1 flex flex-col lg:ml-0 min-w-0 overflow-hidden">
         {/* トップバー */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -299,7 +299,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto min-w-0 overflow-x-hidden">
           <ErrorBoundaryWrapper
             fallbackTitle="ページの読み込みでエラーが発生しました"
             fallbackDescription="現在のページでエラーが発生しましたが、サイドメニューから他のページに移動できます。"
