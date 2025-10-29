@@ -17,6 +17,7 @@ const publicPaths = [
   '/terms',
   '/privacy',
   '/dev-bookmarks', // 開発者ツールは独自認証
+  '/demo/login', // デモモードログイン
 ]
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {

@@ -26,7 +26,10 @@ namespace ShopifyAnalyticsApi.Middleware
             _env = env;
         }
 
-        public async Task InvokeAsync(HttpContext context, IAuthenticationService authService)
+        public async Task InvokeAsync(
+            HttpContext context, 
+            IAuthenticationService authService,
+            IDeveloperAuthService? developerAuthService = null)
         {
             // 認証モード取得
             var authMode = _config["Authentication:Mode"] ?? "OAuthRequired";
@@ -74,6 +77,7 @@ namespace ShopifyAnalyticsApi.Middleware
 
             bool isOAuthValid = false;
             bool isDemoValid = false;
+            bool isDeveloperValid = false;
             AuthenticationResult? authResult = null;
 
             // トークン検証
@@ -103,7 +107,22 @@ namespace ShopifyAnalyticsApi.Middleware
                         }
                         else
                         {
-                            _logger.LogDebug("Both OAuth and demo token validation failed");
+                            // 開発者トークンの検証（開発環境のみ）
+                            if (_env.EnvironmentName == "Development" && developerAuthService != null)
+                            {
+                                var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token);
+                                isDeveloperValid = developerResult.IsValid;
+                                if (isDeveloperValid)
+                                {
+                                    authResult = developerResult;
+                                    _logger.LogDebug("Developer token validation successful");
+                                }
+                            }
+                            
+                            if (!isDeveloperValid)
+                            {
+                                _logger.LogDebug("OAuth, demo, and developer token validation all failed");
+                            }
                         }
                     }
                 }
@@ -204,7 +223,7 @@ namespace ShopifyAnalyticsApi.Middleware
                     return;
             }
 
-            // 認証情報をコンテキストに設定
+            // 認証情報をコンテキストに設定（3段階認証レベル対応）
             if (authResult != null && authResult.IsValid)
             {
                 // 認証モードを設定
@@ -213,29 +232,9 @@ namespace ShopifyAnalyticsApi.Middleware
                 context.Items["StoreId"] = authResult.StoreId;
                 context.Items["UserId"] = authResult.UserId;
 
-                // デモモード時のクレーム設定
-                if (isDemoValid && !isOAuthValid)
+                // Level 3: OAuth認証
+                if (isOAuthValid)
                 {
-                    // IsDemoModeフラグを設定（DemoReadOnlyFilterで使用）
-                    context.Items["IsDemoMode"] = true;
-                    
-                    var claims = new List<Claim>
-                    {
-                        new Claim("auth_mode", "demo"),
-                        new Claim("read_only", "true"),
-                        new Claim(ClaimTypes.Name, authResult.UserId ?? "demo-user"), // Rate Limiter用
-                        new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "demo-user")
-                    };
-
-                    context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
-
-                    _logger.LogInformation(
-                        "Demo mode authentication successful. UserId: {UserId}",
-                        authResult.UserId);
-                }
-                else if (isOAuthValid)
-                {
-                    // IsDemoModeフラグは設定しない（OAuth認証）
                     context.Items["IsDemoMode"] = false;
                     
                     var claims = new List<Claim>
@@ -254,9 +253,49 @@ namespace ShopifyAnalyticsApi.Middleware
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "OAuth"));
 
                     _logger.LogInformation(
-                        "OAuth authentication successful. UserId: {UserId}, StoreId: {StoreId}",
+                        "Level 3 (OAuth) authentication successful. UserId: {UserId}, StoreId: {StoreId}",
                         authResult.UserId,
                         authResult.StoreId);
+                }
+                // Level 2: デモモード
+                else if (isDemoValid && !isOAuthValid)
+                {
+                    context.Items["IsDemoMode"] = true;
+                    
+                    var claims = new List<Claim>
+                    {
+                        new Claim("auth_mode", "demo"),
+                        new Claim("read_only", "true"),
+                        new Claim(ClaimTypes.Name, authResult.UserId ?? "demo-user"), // Rate Limiter用
+                        new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "demo-user")
+                    };
+
+                    context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
+
+                    _logger.LogInformation(
+                        "Level 2 (Demo) authentication successful. UserId: {UserId}, ReadOnly: true",
+                        authResult.UserId);
+                }
+                // Level 1: 開発者モード（開発環境のみ）
+                else if (isDeveloperValid && environment == "Development")
+                {
+                    context.Items["IsDemoMode"] = false;
+                    context.Items["IsDeveloperMode"] = true;
+                    
+                    var claims = new List<Claim>
+                    {
+                        new Claim("auth_mode", "developer"),
+                        new Claim("read_only", "false"),
+                        new Claim("can_access_dev_tools", "true"),
+                        new Claim(ClaimTypes.Name, authResult.UserId ?? "developer-user"), // Rate Limiter用
+                        new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "developer-user")
+                    };
+
+                    context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Developer"));
+
+                    _logger.LogInformation(
+                        "Level 1 (Developer) authentication successful. UserId: {UserId}, CanAccessDevTools: true",
+                        authResult.UserId);
                 }
 
                 // 認証成功ログ記録

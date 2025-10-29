@@ -198,6 +198,7 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
 // Register Authentication Services (認証サービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IAuthenticationService, ShopifyAnalyticsApi.Services.AuthenticationService>();
 builder.Services.AddScoped<IDemoAuthService, DemoAuthService>();
+builder.Services.AddScoped<IDeveloperAuthService, DeveloperAuthService>();
 builder.Services.AddScoped<IRateLimiter, ShopifyAnalyticsApi.Services.RateLimiter>();
 
 // Redis Cache Configuration

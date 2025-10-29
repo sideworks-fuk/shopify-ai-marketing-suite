@@ -7,12 +7,18 @@ using System.Linq;
 namespace ShopifyAnalyticsApi.Filters
 {
     /// <summary>
-    /// デモモードでの読み取り専用ポリシーを強制するグローバルフィルター
+    /// 読み取り専用ポリシーを強制するグローバルフィルター
     /// 
     /// 機能:
-    /// - デモモード時、すべての変更操作（POST/PUT/PATCH/DELETE）をデフォルトでブロック
+    /// - read_only: true の場合、すべての変更操作（POST/PUT/PATCH/DELETE）をデフォルトでブロック
     /// - [AllowDemoWrite]属性が付与されたエンドポイントのみ例外的に許可
     /// - すべてのブロック試行をログに記録
+    /// 
+    /// 設計原則:
+    /// - auth_mode ではなく read_only クレームで判定（Level 2: Demo / Level 1: Developer の区別）
+    /// - Level 3 (OAuth): read_only: false → 全機能
+    /// - Level 2 (Demo): read_only: true → 読み取り専用
+    /// - Level 1 (Developer): read_only: false → 全機能+開発ツール
     /// 
     /// セキュリティ設計:
     /// - ホワイトリスト方式: デフォルトでブロック、明示的に許可する
@@ -28,20 +34,16 @@ namespace ShopifyAnalyticsApi.Filters
         }
 
         /// <summary>
-        /// アクション実行前にデモモードの書き込み制限をチェック
+        /// アクション実行前に読み取り専用モードの書き込み制限をチェック
         /// </summary>
         public void OnActionExecuting(ActionExecutingContext context)
         {
-            // HttpContext.Itemsから認証情報を取得
-            var authMode = context.HttpContext.Items["AuthMode"] as string;
-            var isReadOnly = context.HttpContext.Items["IsReadOnly"] as bool?;
+            // read_onlyクレームを取得して判定（auth_modeではなく）
+            var readOnlyClaim = context.HttpContext.User.FindFirst("read_only");
+            var isReadOnly = readOnlyClaim?.Value == "true";
 
-            // デモモードの判定: AuthMode == "demo" または クレームに auth_mode=demo がある
-            var isDemoMode = authMode == "demo" || 
-                             context.HttpContext.User.HasClaim("auth_mode", "demo");
-
-            // デモモードかつ読み取り専用の場合のみチェック
-            if (isDemoMode && isReadOnly == true)
+            // 読み取り専用モードの場合のみチェック
+            if (isReadOnly)
             {
                 var httpMethod = context.HttpContext.Request.Method;
 
@@ -55,10 +57,12 @@ namespace ShopifyAnalyticsApi.Filters
 
                     if (allowDemoWrite == null)
                     {
-                        // デモモードでの書き込み試行をブロック
+                        // 読み取り専用モードでの書き込み試行をブロック
+                        var authMode = context.HttpContext.User.FindFirst("auth_mode")?.Value ?? "unknown";
+                        
                         _logger.LogWarning(
-                            "Demo mode write operation blocked. " +
-                            "Method: {Method}, Path: {Path}, AuthMode: {AuthMode}",
+                            "Read-only mode write operation blocked. " +
+                            "Method: {Method}, Path: {Path}, AuthMode: {AuthMode}, ReadOnly: true",
                             httpMethod,
                             context.HttpContext.Request.Path,
                             authMode);
@@ -67,7 +71,7 @@ namespace ShopifyAnalyticsApi.Filters
                         context.Result = new JsonResult(new
                         {
                             error = "Forbidden",
-                            message = "Write operations are not allowed in demo mode. This is a read-only demonstration environment.",
+                            message = "Write operations are not allowed in read-only mode. This is a demonstration environment.",
                             suggestion = "Please sign up for a full account to enable write operations."
                         })
                         {
@@ -80,7 +84,7 @@ namespace ShopifyAnalyticsApi.Filters
                     {
                         // [AllowDemoWrite]属性が付与されている場合は警告ログのみ
                         _logger.LogInformation(
-                            "Demo mode write operation explicitly allowed. " +
+                            "Read-only mode write operation explicitly allowed. " +
                             "Method: {Method}, Path: {Path}, Reason: {Reason}",
                             httpMethod,
                             context.HttpContext.Request.Path,

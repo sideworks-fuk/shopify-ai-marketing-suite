@@ -38,6 +38,7 @@ import {
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { getEnvironmentInfo } from "@/lib/api-config"
+import { getApiBaseUrl } from "@/lib/config/environments"
 
 interface BookmarkItem {
   title: string
@@ -353,12 +354,12 @@ export default function DevBookmarksPage() {
     )
   }
 
-  // 認証状態をチェック
+  // 認証状態をチェック（開発者トークン）
   useEffect(() => {
     const checkAuth = () => {
       if (typeof window !== 'undefined') {
-        const auth = localStorage.getItem('dev_mode_auth') === 'true'
-        setIsAuthenticated(auth)
+        const developerToken = localStorage.getItem('developerToken')
+        setIsAuthenticated(!!developerToken)
       }
     }
     
@@ -409,12 +410,37 @@ export default function DevBookmarksPage() {
   }
 
   // ログアウト処理
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('dev_mode_auth')
-      localStorage.removeItem('dev_mode_timestamp')
-      console.log('🔓 デモモード: ログアウト')
-      window.location.reload()
+  const handleLogout = async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        const developerToken = localStorage.getItem('developerToken')
+        
+        if (developerToken) {
+          // サーバー側でセッション無効化
+          const apiBaseUrl = getApiBaseUrl()
+          await fetch(`${apiBaseUrl}/api/developer/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${developerToken}`,
+            },
+          })
+        }
+        
+        // ローカルストレージをクリア
+        localStorage.removeItem('developerToken')
+        localStorage.removeItem('authMode')
+        localStorage.removeItem('readOnly')
+        
+        console.log('🔓 開発者モード: ログアウト')
+        window.location.reload()
+      }
+    } catch (err) {
+      console.error('ログアウトエラー:', err)
+      // エラーでもローカルトークンは削除
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('developerToken')
+        window.location.reload()
+      }
     }
   }
 
