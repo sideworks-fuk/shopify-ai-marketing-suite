@@ -111,11 +111,11 @@ const YearOverYearProductAnalysis = () => {
   const previousYear = selectedYear - 1
 
   // 🔄 API状態管理
-  const [loading, setLoading] = useState(true) // 初期ロード時はtrue
+  const [loading, setLoading] = useState(false) // 初期状態はfalse（分析実行ボタンで取得）
   const [error, setError] = useState<string | null>(null)
   const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
   const [categories, setCategories] = useState<string[]>([])
-  const [initialized, setInitialized] = useState(false) // 初期化フラグ
+  const [hasData, setHasData] = useState(false) // データ取得済みフラグ
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
@@ -149,14 +149,9 @@ const YearOverYearProductAnalysis = () => {
       setApiData([]) // エラー時は空配列に設定
     } finally {
       setLoading(false)
-      setInitialized(true) // 初期化完了
+      setHasData(true) // データ取得試行完了
     }
   }, [selectedYear, viewMode, sortBy, filters])
-
-  // 初期データ取得とフィルタ変更時の再取得
-  useEffect(() => {
-    fetchYearOverYearData()
-  }, [fetchYearOverYearData])
 
   // APIデータを表示形式に変換する関数
   const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
@@ -307,26 +302,6 @@ const YearOverYearProductAnalysis = () => {
     document.body.removeChild(link)
   }, [sortedData, selectedYear, previousYear, viewMode, formatValue])
 
-  // 初期化中の全画面ローディング
-  if (!initialized) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
-              <div className="text-lg font-medium text-gray-700">
-                前年同月比分析データを読み込み中...
-              </div>
-              <div className="text-sm text-gray-500">
-                {selectedYear}年と{previousYear}年のデータを取得しています
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
@@ -512,80 +487,94 @@ const YearOverYearProductAnalysis = () => {
         </Card>
       )}
 
-      {/* サマリー統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{sortedData.length}</div>
-            <div className="text-sm text-blue-700 mt-1">対象商品数</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-r from-green-50 to-green-100">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {sortedData.filter(p => {
-                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
-                return avgGrowth > 0
-              }).length}
-            </div>
-            <div className="text-sm text-green-700 mt-1">成長商品数</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-r from-red-50 to-red-100">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {sortedData.filter(p => {
-                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
-                return avgGrowth < 0
-              }).length}
-            </div>
-            <div className="text-sm text-red-700 mt-1">減少商品数</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">
-              {sortedData.length > 0 ? 
-                (sortedData.reduce((sum, p) => {
-                  const avgGrowth = p.monthlyData.reduce((s, m) => s + m.growthRate, 0) / 12
-                  return sum + avgGrowth
-                }, 0) / sortedData.length).toFixed(1) : "0"}%
-            </div>
-            <div className="text-sm text-purple-700 mt-1">平均成長率</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* サマリー統計カード（データ取得済みの場合のみ表示） */}
+      {hasData && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{sortedData.length}</div>
+              <div className="text-sm text-blue-700 mt-1">対象商品数</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-r from-green-50 to-green-100">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {sortedData.filter(p => {
+                  const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                  return avgGrowth > 0
+                }).length}
+              </div>
+              <div className="text-sm text-green-700 mt-1">成長商品数</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-r from-red-50 to-red-100">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {sortedData.filter(p => {
+                  const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                  return avgGrowth < 0
+                }).length}
+              </div>
+              <div className="text-sm text-red-700 mt-1">減少商品数</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {sortedData.length > 0 ? 
+                  (sortedData.reduce((sum, p) => {
+                    const avgGrowth = p.monthlyData.reduce((s, m) => s + m.growthRate, 0) / 12
+                    return sum + avgGrowth
+                  }, 0) / sortedData.length).toFixed(1) : "0"}%
+              </div>
+              <div className="text-sm text-purple-700 mt-1">平均成長率</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* データテーブル（改良版） */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                商品別月次推移データ
-              </CardTitle>
-              <CardDescription>
-                {selectedYear}年と{previousYear}年の月別比較データ（{sortedData.length}件の商品を表示中）
-              </CardDescription>
+      {/* データテーブル（改良版）- データ取得済みの場合のみ表示 */}
+      {hasData && (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  商品別月次推移データ
+                </CardTitle>
+                <CardDescription>
+                  {selectedYear}年と{previousYear}年の月別比較データ（{sortedData.length}件の商品を表示中）
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+                  <Download className="h-4 w-4 mr-1" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Excel
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
-                <Download className="h-4 w-4 mr-1" />
-                CSV
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
-                <FileSpreadsheet className="h-4 w-4 mr-1" />
-                Excel
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
               <span className="ml-2 text-gray-600">データを読み込み中...</span>
+            </div>
+          ) : !hasData ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <BarChart3 className="h-12 w-12 text-gray-400 mb-4" />
+              <div className="text-lg font-medium text-gray-700 mb-2">
+                分析を実行してください
+              </div>
+              <div className="text-sm text-gray-500 text-center max-w-md">
+                分析条件を設定して「分析実行」ボタンをクリックすると、
+                {selectedYear}年と{previousYear}年の月別比較データが表示されます。
+              </div>
             </div>
           ) : (
             <>
@@ -678,7 +667,8 @@ const YearOverYearProductAnalysis = () => {
             </>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
     </div>
   )
 }
