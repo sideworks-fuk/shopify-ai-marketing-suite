@@ -31,6 +31,24 @@ namespace ShopifyAnalyticsApi.Middleware
             IAuthenticationService authService,
             IDeveloperAuthService developerAuthService)
         {
+            // 認証をスキップするパスをチェック
+            var path = context.Request.Path.Value?.ToLower() ?? "";
+            var skipAuthPaths = new[]
+            {
+                "/api/demo/login",
+                "/api/developer/login", 
+                "/api/shopify/oauth/callback",
+                "/health",
+                "/hangfire"
+            };
+
+            if (skipAuthPaths.Any(skipPath => path.StartsWith(skipPath)))
+            {
+                _logger.LogDebug("Skipping authentication for path: {Path}", path);
+                await _next(context);
+                return;
+            }
+
             // 認証モード取得
             var authMode = _config["Authentication:Mode"] ?? "OAuthRequired";
             var environment = _env.EnvironmentName;
