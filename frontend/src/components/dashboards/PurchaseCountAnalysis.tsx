@@ -55,7 +55,21 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
         tierMode: "simplified" // 5階層モードを指定
       })
 
-      const response = await fetch(`${getApiUrl()}/api/purchase/count-analysis?${params}`)
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+
+      const response = await fetch(`${getApiUrl()}/api/purchase/count-analysis?${params}`, {
+        headers
+      })
+      
       if (!response.ok) {
         throw new Error(`APIエラー: ${response.status}`)
       }

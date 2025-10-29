@@ -94,6 +94,9 @@ jobs:
         echo "✅ Backend deployment completed successfully!"
         echo "🌐 App URL: ${{ steps.deploy_target.outputs.app_url }}"
         echo "📊 Check Azure Portal for detailed logs"
+        echo "✅ Backend deployment completed successfully!"
+        echo "🌐 App URL: ${{ steps.deploy_target.outputs.app_url }}"
+        echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
       run: |

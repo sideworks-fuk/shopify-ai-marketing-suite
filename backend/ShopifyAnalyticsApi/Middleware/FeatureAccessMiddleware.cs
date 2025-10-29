@@ -52,6 +52,14 @@ namespace ShopifyAnalyticsApi.Middleware
                 return;
             }
 
+            // デモモードの場合は機能チェックをスキップ
+            if (context.Items.TryGetValue("IsDemoMode", out var isDemoMode) && isDemoMode is bool demoMode && demoMode)
+            {
+                _logger.LogDebug("Skipping feature access check for demo mode");
+                await _next(context);
+                return;
+            }
+
             // ストア情報取得
             var storeId = GetStoreId(context);
             if (string.IsNullOrEmpty(storeId))
@@ -78,10 +86,18 @@ namespace ShopifyAnalyticsApi.Middleware
                     // サブスクリプション状態を確認（データベースから直接取得）
                     var storeIdInt = int.Parse(storeId);
                     var dbContext = scope.ServiceProvider.GetRequiredService<Data.ShopifyDbContext>();
+                    
+                    // 外部キー関係の問題を回避するため、別々にクエリ
                     var subscription = await dbContext.StoreSubscriptions
-                        .Include(ss => ss.Plan)
                         .FirstOrDefaultAsync(ss => ss.StoreId == storeIdInt && ss.Status == "active");
-                    var isPaid = subscription != null && subscription.Plan?.Name != "Free";
+                    
+                    var isPaid = false;
+                    if (subscription != null)
+                    {
+                        var plan = await dbContext.SubscriptionPlans
+                            .FirstOrDefaultAsync(p => p.Id == subscription.PlanId);
+                        isPaid = plan != null && plan.Name != "Free";
+                    }
                     
                     // 選択された機能を取得
                     var selectedFeatures = await featureService.GetSelectedFeaturesAsync(storeId);
