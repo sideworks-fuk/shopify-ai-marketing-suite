@@ -40,6 +40,7 @@ export default function DemoLoginPage() {
           localStorage.setItem('demoToken', data.token)
           localStorage.setItem('authMode', 'demo')
           localStorage.setItem('readOnly', 'true')
+          localStorage.setItem('currentStoreId', '1') // 🆕 デモ用ストアIDを設定
         }
         
         console.log('✅ デモモード: ログイン成功', {
