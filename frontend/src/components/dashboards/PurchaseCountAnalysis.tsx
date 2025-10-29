@@ -76,6 +76,13 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
 
       const result = await response.json()
       if (result.success) {
+        console.log('📊 購入回数分析データ取得:', {
+          hasSummary: !!result.data?.summary,
+          hasDetails: !!result.data?.details,
+          hasTrends: !!result.data?.trends,
+          trendsLength: result.data?.trends?.length || 0,
+          hasInsights: !!result.data?.insights
+        })
         setAnalysisData(result.data)
       } else {
         throw new Error(result.message || "データ取得に失敗しました")
@@ -216,9 +223,8 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="distribution" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="distribution">分布</TabsTrigger>
-              <TabsTrigger value="trends">トレンド</TabsTrigger>
               <TabsTrigger value="insights">インサイト</TabsTrigger>
             </TabsList>
 
@@ -269,32 +275,35 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
               </div>
             </TabsContent>
 
-            <TabsContent value="trends" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {analysisData.trends.slice(0, 6).map((trend: any, index: number) => (
-                  <Card key={index}>
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-sm">{trend.periodLabel}</CardTitle>
-                        <Badge variant="outline">{formatNumber(trend.totalCustomers)}人</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>平均購入回数</span>
-                          <span className="font-medium">{trend.averagePurchaseCount.toFixed(1)}回</span>
+            {/* トレンドタブは一時的に非表示 */}
+            {/* {analysisData.trends && analysisData.trends.length > 0 && (
+              <TabsContent value="trends" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {analysisData.trends.slice(0, 6).map((trend: any, index: number) => (
+                    <Card key={index}>
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-sm">{trend.periodLabel}</CardTitle>
+                          <Badge variant="outline">{formatNumber(trend.totalCustomers)}人</Badge>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span>リピート率</span>
-                          <span className="font-medium">{formatPercentage(trend.repeatRate)}</span>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>平均購入回数</span>
+                            <span className="font-medium">{trend.averagePurchaseCount.toFixed(1)}回</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>リピート率</span>
+                            <span className="font-medium">{formatPercentage(trend.repeatRate)}</span>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            )} */}
 
             <TabsContent value="insights" className="space-y-4">
               {/* 主要発見事項 */}

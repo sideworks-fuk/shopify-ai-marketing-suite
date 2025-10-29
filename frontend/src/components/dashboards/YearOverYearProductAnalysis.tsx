@@ -182,6 +182,7 @@ const YearOverYearProductAnalysis = () => {
   const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
   const [categories, setCategories] = useState<string[]>([])
   const [hasData, setHasData] = useState(false) // データ取得済みフラグ
+  const [lastFetchViewMode, setLastFetchViewMode] = useState<"sales" | "quantity" | "orders" | null>(null) // 最後に取得したviewMode
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
@@ -202,6 +203,7 @@ const YearOverYearProductAnalysis = () => {
 
       if (response.success && response.data) {
         setApiData(response.data.products)
+        setLastFetchViewMode(viewMode) // 取得時のviewModeを保存
         
         // カテゴリ一覧を更新
         const uniqueCategories = Array.from(new Set(response.data.products.map(p => p.productType)))
@@ -427,7 +429,17 @@ const YearOverYearProductAnalysis = () => {
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">表示データ</label>
-                  <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                  <Select 
+                    value={viewMode} 
+                    onValueChange={(value: any) => {
+                      setViewMode(value)
+                      // viewMode変更時にデータをクリア（分析実行ボタンを必須とする仕様）
+                      if (hasData && lastFetchViewMode !== value) {
+                        setApiData(null)
+                        setHasData(false)
+                      }
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
