@@ -557,7 +557,7 @@ try
         {
             requiredSettings = requiredSettings.Concat(new[]
             {
-                ("Authentication:JwtSecret", app.Configuration["Authentication:JwtSecret"])
+                ("Jwt:Key", app.Configuration["Jwt:Key"])
             }).ToArray();
         }
 
@@ -600,11 +600,23 @@ catch (Exception ex)
 try
 {
     Log.Information("Starting EC Ranger API");
+    
+    // デバッグ用: 設定値をログ出力
+    Log.Information("Configuration Debug Info:");
+    Log.Information("  ASPNETCORE_ENVIRONMENT: {Environment}", Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"));
+    Log.Information("  Authentication:Mode: {AuthMode}", app.Configuration["Authentication:Mode"]);
+    Log.Information("  Jwt:Key configured: {HasJwtKey}", !string.IsNullOrEmpty(app.Configuration["Jwt:Key"]));
+    Log.Information("  ConnectionString configured: {HasConnectionString}", !string.IsNullOrEmpty(app.Configuration.GetConnectionString("DefaultConnection")));
+    
     app.Run();
 }
 catch (Exception ex)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
+    Console.Error.WriteLine($"Application failed to start: {ex}");
+    Console.Error.WriteLine($"Exception Type: {ex.GetType().Name}");
+    Console.Error.WriteLine($"Stack Trace: {ex.StackTrace}");
+    throw;
 }
 finally
 {
