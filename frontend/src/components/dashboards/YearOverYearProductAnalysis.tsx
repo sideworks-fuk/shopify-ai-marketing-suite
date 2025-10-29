@@ -1,17 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useState, useMemo, useCallback, useEffect } from "react"
-import { YearOverYearProductAnalysisCondition, AnalysisConditions } from "./YearOverYearProductAnalysisCondition"
-import { TableSkeleton, CardSkeleton, ProgressiveLoader } from "../ui/PerformanceOptimized"
-import { YearOverYearProductTable } from "./YearOverYearProductTable"
-import { YearOverYearProductErrorHandling, classifyError, AnalysisError } from "./YearOverYearProductErrorHandling"
-import { useProductAnalysisFilters } from "../../stores/analysisFiltersStore"
-import { useAppStore } from "../../stores/appStore"
-import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
-import { handleApiError, handleError } from "../../lib/error-handler"
-import { getCurrentStoreId } from "@/lib/api-config"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -21,638 +10,184 @@ import {
   Search,
   Download,
   BarChart3,
-  ArrowUpRight,
-  ArrowDownRight,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
+  Settings,
+  ChevronUp,
+  ChevronDown,
+  Calendar,
+  FileSpreadsheet,
   Loader2,
   AlertCircle,
-  Calendar,
-  Filter,
 } from "lucide-react"
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts"
+import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
 
-// 型定義
-type ViewMode = 'sales' | 'quantity' | 'orders'
-
-interface MonthlyData {
-  sales: number
-  quantity: number
-  orders: number
-  [key: string]: number // インデックスシグネチャを追加
-}
-
-interface ProductYearData {
+// APIデータ用の統一型定義
+interface MonthlyProductData {
   productId: string
   productName: string
   category: string
-  monthlyData: {
-    [key: string]: MonthlyData // "2024-01", "2025-01" format
-  }
-  yearOverYearGrowth: {
-    [month: string]: number // 前年同月比成長率
-  }
-  totalGrowth: number
-  avgGrowth: number
+  monthlyData: Array<{
+    month: string
+    current: number
+    previous: number
+    growthRate: number
+  }>
 }
 
-// 改善1: 視覚的な前年同月比表示強化
-const EnhancedDataCell = ({
-  currentValue,
-  previousValue,
-  viewMode,
-}: {
-  currentValue: number
-  previousValue: number
-  viewMode: ViewMode
-}) => {
-  const growthRate = previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0
-
-  const getCellStyle = () => {
-    if (growthRate > 20) return "bg-green-100 text-green-800 border-green-200"
-    if (growthRate > 10) return "bg-green-50 text-green-700 border-green-100"
-    if (growthRate > 0) return "bg-blue-50 text-blue-700 border-blue-100"
-    if (growthRate > -10) return "bg-yellow-50 text-yellow-700 border-yellow-100"
-    if (growthRate > -20) return "bg-orange-50 text-orange-700 border-orange-100"
-    return "bg-red-50 text-red-700 border-red-100"
-  }
-
-  const formatValue = (value: number) => {
-    switch (viewMode) {
-      case "sales":
-        return `¥${value.toLocaleString()}`
-      case "quantity":
-        return `${value.toLocaleString()}個`
-      case "orders":
-        return `${value.toLocaleString()}件`
-      default:
-        return value.toString()
-    }
-  }
-
-  return (
-    <div className={`p-2 text-center relative border ${getCellStyle()} rounded-sm`}>
-      <div className="font-bold text-sm">{formatValue(currentValue)}</div>
-      <div className="text-xs font-medium">
-        {growthRate > 0 ? "+" : ""}
-        {growthRate.toFixed(1)}%
-      </div>
-    </div>
-  )
-}
-
-// 改善3: 商品別成長率サマリー追加
-const ProductGrowthRanking = ({ data, viewMode }: { data: ProductYearData[]; viewMode: ViewMode }) => {
-  const calculateAverageGrowthRate = (product: ProductYearData) => {
-    const growthValues = Object.values(product.yearOverYearGrowth)
-    return growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length
-  }
-
-  const topGrowers = data
-    .map((product) => ({
-      ...product,
-      totalGrowthRate: calculateAverageGrowthRate(product),
-    }))
-    .sort((a, b) => b.totalGrowthRate - a.totalGrowthRate)
-    .slice(0, 10)
-
-  const topDecliners = data
-    .map((product) => ({
-      ...product,
-      totalGrowthRate: calculateAverageGrowthRate(product),
-    }))
-    .sort((a, b) => a.totalGrowthRate - b.totalGrowthRate)
-    .slice(0, 10)
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-700">
-            <TrendingUp className="h-5 w-5" />🚀 成長率 Top10
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {topGrowers.map((product, index) => (
-              <div
-                key={product.productId}
-                className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-100"
-              >
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                    {index + 1}
-                  </Badge>
-                  <div>
-                    <div className="font-medium text-sm">{product.productName}</div>
-                    <div className="text-xs text-gray-500">{product.category}</div>
-                  </div>
-                </div>
-                <div className="text-green-700 font-bold text-lg">+{product.totalGrowthRate.toFixed(1)}%</div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-700">
-            <TrendingDown className="h-5 w-5" />📉 要注意商品 Top10
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {topDecliners.map((product, index) => (
-              <div
-                key={product.productId}
-                className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-100"
-              >
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                    {index + 1}
-                  </Badge>
-                  <div>
-                    <div className="font-medium text-sm">{product.productName}</div>
-                    <div className="text-xs text-gray-500">{product.category}</div>
-                  </div>
-                </div>
-                <div className="text-red-700 font-bold text-lg flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4" />
-                  {product.totalGrowthRate.toFixed(1)}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 改善4: 季節性分析機能
-const SeasonalAnalysis = ({ data, viewMode }: { data: ProductYearData[]; viewMode: string }) => {
-  const seasons = {
-    spring: { months: [3, 4, 5], name: "春季", icon: "🌸", color: "green" },
-    summer: { months: [6, 7, 8], name: "夏季", icon: "☀️", color: "yellow" },
-    autumn: { months: [9, 10, 11], name: "秋季", icon: "🍂", color: "orange" },
-    winter: { months: [12, 1, 2], name: "冬季", icon: "❄️", color: "blue" },
-  }
-
-  const seasonalData = Object.entries(seasons).map(([seasonKey, season]) => {
-    const seasonTotal2024 = data.reduce((sum, product) => {
-      return (
-        sum +
-        season.months.reduce((monthSum, month) => {
-          const monthStr = month.toString().padStart(2, "0")
-          return monthSum + (product.monthlyData[`2024-${monthStr}`]?.[viewMode] || 0)
-        }, 0)
-      )
-    }, 0)
-
-    const seasonTotal2025 = data.reduce((sum, product) => {
-      return (
-        sum +
-        season.months.reduce((monthSum, month) => {
-          const monthStr = month.toString().padStart(2, "0")
-          return monthSum + (product.monthlyData[`2025-${monthStr}`]?.[viewMode] || 0)
-        }, 0)
-      )
-    }, 0)
-
-    const growth = seasonTotal2024 > 0 ? ((seasonTotal2025 - seasonTotal2024) / seasonTotal2024) * 100 : 0
-
-    return {
-      season: season.name,
-      icon: season.icon,
-      total2024: seasonTotal2024,
-      total2025: seasonTotal2025,
-      growth,
-      color: season.color,
-    }
-  })
-
-  const formatValue = (value: number) => {
-    switch (viewMode) {
-      case "sales":
-        return `¥${value.toLocaleString()}`
-      case "quantity":
-        return `${value.toLocaleString()}個`
-      case "orders":
-        return `${value.toLocaleString()}件`
-      default:
-        return value.toString()
-    }
-  }
-
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">🌸 季節別売上分析</CardTitle>
-        <CardDescription>四季別の売上推移と前年同期比較</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {seasonalData.map((season) => (
-            <div key={season.season} className="text-center p-4 bg-gray-50 rounded-lg border">
-              <div className="text-2xl mb-2">{season.icon}</div>
-              <div className="text-lg font-bold mb-2">{season.season}</div>
-              <div className="space-y-1">
-                <div className="text-sm text-gray-600">2024: {formatValue(season.total2024)}</div>
-                <div className="text-sm text-gray-600">2025: {formatValue(season.total2025)}</div>
-                <div className={`text-lg font-bold ${season.growth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {season.growth >= 0 ? "+" : ""}
-                  {season.growth.toFixed(1)}%
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 季節別チャート */}
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={seasonalData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="season" />
-              <YAxis />
-              <Tooltip formatter={(value: any) => formatValue(value)} />
-              <Legend />
-              <Bar dataKey="total2024" fill="#3B82F6" name="2024年" />
-              <Bar dataKey="total2025" fill="#10B981" name="2025年" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// 改善5: 詳細フィルタリング機能強化
-const AdvancedFilters = ({
-  onFilterChange,
-  categories,
-}: {
-  onFilterChange: (filters: any) => void
-  categories: string[]
-}) => {
-  const [filters, setFilters] = useState({
-    growthRate: "all",
-    salesRange: "all",
-    category: "all",
-    searchTerm: "",
-  })
-
-  const updateFilter = (key: string, value: string) => {
-    const newFilters = { ...filters, [key]: value }
-    setFilters(newFilters)
-    onFilterChange(newFilters)
-  }
-
-  const growthOptions = [
-    { label: "全商品", value: "all" },
-    { label: "成長商品のみ", value: "positive" },
-    { label: "減少商品のみ", value: "negative" },
-    { label: "高成長商品（+20%以上）", value: "high_growth" },
-    { label: "要注意商品（-20%以下）", value: "high_decline" },
-  ]
-
-  const salesRangeOptions = [
-    { label: "全売上帯", value: "all" },
-    { label: "高売上（100万円以上）", value: "high" },
-    { label: "中売上（10-100万円）", value: "medium" },
-    { label: "低売上（10万円未満）", value: "low" },
-  ]
-
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">🔍 詳細フィルタ</CardTitle>
-        <CardDescription>商品の絞り込み条件を設定</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">商品名検索</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                value={filters.searchTerm}
-                onChange={(e) => updateFilter("searchTerm", e.target.value)}
-                placeholder="商品名で検索..."
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">成長状況</label>
-            <Select value={filters.growthRate} onValueChange={(value) => updateFilter("growthRate", value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {growthOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">売上規模</label>
-            <Select value={filters.salesRange} onValueChange={(value) => updateFilter("salesRange", value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {salesRangeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">カテゴリ</label>
-            <Select value={filters.category} onValueChange={(value) => updateFilter("category", value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全カテゴリ</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// APIデータ変換関数
-const convertApiDataToProductYearData = (apiData: YearOverYearProductData[], currentYear: number): ProductYearData[] => {
-  const previousYear = currentYear - 1
-  
-  return apiData.map((product, index) => {
-    const monthlyData: { [key: string]: MonthlyData } = {}
-    const yearOverYearGrowth: { [month: string]: number } = {}
-
-    // APIデータから月別データを変換
-    product.monthlyData.forEach((monthData) => {
-      const monthStr = monthData.month.toString().padStart(2, "0")
-      
-      // 現在年と前年のデータを設定
-      monthlyData[`${currentYear}-${monthStr}`] = {
-        sales: monthData.currentValue,
-        quantity: monthData.currentValue, // API側で適切な数量データが提供される予定
-        orders: monthData.currentValue, // API側で適切な注文数データが提供される予定
-      }
-      
-      monthlyData[`${previousYear}-${monthStr}`] = {
-        sales: monthData.previousValue,
-        quantity: monthData.previousValue,
-        orders: monthData.previousValue,
-      }
-
-      yearOverYearGrowth[monthStr] = monthData.growthRate
-    })
-
-    // 平均成長率を計算
-    const growthValues = Object.values(yearOverYearGrowth)
-    const avgGrowth = growthValues.length > 0 ? growthValues.reduce((sum, val) => sum + val, 0) / growthValues.length : 0
-
-    // デバッグ用: 最初の商品の成長率をログ出力
-    if (index === 0) {
-      console.log('🔍 First product growth rates:', {
-        productName: product.productTitle,
-        yearOverYearGrowth,
-        avgGrowth,
-        monthlyData: product.monthlyData.slice(0, 3) // 最初の3ヶ月分
-      })
-    }
-
-    return {
-      productId: `api_${index}`,
-      productName: product.productTitle,
-      category: product.productType,
-      monthlyData,
-      yearOverYearGrowth,
-      totalGrowth: avgGrowth,
-      avgGrowth,
-    }
-  })
-}
-
-// React.memoでメモ化したコンポーネント
-const YearOverYearProductAnalysis = React.memo(() => {
-  // ✅ Zustand移行: 商品分析フィルター使用
-  const { 
-    filters,
-    setViewMode,
-    setDisplayMode,
-    updateProductFilters,
-    resetFilters
-  } = useProductAnalysisFilters()
-  
-  const setLoading = useAppStore((state) => state.setLoading)
-  const showToast = useAppStore((state) => state.showToast)
-  
-  // 🎯 条件設定→分析実行パターンの状態管理
-  const [analysisExecuted, setAnalysisExecuted] = useState(false)
-  const [analysisConditions, setAnalysisConditions] = useState<AnalysisConditions | null>(null)
-  const [isExecuting, setIsExecuting] = useState(false)
-  const [analysisError, setAnalysisError] = useState<AnalysisError | null>(null)
-  
-  // エラーハンドラーの初期化
-  useEffect(() => {
-    const { errorHandler } = require('../../lib/error-handler')
-    errorHandler.setToastHandler(showToast)
-  }, [showToast])
-  
+const YearOverYearProductAnalysis = () => {
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
   
-  // 🔄 API状態管理
-  const [loading, setLoadingState] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
-  const [initialized, setInitialized] = useState(false)
+  // ✅ 分析条件トグル状態
+  const [showConditions, setShowConditions] = useState(true)
   
+  const [viewMode, setViewMode] = useState<"sales" | "quantity" | "orders">("sales")
+  const [sortBy, setSortBy] = useState<"growth" | "total" | "name">("growth")
+  const [filters, setFilters] = useState({
+    growthRate: "all",
+    category: "all",
+    searchTerm: "",
+  })
+
   // 前年を自動計算
   const previousYear = selectedYear - 1
-  
-  // ✅ データとビューモード状態をZustandから取得
-  const viewMode = filters.viewMode === "sales" ? "sales" : filters.viewMode === "quantity" ? "quantity" : "orders"
-  
-  // ✅ ローカル状態を一時的に維持（段階的移行）
-  const [comparisonMode, setComparisonMode] = useState<"sideBySide" | "growth">("sideBySide")
-  const [sortBy, setSortBy] = useState<"name" | "growth" | "total">("growth")
-  
-  // ✅ フィルター状態をZustandから取得
-  const appliedFilters = useMemo(() => ({
-    growthRate: "all", // TODO: filters.appliedFiltersから取得予定
-    salesRange: "all",
-    category: filters.productFilters.category || "all",
-    searchTerm: filters.productFilters.searchTerm || "",
-  }), [filters.productFilters.category, filters.productFilters.searchTerm])
-  
-  // 🚀 API データ取得（条件付き）
-  const fetchYearOverYearData = useCallback(async (conditions?: AnalysisConditions) => {
-    setLoadingState(true)
-    setError(null)
 
-    // 条件が指定された場合はそれを優先、そうでなければ現在の値を使用
-    const yearToUse = conditions?.selectedYear || selectedYear
-    const viewModeToUse = conditions?.viewMode || viewMode
-    const categoryToUse = conditions?.categories?.[0] || (appliedFilters.category === "all" ? undefined : appliedFilters.category)
+  // 🔄 API状態管理
+  const [loading, setLoading] = useState(true) // 初期ロード時はtrue
+  const [error, setError] = useState<string | null>(null)
+  const [apiData, setApiData] = useState<YearOverYearProductData[] | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
+  const [initialized, setInitialized] = useState(false) // 初期化フラグ
+
+  // 🚀 API データ取得
+  const fetchYearOverYearData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
     try {
       const response = await yearOverYearApi.getYearOverYearAnalysis({
-        storeId: getCurrentStoreId(),
-        year: yearToUse,
-        viewMode: viewModeToUse,
+        storeId: 1,
+        year: selectedYear,
+        viewMode: viewMode,
         sortBy: sortBy === "growth" ? "growth_rate" : sortBy === "total" ? "total_sales" : "name",
         sortDescending: true,
-        searchTerm: appliedFilters.searchTerm || undefined,
-        category: categoryToUse,
-        excludeServiceItems: conditions?.excludeServiceItems,
+        searchTerm: filters.searchTerm || undefined,
+        growthRateFilter: filters.growthRate === "all" ? undefined : filters.growthRate as any,
+        category: filters.category === "all" ? undefined : filters.category,
       })
 
       if (response.success && response.data) {
         setApiData(response.data.products)
+        
+        // カテゴリ一覧を更新
+        const uniqueCategories = Array.from(new Set(response.data.products.map(p => p.productType)))
+        setCategories(uniqueCategories)
       } else {
         throw new Error(response.message || 'データの取得に失敗しました')
       }
     } catch (err) {
-      // 統一エラーハンドラーでAPI取得エラーを処理
-      await handleApiError(err, '/api/year-over-year', 'GET', {
-        context: 'YearOverYearProductAnalysis',
-        severity: 'error',
-        userMessage: '前年同月比データの取得に失敗しました',
-        showToUser: true,
-        fallback: { 
-          enabled: true,
-          customHandler: () => {
-            setApiData([])
-            setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
-          }
-        }
-      })
+      console.error('年次比較データ取得エラー:', err)
+      setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+      setApiData([]) // エラー時は空配列に設定
     } finally {
-      setLoadingState(false)
-      setInitialized(true)
+      setLoading(false)
+      setInitialized(true) // 初期化完了
     }
-  }, [selectedYear, viewMode, sortBy, appliedFilters])
+  }, [selectedYear, viewMode, sortBy, filters])
 
-  // 分析実行後のデータ取得（条件設定→分析実行パターンでは自動取得しない）
+  // 初期データ取得とフィルタ変更時の再取得
   useEffect(() => {
-    if (analysisExecuted && !apiData) {
-      fetchYearOverYearData(analysisConditions || undefined)
-    }
-  }, [analysisExecuted, apiData, analysisConditions, fetchYearOverYearData])
-  
-  // 実際に表示するデータ（APIデータを変換）
-  const data = useMemo(() => {
+    fetchYearOverYearData()
+  }, [fetchYearOverYearData])
+
+  // APIデータを表示形式に変換する関数
+  const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
+    return apiProducts.map((product, index) => ({
+      productId: `api_${index}`,
+      productName: product.productTitle,
+      category: product.productType,
+      monthlyData: product.monthlyData.map(monthData => ({
+        month: monthData.monthName,
+        current: monthData.currentValue,
+        previous: monthData.previousValue,
+        growthRate: monthData.growthRate
+      }))
+    }))
+  }, [])
+
+  // 実際に表示するデータ（APIデータのみ）
+  const displayData = useMemo(() => {
     if (apiData) {
-      return convertApiDataToProductYearData(apiData, selectedYear)
+      return convertApiDataToDisplayFormat(apiData)
     }
     return []
-  }, [apiData, selectedYear])
+  }, [apiData, convertApiDataToDisplayFormat])
 
-  // フィルタリングとソート
-  const filteredAndSortedData = useMemo(() => {
-    const filtered = data.filter((product) => {
-      // 検索フィルタ
-      const matchesSearch = product.productName.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
-
-      // カテゴリフィルタ
-      const matchesCategory = appliedFilters.category === "all" || product.category === appliedFilters.category
-
-      // 成長率フィルタ
-      let matchesGrowth = true
-      if (appliedFilters.growthRate === "positive") {
-        matchesGrowth = product.avgGrowth > 0
-      } else if (appliedFilters.growthRate === "negative") {
-        matchesGrowth = product.avgGrowth < 0
-      } else if (appliedFilters.growthRate === "high_growth") {
-        matchesGrowth = product.avgGrowth > 20
-      } else if (appliedFilters.growthRate === "high_decline") {
-        matchesGrowth = product.avgGrowth < -20
+  // フィルタリングロジック（クライアントサイドで追加フィルタリング）
+  const filteredData = useMemo(() => {
+    return displayData.filter((product) => {
+      // パフォーマンス最適化: 短絡評価を活用
+      if (filters.searchTerm && !product.productName.toLowerCase().includes(filters.searchTerm.toLowerCase())) {
+        return false
       }
-
-      // 売上規模フィルタ
-      let matchesSales = true
-      if (appliedFilters.salesRange !== "all") {
-        const totalSales2025 = Object.values(product.monthlyData)
-          .filter((_, index) => index % 2 === 1) // 2025年のデータのみ
-          .reduce((sum, month) => sum + (month[viewMode] || 0), 0)
-
-        if (appliedFilters.salesRange === "high") {
-          matchesSales = totalSales2025 >= 1000000
-        } else if (appliedFilters.salesRange === "medium") {
-          matchesSales = totalSales2025 >= 100000 && totalSales2025 < 1000000
-        } else if (appliedFilters.salesRange === "low") {
-          matchesSales = totalSales2025 < 100000
-        }
+      
+      if (filters.category !== "all" && product.category !== filters.category) {
+        return false
       }
-
-      return matchesSearch && matchesCategory && matchesGrowth && matchesSales
-    })
-
-    // ソート
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.productName.localeCompare(b.productName)
-        case "growth":
-          return b.avgGrowth - a.avgGrowth
-        case "total":
-          const aTotal = Object.values(a.monthlyData)
-            .filter((_, index) => index % 2 === 1)
-            .reduce((sum, month) => sum + (month[viewMode] || 0), 0)
-          const bTotal = Object.values(b.monthlyData)
-            .filter((_, index) => index % 2 === 1)
-            .reduce((sum, month) => sum + (month[viewMode] || 0), 0)
-          return bTotal - aTotal
-        default:
-          return 0
+      
+      // 年間平均成長率を計算
+      const avgGrowthRate = product.monthlyData.reduce((sum, month) => sum + month.growthRate, 0) / 12
+      
+      switch (filters.growthRate) {
+        case "positive": return avgGrowthRate > 0
+        case "negative": return avgGrowthRate < 0
+        case "high_growth": return avgGrowthRate > 20
+        case "high_decline": return avgGrowthRate < -20
+        default: return true
       }
     })
+  }, [displayData, filters])
 
-    return filtered
-  }, [data, appliedFilters, sortBy, viewMode])
+  // 並び替えロジック（クライアントサイドソート）
+  const sortedData = useMemo(() => {
+    const sorted = [...filteredData]
+    switch (sortBy) {
+      case "growth":
+        return sorted.sort((a, b) => {
+          const avgA = a.monthlyData.reduce((sum, month) => sum + month.growthRate, 0) / 12
+          const avgB = b.monthlyData.reduce((sum, month) => sum + month.growthRate, 0) / 12
+          return avgB - avgA
+        })
+      case "total":
+        return sorted.sort((a, b) => {
+          const totalA = a.monthlyData.reduce((sum, month) => sum + month.current, 0)
+          const totalB = b.monthlyData.reduce((sum, month) => sum + month.current, 0)
+          return totalB - totalA
+        })
+      case "name":
+        return sorted.sort((a, b) => a.productName.localeCompare(b.productName))
+      default:
+        return sorted
+    }
+  }, [filteredData, sortBy])
 
-  // カテゴリ一覧取得
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(data.map((p) => p.category)))
-    return cats.sort()
-  }, [data])
+  // カテゴリ一覧（APIデータから取得）
+  const allCategories = useMemo(() => {
+    if (categories.length > 0) {
+      return categories
+    }
+    // APIデータからカテゴリを抽出
+    const uniqueCategories = Array.from(new Set(displayData.map(p => p.category)))
+    return uniqueCategories
+  }, [categories, displayData])
 
-  // 値のフォーマット
+  // フィルタ変更ハンドラ
+  const handleFilterChange = useCallback((newFilters: any) => {
+    setFilters(prev => ({ ...prev, ...newFilters }))
+  }, [])
+
+  // フォーマット関数
   const formatValue = useCallback((value: number, mode: string) => {
     switch (mode) {
       case "sales":
@@ -666,418 +201,447 @@ const YearOverYearProductAnalysis = React.memo(() => {
     }
   }, [])
 
-  // 成長率のフォーマット
-  const formatGrowthRate = useCallback((rate: number) => {
-    const sign = rate > 0 ? "+" : ""
-    return `${sign}${rate.toFixed(1)}%`
+  // 成長率バッジ色（強化版）
+  const getGrowthBadgeColor = useCallback((growth: number) => {
+    if (growth >= 25) return "bg-emerald-100 text-emerald-800 border-emerald-200"
+    if (growth >= 15) return "bg-green-100 text-green-800 border-green-200"
+    if (growth >= 5) return "bg-blue-100 text-blue-800 border-blue-200"
+    if (growth >= 0) return "bg-slate-100 text-slate-700 border-slate-200"
+    if (growth >= -10) return "bg-yellow-100 text-yellow-800 border-yellow-200"
+    if (growth >= -20) return "bg-orange-100 text-orange-800 border-orange-200"
+    return "bg-red-100 text-red-800 border-red-200"
   }, [])
 
-  // 成長率の色取得
-  const getGrowthColor = useCallback((rate: number) => {
-    if (rate > 10) return "text-green-600 bg-green-50"
-    if (rate > 0) return "text-green-500 bg-green-25"
-    if (rate > -10) return "text-yellow-600 bg-yellow-50"
-    return "text-red-600 bg-red-50"
-  }, [])
-
-  // サマリー統計計算
-  const summary = useMemo(() => {
-    let totalPrevious = 0,
-      totalCurrent = 0
-    let growingProducts = 0,
-      decliningProducts = 0
-
-    filteredAndSortedData.forEach((product) => {
-      for (let month = 1; month <= 12; month++) {
-        const monthStr = month.toString().padStart(2, "0")
-        const dataPrevious = product.monthlyData[`${previousYear}-${monthStr}`]?.[viewMode] || 0
-        const dataCurrent = product.monthlyData[`${selectedYear}-${monthStr}`]?.[viewMode] || 0
-        totalPrevious += dataPrevious
-        totalCurrent += dataCurrent
-      }
-
-      if (product.avgGrowth > 0) growingProducts++
-      else if (product.avgGrowth < 0) decliningProducts++
+  // CSV/Excelエクスポート（月別詳細データ）
+  const handleExport = useCallback((format: 'csv' | 'excel') => {
+    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    const headers = ['商品名', 'カテゴリ', ...months.map(m => `${m}${selectedYear}`), ...months.map(m => `${m}${previousYear}`), ...months.map(m => `${m}成長率`)]
+    
+    const rows = sortedData.map(item => {
+      const row = [item.productName, item.category]
+      
+      // 現在年のデータ
+      item.monthlyData.forEach(monthData => {
+        row.push(formatValue(monthData.current, viewMode))
+      })
+      
+      // 前年のデータ
+      item.monthlyData.forEach(monthData => {
+        row.push(formatValue(monthData.previous, viewMode))
+      })
+      
+      // 成長率
+      item.monthlyData.forEach(monthData => {
+        row.push(`${monthData.growthRate}%`)
+      })
+      
+      return row
     })
 
-    const overallGrowth = totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : 0
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `前年同月比月別分析_${selectedYear}vs${previousYear}_${new Date().toISOString().slice(0, 10)}.${format}`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }, [sortedData, selectedYear, previousYear, viewMode, formatValue])
 
-    return {
-      totalPrevious,
-      totalCurrent,
-      overallGrowth,
-      growingProducts,
-      decliningProducts,
-      totalProducts: filteredAndSortedData.length,
-    }
-  }, [filteredAndSortedData, viewMode, selectedYear, previousYear])
-
-  // チャート用データ生成
-  const chartData = useMemo(() => {
-    const months: Array<{ month: string; [key: string]: string | number }> = []
-    for (let month = 1; month <= 12; month++) {
-      const monthStr = month.toString().padStart(2, "0")
-      const monthData: { month: string; [key: string]: string | number } = { month: `${month}月` }
-
-      const topProducts = filteredAndSortedData.slice(0, 5)
-      topProducts.forEach((product) => {
-        const dataPrevious = product.monthlyData[`${previousYear}-${monthStr}`]?.[viewMode] || 0
-        const dataCurrent = product.monthlyData[`${selectedYear}-${monthStr}`]?.[viewMode] || 0
-
-        monthData[`${product.productName}_${previousYear}`] = dataPrevious
-        monthData[`${product.productName}_${selectedYear}`] = dataCurrent
-      })
-
-      months.push(monthData)
-    }
-    return months
-  }, [filteredAndSortedData, viewMode, selectedYear, previousYear])
-
-  // 🎯 条件設定→分析実行パターン: 分析実行ハンドラー
-  const executeAnalysis = useCallback(async (conditions: AnalysisConditions) => {
-    setAnalysisConditions(conditions)
-    setIsExecuting(true)
-    
-    try {
-      // 条件に基づいて年度を設定
-      if (conditions.selectedYear) {
-        setSelectedYear(conditions.selectedYear)
-      }
-      
-      // ビューモードを設定
-      setViewMode(conditions.viewMode)
-      
-      // カテゴリフィルターを設定
-      if (conditions.categories.length > 0) {
-        updateProductFilters({ category: conditions.categories[0] }) // 複数カテゴリ対応は今後実装
-      }
-      
-      // 最小売上閾値の設定（今後のAPI改修で対応）
-      // TODO: API側でminSalesパラメータをサポート
-      
-      await fetchYearOverYearData()
-      setAnalysisExecuted(true)
-      setAnalysisError(null)
-    } catch (error) {
-      console.error('Analysis execution error:', error)
-      const classifiedError = classifyError(error)
-      setAnalysisError(classifiedError)
-      showToast(classifiedError.message, 'error')
-    } finally {
-      setIsExecuting(false)
-    }
-  }, [fetchYearOverYearData, setSelectedYear, setViewMode, updateProductFilters, showToast])
-  
-  // 🎯 条件設定画面を表示（分析未実行時）
-  if (!analysisExecuted) {
-    return (
-      <YearOverYearProductAnalysisCondition
-        onExecute={executeAnalysis}
-        isExecuting={isExecuting}
-        availableCategories={[]} // TODO: カテゴリマスタから取得
-      />
-    )
-  }
-  
-  // 🚨 エラー画面の表示
-  if (analysisError && !isExecuting) {
-    return (
-      <YearOverYearProductErrorHandling
-        error={analysisError}
-        onRetry={() => {
-          setAnalysisError(null)
-          executeAnalysis(analysisConditions!)
-        }}
-        onGoBack={() => {
-          setAnalysisExecuted(false)
-          setAnalysisError(null)
-          setApiData(null)
-          setInitialized(false)
-        }}
-      />
-    )
-  }
-  
-  // 分析実行後のスケルトンローダー表示
-  if (isExecuting || (!initialized && analysisExecuted)) {
+  // 初期化中の全画面ローディング
+  if (!initialized) {
     return (
       <div className="space-y-6">
-        {/* コントロールパネルのスケルトン */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  前年同月比【商品】分析
-                </CardTitle>
-                <CardDescription>商品別の{analysisConditions?.selectedYear || selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
+          <CardContent className="p-12">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+              <div className="text-lg font-medium text-gray-700">
+                前年同月比分析データを読み込み中...
+              </div>
+              <div className="text-sm text-gray-500">
+                {selectedYear}年と{previousYear}年のデータを取得しています
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
-              ))}
-            </div>
           </CardContent>
         </Card>
-
-        {/* フィルターセクションのスケルトン */}
-        <Card>
-          <CardHeader>
-            <CardTitle>詳細フィルタリング</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* メインデータテーブルのスケルトン */}
-        <Card>
-          <CardHeader>
-            <CardTitle>商品別売上データ</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TableSkeleton rows={10} columns={13} />
-          </CardContent>
-        </Card>
-
-        {/* プログレスローダー（オプション） */}
-        {isExecuting && (
-          <div className="fixed bottom-4 right-4 z-50">
-            <ProgressiveLoader
-              current={0}
-              total={100}
-              message="データを分析中..."
-              subMessage="しばらくお待ちください"
-            />
-          </div>
-        )}
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* コントロールパネル */}
+      {/* ✅ 分析条件トグル機能付きフィルターセクション */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between items-center">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                前年同月比【商品】分析
-              </CardTitle>
-              <CardDescription>商品別の{selectedYear}年/{previousYear}年月次データ比較と成長率分析</CardDescription>
+              <CardTitle className="text-lg">分析条件設定</CardTitle>
+              <CardDescription>期間・商品・表示条件を設定してください</CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setAnalysisExecuted(false)
-                setAnalysisConditions(null)
-                setApiData(null)
-                setInitialized(false)
-              }}
+            <Button 
+              variant="outline" 
+              onClick={() => setShowConditions(!showConditions)}
               className="flex items-center gap-2"
             >
-              <Filter className="h-4 w-4" />
-              条件を変更
+              <Settings className="h-4 w-4" />
+              分析条件
+              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map(year => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}年 vs {year - 1}年
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        
+        {showConditions && (
+          <CardContent>
+            <div className="space-y-6">
+              {/* ✅ 年選択と表示設定 */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Calendar className="h-4 w-4 inline mr-1" />
+                    対象年
+                  </label>
+                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map(year => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}年 vs {year - 1}年
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sales">売上金額</SelectItem>
-                <SelectItem value="quantity">販売数量</SelectItem>
-                <SelectItem value="orders">注文件数</SelectItem>
-              </SelectContent>
-            </Select>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <BarChart3 className="h-4 w-4 inline mr-1" />
+                    表示モード
+                  </label>
+                  <div className="flex items-center h-10 px-3 py-2 border border-input bg-background rounded-md text-sm">
+                    📅 月別詳細表示（固定）
+                  </div>
+                </div>
 
-            <Select value={comparisonMode} onValueChange={(value: any) => setComparisonMode(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sideBySide">年度並列表示</SelectItem>
-                <SelectItem value="growth">成長率表示</SelectItem>
-              </SelectContent>
-            </Select>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">表示データ</label>
+                  <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sales">売上金額</SelectItem>
+                      <SelectItem value="quantity">販売数量</SelectItem>
+                      <SelectItem value="orders">注文件数</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="growth">成長率順</SelectItem>
-                <SelectItem value="total">売上順</SelectItem>
-                <SelectItem value="name">商品名順</SelectItem>
-              </SelectContent>
-            </Select>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">並び順</label>
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="growth">成長率順</SelectItem>
+                      <SelectItem value="total">売上順</SelectItem>
+                      <SelectItem value="name">商品名順</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-            <Button variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              エクスポート
-            </Button>
-          </div>
-        </CardContent>
+              {/* 詳細フィルター */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">成長状況</label>
+                  <Select value={filters.growthRate} onValueChange={(value) => handleFilterChange({ growthRate: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全商品</SelectItem>
+                      <SelectItem value="positive">成長商品のみ</SelectItem>
+                      <SelectItem value="negative">減少商品のみ</SelectItem>
+                      <SelectItem value="high_growth">高成長商品（+20%以上）</SelectItem>
+                      <SelectItem value="high_decline">要注意商品（-20%以下）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">商品カテゴリ</label>
+                  <Select value={filters.category} onValueChange={(value) => handleFilterChange({ category: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">全カテゴリ</SelectItem>
+                      {allCategories.map(category => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">商品検索</label>
+                  <Input
+                    placeholder="商品名で検索..."
+                    value={filters.searchTerm}
+                    onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* アクションボタン */}
+              <div className="flex gap-2">
+                <Button onClick={fetchYearOverYearData}>
+                  <Search className="h-4 w-4 mr-2" />
+                  分析実行
+                </Button>
+                <Button variant="outline" onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}>
+                  条件クリア
+                </Button>
+                <Button variant="outline" onClick={() => handleExport('csv')}>
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV出力
+                </Button>
+                <Button variant="outline" onClick={() => handleExport('excel')}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel出力
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
-      {/* 改善5: 詳細フィルタリング */}
-      <AdvancedFilters 
-        onFilterChange={(filters) => {
-          updateProductFilters({
-            searchTerm: filters.searchTerm,
-            category: filters.category
-          })
-        }} 
-        categories={categories} 
-      />
-
-      {/* サマリーカード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{formatValue(summary.totalPrevious, viewMode)}</div>
-            <div className="text-sm text-gray-600 mt-1">{previousYear}年合計</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-green-600">{formatValue(summary.totalCurrent, viewMode)}</div>
-            <div className="text-sm text-gray-600 mt-1">{selectedYear}年合計</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div
-              className={`text-2xl font-bold flex items-center justify-center gap-1 ${
-                summary.overallGrowth >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {summary.overallGrowth >= 0 ? (
-                <ArrowUpRight className="h-5 w-5" />
-              ) : (
-                <ArrowDownRight className="h-5 w-5" />
-              )}
-              {formatGrowthRate(summary.overallGrowth)}
+      {/* 条件サマリーバッジ（折りたたみ時に表示） */}
+      {!showConditions && (
+        <Card className="bg-slate-50">
+          <CardContent className="pt-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-slate-600 mr-2">現在の条件:</span>
+              <Badge variant="outline">{selectedYear}年 vs {previousYear}年</Badge>
+              <Badge variant="outline">月別詳細表示</Badge>
+              <Badge variant="outline">{viewMode === "sales" ? "売上金額" : viewMode === "quantity" ? "販売数量" : "注文件数"}</Badge>
+              <Badge variant="outline">{sortBy === "growth" ? "成長率順" : sortBy === "total" ? "売上順" : "商品名順"}</Badge>
+              {filters.category !== "all" && <Badge variant="outline">カテゴリ: {filters.category}</Badge>}
+              {filters.growthRate !== "all" && <Badge variant="outline">成長状況フィルター適用</Badge>}
+              {filters.searchTerm && <Badge variant="outline">検索: {filters.searchTerm}</Badge>}
+              <Badge variant="secondary">{sortedData.length}件表示</Badge>
             </div>
-            <div className="text-sm text-gray-600 mt-1">全体成長率</div>
           </CardContent>
         </Card>
+      )}
 
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-green-500">{summary.growingProducts}</div>
-            <div className="text-sm text-gray-600 mt-1">成長商品数</div>
+      {/* サマリー統計カード */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card className="bg-gradient-to-r from-blue-50 to-blue-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{sortedData.length}</div>
+            <div className="text-sm text-blue-700 mt-1">対象商品数</div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-red-500">{summary.decliningProducts}</div>
-            <div className="text-sm text-gray-600 mt-1">減少商品数</div>
+        <Card className="bg-gradient-to-r from-green-50 to-green-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {sortedData.filter(p => {
+                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                return avgGrowth > 0
+              }).length}
+            </div>
+            <div className="text-sm text-green-700 mt-1">成長商品数</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-red-50 to-red-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">
+              {sortedData.filter(p => {
+                const avgGrowth = p.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                return avgGrowth < 0
+              }).length}
+            </div>
+            <div className="text-sm text-red-700 mt-1">減少商品数</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-purple-50 to-purple-100">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {sortedData.length > 0 ? 
+                (sortedData.reduce((sum, p) => {
+                  const avgGrowth = p.monthlyData.reduce((s, m) => s + m.growthRate, 0) / 12
+                  return sum + avgGrowth
+                }, 0) / sortedData.length).toFixed(1) : "0"}%
+            </div>
+            <div className="text-sm text-purple-700 mt-1">平均成長率</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 改善3: 商品別成長率サマリー */}
-      <ProductGrowthRanking data={filteredAndSortedData} viewMode={viewMode} />
-
-      {/* 改善4: 季節性分析 */}
-      <SeasonalAnalysis data={filteredAndSortedData} viewMode={viewMode} />
-
-      {/* メインデータテーブル - 段階的表示対応 */}
-      <YearOverYearProductTable
-        data={filteredAndSortedData}
-        viewMode={viewMode}
-        comparisonMode={comparisonMode}
-        selectedYear={selectedYear}
-        previousYear={previousYear}
-      />
-
-      {/* トレンドチャート */}
+      {/* データテーブル（改良版） */}
       <Card>
         <CardHeader>
-          <CardTitle>商品別トレンド比較（上位5商品）</CardTitle>
-          <CardDescription>
-            {viewMode === "sales" ? "売上金額" : viewMode === "quantity" ? "販売数量" : "注文件数"}の月次推移
-          </CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                商品別月次推移データ
+              </CardTitle>
+              <CardDescription>
+                {selectedYear}年と{previousYear}年の月別比較データ（{sortedData.length}件の商品を表示中）
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+                <Download className="h-4 w-4 mr-1" />
+                CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Excel
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value: any) => formatValue(value, viewMode)}
-                  labelFormatter={(label) => `${label}`}
-                />
-                <Legend />
-
-                {filteredAndSortedData.slice(0, 5).map((product, index) => {
-                  const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
-
-                  return [
-                    <Line
-                      key={`${product.productId}_${previousYear}`}
-                      type="monotone"
-                      dataKey={`${product.productName}_${previousYear}`}
-                      stroke={colors[index]}
-                      strokeDasharray="5 5"
-                      strokeWidth={2}
-                      name={`${product.productName} (${previousYear})`}
-                      dot={{ r: 3 }}
-                    />,
-                    <Line
-                      key={`${product.productId}_${selectedYear}`}
-                      type="monotone"
-                      dataKey={`${product.productName}_${selectedYear}`}
-                      stroke={colors[index]}
-                      strokeWidth={3}
-                      name={`${product.productName} (${selectedYear})`}
-                      dot={{ r: 4 }}
-                    />,
-                  ]
-                })}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <span className="ml-2 text-gray-600">データを読み込み中...</span>
+            </div>
+          ) : (
+            <>
+              {/* 月別詳細表示（改良版） */}
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-gray-50">
+                    <tr className="border-b-2 border-gray-200">
+                      <th className="text-left py-4 px-3 font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[250px] border-r">
+                        商品情報
+                      </th>
+                      {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
+                        <th key={month} className="text-center py-4 px-2 font-semibold text-gray-900 min-w-[120px] border-r">
+                          <div className="text-sm">{month}</div>
+                          <div className="text-xs text-gray-500 font-normal">
+                            {selectedYear} / {previousYear}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {sortedData.map((product, productIndex) => {
+                      const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+                      return (
+                        <tr key={product.productId} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+                          <td className="py-4 px-3 sticky left-0 bg-white z-10 border-r">
+                            <div className="space-y-2">
+                              <div className="font-medium text-gray-900 text-sm leading-tight">
+                                {product.productName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {product.category}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={getGrowthBadgeColor(avgGrowth)}>
+                                  平均: {avgGrowth > 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </div>
+                          </td>
+                          {product.monthlyData.map((monthData, index) => (
+                            <td key={index} className="py-4 px-2 text-center border-r">
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {formatValue(monthData.current, viewMode)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  前年: {formatValue(monthData.previous, viewMode)}
+                                </div>
+                                <Badge 
+                                  className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
+                                >
+                                  {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {sortedData.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-4">
+                    {error ? (
+                      <AlertCircle className="h-12 w-12 mx-auto" />
+                    ) : (
+                      <Search className="h-12 w-12 mx-auto" />
+                    )}
+                  </div>
+                  {error ? (
+                    <>
+                      <div className="text-lg font-medium text-red-500 mb-2">
+                        データの取得に失敗しました
+                      </div>
+                      <div className="text-sm text-gray-500 mb-4">
+                        {error}
+                      </div>
+                      <Button onClick={fetchYearOverYearData} disabled={loading}>
+                        再読み込み
+                      </Button>
+                    </>
+                  ) : apiData && apiData.length === 0 ? (
+                    <>
+                      <div className="text-lg font-medium text-gray-500 mb-2">
+                        データが存在しません
+                      </div>
+                      <div className="text-sm text-gray-400 mb-4">
+                        選択した年度（{selectedYear}年）のデータがありません。<br/>
+                        他の年度を選択するか、データの登録状況を確認してください。
+                      </div>
+                      <Button variant="outline" onClick={fetchYearOverYearData} disabled={loading}>
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        再読み込み
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-medium text-gray-500 mb-2">
+                        検索条件に該当する商品が見つかりませんでした
+                      </div>
+                      <div className="text-sm text-gray-400 mb-4">
+                        フィルター条件を変更して再度お試しください
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}
+                      >
+                        フィルターをクリア
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
   )
-})
-
-// 表示名を設定（デバッグ用）
-YearOverYearProductAnalysis.displayName = 'YearOverYearProductAnalysis'
+}
 
 export default YearOverYearProductAnalysis

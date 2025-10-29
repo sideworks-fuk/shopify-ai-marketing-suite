@@ -118,12 +118,20 @@ export class YearOverYearApiClient {
       
       console.log('API Request URL:', url);
       
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers
       });
 
       if (!response.ok) {
@@ -145,12 +153,20 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/product-types?storeId=${storeId}`;
       
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers
       });
 
       if (!response.ok) {
@@ -172,12 +188,20 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/vendors?storeId=${storeId}`;
       
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers
       });
 
       if (!response.ok) {
@@ -203,12 +227,20 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/date-range?storeId=${storeId}`;
       
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers
       });
 
       if (!response.ok) {
@@ -234,12 +266,20 @@ export class YearOverYearApiClient {
     try {
       const url = `${this.baseUrl}/api/analytics/test`;
       
+      // デモトークンを取得
+      const demoToken = localStorage.getItem('demoToken')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      
+      if (demoToken) {
+        headers['Authorization'] = `Bearer ${demoToken}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers
       });
 
       if (!response.ok) {

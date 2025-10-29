@@ -108,7 +108,7 @@ export const YearOverYearProductAnalysisCondition: React.FC<AnalysisConditionPan
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export const YearOverYearProductAnalysisCondition: React.FC<AnalysisConditionPan
           {/* プリセット選択 */}
           <div className="space-y-3">
             <Label>クイック設定（プリセット）</Label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {ANALYSIS_PRESETS.map(preset => (
                 <Button
                   key={preset.id}
@@ -138,7 +138,7 @@ export const YearOverYearProductAnalysisCondition: React.FC<AnalysisConditionPan
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 左カラム */}
             <div className="space-y-4">
               {/* 分析期間 */}
@@ -317,24 +317,23 @@ export const YearOverYearProductAnalysisCondition: React.FC<AnalysisConditionPan
           </div>
 
           {/* 実行ボタン */}
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={handleExecute}
-            disabled={isExecuting}
-          >
-            {isExecuting ? (
-              <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                分析を実行中...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                分析を実行
-              </>
-            )}
-          </Button>
+          <div className="flex justify-end pt-4">
+            <Button
+              onClick={handleExecute}
+              disabled={isExecuting}
+              size="lg"
+              className="min-w-[120px]"
+            >
+              {isExecuting ? (
+                <>分析中...</>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  分析実行
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

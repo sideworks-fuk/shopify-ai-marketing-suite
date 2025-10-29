@@ -18,7 +18,9 @@ import {
   Settings, 
   HelpCircle, 
   ChevronDown,
-  ChevronRight 
+  ChevronRight,
+  Menu,
+  X
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -42,6 +44,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const refreshData = useAppStore((state) => state.refreshData)
   const exportData = useAppStore((state) => state.exportData)
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["settings", "sales", "purchase", "customers", "ai-insights"])
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const periodOptions = [
     { value: "今月", label: "今月" },
@@ -106,10 +109,20 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* モバイル用のオーバーレイ */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
       {/* サイドナビゲーション */}
-      <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+      <div className={`w-80 bg-white border-r border-gray-200 overflow-y-auto transition-transform duration-300 ease-in-out ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0 lg:static lg:block fixed inset-y-0 left-0 z-50`}>
         {/* ヘッダー */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Image
               src="/branding/logo.png"
@@ -120,6 +133,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
               priority
             />
           </Link>
+          {/* モバイル用の閉じるボタン */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* ナビゲーションメニュー */}
@@ -198,17 +220,28 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* メインコンテンツエリア */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* トップバー */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* パンくずナビゲーション */}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>ホーム</span>
-              <span>/</span>
-              <span className="text-gray-900 font-medium">
-                {pathname?.split('/').filter(Boolean).join(' / ') || ''}
-              </span>
+            {/* モバイル用のハンバーガーメニューボタン */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              {/* パンくずナビゲーション */}
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>ホーム</span>
+                <span>/</span>
+                <span className="text-gray-900 font-medium">
+                  {pathname?.split('/').filter(Boolean).join(' / ') || ''}
+                </span>
+              </div>
             </div>
 
             {/* 右側のコントロール */}
