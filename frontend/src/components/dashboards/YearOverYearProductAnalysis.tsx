@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   Loader2,
   AlertCircle,
+  Play,
 } from "lucide-react"
 import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
 
@@ -32,6 +33,62 @@ interface MonthlyProductData {
     growthRate: number
   }>
 }
+
+// テーブル行コンポーネント（メモ化してパフォーマンス最適化）
+const ProductTableRow = React.memo(({
+  product,
+  productIndex,
+  viewMode,
+  formatValue,
+  getGrowthBadgeColor,
+}: {
+  product: MonthlyProductData
+  productIndex: number
+  viewMode: "sales" | "quantity" | "orders"
+  formatValue: (value: number, mode: string) => string
+  getGrowthBadgeColor: (growth: number) => string
+}) => {
+  const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
+  
+  return (
+    <tr className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+      <td className="py-4 px-3 sticky left-0 bg-white z-10 border-r">
+        <div className="space-y-2">
+          <div className="font-medium text-gray-900 text-sm leading-tight">
+            {product.productName}
+          </div>
+          <div className="text-xs text-gray-500">
+            {product.category}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={getGrowthBadgeColor(avgGrowth)}>
+              平均: {avgGrowth > 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+            </Badge>
+          </div>
+        </div>
+      </td>
+      {product.monthlyData.map((monthData, index) => (
+        <td key={index} className="py-4 px-2 text-center border-r">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-gray-900">
+              {formatValue(monthData.current, viewMode)}
+            </div>
+            <div className="text-xs text-gray-500">
+              前年: {formatValue(monthData.previous, viewMode)}
+            </div>
+            <Badge 
+              className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
+            >
+              {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
+            </Badge>
+          </div>
+        </td>
+      ))}
+    </tr>
+  )
+})
+
+ProductTableRow.displayName = "ProductTableRow"
 
 const YearOverYearProductAnalysis = () => {
   // ✅ 年選択機能
@@ -403,21 +460,32 @@ const YearOverYearProductAnalysis = () => {
               </div>
 
               {/* アクションボタン */}
-              <div className="flex gap-2">
-                <Button onClick={fetchYearOverYearData}>
-                  <Search className="h-4 w-4 mr-2" />
-                  分析実行
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  onClick={fetchYearOverYearData}
+                  disabled={loading}
+                  size="lg"
+                  className="min-w-[120px]"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      分析実行
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}
+                  size="lg"
+                  className="min-w-[120px]"
+                >
                   条件クリア
-                </Button>
-                <Button variant="outline" onClick={() => handleExport('csv')}>
-                  <Download className="h-4 w-4 mr-2" />
-                  CSV出力
-                </Button>
-                <Button variant="outline" onClick={() => handleExport('excel')}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Excel出力
                 </Button>
               </div>
             </div>
@@ -540,45 +608,16 @@ const YearOverYearProductAnalysis = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white">
-                    {sortedData.map((product, productIndex) => {
-                      const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
-                      return (
-                        <tr key={product.productId} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
-                          <td className="py-4 px-3 sticky left-0 bg-white z-10 border-r">
-                            <div className="space-y-2">
-                              <div className="font-medium text-gray-900 text-sm leading-tight">
-                                {product.productName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {product.category}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className={getGrowthBadgeColor(avgGrowth)}>
-                                  平均: {avgGrowth > 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
-                                </Badge>
-                              </div>
-                            </div>
-                          </td>
-                          {product.monthlyData.map((monthData, index) => (
-                            <td key={index} className="py-4 px-2 text-center border-r">
-                              <div className="space-y-1">
-                                <div className="text-sm font-semibold text-gray-900">
-                                  {formatValue(monthData.current, viewMode)}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  前年: {formatValue(monthData.previous, viewMode)}
-                                </div>
-                                <Badge 
-                                  className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
-                                >
-                                  {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
-                                </Badge>
-                              </div>
-                            </td>
-                          ))}
-                        </tr>
-                      )
-                    })}
+                    {sortedData.map((product, productIndex) => (
+                      <ProductTableRow
+                        key={product.productId}
+                        product={product}
+                        productIndex={productIndex}
+                        viewMode={viewMode}
+                        formatValue={formatValue}
+                        getGrowthBadgeColor={getGrowthBadgeColor}
+                      />
+                    ))}
                   </tbody>
                 </table>
               </div>

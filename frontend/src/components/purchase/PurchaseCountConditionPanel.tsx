@@ -34,6 +34,12 @@ export function PurchaseCountConditionPanel({
     })
   }
 
+  const handleClear = () => {
+    setPeriod("12months")
+    setSegment("all")
+    setCompareWithPrevious(true)
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -91,7 +97,7 @@ export function PurchaseCountConditionPanel({
           </div>
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex gap-2 pt-4">
           <Button 
             onClick={handleExecute}
             disabled={isAnalyzing}
@@ -106,6 +112,14 @@ export function PurchaseCountConditionPanel({
                 分析実行
               </>
             )}
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={handleClear}
+            size="lg"
+            className="min-w-[120px]"
+          >
+            条件クリア
           </Button>
         </div>
       </CardContent>
