@@ -194,7 +194,7 @@ export function VirtualScroll<T>({
       ref={scrollElementRef}
       onScroll={handleScroll}
       className={cn(
-        "relative overflow-auto",
+        "relative overflow-y-auto overflow-x-hidden",
         className
       )}
       style={{ height: containerHeight }}

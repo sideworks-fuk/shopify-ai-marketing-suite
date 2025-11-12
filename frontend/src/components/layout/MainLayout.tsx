@@ -220,7 +220,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* メインコンテンツエリア */}
-      <div className="flex-1 flex flex-col lg:ml-0 min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:ml-0 min-w-0">
         {/* トップバー */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -299,7 +299,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 p-6 overflow-y-auto min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-6 min-w-0 overflow-x-hidden">
           <ErrorBoundaryWrapper
             fallbackTitle="ページの読み込みでエラーが発生しました"
             fallbackDescription="現在のページでエラーが発生しましたが、サイドメニューから他のページに移動できます。"

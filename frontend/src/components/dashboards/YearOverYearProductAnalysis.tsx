@@ -372,7 +372,7 @@ const YearOverYearProductAnalysis = () => {
 
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
+    <div className="space-y-6 w-full max-w-full">
       {/* ✅ 分析条件トグル機能付きフィルターセクション */}
       <Card>
         <CardHeader>
@@ -657,11 +657,11 @@ const YearOverYearProductAnalysis = () => {
           ) : (
             <>
               {/* 月別詳細表示（仮想スクロール対応版） */}
-              <div className="border rounded-lg max-w-full overflow-hidden">
-                <div className="relative">
+              <div className="border rounded-lg overflow-x-auto overflow-y-hidden max-w-full">
+                <div className="min-w-[1690px]">
                   {/* テーブルヘッダー（固定） */}
                   <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200">
-                    <div className="flex overflow-x-auto">
+                    <div className="flex">
                       <div className="sticky left-0 bg-gray-50 z-30 w-[250px] flex-shrink-0 border-r border-gray-200">
                         <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
                           商品情報
@@ -681,26 +681,24 @@ const YearOverYearProductAnalysis = () => {
                   </div>
                   
                   {/* テーブルボディ（仮想スクロール） */}
-                  <div className="overflow-x-auto bg-white">
-                    <div className="min-w-[1690px]">
-                      <VirtualScroll
-                        items={sortedData}
-                        itemHeight={ROW_HEIGHT}
-                        containerHeight={TABLE_HEIGHT - 64}
-                        renderItem={(product, index) => (
-                          <ProductTableRowVirtual
-                            key={product.productId}
-                            product={product}
-                            productIndex={index}
-                            viewMode={viewMode}
-                            formatValue={formatValue}
-                            getGrowthBadgeColor={getGrowthBadgeColor}
-                          />
-                        )}
-                        overscan={10}
-                        className="bg-white"
-                      />
-                    </div>
+                  <div className="bg-white">
+                    <VirtualScroll
+                      items={sortedData}
+                      itemHeight={ROW_HEIGHT}
+                      containerHeight={TABLE_HEIGHT - 64}
+                      renderItem={(product, index) => (
+                        <ProductTableRowVirtual
+                          key={product.productId}
+                          product={product}
+                          productIndex={index}
+                          viewMode={viewMode}
+                          formatValue={formatValue}
+                          getGrowthBadgeColor={getGrowthBadgeColor}
+                        />
+                      )}
+                      overscan={10}
+                      className="bg-white"
+                    />
                   </div>
                 </div>
               </div>
