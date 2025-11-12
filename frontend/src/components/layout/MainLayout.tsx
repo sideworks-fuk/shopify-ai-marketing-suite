@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu"
 import { BackendConnectionStatus } from "../common/BackendConnectionStatus"
+import { AppFooter } from "./AppFooter"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -222,7 +223,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* メインコンテンツエリア */}
       <div className="flex-1 flex flex-col lg:ml-0 min-w-0">
         {/* トップバー */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             {/* モバイル用のハンバーガーメニューボタン */}
             <div className="flex items-center gap-4">
@@ -307,6 +308,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {children}
           </ErrorBoundaryWrapper>
         </main>
+        
+        {/* フッター */}
+        <AppFooter />
       </div>
       
       {/* バックエンド接続状態の表示（開発環境のみ） */}

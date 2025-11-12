@@ -246,9 +246,19 @@ export default function InstallPolarisPage() {
               <div style={{ textAlign: 'center' }}>
                 <Text as="p" variant="bodySm" tone="subdued">
                   インストールすることで、
-                  <a href="/terms" style={{ color: '#006BE5' }}> 利用規約 </a>
+                  <a 
+                    href="https://www.access-net.co.jp/shopify/terms.html" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ color: '#006BE5', textDecoration: 'underline' }}
+                  > 利用規約 </a>
                   と
-                  <a href="/privacy" style={{ color: '#006BE5' }}> プライバシーポリシー </a>
+                  <a 
+                    href="https://www.access-net.co.jp/shopify/data-processing-agreement.html" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ color: '#006BE5', textDecoration: 'underline' }}
+                  > データ処理契約 </a>
                   に同意したものとみなされます。
                 </Text>
               </div>
