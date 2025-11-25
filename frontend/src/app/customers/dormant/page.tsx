@@ -121,6 +121,8 @@ export default function DormantCustomersPage() {
         })
         
         setSummaryData(response.data)
+        console.log('✅ summaryDataをセット完了:', response.data)
+        console.log('✅ totalDormantCustomers値:', response.data?.totalDormantCustomers)
         
       } catch (err) {
         console.error('❌ サマリーデータの取得に失敗:', err)
@@ -313,7 +315,7 @@ export default function DormantCustomersPage() {
           mainTitle="休眠顧客分析【顧客】"
           description="最終購入からの期間で顧客を分析し、休眠期間に応じた復帰施策の立案と効果測定に役立てます"
           badges={[
-            { label: `${dormantData.length}名`, variant: "outline" },
+            { label: `${summaryData ? (summaryData.totalDormantCustomers || 0).toLocaleString() : '読込中...'}名`, variant: "outline" },
             { label: "復帰施策", variant: "secondary" },
             { label: "期間セグメント", variant: "default" },
             { label: "🔗 API連携", variant: "default" }
@@ -367,7 +369,7 @@ export default function DormantCustomersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-lg shadow">
                     <div className="text-sm text-gray-600">総休眠顧客数</div>
-                    <div className="text-2xl font-bold">{(summaryData.totalDormantCustomers || 0).toLocaleString()}名</div>
+                    <div className="text-2xl font-bold">{(summaryData?.totalDormantCustomers || 0).toLocaleString()}名</div>
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow">
                     <div className="text-sm text-gray-600">休眠率</div>

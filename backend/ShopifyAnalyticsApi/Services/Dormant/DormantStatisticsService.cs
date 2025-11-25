@@ -60,10 +60,19 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
                 var dormantCustomers = await GetDormantCustomersAsync(storeId);
 
+                // 休眠率を計算するために全体の顧客数を取得（購入履歴がある顧客のみ）
+                var totalCustomersWithOrders = await _context.Customers
+                    .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
+                    .CountAsync();
+
                 var stats = new DormantSummaryStats
                 {
                     TotalDormantCustomers = dormantCustomers.Count,
-                    AnalysisDate = DateTime.UtcNow
+                    AnalysisDate = DateTime.UtcNow,
+                    // 休眠率を計算（購入履歴がある顧客に対する休眠顧客の割合）
+                    DormantRate = totalCustomersWithOrders > 0 
+                        ? Math.Round((decimal)dormantCustomers.Count / totalCustomersWithOrders * 100, 1)
+                        : 0
                 };
 
                 // セグメント統計
@@ -82,6 +91,20 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 var revenueStats = CalculateRevenueStats(dormantCustomers);
                 stats.TotalLostRevenue = revenueStats.TotalLostRevenue;
                 stats.PotentialRecoverableRevenue = revenueStats.PotentialRecoverableRevenue;
+                
+                // 平均休眠日数を計算（購入履歴がある休眠顧客のみ）
+                if (dormantCustomers.Any())
+                {
+                    var dormantDaysList = dormantCustomers
+                        .Where(c => c.Orders?.Any() == true)
+                        .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.CreatedAt)).Days)
+                        .ToList();
+                    
+                    if (dormantDaysList.Any())
+                    {
+                        stats.AverageDormancyDays = (int)Math.Round(dormantDaysList.Average());
+                    }
+                }
 
                 // キャッシュに保存
                 var cacheOptions = new MemoryCacheEntryOptions

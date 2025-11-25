@@ -230,7 +230,9 @@ export default function InitialSetupPage() {
                       }) : '未同期'}
                     </p>
                   </div>
-                  <Clock className="h-8 w-8 text-orange-500" />
+                  <div className="flex items-center">
+                    <Clock className="h-8 w-8 text-orange-500" />
+                  </div>
                 </div>
               </CardContent>
             </Card>

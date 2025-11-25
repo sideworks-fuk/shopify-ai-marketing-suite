@@ -20,7 +20,15 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  X
+  X,
+  User,
+  LogOut,
+  Shield,
+  Package,
+  ShoppingBag,
+  Users,
+  Brain,
+  Cog
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -32,6 +40,7 @@ import {
 } from "../ui/dropdown-menu"
 import { BackendConnectionStatus } from "../common/BackendConnectionStatus"
 import { AppFooter } from "./AppFooter"
+import { useAuth } from "@/components/providers/AuthProvider"
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -40,12 +49,19 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { isAuthenticated, authMode, logout } = useAuth()
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const setSelectedPeriod = useAppStore((state) => state.setSelectedPeriod)
   const refreshData = useAppStore((state) => state.refreshData)
   const exportData = useAppStore((state) => state.exportData)
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["settings", "sales", "purchase", "customers", "ai-insights"])
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  
+  // ログアウト処理
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
 
   const periodOptions = [
     { value: "今月", label: "今月" },
@@ -63,28 +79,33 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const categories = [
     {
       id: "settings",
-      label: "⚙️ 設定",
+      label: "設定",
+      icon: Cog,
       description: "システム設定"
     },
     {
       id: "sales",
-      label: "📦 商品分析",
+      label: "商品分析",
+      icon: Package,
       description: "売上・商品分析"
     },
     {
       id: "purchase", 
-      label: "🛍️ 購買分析",
+      label: "購買分析",
+      icon: ShoppingBag,
       description: "購買行動分析"
     },
     {
       id: "customers",
-      label: "👥 顧客分析", 
+      label: "顧客分析",
+      icon: Users, 
       description: "顧客セグメント分析"
     },
     // 一時的に非表示
     // {
     //   id: "ai-insights",
-    //   label: "🤖 AIインサイト",
+    //   label: "AIインサイト",
+    //   icon: Brain,
     //   description: "AI予測・提案"
     // }
   ]
@@ -160,7 +181,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     className="w-full flex items-center justify-between px-3 py-3 text-left rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-lg">{category.label}</span>
+                      {category.icon && <category.icon className="h-5 w-5 text-gray-600" />}
+                      <span className="text-base font-medium">{category.label}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">{menuItems.length}</span>
@@ -189,7 +211,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <span>{item.icon}</span>
+                            {typeof item.icon === 'string' ? (
+                              <span>{item.icon}</span>
+                            ) : (
+                              <item.icon className="h-4 w-4 text-gray-600" />
+                            )}
                             <div>
                               <div className="font-medium">{item.label}</div>
                               {item.description && (
@@ -274,6 +300,40 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <Download className="h-4 w-4 mr-2" />
                 エクスポート
               </Button> */}
+
+              {/* ユーザーメニュー */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="hidden sm:inline text-sm">
+                      {authMode === 'shopify' ? 'Shopifyユーザー' : 'デモユーザー'}
+                    </span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    アカウント
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">認証モード</span>
+                      <span className="text-xs text-gray-500">
+                        {authMode === 'shopify' ? 'Shopify OAuth' : 'デモモード'}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    ログアウト
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* その他のアクション - 設定ボタンのみ表示 */}
               <DropdownMenu>

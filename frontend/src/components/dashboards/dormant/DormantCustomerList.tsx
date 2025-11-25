@@ -316,9 +316,17 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">休眠顧客一覧</span>
-            <Badge variant="outline" className="ml-2">
-              {filteredAndSortedCustomers.length.toLocaleString()}名
-            </Badge>
+            {/* フィルタ適用状態の表示 */}
+            {(purchaseHistoryFilter !== "all" || purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) ? (
+              <Badge variant="outline" className="ml-2">
+                {filteredAndSortedCustomers.length.toLocaleString()}件
+                <span className="ml-1 text-xs opacity-70">(フィルタ適用)</span>
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="ml-2">
+                {filteredAndSortedCustomers.length.toLocaleString()}件
+              </Badge>
+            )}
             {purchaseHistoryFilter !== "with-purchase" && (
               <Badge variant="secondary" className="text-xs">
                 {purchaseHistoryFilter === "no-purchase" ? "購入履歴なし" : "すべて表示"}
@@ -726,7 +734,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
                 
                 {/* 現在ページ周辺 */}
                 {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+                  // totalPagesが5以下の場合は1から開始、それ以外は現在ページを中心に表示
+                  const startPage = totalPages <= 5 ? 1 : Math.max(1, Math.min(totalPages - 4, currentPage - 2))
+                  const pageNum = startPage + i
                   if (pageNum > totalPages) return null
                   return (
                     <Button

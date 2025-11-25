@@ -194,14 +194,19 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         {
             try
             {
+                // 前年データが1以上の場合のみ正常な成長率を計算
+                // 極小値の場合は計算を避ける
                 var growthRate = new GrowthRateMetrics
                 {
-                    CustomerCountGrowth = previous.CustomerCount > 0 ? 
-                        (decimal)(current.CustomerCount - previous.CustomerCount) / previous.CustomerCount * 100 : 0,
-                    OrderCountGrowth = previous.OrderCount > 0 ? 
-                        (decimal)(current.OrderCount - previous.OrderCount) / previous.OrderCount * 100 : 0,
-                    AmountGrowth = previous.TotalAmount > 0 ? 
-                        (current.TotalAmount - previous.TotalAmount) / previous.TotalAmount * 100 : 0,
+                    CustomerCountGrowth = previous.CustomerCount >= 1 ? 
+                        (decimal)(current.CustomerCount - previous.CustomerCount) / previous.CustomerCount * 100 
+                        : (current.CustomerCount > 0 ? 999999 : 0), // 新規獲得を示す特別な値（フロントエンドで判定用）
+                    OrderCountGrowth = previous.OrderCount >= 1 ? 
+                        (decimal)(current.OrderCount - previous.OrderCount) / previous.OrderCount * 100 
+                        : (current.OrderCount > 0 ? 999999 : 0),
+                    AmountGrowth = previous.TotalAmount >= 1 ? 
+                        (current.TotalAmount - previous.TotalAmount) / previous.TotalAmount * 100 
+                        : (current.TotalAmount > 0 ? 999999 : 0),
                     GrowthTrend = DetermineGrowthTrend(current.TotalAmount, previous.TotalAmount)
                 };
 

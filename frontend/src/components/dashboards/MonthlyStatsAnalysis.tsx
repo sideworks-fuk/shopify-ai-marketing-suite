@@ -706,30 +706,30 @@ const MonthlyStatsAnalysis = React.memo(function MonthlyStatsAnalysis({
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="sticky left-0 bg-background z-10 min-w-[150px] border-r">
+                  <TableRow className="border-b">
+                    <TableHead className="sticky left-0 bg-gray-50 z-10 min-w-[180px] border-r border-gray-200">
                       商品名
                     </TableHead>
                     {months.map((month, index) => (
-                      <TableHead key={index} className="text-center min-w-[120px]">
+                      <TableHead key={index} className="text-center min-w-[120px] bg-gray-50">
                         {month}
                       </TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="sticky left-0 bg-background font-medium border-r">
+                  {products.map((product, productIndex) => (
+                    <TableRow key={product.id} className={`${productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'} hover:bg-gray-50 transition-colors`}>
+                      <TableCell className="sticky left-0 bg-white font-medium border-r border-gray-200 z-10">
                         <div>
                           <div className="font-medium text-sm">{product.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-gray-500">
                             {getCategoryStyle(product.category).name}
                           </div>
                         </div>
                       </TableCell>
                       {months.map((_, monthIndex) => (
-                        <TableCell key={monthIndex} className="text-right">
+                        <TableCell key={monthIndex} className="text-right px-4">
                           {renderCellContent(product.id, monthIndex)}
                         </TableCell>
                       ))}

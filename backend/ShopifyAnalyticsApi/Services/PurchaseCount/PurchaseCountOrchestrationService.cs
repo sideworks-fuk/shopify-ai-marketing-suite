@@ -396,14 +396,26 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                 };
 
                 // 成長率計算
-                if (simplifiedDetail.Previous.CustomerCount > 0)
+                // 前年データが存在し、意味のある値の場合のみ成長率を計算
+                // 極小値（1未満）や0の場合は計算しない
+                if (simplifiedDetail.Previous.CustomerCount >= 1)
                 {
                     simplifiedDetail.GrowthRate = new GrowthRateMetrics
                     {
                         CustomerCountGrowth = ((decimal)simplifiedDetail.Current.CustomerCount / simplifiedDetail.Previous.CustomerCount - 1) * 100,
-                        OrderCountGrowth = ((decimal)simplifiedDetail.Current.OrderCount / simplifiedDetail.Previous.OrderCount - 1) * 100,
-                        AmountGrowth = (simplifiedDetail.Current.TotalAmount / simplifiedDetail.Previous.TotalAmount - 1) * 100
+                        OrderCountGrowth = simplifiedDetail.Previous.OrderCount > 0 
+                            ? ((decimal)simplifiedDetail.Current.OrderCount / simplifiedDetail.Previous.OrderCount - 1) * 100 
+                            : 0,
+                        AmountGrowth = simplifiedDetail.Previous.TotalAmount > 0 
+                            ? (simplifiedDetail.Current.TotalAmount / simplifiedDetail.Previous.TotalAmount - 1) * 100 
+                            : 0
                     };
+                }
+                else if (simplifiedDetail.Current.CustomerCount > 0 && simplifiedDetail.Previous.CustomerCount < 1)
+                {
+                    // 前年データが0または極小値で、今年データがある場合は新規として扱う
+                    // nullを返すことでフロントエンドで「新規」や「N/A」と表示可能
+                    simplifiedDetail.GrowthRate = null;
                 }
             }
 

@@ -262,10 +262,27 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
                         {conditions.compareWithPrevious && (
                           <td className="text-right p-2">
                             {detail.growthRate ? (
-                              <span className={detail.growthRate.customerCountGrowth > 0 ? "text-green-600" : "text-red-600"}>
-                                {formatPercentage(detail.growthRate.customerCountGrowth)}
-                              </span>
-                            ) : "-"}
+                              // 999999は前年データなしで今年データありを示す
+                              detail.growthRate.customerCountGrowth >= 999999 ? (
+                                <span className="text-blue-600 font-medium">新規</span>
+                              ) : detail.growthRate.customerCountGrowth > 1000 ? (
+                                // 1000%以上の異常値も新規扱い（前年がほぼ0）
+                                <span className="text-blue-600 font-medium">新規</span>
+                              ) : (
+                                <span className={detail.growthRate.customerCountGrowth > 0 ? "text-green-600" : "text-red-600"}>
+                                  {formatPercentage(detail.growthRate.customerCountGrowth)}
+                                </span>
+                              )
+                            ) : (
+                              // growthRateがnullの場合
+                              detail.current?.customerCount > 0 ? (
+                                // 今年データがある場合は新規として扱う
+                                <span className="text-blue-600 font-medium">新規</span>
+                              ) : (
+                                // 今年もデータがない場合は該当なし
+                                <span className="text-gray-400">該当なし</span>
+                              )
+                            )}
                           </td>
                         )}
                       </tr>
