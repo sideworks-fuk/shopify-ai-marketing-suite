@@ -35,6 +35,8 @@ import {
   type RiskLevel,
   type DormancyReason 
 } from "@/types/models/customer"
+import { useAuth } from "@/components/providers/AuthProvider"
+import { getCurrentStoreId } from "@/lib/api-config"
 
 // API データの型定義（簡易版）
 interface ApiDormantCustomer {
@@ -61,13 +63,16 @@ interface ApiDormantCustomer {
 interface DormantCustomerListProps {
   selectedSegment?: DormantSegment | null;
   dormantData?: ApiDormantCustomer[];
+  maxDisplayCount?: number;
+  onMaxDisplayCountChange?: (count: number) => void;
+  isLoading?: boolean;
 }
 
-export function DormantCustomerList({ selectedSegment, dormantData = [] }: DormantCustomerListProps) {
+export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisplayCount = 200, onMaxDisplayCountChange, isLoading: externalIsLoading = false }: DormantCustomerListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
-  const [purchaseCountFilter, setPurchaseCountFilter] = useState(1) // デフォルト: 1回以上
-  const [purchaseHistoryFilter, setPurchaseHistoryFilter] = useState<"all" | "with-purchase" | "no-purchase">("with-purchase") // 新規追加
+  const [purchaseCountFilter, setPurchaseCountFilter] = useState(0) // デフォルト: 0回以上（すべて表示）
+  const [purchaseHistoryFilter, setPurchaseHistoryFilter] = useState<"all" | "with-purchase" | "no-purchase">("all") // デフォルトを"all"に変更
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState<string>("daysSinceLastPurchase")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
@@ -264,14 +269,98 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
     setCurrentPage(1) // 最初のページに戻る
   }
 
-  // CSV エクスポート（フィルタ適用後のデータのみ）
-  const exportToCSV = () => {
+  // CSV エクスポート（全データ取得オプション付き）
+  const exportToCSV = async () => {
+    // 表示制限がある場合、全データ取得オプションを提供
+    let dataToExport = filteredAndSortedCustomers
+    
+    if (dormantData.length >= maxDisplayCount) {
+      const confirmExportAll = window.confirm(
+        `現在、最大${maxDisplayCount}件のデータが表示されています。\n\n` +
+        '全データをエクスポートしますか？\n' +
+        '「OK」: サーバーから全データを取得（時間がかかる場合があります）\n' +
+        '「キャンセル」: 現在表示中のデータのみエクスポート'
+      )
+      
+      if (confirmExportAll) {
+        try {
+          // API クライアントを取得
+          const { getApiClient } = useAuth()
+          const api = getApiClient()
+          
+          // 簡易的なローディング表示
+          const loadingMessage = document.createElement('div')
+          loadingMessage.innerHTML = '<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; z-index: 9999;">全データを取得中...</div>'
+          document.body.appendChild(loadingMessage)
+          
+          // 全データ取得
+          const response = await api.dormantCustomers({
+            storeId: getCurrentStoreId(),
+            pageSize: 50000, // 大きな値で全件取得を試みる
+            sortBy: sortField,
+            descending: sortDirection === 'desc'
+          })
+          
+          dataToExport = response.data?.customers || []
+          console.log(`✅ 全データ取得完了: ${dataToExport.length}件`)
+          
+          // ローディング表示を削除
+          document.body.removeChild(loadingMessage)
+          
+          // フィルタを適用（全データに対して現在のフィルタ条件を適用）
+          if (purchaseHistoryFilter !== "all" || purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) {
+            dataToExport = dataToExport.filter(customer => {
+              // 既存のフィルタロジックを適用
+              const processedCustomer = processCustomerDisplayData(customer)
+              
+              // 購入履歴フィルタ
+              if (purchaseHistoryFilter === "no-purchase" && !processedCustomer.hasNoPurchaseHistory) return false
+              if (purchaseHistoryFilter === "with-purchase" && processedCustomer.hasNoPurchaseHistory) return false
+              
+              // 購入回数フィルタ
+              if (purchaseCountFilter > 0 && !processedCustomer.hasNoPurchaseHistory && 
+                  (customer.totalOrders || 0) < purchaseCountFilter) return false
+              
+              // リスクレベルフィルタ
+              if (riskFilter !== "all" && processedCustomer.displayRiskLevel !== riskFilter) return false
+              
+              // 検索フィルタ
+              if (searchTerm) {
+                const searchLower = searchTerm.toLowerCase()
+                const customerName = String(customer.name || '').toLowerCase()
+                const customerEmail = String(customer.email || '').toLowerCase()
+                const companyName = String(customer.company || '').toLowerCase()
+                
+                if (!customerName.includes(searchLower) && 
+                    !customerEmail.includes(searchLower) && 
+                    !companyName.includes(searchLower)) {
+                  return false
+                }
+              }
+              
+              return true
+            })
+          }
+          
+        } catch (error) {
+          console.error('❌ 全データ取得エラー:', error)
+          // ローディング表示があれば削除
+          const loadingEl = document.querySelector('div[style*="position: fixed"]')
+          if (loadingEl) loadingEl.remove()
+          
+          alert('全データの取得に失敗しました。表示中のデータをエクスポートします。')
+          dataToExport = filteredAndSortedCustomers
+        }
+      }
+    }
+    
+    // CSV用のデータ作成
     const headers = [
       '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
       'リスクレベル', '復帰確率', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
     ]
     
-    const csvData = filteredAndSortedCustomers.map(customer => {
+    const csvData = dataToExport.map(customer => {
       const customerId = customer.customerId?.toString() || ''
       const customerName = customer.name || ''
       const lastPurchaseDate = customer.lastPurchaseDate
@@ -325,6 +414,14 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
             ) : (
               <Badge variant="outline" className="ml-2">
                 {filteredAndSortedCustomers.length.toLocaleString()}件
+                {/* 実際のデータ数が最大表示件数より少ない場合 */}
+                {dormantData.length < maxDisplayCount && maxDisplayCount > 200 && (
+                  <span className="ml-1 text-xs opacity-70">(全データ)</span>
+                )}
+                {/* 最大表示件数に達している場合 */}
+                {dormantData.length >= maxDisplayCount && (
+                  <span className="ml-1 text-xs opacity-70">(最大{maxDisplayCount.toLocaleString()}件表示)</span>
+                )}
               </Badge>
             )}
             {purchaseHistoryFilter !== "with-purchase" && (
@@ -355,18 +452,88 @@ export function DormantCustomerList({ selectedSegment, dormantData = [] }: Dorma
             <Button
               variant="outline"
               size="sm"
-              onClick={exportToCSV}
+              onClick={() => exportToCSV()}
               className="flex items-center gap-2"
               disabled={filteredAndSortedCustomers.length === 0}
             >
               <Download className="h-4 w-4" />
               CSV出力
+              {dormantData.length >= maxDisplayCount && (
+                <span className="ml-1 text-xs">(全件取得可)</span>
+              )}
             </Button>
           </div>
         </CardTitle>
       </CardHeader>
       
       <CardContent>
+        {/* データ取得状況のアラート */}
+        {!externalIsLoading && dormantData.length < maxDisplayCount && maxDisplayCount > 200 && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium">データ取得完了</p>
+                <p className="text-xs mt-1">
+                  最大{maxDisplayCount.toLocaleString()}件を要求しましたが、実際に取得できたデータは
+                  <span className="font-semibold mx-1">{dormantData.length.toLocaleString()}件</span>
+                  です。これがすべての該当データです。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* 最大表示件数の選択 */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600">最大表示件数:</label>
+            <select
+              value={maxDisplayCount}
+              onChange={(e) => {
+                const newCount = parseInt(e.target.value)
+                if (onMaxDisplayCountChange) {
+                  onMaxDisplayCountChange(newCount)
+                }
+              }}
+              disabled={externalIsLoading}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value={100}>100件</option>
+              <option value={200}>200件</option>
+              <option value={500}>500件</option>
+              <option value={1000}>1,000件</option>
+              <option value={2000}>2,000件</option>
+              <option value={5000}>5,000件</option>
+              <option value={10000}>10,000件</option>
+            </select>
+            {externalIsLoading ? (
+              <span className="text-xs text-blue-600 ml-2 flex items-center gap-1">
+                <span className="inline-block animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+                {maxDisplayCount >= 1000 
+                  ? `${maxDisplayCount.toLocaleString()}件のデータを取得中...` 
+                  : 'データを取得中...'}
+              </span>
+            ) : (
+              <>
+                {/* 実際のデータ数が最大表示件数より少ない場合の表示 */}
+                {dormantData.length < maxDisplayCount && (
+                  <span className="text-xs text-gray-600 ml-2">
+                    実際のデータ: {dormantData.length.toLocaleString()}件
+                    {dormantData.length === 0 && ' (データなし)'}
+                  </span>
+                )}
+                {/* 最大表示件数に達している場合 */}
+                {dormantData.length === maxDisplayCount && maxDisplayCount >= 1000 && (
+                  <span className="text-xs text-orange-600 ml-2">
+                    {maxDisplayCount.toLocaleString()}件表示中（さらにデータが存在する可能性があります）
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        
         {/* フィルター */}
         <div className="mb-4">
           <h3 className="text-sm font-medium text-gray-700 mb-3">フィルター条件</h3>

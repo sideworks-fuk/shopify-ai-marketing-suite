@@ -39,6 +39,9 @@ export default function DormantCustomersPage() {
   // 主要3区分セグメント定義
   const [detailedSegments, setDetailedSegments] = useState<any[]>([])
   const [isLoadingSegments, setIsLoadingSegments] = useState(false)
+  
+  // 最大表示件数の管理
+  const [maxDisplayCount, setMaxDisplayCount] = useState(200)
 
   // 購入履歴のある顧客のみで平均休眠日数を計算
   const calculateAdjustedAverageDormancyDays = useCallback((summaryData: any) => {
@@ -252,20 +255,35 @@ export default function DormantCustomersPage() {
       setIsLoadingList(true)
       setError(null)
       
-      console.log('🔄 休眠顧客リストの取得を開始...', { segment })
+      console.log('🔄 休眠顧客リストの取得を開始...', { segment, maxDisplayCount })
       
-      const response = await api.dormantCustomers({
+      // APIリクエストパラメータをログ出力
+      const requestParams = {
         storeId: getCurrentStoreId(),
         segment,
-        pageSize: 200, // ページング機能のため十分なデータを取得
+        pageSize: maxDisplayCount, // ユーザーが選択した最大表示件数
         sortBy: 'DaysSinceLastPurchase',
         descending: true
-      })
+      }
+      
+      console.log('📤 APIリクエストパラメータ:', requestParams)
+      
+      const response = await api.dormantCustomers(requestParams)
       
       console.log('✅ 顧客リスト取得成功:', response)
       
       const customersData = response.data?.customers || []
       console.log('📊 取得された顧客データ数:', customersData.length)
+      console.log('📊 要求した最大件数:', maxDisplayCount)
+      
+      // 実際のデータ数が要求数より少ない場合の警告
+      if (customersData.length < maxDisplayCount && maxDisplayCount > 200) {
+        console.log('⚠️ 実際のデータ数が要求数より少ない:', {
+          要求: maxDisplayCount,
+          実際: customersData.length,
+          差分: maxDisplayCount - customersData.length
+        })
+      }
       
       setDormantData(customersData)
       setSelectedSegment(segment || null)
@@ -278,7 +296,7 @@ export default function DormantCustomersPage() {
     } finally {
       setIsLoadingList(false)
     }
-  }, [])
+  }, [maxDisplayCount])
 
   // 初期表示時は全セグメントのデータを取得
   useEffect(() => {
@@ -286,6 +304,15 @@ export default function DormantCustomersPage() {
       loadCustomerList()
     }
   }, [isLoadingSummary, summaryData, selectedSegment, loadCustomerList])
+  
+  // maxDisplayCountが変更された時にデータを再取得
+  useEffect(() => {
+    if (!isLoadingSummary && summaryData && dormantData.length > 0) {
+      console.log('📊 最大表示件数が変更されました:', maxDisplayCount)
+      // loadCustomerListは既にmaxDisplayCountを依存配列に含んでいるので
+      // 自動的に新しいmaxDisplayCountでAPIを呼び出す
+    }
+  }, [maxDisplayCount])
 
   // アクセス権限の確認中
   if (isAccessLoading) {
@@ -453,12 +480,33 @@ export default function DormantCustomersPage() {
             </div>
 
             {/* Step 3: 顧客リスト（テーブル形式・フィルタ・ページネーション対応） */}
-            <Suspense fallback={<LoadingSpinner />}>
-              <DormantCustomerList 
-                selectedSegment={filters.selectedSegment}
-                dormantData={dormantData}
-              />
-            </Suspense>
+            {isLoadingList ? (
+              <div className="bg-white rounded-lg shadow p-8">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4"></div>
+                  <p className="text-gray-600">データを取得中...</p>
+                  {maxDisplayCount >= 1000 && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      {maxDisplayCount.toLocaleString()}件のデータを取得しています。しばらくお待ちください...
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <Suspense fallback={<LoadingSpinner />}>
+                <DormantCustomerList 
+                  selectedSegment={selectedSegment}
+                  dormantData={dormantData}
+                  maxDisplayCount={maxDisplayCount}
+                  isLoading={isLoadingList}
+                  onMaxDisplayCountChange={(newCount) => {
+                    setMaxDisplayCount(newCount)
+                    // 表示件数変更時にデータを再取得
+                    loadCustomerList(selectedSegment || undefined)
+                  }}
+                />
+              </Suspense>
+            )}
           </>
         )}
 
