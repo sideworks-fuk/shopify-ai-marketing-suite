@@ -55,6 +55,7 @@ export function PurchaseCountConditionPanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="1month">過去1ヶ月</SelectItem>
                 <SelectItem value="3months">過去3ヶ月</SelectItem>
                 <SelectItem value="6months">過去6ヶ月</SelectItem>
                 <SelectItem value="12months">過去12ヶ月</SelectItem>

@@ -48,6 +48,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     request.EndDate = DateTime.Now;
                     request.StartDate = request.Period switch
                     {
+                        "1month" => DateTime.Now.AddMonths(-1),
                         "3months" => DateTime.Now.AddMonths(-3),
                         "6months" => DateTime.Now.AddMonths(-6),
                         "12months" => DateTime.Now.AddMonths(-12),

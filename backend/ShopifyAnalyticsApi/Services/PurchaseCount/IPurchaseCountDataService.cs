@@ -26,6 +26,16 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         Task<(string segmentName, List<int> customerIds)> GetSegmentCustomerIdsAsync(int storeId, string segment);
 
         /// <summary>
+        /// セグメント顧客IDを取得（期間指定あり）
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <param name="segment">セグメント</param>
+        /// <param name="startDate">開始日</param>
+        /// <param name="endDate">終了日</param>
+        /// <returns>セグメント名と顧客IDリスト</returns>
+        Task<(string segmentName, List<int> customerIds)> GetSegmentCustomerIdsAsync(int storeId, string segment, DateTime? startDate, DateTime? endDate);
+
+        /// <summary>
         /// セグメント顧客の購入回数データを取得
         /// </summary>
         /// <param name="storeId">ストアID</param>
