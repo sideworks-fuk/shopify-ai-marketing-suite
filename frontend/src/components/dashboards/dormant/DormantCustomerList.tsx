@@ -384,7 +384,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     // CSV用のデータ作成
     const headers = [
       '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
-      'リスクレベル', '復帰確率', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
+      'リスクレベル', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
     ]
     
     const csvData = dataToExport.map(customer => {
@@ -393,7 +393,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       const lastPurchaseDate = customer.lastPurchaseDate
       const daysSince = customer.daysSinceLastPurchase || 0
       const riskLevel = customer.riskLevel || 'medium'
-      const churnProbability = customer.churnProbability || 0
       const totalSpent = customer.totalSpent || 0
       
       return [
@@ -407,7 +406,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
         daysSince,
         customer.dormancySegment || '',
         getRiskBadge(riskLevel as RiskLevel).label,
-        `${Math.round((1 - churnProbability) * 100)}%`, // 復帰確率に変更
         totalSpent.toLocaleString(),
         customer.totalOrders || 0,
         (customer.averageOrderValue || 0).toLocaleString(),
@@ -463,10 +461,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
             )}
             {riskFilter !== "all" && (
               <Badge variant="outline" className="text-xs">
-                {riskFilter === "critical" ? "高リスク" : 
-                 riskFilter === "high" ? "中高リスク" :
-                 riskFilter === "medium" ? "中リスク" : 
-                 riskFilter === "low" ? "低リスク" : "未評価"}のみ
+                {riskFilter === "critical" ? "危険" : 
+                 riskFilter === "high" ? "高" :
+                 riskFilter === "medium" ? "中" : 
+                 riskFilter === "low" ? "低" : "未評価"}リスクのみ
               </Badge>
             )}
             {searchTerm && (
@@ -566,58 +564,70 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           <h3 className="text-sm font-medium text-gray-700 mb-3">フィルター条件</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="顧客名・会社名・IDで検索..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">顧客検索</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="顧客名・会社名・IDで検索..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
 
-          <Select value={purchaseHistoryFilter} onValueChange={(value) => setPurchaseHistoryFilter(value as "all" | "with-purchase" | "no-purchase")}>
-            <SelectTrigger>
-              <SelectValue placeholder="購入履歴" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="with-purchase">購入履歴あり</SelectItem>
-              <SelectItem value="no-purchase">購入履歴なし</SelectItem>
-              <SelectItem value="all">すべて表示</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">購買履歴</label>
+            <Select value={purchaseHistoryFilter} onValueChange={(value) => setPurchaseHistoryFilter(value as "all" | "with-purchase" | "no-purchase")}>
+              <SelectTrigger>
+                <SelectValue placeholder="購入履歴" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="with-purchase">購入履歴あり</SelectItem>
+                <SelectItem value="no-purchase">購入履歴なし</SelectItem>
+                <SelectItem value="all">すべて表示</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           
-          <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
-            <SelectTrigger>
-              <SelectValue placeholder="リスクレベル" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全て</SelectItem>
-              <SelectItem value="critical">高（危険）</SelectItem>
-              <SelectItem value="high">中高（高リスク）</SelectItem>
-              <SelectItem value="medium">中（中リスク）</SelectItem>
-              <SelectItem value="low">低（低リスク）</SelectItem>
-              <SelectItem value="unrated">未評価</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">リスクレベル</label>
+            <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
+              <SelectTrigger>
+                <SelectValue placeholder="リスクレベル" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全て</SelectItem>
+                <SelectItem value="critical">危険</SelectItem>
+                <SelectItem value="high">高</SelectItem>
+                <SelectItem value="medium">中</SelectItem>
+                <SelectItem value="low">低</SelectItem>
+                <SelectItem value="unrated">未評価</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select 
-            value={purchaseCountFilter.toString()} 
-            onValueChange={(value) => setPurchaseCountFilter(parseInt(value))}
-            disabled={purchaseHistoryFilter === 'no-purchase'}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="購入回数" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">全て</SelectItem>
-              <SelectItem value="1">1回以上</SelectItem>
-              <SelectItem value="2">2回以上</SelectItem>
-              <SelectItem value="3">3回以上</SelectItem>
-              <SelectItem value="5">5回以上</SelectItem>
-              <SelectItem value="10">10回以上</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <label className="text-xs text-gray-600 mb-1 block">購入回数</label>
+            <Select 
+              value={purchaseCountFilter.toString()} 
+              onValueChange={(value) => setPurchaseCountFilter(parseInt(value))}
+              disabled={purchaseHistoryFilter === 'no-purchase'}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="購入回数" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">全て</SelectItem>
+                <SelectItem value="1">1回以上</SelectItem>
+                <SelectItem value="2">2回以上</SelectItem>
+                <SelectItem value="3">3回以上</SelectItem>
+                <SelectItem value="5">5回以上</SelectItem>
+                <SelectItem value="10">10回以上</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="flex items-end">
             <Button
@@ -742,9 +752,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                         </Button>
                       </TableHead>
                       <TableHead className="w-[100px]">
-                        <Button variant="ghost" onClick={() => handleSort("churnProbability")} className="h-auto p-0 font-semibold hover:bg-gray-100">
-                          復帰確率
-                          {getSortIcon("churnProbability")}
+                        <Button variant="ghost" onClick={() => handleSort("totalOrders")} className="h-auto p-0 font-semibold hover:bg-gray-100">
+                          累計購入数
+                          {getSortIcon("totalOrders")}
                         </Button>
                       </TableHead>
                       <TableHead className="w-[120px] text-right">アクション</TableHead>
@@ -755,8 +765,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                       const processedCustomer = processCustomerDisplayData(customer)
                       const customerId = customer.customerId?.toString() || ''
                       const customerName = customer.name || ''
-                      const churnProbability = customer.churnProbability || 0
-                      const returnProbability = Math.round((1 - churnProbability) * 100)
                       
                       return (
                         <TableRow 
@@ -817,25 +825,20 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                             <div className={`font-medium ${processedCustomer.hasNoPurchaseHistory ? 'text-gray-500' : ''}`}>
                               ¥{(processedCustomer.displayTotalSpent || 0).toLocaleString()}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {processedCustomer.hasNoPurchaseHistory ? (
-                                <span className="italic">購入なし</span>
-                              ) : (
-                                `${customer.totalOrders || 0}回購入`
-                              )}
-                            </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
-                              {processedCustomer.hasNoPurchaseHistory ? (
-                                <span className="text-sm text-gray-400 italic">N/A</span>
-                              ) : (
-                                <div className={`text-sm font-medium ${
-                                  returnProbability >= 70 ? 'text-green-600' :
-                                  returnProbability >= 40 ? 'text-yellow-600' : 'text-red-600'
-                                }`}>
-                                  {returnProbability}%
-                                </div>
+                            <div className="text-center">
+                              <div className={`font-medium ${processedCustomer.hasNoPurchaseHistory ? 'text-gray-500' : ''}`}>
+                                {processedCustomer.hasNoPurchaseHistory ? (
+                                  <span className="italic">-</span>
+                                ) : (
+                                  `${customer.totalOrders || 0}回`
+                                )}
+                              </div>
+                              {!processedCustomer.hasNoPurchaseHistory && (customer.totalOrders || 0) >= 10 && (
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  優良顧客
+                                </Badge>
                               )}
                             </div>
                           </TableCell>
