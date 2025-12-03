@@ -114,3 +114,4 @@ pageSize: maxDisplayCount
 ## 関連ファイル
 - `docs/worklog/2025/11/2025-11-25-dormant-customer-count-fix.md`
 - `docs/tasks/task-251125-frontend-bug-fixes.md`
+

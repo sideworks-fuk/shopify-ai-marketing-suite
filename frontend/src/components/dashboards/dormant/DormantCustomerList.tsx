@@ -61,7 +61,7 @@ interface ApiDormantCustomer {
 }
 
 interface DormantCustomerListProps {
-  selectedSegment?: DormantSegment | null;
+  selectedSegment?: string | null;  // 文字列に変更（セグメント名）
   dormantData?: ApiDormantCustomer[];
   maxDisplayCount?: number;
   onMaxDisplayCountChange?: (count: number) => void;
@@ -69,6 +69,18 @@ interface DormantCustomerListProps {
 }
 
 export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisplayCount = 200, onMaxDisplayCountChange, isLoading: externalIsLoading = false }: DormantCustomerListProps) {
+  // Propsの受け取り確認
+  useEffect(() => {
+    console.log('🎯 [DormantCustomerList] Props受け取り', {
+      selectedSegment,
+      dormantDataLength: dormantData?.length || 0,
+      dormantDataType: Array.isArray(dormantData) ? 'array' : typeof dormantData,
+      maxDisplayCount,
+      externalIsLoading,
+      timestamp: new Date().toISOString()
+    })
+  }, [selectedSegment, dormantData, maxDisplayCount, externalIsLoading])
+
   const [searchTerm, setSearchTerm] = useState("")
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
   const [purchaseCountFilter, setPurchaseCountFilter] = useState(0) // デフォルト: 0回以上（すべて表示）
@@ -173,13 +185,28 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       const matchesSegment = !selectedSegment || (() => {
         const customerSegment = customer.dormancySegment
         if (customerSegment) {
-          const segmentMatch = customerSegment === selectedSegment.label
+          // 文字列で直接比較
+          const segmentMatch = customerSegment === selectedSegment
           return segmentMatch
         }
         
+        // dormancySegmentがない場合は日数で判定
         const daysSince = customer.daysSinceLastPurchase || 0
-        const rangeMatch = daysSince >= selectedSegment.range[0] &&
-               (selectedSegment.range[1] === 9999 || daysSince <= selectedSegment.range[1])
+        
+        // セグメント文字列から範囲を判定
+        let minDays = 0, maxDays = 9999
+        if (selectedSegment === '90-180日') {
+          minDays = 90
+          maxDays = 180
+        } else if (selectedSegment === '180-365日') {
+          minDays = 180
+          maxDays = 365
+        } else if (selectedSegment === '365日以上') {
+          minDays = 365
+          maxDays = 9999
+        }
+        
+        const rangeMatch = daysSince >= minDays && (maxDays === 9999 || daysSince <= maxDays)
         return rangeMatch
       })()
 
@@ -652,11 +679,20 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                 <div className="text-gray-500">
                   {filteredAndSortedCustomers.length === 0
                     ? (dormantData.length === 0 
-                        ? (
-                            <div>
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                              <p>データを取得中...</p>
-                            </div>
+                        ? (externalIsLoading
+                            ? (
+                                <div>
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                  <p>データを取得中...</p>
+                                </div>
+                              )
+                            : (
+                                <div>
+                                  <div className="text-4xl mb-4">📭</div>
+                                  <p className="text-lg mb-2">該当するデータがありません</p>
+                                  <p className="text-sm text-gray-500">このセグメントには顧客が存在しません</p>
+                                </div>
+                              )
                           )
                         : (
                             <div>

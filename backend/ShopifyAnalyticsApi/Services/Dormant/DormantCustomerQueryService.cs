@@ -431,11 +431,18 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         {
             var now = DateTime.UtcNow;
             
-            return segment?.ToLower() switch
+            // セグメント文字列の正規化（半角・全角対応）
+            var normalizedSegment = segment?.Replace("－", "-").ToLower();
+            
+            return normalizedSegment switch
             {
                 "90-180日" => (now.AddDays(-180), now.AddDays(-90)),
                 "180-365日" => (now.AddDays(-365), now.AddDays(-180)),
                 "365日以上" => (DateTime.MinValue, now.AddDays(-365)),
+                // 英語版もサポート
+                "90-180" => (now.AddDays(-180), now.AddDays(-90)),
+                "180-365" => (now.AddDays(-365), now.AddDays(-180)),
+                "365+" => (DateTime.MinValue, now.AddDays(-365)),
                 _ => null
             };
         }

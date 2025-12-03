@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react"
+import React, { useMemo, useState, useEffect, useCallback, Suspense, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -18,11 +18,13 @@ import { useDormantFilters } from "@/contexts/FilterContext"
 import { useFeatureAccess } from "@/hooks/useFeatureAccess"
 import { useAuth } from "@/components/providers/AuthProvider"
 
+// デバッグ用カウンター
+let loadCustomerListCallCount = 0
+
 export default function DormantCustomersPage() {
   // 機能アクセス制御
   const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
   const { getApiClient } = useAuth()
-  const api = getApiClient()
   
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   // Note: All hooks must be called before any conditional returns
@@ -33,12 +35,48 @@ export default function DormantCustomersPage() {
   const [dormantData, setDormantData] = useState<any[]>([])
   const [isLoadingSummary, setIsLoadingSummary] = useState(true)
   const [isLoadingList, setIsLoadingList] = useState(false)
+  const isLoadingRef = useRef(false)  // ローディング状態をrefでも管理
+  const hasInitialLoadRef = useRef(false)  // 初期ロードが完了したかを追跡
+  
+  // isLoadingListの変更を監視
+  useEffect(() => {
+    console.log(`🔄 isLoadingList: ${isLoadingList}, isLoadingRef: ${isLoadingRef.current}`)
+  }, [isLoadingList])
+
   const [error, setError] = useState<string | null>(null)
-  const [selectedSegment, setSelectedSegment] = useState<string | null>(null)
+  const [selectedSegment, setSelectedSegmentInternal] = useState<string | null>(null)
+  
+  // selectedSegmentの変更を監視するラッパー関数
+  const setSelectedSegment = (segment: string | null) => {
+    console.log('🔄 [setSelectedSegment] 状態更新', {
+      oldValue: selectedSegment,
+      newValue: segment,
+      timestamp: new Date().toISOString()
+    })
+    setSelectedSegmentInternal(segment)
+  }
 
   // 主要3区分セグメント定義
   const [detailedSegments, setDetailedSegments] = useState<any[]>([])
   const [isLoadingSegments, setIsLoadingSegments] = useState(false)
+  
+  // isLoadingSegmentsの変更を監視
+  useEffect(() => {
+    console.log('🎆 [isLoadingSegments状態変更]', {
+      isLoadingSegments,
+      timestamp: new Date().toISOString()
+    })
+  }, [isLoadingSegments])
+
+  // dormantDataの変更を監視
+  useEffect(() => {
+    console.log('📊 [dormantData更新]', {
+      dataLength: dormantData.length,
+      selectedSegment,
+      timestamp: new Date().toISOString(),
+      firstItem: dormantData[0] || null
+    })
+  }, [dormantData, selectedSegment])
   
   // 最大表示件数の管理
   const [maxDisplayCount, setMaxDisplayCount] = useState(200)
@@ -114,7 +152,8 @@ export default function DormantCustomersPage() {
         
         console.log('🔄 休眠顧客サマリーデータの取得を開始...')
         
-        const response = await api.dormantSummary(getCurrentStoreId())
+        const apiClient = getApiClient()
+        const response = await apiClient.dormantSummary(getCurrentStoreId())
         console.log('✅ サマリーデータ取得成功:', response)
         console.log('📊 サマリーデータの内容:', {
           success: response.success,
@@ -141,20 +180,22 @@ export default function DormantCustomersPage() {
     }
 
     fetchSummaryData()
-  }, [])
+  }, [getApiClient])
 
   // Step 1.5: 主要期間区分データを取得
   useEffect(() => {
     const fetchDetailedSegments = async () => {
       try {
-        setIsLoadingSegments(true)
+        // セグメントデータの取得はオプションなので、ローディング表示をしない
+        // setIsLoadingSegments(true)
         setError(null)
         
         console.log('🔄 主要期間区分データの取得を開始...')
         const storeId = getCurrentStoreId()
         console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
         
-        const response = await api.dormantDetailedSegments(storeId)
+        const apiClient = getApiClient()
+        const response = await apiClient.dormantDetailedSegments(storeId)
         console.log('✅ 主要期間区分データ取得成功:', response)
         console.log('📊 レスポンスデータ構造:', {
           success: response.success,
@@ -210,12 +251,12 @@ export default function DormantCustomersPage() {
         // サマリーデータからフォールバックが可能なためエラーを抑制
         console.warn('詳細セグメントAPI失敗、サマリーデータからのフォールバックを期待')
       } finally {
-        setIsLoadingSegments(false)
+        // setIsLoadingSegments(false)
       }
     }
 
     fetchDetailedSegments()
-  }, [])
+  }, [getApiClient])
 
   // 代替案: サマリーデータからセグメント情報を作成
   useEffect(() => {
@@ -251,30 +292,101 @@ export default function DormantCustomersPage() {
 
   // Step 2: 顧客リストは選択後に遅延読み込み
   const loadCustomerList = useCallback(async (segment?: string) => {
+    loadCustomerListCallCount++
+    console.log(`🚀 [loadCustomerList] 開始 #${loadCustomerListCallCount} - segment: ${segment}, isLoadingList: ${isLoadingList}, isLoadingRef: ${isLoadingRef.current}`)
+    
+    // ローディング中フラグを確認
+    if (isLoadingRef.current) {
+      console.warn('⚠️ [loadCustomerList] 既にローディング中のためスキップ (refチェック)')
+      return
+    }
+    
     try {
+      console.log('🔄 [loadCustomerList] setIsLoadingList(true)呼び出し')
+      isLoadingRef.current = true  // refも更新
       setIsLoadingList(true)
+      console.log('🔄 [loadCustomerList] setIsLoadingList(true)完了')
       setError(null)
       
       console.log('🔄 休眠顧客リストの取得を開始...', { segment, maxDisplayCount })
       
-      // APIリクエストパラメータをログ出力
-      const requestParams = {
+      // APIリクエストパラメータを構築
+      // セグメントが指定されている場合のみパラメータに含める
+      const requestParams: any = {
         storeId: getCurrentStoreId(),
-        segment,
         pageSize: maxDisplayCount, // ユーザーが選択した最大表示件数
         sortBy: 'DaysSinceLastPurchase',
         descending: true
       }
       
+      console.log('🎆 [パラメータ構築] segment判定', {
+        segment,
+        isSegmentTruthy: !!segment,
+        isSegmentNotAll: segment !== 'all',
+        willAddSegment: !!(segment && segment !== 'all'),
+        timestamp: new Date().toISOString()
+      })
+      
+      // セグメントが指定されている場合のみ追加
+      if (segment && segment !== 'all') {
+        requestParams.segment = segment
+        console.log('✅ segmentパラメータを追加:', segment)
+      } else {
+        console.log('⚠️ segmentパラメータを追加しない:', { segment })
+      }
+      
       console.log('📤 APIリクエストパラメータ:', requestParams)
       
-      const response = await api.dormantCustomers(requestParams)
+      console.log('⏳ [loadCustomerList] API呼び出し前', {
+        requestParams,
+        timestamp: new Date().toISOString()
+      })
       
-      console.log('✅ 顧客リスト取得成功:', response)
+      let response
+      try {
+        const apiClient = getApiClient()
+        response = await apiClient.dormantCustomers(requestParams)
+        console.log('🎉 [loadCustomerList] API呼び出し完了', {
+          hasResponse: !!response,
+          responseKeys: response ? Object.keys(response) : [],
+          timestamp: new Date().toISOString()
+        })
+      } catch (apiError) {
+        console.error('🚨 [loadCustomerList] API呼び出しエラー', apiError)
+        throw apiError
+      }
+      
+      console.log('✅ 顧客リスト取得成功:', {
+        response,
+        dataLength: response?.data?.customers?.length,
+        timestamp: new Date().toISOString()
+      })
+      
+      // レスポンスの妥当性チェック
+      if (!response) {
+        console.error('❌ [loadCustomerList] responseがnull/undefined')
+        throw new Error('APIレスポンスが空です')
+      }
+      
+      if (!response.data) {
+        console.error('❌ [loadCustomerList] response.dataがnull/undefined', {
+          response,
+          responseKeys: Object.keys(response)
+        })
+        throw new Error('APIレスポンスにdataが含まれていません')
+      }
       
       const customersData = response.data?.customers || []
       console.log('📊 取得された顧客データ数:', customersData.length)
       console.log('📊 要求した最大件数:', maxDisplayCount)
+      
+      // 0件の場合の特別な処理
+      if (customersData.length === 0) {
+        console.log('ℹ️ [loadCustomerList] データが0件です', {
+          segment,
+          timestamp: new Date().toISOString()
+        })
+      }
       
       // 実際のデータ数が要求数より少ない場合の警告
       if (customersData.length < maxDisplayCount && maxDisplayCount > 200) {
@@ -285,34 +397,125 @@ export default function DormantCustomersPage() {
         })
       }
       
-      setDormantData(customersData)
-      setSelectedSegment(segment || null)
+      console.log('💾 [loadCustomerList] データ設定前', {
+        customersDataLength: customersData.length,
+        segment,
+        timestamp: new Date().toISOString()
+      })
+      
+      console.log('🔄 [loadCustomerList] データ設定実行', {
+        customersDataLength: customersData.length,
+        segment,
+        timestamp: new Date().toISOString(),
+        customersDataSample: customersData.slice(0, 3)  // 最初の3件のサンプル
+      })
+      
+      // 明示的に空配列でも設定を試みる
+      const dataToSet = customersData || []
+      console.log('📝 [loadCustomerList] setDormantData呼び出し前', {
+        dataToSetLength: dataToSet.length,
+        dataToSetType: Array.isArray(dataToSet) ? 'array' : typeof dataToSet,
+        currentDormantDataLength: dormantData.length
+      })
+      
+      // 新しい配列参照を作成して確実に更新をトリガー
+      const newData = [...dataToSet];
+      console.log('🔄 [setDormantData] 実行直前', {
+        newDataLength: newData.length,
+        newDataSample: newData.slice(0, 2)
+      });
+      setDormantData(newData);
+      console.log('✅ [setDormantData] 実行完了');
+      // setSelectedSegmentは既にクリック時に設定済みなのでここでは呼ばない
+      // setSelectedSegment(segment || null)
+      
+      // State更新後の確認（非同期なので実際の更新は見えない）
+      console.log('✨ [loadCustomerList] 完了', {
+        segment,
+        dataCount: dataToSet.length,
+        timestamp: new Date().toISOString(),
+        stateWillBeUpdated: true
+      })
       
     } catch (err) {
       console.error('❌ 顧客リストの取得に失敗:', err)
-      setError('顧客リストの取得に失敗しました')
+      
+      // エラーメッセージを詳細化
+      let errorMessage = '顧客リストの取得に失敗しました'
+      if (err instanceof Error) {
+        if (err.message.includes('Network')) {
+          errorMessage = 'ネットワークエラー: サーバーに接続できません'
+        } else if (err.message.includes('timeout')) {
+          errorMessage = 'タイムアウト: データの読み込みに時間がかかっています'
+        } else {
+          errorMessage = `エラー: ${err.message}`
+        }
+      }
+      
+      setError(errorMessage)
       setDormantData([])
-      setSelectedSegment(segment || null)
+      // エラー時もsetSelectedSegmentは呼ばない
+      // setSelectedSegment(segment || null)
     } finally {
-      setIsLoadingList(false)
+      console.log('🏁 [loadCustomerList] finally処理開始', {
+        segment,
+        currentIsLoadingRef: isLoadingRef.current,
+        timestamp: new Date().toISOString()
+      })
+      // 必ずローディング状態をfalseにする
+      console.log('🏁 [loadCustomerList] ローディング状態をリセット')
+      isLoadingRef.current = false  // refも更新
+      setIsLoadingList(false)  // stateを更新（これが再レンダリングをトリガー）
+      console.log('🏁 [loadCustomerList] ローディング状態リセット完了')
+      
+      // // 強制再レンダリングは不要
+      // requestAnimationFrame(() => {
+      //   setIsLoadingList(false)
+      // })
     }
-  }, [maxDisplayCount])
+  }, [maxDisplayCount, getApiClient])  // getApiClientを追加
 
   // 初期表示時は全セグメントのデータを取得
   useEffect(() => {
-    if (!isLoadingSummary && summaryData && !selectedSegment) {
-      loadCustomerList()
+    console.log('🔄 [useEffect - 初期ロード]', {
+      isLoadingSummary,
+      hasSummaryData: !!summaryData,
+      selectedSegment,
+      dormantDataLength: dormantData.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    // サマリーデータが取得できたら、初期データを1回だけ取得
+    if (!isLoadingSummary && summaryData && !hasInitialLoadRef.current && !isLoadingList) {
+      console.log('✋ [初期ロード] 全データ取得を実行');
+      hasInitialLoadRef.current = true;  // 初期ロード完了をマーク
+      loadCustomerList(selectedSegment || undefined).catch(err => {
+        console.error('🚨 [初期ロード] エラー', err)
+      })
     }
-  }, [isLoadingSummary, summaryData, selectedSegment, loadCustomerList])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingSummary, summaryData])  // loadCustomerListは意図的に除外
   
   // maxDisplayCountが変更された時にデータを再取得
+  const prevMaxDisplayCount = React.useRef(maxDisplayCount)
   useEffect(() => {
-    if (!isLoadingSummary && summaryData && dormantData.length > 0) {
-      console.log('📊 最大表示件数が変更されました:', maxDisplayCount)
-      // loadCustomerListは既にmaxDisplayCountを依存配列に含んでいるので
-      // 自動的に新しいmaxDisplayCountでAPIを呼び出す
+    console.log('🔄 [useEffect - 件数変更]', {
+      prevCount: prevMaxDisplayCount.current,
+      currentCount: maxDisplayCount,
+      selectedSegment,
+      isLoadingSummary,
+      hasSummaryData: !!summaryData,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!isLoadingSummary && summaryData && prevMaxDisplayCount.current !== maxDisplayCount) {
+      console.log('📊 [件数変更] 最大表示件数が変更されました:', maxDisplayCount)
+      prevMaxDisplayCount.current = maxDisplayCount
+      // 現在の選択状態に応じてデータを再取得
+      loadCustomerList(selectedSegment || undefined)
     }
-  }, [maxDisplayCount])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxDisplayCount, selectedSegment])  // loadCustomerListは意図的に除外
 
   // アクセス権限の確認中
   if (isAccessLoading) {
@@ -352,7 +555,7 @@ export default function DormantCustomersPage() {
 
       <div className="container mx-auto px-4 py-6">
         {/* 全体ローディング状態 */}
-        {(isLoadingSummary || isLoadingSegments) && (
+        {isLoadingSummary && (
           <div className="text-center py-12">
             <div className="relative mb-6">
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
@@ -372,11 +575,10 @@ export default function DormantCustomersPage() {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
-                  style={{
-                    width: !isLoadingSummary && !isLoadingSegments ? '100%' :
-                           !isLoadingSummary || !isLoadingSegments ? '70%' : '30%'
-                  }}
+                  className={`bg-blue-600 h-2 rounded-full transition-all duration-500 ${
+                    !isLoadingSummary && !isLoadingSegments ? 'w-full' :
+                    !isLoadingSummary || !isLoadingSegments ? 'w-[70%]' : 'w-[30%]'
+                  }`}
                 ></div>
               </div>
             </div>
@@ -387,10 +589,10 @@ export default function DormantCustomersPage() {
         )}
         
         {/* ローディング完了後のコンテンツ */}
-        {!isLoadingSummary && !isLoadingSegments && (
+        {!isLoadingSummary && summaryData && (
           <>
             {/* Step 1: サマリー表示 */}
-            {summaryData && (
+            {(
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-4">休眠顧客サマリー</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -433,22 +635,59 @@ export default function DormantCustomersPage() {
               {/* 詳細な期間別セグメント */}
               {detailedSegments.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {detailedSegments.map((segment) => (
-                    <div
-                      key={segment.label}
-                      className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                        selectedSegment === segment.range
-                          ? 'bg-blue-50 border-blue-300 shadow-md'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => {
-                        // 既に選択されているセグメントの場合は全件表示に戻す（トグル動作）
-                        if (selectedSegment === segment.range) {
-                          loadCustomerList()
-                        } else {
-                          loadCustomerList(segment.range)
-                        }
-                      }}
+                  {detailedSegments.map((segment) => {
+                    // 初期表示時（selectedSegmentがnull）で、180-365日のセグメントは選択状態とする
+                    // または明示的に選択されている場合
+                    const isSelected = selectedSegment === segment.label || 
+                                     (!selectedSegment && segment.label === '180-365日' && segment.count > 0)
+                    return (
+                      <div
+                        key={segment.label}
+                        className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                          isSelected
+                            ? 'bg-blue-50 border-blue-300 shadow-md'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                        onClick={() => {
+                          console.log('🖱️ [セグメントクリック]', {
+                            segment: segment.label,
+                            isSelected,
+                            isLoadingList,
+                            timestamp: new Date().toISOString()
+                          })
+                          
+                          // ローディング中はクリックを無効化
+                          if (isLoadingList) {
+                            console.log('⚠️ 現在データを読み込み中です')
+                            return
+                          }
+                          
+                          // async関数でラップして適切にerror処理を行う
+                          const handleSegmentAction = async () => {
+                            try {
+                              if (isSelected) {
+                                console.log('🔄 [セグメント解除] 全件表示に戻す', segment.label)
+                                // 先にselectedSegmentをクリア
+                                setSelectedSegment(null)
+                                // その後全データを取得
+                                await loadCustomerList()
+                              } else {
+                                console.log('✅ [セグメント選択]', segment.label)
+                                // 先にselectedSegmentを設定
+                                setSelectedSegment(segment.label)
+                                // その後データを取得
+                                await loadCustomerList(segment.label)
+                              }
+                            } catch (err) {
+                              console.error('🚨 [セグメントアクション] エラー', err)
+                              // エラー時にローディング状態を確実に解除
+                              setIsLoadingList(false)
+                            }
+                          }
+                          
+                          // 非同期関数を実行
+                          handleSegmentAction()
+                        }}
                     >
                       <div className="text-center">
                         <div className="text-3xl mb-3">
@@ -467,9 +706,10 @@ export default function DormantCustomersPage() {
                         <div className="mt-3 text-xs text-gray-400">
                           クリックして詳細表示
                         </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -480,6 +720,14 @@ export default function DormantCustomersPage() {
             </div>
 
             {/* Step 3: 顧客リスト（テーブル形式・フィルタ・ページネーション対応） */}
+            {console.log('🎨 [レンダリング条件チェック]', {
+              isLoadingList,
+              isLoadingSummary,
+              hasSummaryData: !!summaryData,
+              dormantDataLength: dormantData.length,
+              selectedSegment,
+              timestamp: new Date().toISOString()
+            })}
             {isLoadingList ? (
               <div className="bg-white rounded-lg shadow p-8">
                 <div className="flex flex-col items-center justify-center">
@@ -494,6 +742,13 @@ export default function DormantCustomersPage() {
               </div>
             ) : (
               <Suspense fallback={<LoadingSpinner />}>
+                {/* デバッグ: 実際に渡されるデータを確認 */}
+                {console.log('🚀 [DormantCustomerList描画]', {
+                  selectedSegment,
+                  dormantDataLength: dormantData.length,
+                  isLoadingList,
+                  timestamp: new Date().toISOString()
+                })}
                 <DormantCustomerList 
                   selectedSegment={selectedSegment}
                   dormantData={dormantData}

@@ -63,7 +63,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         public async Task<DormantCustomerResponse> GetDormantCustomersAsync(DormantCustomerRequest request)
         {
-            _logger.LogInformation("休眠顧客リスト取得開始 StoreId: {StoreId}", request.StoreId);
+            _logger.LogInformation("休眠顧客リスト取得開始 StoreId: {StoreId}, Segment: {Segment}, PageSize: {PageSize}", 
+                request.StoreId, request.Segment, request.PageSize);
 
             // リクエストを新しいクエリ形式に変換
             var query = new DormantCustomerQuery
@@ -78,6 +79,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
             // 専門サービスを使用してデータ取得
             var result = await _queryService.GetDormantCustomersAsync(query);
+            
+            _logger.LogInformation("休眠顧客リスト取得完了 件数: {Count}", result.Items.Count);
 
             // レスポンス形式に変換（既存のDormantCustomerResponseを使用）
             return new DormantCustomerResponse
@@ -159,7 +162,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             // 既存リクエストパラメータを新しいフィルター形式に変換
             if (request.MinTotalSpent == null && 
                 request.MaxTotalSpent == null &&
-                string.IsNullOrEmpty(request.Segment))
+                string.IsNullOrEmpty(request.Segment) &&
+                string.IsNullOrEmpty(request.RiskLevel))
             {
                 return null;
             }

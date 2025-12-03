@@ -58,11 +58,27 @@ export class ApiClient {
     };
 
     const url = `${this.baseUrl}${endpoint}`;
-    console.log('📤 API Request:', { url, method: options.method || 'GET' });
+    console.log('📤 [APIClient.request] リクエスト送信', { 
+      url, 
+      method: options.method || 'GET',
+      headers,
+      timestamp: new Date().toISOString()
+    });
 
+    console.log('⏳ [APIClient.request] fetch呼び出し中...');
+    const fetchStartTime = Date.now();
+    
     const response = await fetch(url, {
       ...options,
       headers,
+    });
+    
+    const fetchEndTime = Date.now();
+    console.log('📥 [APIClient.request] fetch完了', {
+      duration: `${fetchEndTime - fetchStartTime}ms`,
+      status: response.status,
+      ok: response.ok,
+      timestamp: new Date().toISOString()
     });
 
     if (!response.ok) {
@@ -95,7 +111,14 @@ export class ApiClient {
       throw new Error(`API Error: ${response.status} ${errorText}`);
     }
     
-    return response.json();
+    console.log('📦 [APIClient.request] JSONパース中...');
+    const jsonData = await response.json();
+    console.log('✅ [APIClient.request] レスポンス受信完了', {
+      dataKeys: Object.keys(jsonData || {}),
+      timestamp: new Date().toISOString()
+    });
+    
+    return jsonData;
   }
 
   async get<T>(endpoint: string): Promise<T> {
@@ -140,8 +163,71 @@ export class ApiClient {
   }
 
   async dormantCustomers(params: any): Promise<any> {
-    const queryParams = new URLSearchParams(params).toString();
-    return this.request(`/api/customer/dormant?${queryParams}`);
+    console.log('📡 [APIClient.dormantCustomers] 開始', {
+      originalParams: params,
+      timestamp: new Date().toISOString()
+    });
+    
+    // パラメータを適切にフィルタリング
+    const filteredParams: any = {};
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        filteredParams[key] = params[key];
+      }
+    });
+    
+    console.log('🔍 [APIClient.dormantCustomers] フィルター後パラメータ', {
+      filteredParams,
+      timestamp: new Date().toISOString()
+    });
+    
+    const queryParams = new URLSearchParams(filteredParams).toString();
+    const url = `/api/customer/dormant?${queryParams}`;
+    
+    console.log('🌐 [APIClient.dormantCustomers] URL構築完了', {
+      url,
+      queryParams,
+      timestamp: new Date().toISOString()
+    });
+    
+    try {
+      console.log('⏳ [APIClient.dormantCustomers] APIリクエスト送信中...');
+      const startTime = Date.now();
+      
+      const result = await this.request(url);
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log('✅ [APIClient.dormantCustomers] レスポンス受信', {
+        duration: `${duration}ms`,
+        success: result?.success,
+        dataCount: result?.data?.customers?.length || 0,
+        hasCustomers: !!result?.data?.customers,
+        customersIsArray: Array.isArray(result?.data?.customers),
+        result,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 0件の場合の特別なログ
+      if (result?.data?.customers && result.data.customers.length === 0) {
+        console.log('ℹ️ [APIClient.dormantCustomers] 0件のデータを受信', {
+          segment: filteredParams.segment,
+          url,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ [APIClient.dormantCustomers] エラー発生', {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        url,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
   }
 
   async monthlySales(params: any): Promise<any> {
