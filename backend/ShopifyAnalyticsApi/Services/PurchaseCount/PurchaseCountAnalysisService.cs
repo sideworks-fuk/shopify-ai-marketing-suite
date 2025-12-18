@@ -61,19 +61,29 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// </summary>
         public async Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment)
         {
+            // デフォルトで過去365日を分析
+            return await GetSegmentAnalysisAsync(storeId, segment, DateTime.UtcNow.Date.AddDays(-365), DateTime.UtcNow.Date);
+        }
+
+        /// <summary>
+        /// セグメント分析を実行（期間指定付き）
+        /// </summary>
+        public async Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment, DateTime startDate, DateTime endDate)
+        {
             try
             {
-                _logger.LogInformation("セグメント分析開始: StoreId={StoreId}, Segment={Segment}", storeId, segment);
+                _logger.LogInformation("セグメント分析開始: StoreId={StoreId}, Segment={Segment}, StartDate={StartDate}, EndDate={EndDate}", 
+                    storeId, segment, startDate, endDate);
 
-                // セグメント条件の定義
-                var (segmentName, customerIds) = await _dataService.GetSegmentCustomerIdsAsync(storeId, segment);
+                // セグメント条件の定義（期間を渡す）
+                var (segmentName, customerIds) = await _dataService.GetSegmentCustomerIdsAsync(storeId, segment, startDate, endDate);
 
                 var request = new PurchaseCountAnalysisRequest
                 {
                     StoreId = storeId,
                     Segment = segment,
-                    StartDate = DateTime.UtcNow.Date.AddDays(-365),
-                    EndDate = DateTime.UtcNow.Date,
+                    StartDate = startDate,
+                    EndDate = endDate,
                     MaxPurchaseCount = 20,
                     IncludeComparison = false
                 };
@@ -248,6 +258,86 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
             catch (Exception ex)
             {
                 _logger.LogError(ex, "購入回数詳細取得中にエラー: StoreId={StoreId}", request.StoreId);
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// 購入回数詳細を取得（セグメント顧客IDフィルタ付き）
+        /// </summary>
+        public async Task<List<PurchaseCountDetail>> GetPurchaseCountDetailsAsync(PurchaseCountAnalysisRequest request, List<int> segmentCustomerIds)
+        {
+            try
+            {
+                _logger.LogDebug("購入回数詳細取得開始（セグメントフィルタ付き）: StoreId={StoreId}, SegmentCustomerCount={Count}, Segment={Segment}", 
+                    request.StoreId, segmentCustomerIds?.Count ?? -1, request.Segment);
+
+                List<CustomerPurchaseData> currentData;
+                
+                // セグメント別の処理
+                if (segmentCustomerIds != null && segmentCustomerIds.Any())
+                {
+                    if (request.Segment?.ToLower() == "existing")
+                    {
+                        // 既存顧客の場合：0回購入も含める特別処理
+                        currentData = await _dataService.GetSegmentCustomerPurchaseCountsAsync(
+                            request.StoreId, segmentCustomerIds, request.StartDate, request.EndDate);
+                        _logger.LogDebug("既存顧客データ取得（0回購入含む）: 顧客数={Count}", currentData.Count);
+                    }
+                    else
+                    {
+                        // その他のセグメント：期間内購入者のみをフィルタリング
+                        currentData = await _dataService.GetCustomerPurchaseCountsAsync(request.StoreId, request.StartDate, request.EndDate);
+                        var segmentCustomerSet = new HashSet<int>(segmentCustomerIds);
+                        currentData = currentData.Where(c => segmentCustomerSet.Contains(c.CustomerId)).ToList();
+                        _logger.LogDebug("セグメントフィルタ適用後: 顧客数={Count}", currentData.Count);
+                    }
+                }
+                else
+                {
+                    // セグメントなし（全顧客）
+                    currentData = await _dataService.GetCustomerPurchaseCountsAsync(request.StoreId, request.StartDate, request.EndDate);
+                    _logger.LogDebug("全顧客データ取得: 顧客数={Count}", currentData.Count);
+                }
+
+                // 前年同期データ取得（比較用）
+                var previousData = new List<CustomerPurchaseData>();
+                if (request.IncludeComparison)
+                {
+                    var previousStart = request.StartDate.AddYears(-1);
+                    var previousEnd = request.EndDate.AddYears(-1);
+                    
+                    if (segmentCustomerIds != null && segmentCustomerIds.Any())
+                    {
+                        if (request.Segment?.ToLower() == "existing")
+                        {
+                            // 既存顧客の場合：前年も0回購入を含める
+                            previousData = await _dataService.GetSegmentCustomerPurchaseCountsAsync(
+                                request.StoreId, segmentCustomerIds, previousStart, previousEnd);
+                        }
+                        else
+                        {
+                            // その他のセグメント
+                            previousData = await _dataService.GetCustomerPurchaseCountsAsync(request.StoreId, previousStart, previousEnd);
+                            var segmentCustomerSet = new HashSet<int>(segmentCustomerIds);
+                            previousData = previousData.Where(c => segmentCustomerSet.Contains(c.CustomerId)).ToList();
+                        }
+                    }
+                    else
+                    {
+                        // セグメントなし（全顧客）
+                        previousData = await _dataService.GetCustomerPurchaseCountsAsync(request.StoreId, previousStart, previousEnd);
+                    }
+                }
+
+                var details = _calculationService.CalculatePurchaseCountDetails(currentData, previousData, request);
+
+                _logger.LogDebug("購入回数詳細取得完了（セグメントフィルタ付き）: 詳細数={Count}", details.Count);
+                return details;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "購入回数詳細取得中にエラー（セグメントフィルタ付き）: StoreId={StoreId}", request.StoreId);
                 throw;
             }
         }

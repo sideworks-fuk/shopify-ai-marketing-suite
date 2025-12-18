@@ -189,7 +189,10 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpGet("segment-analysis")]
         public async Task<ActionResult<ApiResponse<SegmentAnalysisData>>> GetSegmentAnalysis(
             [FromQuery] int storeId = 1, 
-            [FromQuery] string segment = "new")
+            [FromQuery] string segment = "new",
+            [FromQuery] string period = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
         {
             var logProperties = LoggingHelper.CreateLogProperties(HttpContext);
 
@@ -198,12 +201,30 @@ namespace ShopifyAnalyticsApi.Controllers
                 // JWTから取得したStoreIdを使用（セキュリティ対策）
                 storeId = this.StoreId;
                 
-                _logger.LogInformation("セグメント別購入回数分析取得開始. StoreId: {StoreId}, Segment: {Segment}, RequestId: {RequestId}",
-                    storeId, segment, logProperties["RequestId"]);
+                // 期間の設定
+                DateTime actualEndDate = endDate ?? DateTime.UtcNow.Date;
+                DateTime actualStartDate = startDate ?? actualEndDate.AddDays(-365);
+
+                // periodパラメータがある場合は優先
+                if (!string.IsNullOrEmpty(period))
+                {
+                    actualStartDate = period switch
+                    {
+                        "1month" => actualEndDate.AddMonths(-1),
+                        "3months" => actualEndDate.AddMonths(-3),
+                        "6months" => actualEndDate.AddMonths(-6),
+                        "12months" => actualEndDate.AddYears(-1),
+                        "all" => actualEndDate.AddYears(-10),
+                        _ => actualEndDate.AddDays(-365)
+                    };
+                }
+                
+                _logger.LogInformation("セグメント別購入回数分析取得開始. StoreId: {StoreId}, Segment: {Segment}, Period: {Period}, StartDate: {StartDate}, EndDate: {EndDate}, RequestId: {RequestId}",
+                    storeId, segment, period, actualStartDate, actualEndDate, logProperties["RequestId"]);
 
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetSegmentAnalysis", logProperties);
 
-                var result = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, segment);
+                var result = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, segment, actualStartDate, actualEndDate);
 
                 _logger.LogInformation("セグメント別購入回数分析取得完了. SegmentName: {SegmentName}, TotalCustomers: {TotalCustomers}, RequestId: {RequestId}",
                     result.SegmentName, result.Summary.TotalCustomers, logProperties["RequestId"]);

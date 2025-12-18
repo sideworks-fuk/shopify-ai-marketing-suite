@@ -10,13 +10,16 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
     public class PurchaseCountOrchestrationService : IPurchaseCountOrchestrationService
     {
         private readonly IPurchaseCountAnalysisService _analysisService;
+        private readonly IPurchaseCountDataService _dataService;
         private readonly ILogger<PurchaseCountOrchestrationService> _logger;
 
         public PurchaseCountOrchestrationService(
             IPurchaseCountAnalysisService analysisService,
+            IPurchaseCountDataService dataService,
             ILogger<PurchaseCountOrchestrationService> logger)
         {
             _analysisService = analysisService;
+            _dataService = dataService;
             _logger = logger;
         }
 
@@ -321,8 +324,23 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// </summary>
         private async Task<List<PurchaseCountDetail>> GetSimplified5TierDetailsAsync(PurchaseCountAnalysisRequest request)
         {
-            // 全ての詳細データを取得
-            var allDetails = await _analysisService.GetPurchaseCountDetailsAsync(request);
+            // セグメント別の顧客IDを取得（セグメント指定がある場合）
+            List<int> segmentCustomerIds = null;
+            if (!string.IsNullOrEmpty(request.Segment) && request.Segment != "all")
+            {
+                _logger.LogInformation("セグメントフィルタリング実行: Segment={Segment}, StartDate={StartDate}, EndDate={EndDate}", 
+                    request.Segment, request.StartDate, request.EndDate);
+                    
+                var (segmentName, customerIds) = await _dataService.GetSegmentCustomerIdsAsync(
+                    request.StoreId, request.Segment, request.StartDate, request.EndDate);
+                    
+                segmentCustomerIds = customerIds;
+                _logger.LogInformation("セグメント '{SegmentName}' の顧客数: {CustomerCount}", 
+                    segmentName, customerIds?.Count ?? 0);
+            }
+            
+            // 全ての詳細データを取得（セグメントフィルタ付き）
+            var allDetails = await _analysisService.GetPurchaseCountDetailsAsync(request, segmentCustomerIds);
 
             // 5階層に集約
             var simplifiedDetails = new List<PurchaseCountDetail>

@@ -1,160 +1,126 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Models;
-using ShopifyAnalyticsApi.Services.YearOverYear;
+using ShopifyAnalyticsApi.Services;
+using ShopifyAnalyticsApi.Helpers;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
-    /// <summary>
-    /// デバッグ用コントローラー - 商品数問題の調査用
-    /// </summary>
-    [Authorize]
+    [AllowAnonymous]
     [ApiController]
     [Route("api/[controller]")]
     public class DebugController : ControllerBase
     {
-        private readonly ShopifyDbContext _context;
-        private readonly IYearOverYearOrchestrationService _yearOverYearService;
+        private readonly IPurchaseCountAnalysisService _purchaseCountAnalysisService;
         private readonly ILogger<DebugController> _logger;
 
         public DebugController(
-            ShopifyDbContext context,
-            IYearOverYearOrchestrationService yearOverYearService,
+            IPurchaseCountAnalysisService purchaseCountAnalysisService,
             ILogger<DebugController> logger)
         {
-            _context = context;
-            _yearOverYearService = yearOverYearService;
+            _purchaseCountAnalysisService = purchaseCountAnalysisService;
             _logger = logger;
         }
 
         /// <summary>
-        /// 商品数の調査
+        /// セグメント診断情報を取得（デバッグ用）
+        /// GET: api/debug/segment-analysis
         /// </summary>
-        [HttpGet("investigate-product-count")]
-        public async Task<IActionResult> InvestigateProductCount(
+        [HttpGet("segment-analysis")]
+        public async Task<ActionResult<object>> GetSegmentDebugInfo(
             [FromQuery] int storeId = 1,
-            [FromQuery] int year = 2025)
-        {
-            var result = new
-            {
-                Timestamp = DateTime.UtcNow,
-                StoreId = storeId,
-                Year = year,
-                
-                // 1. データベース内の商品数
-                DatabaseProductCount = await _context.Products
-                    .Where(p => p.StoreId == storeId)
-                    .CountAsync(),
-                
-                // 2. OrderItems内のユニーク商品数
-                UniqueProductsInOrderItems = await _context.OrderItems
-                    .Include(oi => oi.Order)
-                    .Where(oi => oi.Order!.StoreId == storeId)
-                    .Select(oi => oi.ProductTitle)
-                    .Distinct()
-                    .CountAsync(),
-                
-                // 3. 2024-2025年のOrderItems数
-                OrderItemsIn2024_2025 = await _context.OrderItems
-                    .Include(oi => oi.Order)
-                    .Where(oi => oi.Order!.StoreId == storeId &&
-                                (oi.Order.CreatedAt.Year == year || oi.Order.CreatedAt.Year == year - 1))
-                    .CountAsync(),
-                
-                // 4. 2024-2025年のユニーク商品数
-                UniqueProductsIn2024_2025 = await _context.OrderItems
-                    .Include(oi => oi.Order)
-                    .Where(oi => oi.Order!.StoreId == storeId &&
-                                (oi.Order.CreatedAt.Year == year || oi.Order.CreatedAt.Year == year - 1))
-                    .Select(oi => oi.ProductTitle)
-                    .Distinct()
-                    .CountAsync(),
-                
-                // 5. APIから取得される商品数（制限なし）
-                ApiProductCount = await GetApiProductCount(storeId, year, null),
-                
-                // 6. APIから取得される商品数（制限: 6）
-                ApiProductCountWithLimit6 = await GetApiProductCount(storeId, year, 6),
-                
-                // 7. 最初の10商品リスト
-                Top10Products = await GetTop10Products(storeId, year),
-                
-                // 8. サービス項目の数
-                ServiceItemCount = await GetServiceItemCount(storeId, year),
-                
-                // 9. デバッグ情報
-                DebugInfo = new
-                {
-                    ControllerLimit = "No hardcoded limit found in controller",
-                    ServiceLimit = "FilterService applies limit from request.Limit parameter",
-                    DefaultLimit = "YearOverYearRequest.Limit has no default value (null)",
-                    Conclusion = "If only 6 products shown, frontend must be setting limit=6"
-                }
-            };
-            
-            _logger.LogInformation("Product count investigation completed: {@Result}", result);
-            
-            return Ok(result);
-        }
-        
-        private async Task<int> GetApiProductCount(int storeId, int year, int? limit)
+            [FromQuery] string period = "12months")
         {
             try
             {
-                var request = new YearOverYearRequest
+                var endDate = DateTime.UtcNow.Date;
+                var startDate = period switch
                 {
-                    StoreId = storeId,
-                    Year = year,
-                    ViewMode = "sales",
-                    Limit = limit
+                    "1month" => endDate.AddMonths(-1),
+                    "3months" => endDate.AddMonths(-3),
+                    "6months" => endDate.AddMonths(-6),
+                    "12months" => endDate.AddYears(-1),
+                    _ => endDate.AddYears(-1)
                 };
                 
-                var response = await _yearOverYearService.GetYearOverYearAnalysisAsync(request);
-                return response.Products.Count;
+                _logger.LogInformation("セグメント診断開始: StoreId={StoreId}, Period={Period}, StartDate={StartDate}, EndDate={EndDate}", 
+                    storeId, period, startDate, endDate);
+                
+                // 各セグメントの分析データを取得してサマリを比較
+                var allData = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, "all", startDate, endDate);
+                var newData = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, "new", startDate, endDate);
+                var existingData = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, "existing", startDate, endDate);
+                var returningData = await _purchaseCountAnalysisService.GetSegmentAnalysisAsync(storeId, "returning", startDate, endDate);
+                
+                var debugInfo = new
+                {
+                    success = true,
+                    analysisInfo = new
+                    {
+                        storeId,
+                        period,
+                        startDate = startDate.ToString("yyyy-MM-dd"),
+                        endDate = endDate.ToString("yyyy-MM-dd"),
+                        daysCovered = (endDate - startDate).TotalDays
+                    },
+                    segments = new
+                    {
+                        all = new
+                        {
+                            name = allData.SegmentName,
+                            customers = allData.Summary.TotalCustomers,
+                            avgPurchase = allData.Summary.AveragePurchaseCount
+                        },
+                        newCustomers = new
+                        {
+                            name = newData.SegmentName,
+                            customers = newData.Summary.TotalCustomers,
+                            avgPurchase = newData.Summary.AveragePurchaseCount,
+                            definition = "初回購入が分析期間内"
+                        },
+                        existing = new
+                        {
+                            name = existingData.SegmentName,
+                            customers = existingData.Summary.TotalCustomers,
+                            avgPurchase = existingData.Summary.AveragePurchaseCount,
+                            definition = "分析期間前から存在（0回購入含む）"
+                        },
+                        returning = new
+                        {
+                            name = returningData.SegmentName,
+                            customers = returningData.Summary.TotalCustomers,
+                            avgPurchase = returningData.Summary.AveragePurchaseCount,
+                            definition = "6ヶ月休眠後、分析期間内に再購入",
+                            dormantPeriod = $"{startDate.AddDays(-180):yyyy-MM-dd} ～ {startDate:yyyy-MM-dd}"
+                        }
+                    },
+                    analysis = new
+                    {
+                        newVsReturning = $"新規: {newData.Summary.TotalCustomers} / 復帰: {returningData.Summary.TotalCustomers}",
+                        ratio = newData.Summary.TotalCustomers > 0 
+                            ? $"復帰/新規 = {(double)returningData.Summary.TotalCustomers / newData.Summary.TotalCustomers:P1}"
+                            : "N/A",
+                        issue = newData.Summary.TotalCustomers == returningData.Summary.TotalCustomers 
+                            ? "⚠️ 新規と復帰が同数です。データまたはロジックの確認が必要です。"
+                            : returningData.Summary.TotalCustomers > newData.Summary.TotalCustomers 
+                                ? "⚠️ 復帰が新規より多いです。通常と異なるパターンです。"
+                                : "✅ 正常な分布です"
+                    },
+                    debugNote = "このエンドポイントはデバッグ専用です。本番環境では削除してください。"
+                };
+                
+                return Ok(debugInfo);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting API product count");
-                return -1;
-            }
-        }
-        
-        private async Task<List<object>> GetTop10Products(int storeId, int year)
-        {
-            var products = await _context.OrderItems
-                .Include(oi => oi.Order)
-                .Where(oi => oi.Order!.StoreId == storeId &&
-                            (oi.Order.CreatedAt.Year == year || oi.Order.CreatedAt.Year == year - 1))
-                .GroupBy(oi => new { oi.ProductTitle, oi.ProductType, oi.ProductVendor })
-                .Select(g => new
+                _logger.LogError(ex, "セグメント診断取得でエラーが発生");
+                return StatusCode(500, new
                 {
-                    ProductTitle = g.Key.ProductTitle,
-                    ProductType = g.Key.ProductType,
-                    ProductVendor = g.Key.ProductVendor,
-                    OrderCount = g.Count(),
-                    TotalSales = g.Sum(oi => oi.TotalPrice)
-                })
-                .OrderByDescending(p => p.TotalSales)
-                .Take(10)
-                .ToListAsync();
-                
-            return products.Cast<object>().ToList();
-        }
-        
-        private async Task<int> GetServiceItemCount(int storeId, int year)
-        {
-            var serviceKeywords = new[] { "代引き手数料", "送料", "手数料", "サービス料", "配送料", "決済手数料", "包装料" };
-            
-            return await _context.OrderItems
-                .Include(oi => oi.Order)
-                .Where(oi => oi.Order!.StoreId == storeId &&
-                            (oi.Order.CreatedAt.Year == year || oi.Order.CreatedAt.Year == year - 1) &&
-                            serviceKeywords.Any(keyword => oi.ProductTitle.Contains(keyword)))
-                .Select(oi => oi.ProductTitle)
-                .Distinct()
-                .CountAsync();
+                    success = false,
+                    error = ex.Message,
+                    stackTrace = ex.StackTrace
+                });
+            }
         }
     }
 }

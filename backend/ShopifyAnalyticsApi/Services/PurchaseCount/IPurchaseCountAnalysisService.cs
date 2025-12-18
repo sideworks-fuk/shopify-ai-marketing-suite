@@ -23,6 +23,16 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// <param name="segment">セグメント</param>
         /// <returns>セグメント分析データ</returns>
         Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment);
+        
+        /// <summary>
+        /// セグメント分析を実行（期間指定付き）
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <param name="segment">セグメント</param>
+        /// <param name="startDate">開始日</param>
+        /// <param name="endDate">終了日</param>
+        /// <returns>セグメント分析データ</returns>
+        Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment, DateTime startDate, DateTime endDate);
 
         /// <summary>
         /// 全セグメント分析を実行
@@ -55,5 +65,13 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// <param name="request">分析リクエスト</param>
         /// <returns>購入回数詳細リスト</returns>
         Task<List<PurchaseCountDetail>> GetPurchaseCountDetailsAsync(PurchaseCountAnalysisRequest request);
+        
+        /// <summary>
+        /// 購入回数詳細を取得（セグメント顧客IDフィルタ付き）
+        /// </summary>
+        /// <param name="request">分析リクエスト</param>
+        /// <param name="segmentCustomerIds">セグメント顧客IDリスト（nullの場合は全顧客）</param>
+        /// <returns>購入回数詳細リスト</returns>
+        Task<List<PurchaseCountDetail>> GetPurchaseCountDetailsAsync(PurchaseCountAnalysisRequest request, List<int> segmentCustomerIds);
     }
 }

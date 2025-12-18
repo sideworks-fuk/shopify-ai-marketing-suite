@@ -106,14 +106,14 @@ const ProductTableRowVirtual = React.memo(({
   getGrowthBadgeColor: (growth: number) => string
 }) => {
   const avgGrowth = product.monthlyData.reduce((sum, m) => sum + m.growthRate, 0) / 12
-  const bgColor = productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'
+  const bgColor = productIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'
   
   return (
-    <div className={`flex border-b border-gray-100 hover:bg-gray-50 transition-colors ${bgColor}`}>
+    <div className={`flex border-b border-gray-100 hover:bg-gray-50 transition-colors min-h-[120px] ${bgColor}`}>
       {/* 商品名列（固定） */}
-      <div className={`sticky left-0 z-10 w-[250px] py-4 px-3 border-r border-gray-200 flex-shrink-0 ${bgColor}`}>
+      <div className={`sticky left-0 z-10 w-[250px] py-5 px-3 border-r-2 border-gray-200 flex-shrink-0 ${bgColor} shadow-sm`}>
         <div className="space-y-2">
-          <div className="font-medium text-gray-900 text-sm leading-tight">
+          <div className="font-medium text-gray-900 text-sm leading-relaxed">
             {product.productName}
           </div>
           <div className="text-xs text-gray-500">
@@ -129,8 +129,8 @@ const ProductTableRowVirtual = React.memo(({
       {/* 月別データ列 */}
       <div className="flex flex-1 min-w-[1440px]">
         {product.monthlyData.map((monthData, index) => (
-          <div key={index} className="flex-1 py-4 px-2 text-center border-r border-gray-200 min-w-[120px]">
-            <div className="space-y-1">
+          <div key={index} className="flex-1 py-5 px-2 text-center border-r border-gray-200 min-w-[120px]">
+            <div className="space-y-1.5">
               <div className="text-sm font-semibold text-gray-900">
                 {formatValue(monthData.current, viewMode)}
               </div>
@@ -423,7 +423,8 @@ const YearOverYearProductAnalysis = () => {
                     表示モード
                   </label>
                   <div className="flex items-center h-10 px-3 py-2 border border-input bg-background rounded-md text-sm">
-                    📅 月別詳細表示（固定）
+                    <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+                    月別詳細表示（固定）
                   </div>
                 </div>
 
@@ -656,37 +657,36 @@ const YearOverYearProductAnalysis = () => {
             </div>
           ) : (
             <>
-              {/* 月別詳細表示（仮想スクロール対応版） */}
-              <div className="border rounded-lg overflow-x-auto overflow-y-hidden max-w-full">
-                <div className="min-w-[1690px]">
-                  {/* テーブルヘッダー（固定） */}
-                  <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200">
-                    <div className="flex">
-                      <div className="sticky left-0 bg-gray-50 z-30 w-[250px] flex-shrink-0 border-r border-gray-200">
-                        <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
-                          商品情報
+              {/* 月別詳細表示（改善版：ブラウザスクロール利用） */}
+              <div className="relative border rounded-lg">
+                {/* 横スクロールコンテナ */}
+                <div className="overflow-x-auto">
+                  <div className="min-w-[1690px]">
+                    {/* テーブルヘッダー（sticky で固定） */}
+                    <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200 shadow-sm">
+                      <div className="flex">
+                        <div className="sticky left-0 bg-gray-50 z-30 w-[250px] flex-shrink-0 border-r-2 border-gray-200">
+                          <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
+                            商品情報
+                          </div>
+                        </div>
+                        <div className="flex flex-1 min-w-[1440px]">
+                          {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
+                            <div key={month} className="flex-1 py-4 px-2 text-center font-semibold text-gray-900 min-w-[120px] border-r border-gray-200">
+                              <div className="text-sm">{month}</div>
+                              <div className="text-xs text-gray-500 font-normal">
+                                {selectedYear} / {previousYear}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="flex flex-1 min-w-[1440px]">
-                        {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
-                          <div key={month} className="flex-1 py-4 px-2 text-center font-semibold text-gray-900 min-w-[120px] border-r border-gray-200">
-                            <div className="text-sm">{month}</div>
-                            <div className="text-xs text-gray-500 font-normal">
-                              {selectedYear} / {previousYear}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     </div>
-                  </div>
-                  
-                  {/* テーブルボディ（仮想スクロール） */}
-                  <div className="bg-white">
-                    <VirtualScroll
-                      items={sortedData}
-                      itemHeight={ROW_HEIGHT}
-                      containerHeight={TABLE_HEIGHT - 64}
-                      renderItem={(product, index) => (
+                    
+                    {/* テーブルボディ（ブラウザスクロール利用） */}
+                    <div className="bg-white">
+                      {/* 全データを表示（仮想スクロール削除） */}
+                      {sortedData.map((product, index) => (
                         <ProductTableRowVirtual
                           key={product.productId}
                           product={product}
@@ -695,10 +695,14 @@ const YearOverYearProductAnalysis = () => {
                           formatValue={formatValue}
                           getGrowthBadgeColor={getGrowthBadgeColor}
                         />
+                      ))}
+                      {/* データが少ない場合の最小高さ確保 */}
+                      {sortedData.length === 0 && (
+                        <div className="py-20 text-center text-gray-500">
+                          データがありません
+                        </div>
                       )}
-                      overscan={10}
-                      className="bg-white"
-                    />
+                    </div>
                   </div>
                 </div>
               </div>

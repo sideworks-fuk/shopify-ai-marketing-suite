@@ -96,11 +96,15 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         break;
 
                     case "returning":
-                        // 復帰顧客（6ヶ月以上購入がなく、分析期間内に購入）
+                        // 復帰顧客（分析期間開始前6ヶ月以上購入がなく、分析期間内に購入）
                         var dormantPeriodDays = 180; // 6ヶ月の休眠期間
-                        var dormantStartDate = actualStartDate.AddDays(-dormantPeriodDays);
+                        var dormantEndDate = actualStartDate; // 休眠期間の終了は分析期間開始日
+                        var dormantStartDate = dormantEndDate.AddDays(-dormantPeriodDays); // 休眠期間の開始
                         
-                        // 指定期間内に購入した顧客
+                        _logger.LogDebug("復帰顧客判定期間: 休眠期間={DormantStart}～{DormantEnd}, 分析期間={AnalysisStart}～{AnalysisEnd}", 
+                            dormantStartDate, dormantEndDate, actualStartDate, actualEndDate);
+                        
+                        // 1. 分析期間内に購入した顧客
                         var recentCustomerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
                                        o.CreatedAt >= actualStartDate && 
@@ -109,7 +113,7 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                             .Distinct()
                             .ToListAsync();
 
-                        // 休眠期間前に購入歴がある顧客
+                        // 2. 休眠期間より前（6ヶ月以上前）に購入歴がある顧客
                         var oldCustomerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
                                        o.CreatedAt < dormantStartDate)
@@ -117,43 +121,39 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                             .Distinct()
                             .ToListAsync();
 
-                        // 休眠期間中に購入がない顧客を特定
-                        var activeInDormant = await _context.Orders
+                        // 3. 休眠期間中（分析期間開始前6ヶ月）に購入した顧客
+                        var activeInDormantPeriod = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
                                        o.CreatedAt >= dormantStartDate && 
-                                       o.CreatedAt < actualStartDate)
+                                       o.CreatedAt < dormantEndDate)
                             .Select(o => o.CustomerId)
                             .Distinct()
                             .ToListAsync();
 
-                        // 復帰顧客 = 期間内購入 ∩ 過去購入あり - 休眠期間中購入
+                        // 復帰顧客 = 分析期間内購入 ∩ 6ヶ月以上前に購入あり - 休眠期間中に購入
                         customerIds = recentCustomerIds
-                            .Intersect(oldCustomerIds)
-                            .Except(activeInDormant)
+                            .Intersect(oldCustomerIds)  // 過去に購入歴がある
+                            .Except(activeInDormantPeriod)  // 休眠期間中に購入がない
                             .ToList();
+                        
+                        _logger.LogDebug("復帰顧客算出: 期間内購入={RecentCount}, 過去購入={OldCount}, 休眠期間購入={DormantCount}, 結果={ResultCount}", 
+                            recentCustomerIds.Count, oldCustomerIds.Count, activeInDormantPeriod.Count, customerIds.Count);
+                        
                         segmentName = "復帰顧客";
                         break;
 
                     case "existing":
-                        // 既存顧客（指定期間より前に購入歴があり、期間内にも購入）
-                        var periodCustomers = await _context.Orders
-                            .Where(o => o.StoreId == storeId && 
-                                       o.CreatedAt >= actualStartDate && 
-                                       o.CreatedAt <= actualEndDate)
-                            .Select(o => o.CustomerId)
-                            .Distinct()
-                            .ToListAsync();
-                        
-                        var previousCustomers = await _context.Orders
+                        // 既存顧客（指定期間より前に購入歴がある全ての顧客）
+                        // 期間内の購入有無は問わない（0回購入も含む）
+                        customerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
                                        o.CreatedAt < actualStartDate)
                             .Select(o => o.CustomerId)
                             .Distinct()
                             .ToListAsync();
                         
-                        // 既存顧客 = 期間内購入 ∩ 期間前購入
-                        customerIds = periodCustomers.Intersect(previousCustomers).ToList();
                         segmentName = "既存顧客";
+                        _logger.LogDebug("既存顧客取得: 全既存顧客数={Count}（期間内購入有無を問わず）", customerIds.Count);
                         break;
 
                     default:
@@ -180,7 +180,7 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         }
 
         /// <summary>
-        /// セグメント顧客の購入回数データを取得
+        /// セグメント顧客の購入回数データを取得（0回購入も含む）
         /// </summary>
         public async Task<List<CustomerPurchaseData>> GetSegmentCustomerPurchaseCountsAsync(int storeId, List<int> customerIds, DateTime startDate, DateTime endDate)
         {
@@ -189,22 +189,54 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                 _logger.LogDebug("セグメント顧客購入データ取得開始: StoreId={StoreId}, CustomerCount={CustomerCount}", 
                     storeId, customerIds.Count);
 
-                var customerPurchaseCounts = await _context.Orders
+                // 期間内に購入した顧客のデータを取得
+                var purchasedCustomers = await _context.Orders
                     .Where(o => o.StoreId == storeId && 
                                customerIds.Contains(o.CustomerId) &&
                                o.CreatedAt >= startDate && 
                                o.CreatedAt <= endDate)
                     .GroupBy(o => o.CustomerId)
-                    .Select(g => new CustomerPurchaseData
+                    .Select(g => new 
                     { 
                         CustomerId = g.Key, 
                         PurchaseCount = g.Count(),
                         TotalAmount = g.Sum(order => order.TotalPrice),
                         OrderCount = g.Count()
                     })
-                    .ToListAsync();
+                    .ToDictionaryAsync(x => x.CustomerId);
 
-                _logger.LogDebug("セグメント顧客購入データ取得完了: 件数={Count}", customerPurchaseCounts.Count);
+                // 全顧客に対して結果を作成（購入なしは0回）
+                var customerPurchaseCounts = customerIds.Select(customerId => 
+                {
+                    if (purchasedCustomers.ContainsKey(customerId))
+                    {
+                        var data = purchasedCustomers[customerId];
+                        return new CustomerPurchaseData
+                        {
+                            CustomerId = customerId,
+                            PurchaseCount = data.PurchaseCount,
+                            TotalAmount = data.TotalAmount,
+                            OrderCount = data.OrderCount
+                        };
+                    }
+                    else
+                    {
+                        // 購入がない顧客は0回として含める
+                        return new CustomerPurchaseData
+                        {
+                            CustomerId = customerId,
+                            PurchaseCount = 0,
+                            TotalAmount = 0,
+                            OrderCount = 0
+                        };
+                    }
+                }).ToList();
+
+                _logger.LogDebug("セグメント顧客購入データ取得完了: 全顧客数={TotalCount}, 購入あり={PurchasedCount}, 購入なし={NoPurchaseCount}", 
+                    customerPurchaseCounts.Count,
+                    purchasedCustomers.Count,
+                    customerPurchaseCounts.Count - purchasedCustomers.Count);
+                    
                 return customerPurchaseCounts;
             }
             catch (Exception ex)

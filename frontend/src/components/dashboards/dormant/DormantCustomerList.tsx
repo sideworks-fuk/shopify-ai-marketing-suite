@@ -14,6 +14,12 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { 
   Mail, 
   Download, 
@@ -25,7 +31,9 @@ import {
   ChevronRight,
   ArrowUp,
   ArrowDown,
-  Info
+  Info,
+  Lightbulb,
+  Inbox
 } from "lucide-react"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -82,7 +90,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
   }, [selectedSegment, dormantData, maxDisplayCount, externalIsLoading])
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [riskFilter, setRiskFilter] = useState<RiskLevel | "all">("all")
+  const [riskFilter, setRiskFilter] = useState<RiskLevel | "all" | "unrated">("all")
   const [purchaseCountFilter, setPurchaseCountFilter] = useState(0) // デフォルト: 0回以上（すべて表示）
   const [purchaseHistoryFilter, setPurchaseHistoryFilter] = useState<"all" | "with-purchase" | "no-purchase">("all") // デフォルトを"all"に変更
   const [currentPage, setCurrentPage] = useState(1)
@@ -114,8 +122,42 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     }
   }
 
+  // リスクレベルの定義と説明
+  const riskLevelDefinitions = {
+    low: {
+      label: "低",
+      description: "休眠期間: 0-90日",
+      detail: "最近購入があった顧客。定期的なフォローで関係維持。",
+      action: "ニュースレターや新商品情報の定期配信"
+    },
+    medium: {
+      label: "中", 
+      description: "休眠期間: 91-180日",
+      detail: "購入から時間が経過。再購入を促す施策が必要。",
+      action: "限定クーポンや特別オファーの送付を推奨"
+    },
+    high: {
+      label: "高",
+      description: "休眠期間: 181-365日",
+      detail: "長期間購入なし。積極的なアプローチが必要。",
+      action: "大幅割引やカムバックキャンペーンを検討"
+    },
+    critical: {
+      label: "危険",
+      description: "休眠期間: 365日以上",
+      detail: "離脱リスクが非常に高い。早急な対応が必要。",
+      action: "特別な復帰プログラムや個別アプローチを推奨"
+    },
+    unrated: {
+      label: "未評価",
+      description: "データ不足",
+      detail: "購入履歴がないため評価できません。",
+      action: "初回購入を促すキャンペーンを検討"
+    }
+  }
+
   // リスクレベルのバッジ取得
-  const getRiskBadge = (level: RiskLevel | 'unrated') => {
+  const getRiskBadge = (level: RiskLevel | 'unrated' | undefined | null) => {
     const riskConfig = {
       low: { label: "低", color: "bg-green-100 text-green-800", variant: "secondary" as const },
       medium: { label: "中", color: "bg-yellow-100 text-yellow-800", variant: "secondary" as const },
@@ -123,7 +165,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       critical: { label: "危険", color: "bg-red-100 text-red-800", variant: "destructive" as const },
       unrated: { label: "未評価", color: "bg-gray-100 text-gray-600", variant: "secondary" as const }
     }
-    return riskConfig[level] || riskConfig.medium
+    const safeLevel = level || 'unrated'
+    return riskConfig[safeLevel as keyof typeof riskConfig] || riskConfig.unrated
   }
 
   // ソート処理
@@ -139,11 +182,11 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
   // ソートアイコンを取得
   const getSortIcon = (field: string) => {
     if (sortField !== field) {
-      return <ArrowUpDown className="ml-2 h-4 w-4 text-gray-400" />
+      return <ArrowUpDown className="inline-block ml-1 h-3 w-3 text-gray-500 opacity-60" />
     }
     return sortDirection === "asc" ? 
-      <ArrowUp className="ml-2 h-4 w-4 text-blue-600" /> : 
-      <ArrowDown className="ml-2 h-4 w-4 text-blue-600" />
+      <ArrowUp className="inline-block ml-1 h-3 w-3 text-blue-600" /> : 
+      <ArrowDown className="inline-block ml-1 h-3 w-3 text-blue-600" />
   }
 
   // フィルタリングとソートされた顧客データ
@@ -405,7 +448,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           : format(lastPurchaseDate, 'yyyy-MM-dd')) : '',
         daysSince,
         customer.dormancySegment || '',
-        getRiskBadge(riskLevel as RiskLevel).label,
+        getRiskBadge(riskLevel).label,
         totalSpent.toLocaleString(),
         customer.totalOrders || 0,
         (customer.averageOrderValue || 0).toLocaleString(),
@@ -565,14 +608,16 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">顧客検索</label>
+            <label className="text-xs text-gray-600 mb-1 block" htmlFor="customer-search">顧客検索</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
+                id="customer-search"
                 placeholder="顧客名・会社名・IDで検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                aria-label="顧客名・会社名・IDで検索"
               />
             </div>
           </div>
@@ -592,9 +637,57 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           </div>
           
           <div>
-            <label className="text-xs text-gray-600 mb-1 block">リスクレベル</label>
-            <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
-              <SelectTrigger>
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-xs text-gray-600">リスクレベル</label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button" 
+                      className="inline-flex items-center justify-center rounded-full w-3 h-3 bg-blue-100 hover:bg-blue-200 transition-colors text-[10px] font-bold text-blue-600"
+                      aria-label="リスクレベルの説明"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs p-3 z-50">
+                    <div className="space-y-2">
+                      <p className="font-semibold text-xs">判定基準</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-red-100 text-red-800 text-xs px-1 py-0">危険</Badge>
+                          <span className="text-xs">365日以上</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-orange-100 text-orange-800 text-xs px-1 py-0">高</Badge>
+                          <span className="text-xs">181-365日</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-yellow-100 text-yellow-800 text-xs px-1 py-0">中</Badge>
+                          <span className="text-xs">91-180日</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-100 text-green-800 text-xs px-1 py-0">低</Badge>
+                          <span className="text-xs">0-90日</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 pt-1 border-t">
+                        ※優良顧客は1段階軽減
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <Select 
+              value={riskFilter} 
+              onValueChange={(value) => {
+                if (value === "all" || value === "low" || value === "medium" || value === "high" || value === "critical" || value === "unrated") {
+                  setRiskFilter(value as RiskLevel | "all" | "unrated")
+                }
+              }}
+            >
+              <SelectTrigger aria-label="リスクレベル選択">
                 <SelectValue placeholder="リスクレベル" />
               </SelectTrigger>
               <SelectContent>
@@ -654,7 +747,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
               <div className="border-b px-4 py-3">
                 <div className="flex space-x-4">
                   {Array.from({ length: 8 }, (_, index) => (
-                    <div key={index} className="h-4 bg-gray-200 rounded animate-pulse" style={{width: index === 0 ? '120px' : index === 5 ? '100px' : '80px'}}></div>
+                    <div 
+                      key={index} 
+                      className={`h-4 bg-gray-200 rounded animate-pulse ${
+                        index === 0 ? 'w-[120px]' : index === 5 ? 'w-[100px]' : 'w-[80px]'
+                      }`}
+                    />
                   ))}
                 </div>
               </div>
@@ -698,7 +796,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                               )
                             : (
                                 <div>
-                                  <div className="text-4xl mb-4">📭</div>
+                                  <div className="mb-4">
+                                    <Inbox className="h-12 w-12 mx-auto text-gray-400" />
+                                  </div>
                                   <p className="text-lg mb-2">該当するデータがありません</p>
                                   <p className="text-sm text-gray-500">このセグメントには顧客が存在しません</p>
                                 </div>
@@ -706,7 +806,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                           )
                         : (
                             <div>
-                              <div className="text-4xl mb-4">🔍</div>
+                              <div className="mb-4">
+                                <Search className="h-12 w-12 mx-auto text-gray-400" />
+                              </div>
                               <p className="text-lg mb-2">該当する顧客が見つかりません</p>
                               <p className="text-sm">フィルタ条件を変更して再度お試しください</p>
                             </div>
@@ -715,7 +817,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                 </div>
                 {dormantData.length > 0 && filteredAndSortedCustomers.length === 0 && (
                   <div className="text-sm text-gray-400 mt-4 p-3 bg-gray-50 rounded-lg">
-                    <p>💡 ヒント: フィルタ条件を緩和してみてください</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <Lightbulb className="h-4 w-4 text-gray-400" />
+                      <p>ヒント: フィルタ条件を緩和してみてください</p>
+                    </div>
                     <p>全体データ: {dormantData.length.toLocaleString()}件</p>
                   </div>
                 )}
@@ -744,7 +849,49 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                           {getSortIcon("daysSinceLastPurchase")}
                         </Button>
                       </TableHead>
-                      <TableHead className="w-[100px]">リスクレベル</TableHead>
+                      <TableHead className="w-[120px]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">リスクレベル</span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button 
+                                  type="button" 
+                                  className="inline-flex items-center justify-center rounded-full w-4 h-4 bg-gray-200 hover:bg-gray-300 transition-colors"
+                                >
+                                  <span className="text-xs font-bold text-gray-600">?</span>
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-sm p-4 z-50">
+                                <div className="space-y-3">
+                                  <p className="font-semibold text-sm">リスクレベルの判定基準</p>
+                                  <div className="space-y-2 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-red-100 text-red-800">危険</Badge>
+                                      <span>365日以上</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-orange-100 text-orange-800">高</Badge>
+                                      <span>181-365日</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-yellow-100 text-yellow-800">中</Badge>
+                                      <span>91-180日</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge className="bg-green-100 text-green-800">低</Badge>
+                                      <span>0-90日</span>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-gray-600 pt-2 border-t">
+                                    ※購入回数10回以上の優良顧客は<br/>リスクレベルが1段階下がります
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableHead>
                       <TableHead className="w-[140px]">
                         <Button variant="ghost" onClick={() => handleSort("totalSpent")} className="h-auto p-0 font-semibold hover:bg-gray-100">
                           累計購入額
@@ -810,16 +957,44 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                             </div>
                           </TableCell>
                           <TableCell>
-                            {processedCustomer.hasNoPurchaseHistory ? (
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
-                                <Info className="w-3 h-3 mr-1" />
-                                未評価
-                              </Badge>
-                            ) : (
-                              <Badge variant={getRiskBadge(processedCustomer.displayRiskLevel as RiskLevel).variant} className="text-xs">
-                                {getRiskBadge(processedCustomer.displayRiskLevel as RiskLevel).label}
-                              </Badge>
-                            )}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  {processedCustomer.hasNoPurchaseHistory ? (
+                                    <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600 cursor-help">
+                                      <Info className="w-3 h-3 mr-1" />
+                                      未評価
+                                    </Badge>
+                                  ) : (
+                                    <Badge 
+                                      variant={getRiskBadge(processedCustomer.displayRiskLevel).variant} 
+                                      className="text-xs cursor-help"
+                                    >
+                                      {getRiskBadge(processedCustomer.displayRiskLevel).label}
+                                    </Badge>
+                                  )}
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs p-3">
+                                  <div className="space-y-2">
+                                    <div className="font-semibold text-sm">
+                                      {riskLevelDefinitions[processedCustomer.displayRiskLevel as keyof typeof riskLevelDefinitions]?.label || "不明"}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      {riskLevelDefinitions[processedCustomer.displayRiskLevel as keyof typeof riskLevelDefinitions]?.description || ""}
+                                    </div>
+                                    <div className="text-xs">
+                                      {riskLevelDefinitions[processedCustomer.displayRiskLevel as keyof typeof riskLevelDefinitions]?.detail || ""}
+                                    </div>
+                                    <div className="pt-2 border-t">
+                                      <div className="text-xs font-medium">推奨アクション:</div>
+                                      <div className="text-xs text-gray-600">
+                                        {riskLevelDefinitions[processedCustomer.displayRiskLevel as keyof typeof riskLevelDefinitions]?.action || ""}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </TableCell>
                           <TableCell>
                             <div className={`font-medium ${processedCustomer.hasNoPurchaseHistory ? 'text-gray-500' : ''}`}>
@@ -887,7 +1062,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                 </span>
                 {totalPages > 1 && (
                   <span className="text-slate-400">
-                    ({totalPages}ページ)
+                    (全{totalPages}ページ中 {currentPage}ページ目)
                   </span>
                 )}
               </div>
@@ -924,8 +1099,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                 </Button>
               
               <div className="flex items-center gap-1">
-                {/* 最初のページ */}
-                {currentPage > 3 && (
+                {/* 最初のページと省略記号 */}
+                {totalPages > 7 && currentPage > 4 && (
                   <>
                     <Button
                       variant="outline"
@@ -934,17 +1109,41 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                     >
                       1
                     </Button>
-                    {currentPage > 4 && <span className="px-2">...</span>}
+                    <span className="px-2 text-gray-400">...</span>
                   </>
                 )}
                 
                 {/* 現在ページ周辺 */}
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  // totalPagesが5以下の場合は1から開始、それ以外は現在ページを中心に表示
-                  const startPage = totalPages <= 5 ? 1 : Math.max(1, Math.min(totalPages - 4, currentPage - 2))
-                  const pageNum = startPage + i
-                  if (pageNum > totalPages) return null
-                  return (
+                {(() => {
+                  // ページ番号ボタンの表示ロジックを改善
+                  const pageButtons = [];
+                  
+                  if (totalPages <= 7) {
+                    // 7ページ以下の場合は全て表示
+                    for (let i = 1; i <= totalPages; i++) {
+                      pageButtons.push(i);
+                    }
+                  } else {
+                    // 8ページ以上の場合は省略表示
+                    if (currentPage <= 4) {
+                      // 前半の場合
+                      for (let i = 1; i <= 5; i++) {
+                        pageButtons.push(i);
+                      }
+                    } else if (currentPage >= totalPages - 3) {
+                      // 後半の場合
+                      for (let i = totalPages - 4; i <= totalPages; i++) {
+                        pageButtons.push(i);
+                      }
+                    } else {
+                      // 中間の場合
+                      for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+                        pageButtons.push(i);
+                      }
+                    }
+                  }
+                  
+                  return pageButtons.map(pageNum => (
                     <Button
                       key={pageNum}
                       variant={currentPage === pageNum ? "default" : "outline"}
@@ -953,13 +1152,13 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                     >
                       {pageNum}
                     </Button>
-                  )
-                })}
+                  ));
+                })()}
                 
-                {/* 最後のページ */}
-                {currentPage < totalPages - 2 && (
+                {/* 最後のページと省略記号 */}
+                {totalPages > 7 && currentPage < totalPages - 3 && (
                   <>
-                    {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+                    <span className="px-2 text-gray-400">...</span>
                     <Button
                       variant="outline"
                       size="sm"

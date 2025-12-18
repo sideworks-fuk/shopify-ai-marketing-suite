@@ -11,14 +11,23 @@ import { formatCurrency, formatPercentage, formatNumber } from "@/lib/format"
 import { getApiUrl, addStoreIdToParams } from "@/lib/api-config"
 import { handleError } from "@/lib/error-handler"
 
-// 購入回数の5階層定義
+// 購入回数の階層定義（0回を含む）
 const PURCHASE_TIERS = [
+  { count: 0, label: "0回（購入なし）", color: "#f5f5f5" },  // 既存顧客の購入なし用
   { count: 1, label: "1回", color: "#e3f2fd" },
   { count: 2, label: "2回", color: "#bbdefb" },
   { count: "3-5", label: "3-5回", color: "#90caf9" },
   { count: "6-10", label: "6-10回", color: "#64b5f6" },
   { count: "11+", label: "11回以上", color: "#2196f3" }
 ]
+
+// セグメントごとの0回購入の表示可否
+const SHOW_ZERO_PURCHASES = {
+  new: false,       // 新規顧客は0回は表示しない（定義上1回以上）
+  existing: true,   // 既存顧客は0回も表示
+  returning: false, // 復帰顧客は0回は表示しない（復帰=購入あり）
+  all: true        // 全顧客は0回も表示可能
+}
 
 interface PurchaseCountAnalysisProps {
   conditions: {
@@ -243,50 +252,94 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
                     </tr>
                   </thead>
                   <tbody>
-                    {analysisData.details.map((detail: any, index: number) => (
-                      <tr key={index} className="border-b hover:bg-muted/50">
-                        <td className="p-2">
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-4 h-4 rounded"
-                              style={{ backgroundColor: PURCHASE_TIERS[index]?.color || '#ccc' }}
-                            />
-                            {detail.purchaseCountLabel}
-                          </div>
-                        </td>
-                        <td className="text-right p-2">{formatNumber(detail.current.customerCount)}</td>
-                        <td className="text-right p-2">{formatPercentage(detail.percentage.customerPercentage)}</td>
-                        <td className="text-right p-2">{formatCurrency(detail.current.totalAmount)}</td>
-                        <td className="text-right p-2">{formatPercentage(detail.percentage.amountPercentage)}</td>
-                        <td className="text-right p-2">{formatCurrency(detail.current.averageCustomerValue)}</td>
-                        {conditions.compareWithPrevious && (
+                    {analysisData.details.map((detail: any, index: number) => {
+                      // 0回購入の表示判定
+                      const isZeroPurchases = detail.purchaseCountLabel === "0回" || 
+                                             detail.purchaseCountLabel === "0回（購入なし）" ||
+                                             detail.purchaseCount === 0;
+                      const shouldShowZero = SHOW_ZERO_PURCHASES[conditions.segment as keyof typeof SHOW_ZERO_PURCHASES] ?? false;
+                      
+                      // 0回購入で表示すべきでない場合はスキップ
+                      if (isZeroPurchases && !shouldShowZero) {
+                        return null;
+                      }
+                      
+                      // カラーインデックスの調整（0回がある場合）
+                      const colorIndex = isZeroPurchases ? 0 : index;
+                      
+                      return (
+                        <tr key={index} className="border-b hover:bg-muted/50">
+                          <td className="p-2">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-4 h-4 rounded"
+                                style={{ backgroundColor: PURCHASE_TIERS[colorIndex]?.color || '#ccc' }}
+                              />
+                              {isZeroPurchases ? (
+                                <span className="text-gray-500">購入なし</span>
+                              ) : (
+                                detail.purchaseCountLabel
+                              )}
+                            </div>
+                          </td>
                           <td className="text-right p-2">
-                            {detail.growthRate ? (
-                              // 999999は前年データなしで今年データありを示す
-                              detail.growthRate.customerCountGrowth >= 999999 ? (
-                                <span className="text-blue-600 font-medium">新規</span>
-                              ) : detail.growthRate.customerCountGrowth > 1000 ? (
-                                // 1000%以上の異常値も新規扱い（前年がほぼ0）
-                                <span className="text-blue-600 font-medium">新規</span>
-                              ) : (
-                                <span className={detail.growthRate.customerCountGrowth > 0 ? "text-green-600" : "text-red-600"}>
-                                  {formatPercentage(detail.growthRate.customerCountGrowth)}
-                                </span>
-                              )
+                            {formatNumber(detail.current.customerCount)}
+                          </td>
+                          <td className="text-right p-2">
+                            {formatPercentage(detail.percentage.customerPercentage)}
+                          </td>
+                          <td className="text-right p-2">
+                            {isZeroPurchases ? (
+                              <span className="text-gray-400">¥0</span>
                             ) : (
-                              // growthRateがnullの場合
-                              detail.current?.customerCount > 0 ? (
-                                // 今年データがある場合は新規として扱う
-                                <span className="text-blue-600 font-medium">新規</span>
-                              ) : (
-                                // 今年もデータがない場合は該当なし
-                                <span className="text-gray-400">該当なし</span>
-                              )
+                              formatCurrency(detail.current.totalAmount)
                             )}
                           </td>
-                        )}
-                      </tr>
-                    ))}
+                          <td className="text-right p-2">
+                            {isZeroPurchases ? (
+                              <span className="text-gray-400">0%</span>
+                            ) : (
+                              formatPercentage(detail.percentage.amountPercentage)
+                            )}
+                          </td>
+                          <td className="text-right p-2">
+                            {isZeroPurchases ? (
+                              <span className="text-gray-400">-</span>
+                            ) : (
+                              formatCurrency(detail.current.averageCustomerValue)
+                            )}
+                          </td>
+                          {conditions.compareWithPrevious && (
+                            <td className="text-right p-2">
+                              {isZeroPurchases ? (
+                                <span className="text-gray-400">-</span>
+                              ) : detail.growthRate ? (
+                                // 999999は前年データなしで今年データありを示す
+                                detail.growthRate.customerCountGrowth >= 999999 ? (
+                                  <span className="text-blue-600 font-medium">新規</span>
+                                ) : detail.growthRate.customerCountGrowth > 1000 ? (
+                                  // 1000%以上の異常値も新規扱い（前年がほぼ0）
+                                  <span className="text-blue-600 font-medium">新規</span>
+                                ) : (
+                                  <span className={detail.growthRate.customerCountGrowth > 0 ? "text-green-600" : "text-red-600"}>
+                                    {formatPercentage(detail.growthRate.customerCountGrowth)}
+                                  </span>
+                                )
+                              ) : (
+                                // growthRateがnullの場合
+                                detail.current?.customerCount > 0 ? (
+                                  // 今年データがある場合は新規として扱う
+                                  <span className="text-blue-600 font-medium">新規</span>
+                                ) : (
+                                  // 今年もデータがない場合は該当なし
+                                  <span className="text-gray-400">該当なし</span>
+                                )
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

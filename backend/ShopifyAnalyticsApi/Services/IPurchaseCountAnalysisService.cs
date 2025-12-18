@@ -39,6 +39,16 @@ namespace ShopifyAnalyticsApi.Services
         Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment);
 
         /// <summary>
+        /// セグメント別購入回数分析を取得（期間指定付き）
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <param name="segment">セグメント</param>
+        /// <param name="startDate">開始日</param>
+        /// <param name="endDate">終了日</param>
+        /// <returns>セグメント分析データ</returns>
+        Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment, DateTime startDate, DateTime endDate);
+
+        /// <summary>
         /// 簡易版購入回数分析データを取得（5階層）
         /// </summary>
         /// <param name="request">分析リクエスト</param>

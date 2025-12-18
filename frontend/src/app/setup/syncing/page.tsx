@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle, Building2 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api-config'
 
 interface SyncStatus {
@@ -125,8 +125,9 @@ export default function SyncingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">
-            🏪 EC Ranger
+          <CardTitle className="text-3xl font-bold flex items-center gap-2">
+            <Building2 className="h-8 w-8" />
+            <span>EC Ranger</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">

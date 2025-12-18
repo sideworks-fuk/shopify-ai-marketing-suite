@@ -25,6 +25,8 @@ import {
   PlayCircle,
   PauseCircle,
   Info,
+  Settings,
+  Building2,
   Zap,
   ArrowRight
 } from 'lucide-react'
@@ -163,8 +165,9 @@ export default function InitialSetupPage() {
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
         <div className="mb-6 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            🏪 EC Ranger データ同期ダッシュボード
+          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+            <Building2 className="h-10 w-10 text-blue-600" />
+            <span>EC Ranger データ同期ダッシュボード</span>
           </h1>
           <p className="text-gray-600">
             Shopifyストアのデータを同期・管理し、AI分析を実行します
@@ -176,7 +179,7 @@ export default function InitialSetupPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-16">
                   <div>
                     <p className="text-sm text-blue-600 font-medium">顧客データ</p>
                     <p className="text-2xl font-bold text-blue-900">
@@ -190,7 +193,7 @@ export default function InitialSetupPage() {
 
             <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-16">
                   <div>
                     <p className="text-sm text-green-600 font-medium">注文データ</p>
                     <p className="text-2xl font-bold text-green-900">
@@ -204,7 +207,7 @@ export default function InitialSetupPage() {
 
             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-16">
                   <div>
                     <p className="text-sm text-purple-600 font-medium">商品データ</p>
                     <p className="text-2xl font-bold text-purple-900">
@@ -218,21 +221,19 @@ export default function InitialSetupPage() {
 
             <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between h-16">
                   <div>
                     <p className="text-sm text-orange-600 font-medium">最終同期</p>
-                    <p className="text-sm font-bold text-orange-900">
+                    <p className="text-xl font-bold text-orange-900">
                       {syncStats.lastSyncTime ? new Date(syncStats.lastSyncTime).toLocaleString('ja-JP', {
-                        month: 'short',
+                        month: 'numeric',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
-                      }) : '未同期'}
+                      }).replace(/\//g, '/') : '未同期'}
                     </p>
                   </div>
-                  <div className="flex items-center">
-                    <Clock className="h-8 w-8 text-orange-500" />
-                  </div>
+                  <Clock className="h-8 w-8 text-orange-500" />
                 </div>
               </CardContent>
             </Card>
@@ -245,7 +246,7 @@ export default function InitialSetupPage() {
             <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="setup" className="flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
+                  <Settings className="h-4 w-4" />
                   初期設定
                 </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-2">
@@ -253,7 +254,7 @@ export default function InitialSetupPage() {
                   同期履歴
                 </TabsTrigger>
                 <TabsTrigger value="trigger" className="flex items-center gap-2">
-                  <PlayCircle className="h-4 w-4" />
+                  <RefreshCw className="h-4 w-4" />
                   手動同期
                 </TabsTrigger>
               </TabsList>

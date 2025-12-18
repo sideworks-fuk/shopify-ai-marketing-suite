@@ -43,6 +43,11 @@ namespace ShopifyAnalyticsApi.Services
             return await _analysisService.GetSegmentAnalysisAsync(storeId, segment);
         }
 
+        public async Task<SegmentAnalysisData> GetSegmentAnalysisAsync(int storeId, string segment, DateTime startDate, DateTime endDate)
+        {
+            return await _analysisService.GetSegmentAnalysisAsync(storeId, segment, startDate, endDate);
+        }
+
         public async Task<PurchaseCountAnalysisResponse> GetSimplifiedPurchaseCountAnalysisAsync(PurchaseCountAnalysisRequest request)
         {
             _logger.LogInformation("簡易版購入回数分析(5階層)処理を開始します");
