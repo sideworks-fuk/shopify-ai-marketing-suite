@@ -661,30 +661,30 @@ const YearOverYearProductAnalysis = () => {
               <div className="relative border rounded-lg">
                 {/* 横スクロールコンテナ */}
                 <div className="overflow-x-auto">
-                  <div className="min-w-[1690px]">
+                <div className="min-w-[1690px]">
                     {/* テーブルヘッダー（sticky で固定） */}
                     <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200 shadow-sm">
-                      <div className="flex">
+                    <div className="flex">
                         <div className="sticky left-0 bg-gray-50 z-30 w-[250px] flex-shrink-0 border-r-2 border-gray-200">
-                          <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
-                            商品情報
-                          </div>
-                        </div>
-                        <div className="flex flex-1 min-w-[1440px]">
-                          {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
-                            <div key={month} className="flex-1 py-4 px-2 text-center font-semibold text-gray-900 min-w-[120px] border-r border-gray-200">
-                              <div className="text-sm">{month}</div>
-                              <div className="text-xs text-gray-500 font-normal">
-                                {selectedYear} / {previousYear}
-                              </div>
-                            </div>
-                          ))}
+                        <div className="py-4 px-3 font-semibold text-gray-900 text-sm">
+                          商品情報
                         </div>
                       </div>
+                      <div className="flex flex-1 min-w-[1440px]">
+                        {['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'].map(month => (
+                          <div key={month} className="flex-1 py-4 px-2 text-center font-semibold text-gray-900 min-w-[120px] border-r border-gray-200">
+                            <div className="text-sm">{month}</div>
+                            <div className="text-xs text-gray-500 font-normal">
+                              {selectedYear} / {previousYear}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    
+                  </div>
+                  
                     {/* テーブルボディ（ブラウザスクロール利用） */}
-                    <div className="bg-white">
+                  <div className="bg-white">
                       {/* 全データを表示（仮想スクロール削除） */}
                       {sortedData.map((product, index) => (
                         <ProductTableRowVirtual

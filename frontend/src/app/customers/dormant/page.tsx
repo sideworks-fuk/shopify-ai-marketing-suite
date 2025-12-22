@@ -641,14 +641,14 @@ export default function DormantCustomersPage() {
                     const isSelected = selectedSegment === segment.label || 
                                      (!selectedSegment && segment.label === '180-365日' && segment.count > 0)
                     return (
-                      <div
-                        key={segment.label}
-                        className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                    <div
+                      key={segment.label}
+                      className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                           isSelected
-                            ? 'bg-blue-50 border-blue-300 shadow-md'
-                            : 'bg-white border-gray-200 hover:bg-gray-50'
-                        }`}
-                        onClick={() => {
+                          ? 'bg-blue-50 border-blue-300 shadow-md'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => {
                           console.log('🖱️ [セグメントクリック]', {
                             segment: segment.label,
                             isSelected,
@@ -671,7 +671,7 @@ export default function DormantCustomersPage() {
                                 setSelectedSegment(null)
                                 // その後全データを取得
                                 await loadCustomerList()
-                              } else {
+                        } else {
                                 console.log('✅ [セグメント選択]', segment.label)
                                 // 先にselectedSegmentを設定
                                 setSelectedSegment(segment.label)
@@ -682,12 +682,12 @@ export default function DormantCustomersPage() {
                               console.error('🚨 [セグメントアクション] エラー', err)
                               // エラー時にローディング状態を確実に解除
                               setIsLoadingList(false)
-                            }
+                        }
                           }
                           
                           // 非同期関数を実行
                           handleSegmentAction()
-                        }}
+                      }}
                     >
                       <div className="text-center">
                         <div className="text-3xl mb-3">
@@ -706,8 +706,8 @@ export default function DormantCustomersPage() {
                         <div className="mt-3 text-xs text-gray-400">
                           クリックして詳細表示
                         </div>
-                        </div>
                       </div>
+                    </div>
                     )
                   })}
                 </div>

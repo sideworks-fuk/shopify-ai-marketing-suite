@@ -67,7 +67,7 @@ export class ApiClient {
 
     console.log('⏳ [APIClient.request] fetch呼び出し中...');
     const fetchStartTime = Date.now();
-    
+
     const response = await fetch(url, {
       ...options,
       headers,
