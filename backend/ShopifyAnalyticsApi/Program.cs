@@ -534,6 +534,31 @@ try
     Log.Information("Starting application with Environment: {Environment}, AuthMode: {AuthMode}", 
         environment, authMode);
 
+    // プレースホルダーかどうかを判定するローカル関数
+    bool IsPlaceholder(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return true;
+
+        var placeholderPatterns = new[]
+        {
+            "Will be overridden",
+            "placeholder",
+            "YOUR_",
+            "replace",
+            "TODO",
+            "example",
+            "development",
+            "dev",
+            "change this",
+            "set this"
+        };
+
+        var upperValue = value.ToUpperInvariant();
+        return placeholderPatterns.Any(pattern => 
+            upperValue.Contains(pattern.ToUpperInvariant()));
+    }
+
     // 本番環境での必須チェック
     if (environment == "Production")
     {
@@ -567,7 +592,7 @@ try
         if (sessionStorageType == "Redis")
         {
             var redisConnString = app.Configuration.GetConnectionString("Redis");
-            if (string.IsNullOrEmpty(redisConnString) || redisConnString.Contains("#"))
+            if (string.IsNullOrEmpty(redisConnString) || IsPlaceholder(redisConnString))
             {
                 throw new InvalidOperationException(
                     "SECURITY: Redis is configured as session storage but connection string is not set. " +
@@ -577,7 +602,7 @@ try
 
         foreach (var (key, value) in requiredSettings)
         {
-            if (string.IsNullOrEmpty(value) || value.Contains("#"))
+            if (string.IsNullOrEmpty(value) || IsPlaceholder(value))
             {
                 throw new InvalidOperationException(
                     $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
