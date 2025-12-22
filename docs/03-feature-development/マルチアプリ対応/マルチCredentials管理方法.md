@@ -31,30 +31,12 @@ var apiKey = GetShopifySetting("ApiKey"); // 設定ファイル/環境変数か�
 
 ```bash
 # 公開アプリ用
-<<<<<<< HEAD
-<<<<<<< HEAD
 Shopify__PublicApp__ApiKey=[YOUR_PUBLIC_APP_API_KEY]
 Shopify__PublicApp__ApiSecret=[YOUR_PUBLIC_APP_API_SECRET]
 
 # カスタムアプリ用
 Shopify__CustomApp__ApiKey=[YOUR_CUSTOM_APP_API_KEY]
 Shopify__CustomApp__ApiSecret=[YOUR_CUSTOM_APP_API_SECRET]
-=======
-Shopify__PublicApp__ApiKey=YOUR_PUBLIC_APP_API_KEY
-Shopify__PublicApp__ApiSecret=YOUR_PUBLIC_APP_API_SECRET
-
-# カスタムアプリ用
-Shopify__CustomApp__ApiKey=YOUR_CUSTOM_APP_API_KEY
-Shopify__CustomApp__ApiSecret=YOUR_CUSTOM_APP_API_SECRET
->>>>>>> 368c771 (fix : ドキュメント)
-=======
-Shopify__PublicApp__ApiKey=[YOUR_PUBLIC_APP_API_KEY]
-Shopify__PublicApp__ApiSecret=[YOUR_PUBLIC_APP_API_SECRET]
-
-# カスタムアプリ用
-Shopify__CustomApp__ApiKey=[YOUR_CUSTOM_APP_API_KEY]
-Shopify__CustomApp__ApiSecret=[YOUR_CUSTOM_APP_API_SECRET]
->>>>>>> 9dcc1a4 (fix : ドキュメント)
 ```
 
 ### デメリット
@@ -72,34 +54,14 @@ Shopify__CustomApp__ApiSecret=[YOUR_CUSTOM_APP_API_SECRET]
 ```sql
 -- ストア作成時に、対応するShopifyアプリのCredentialsを保存
 UPDATE Stores 
-<<<<<<< HEAD
-<<<<<<< HEAD
 SET ApiKey = '[YOUR_SHOPIFY_API_KEY_1]',
     ApiSecret = '[YOUR_SHOPIFY_API_SECRET_1]'
-=======
-SET ApiKey = 'YOUR_SHOPIFY_API_KEY_1',
-    ApiSecret = 'YOUR_SHOPIFY_API_SECRET_1'
->>>>>>> 368c771 (fix : ドキュメント)
-=======
-SET ApiKey = '[YOUR_SHOPIFY_API_KEY_1]',
-    ApiSecret = '[YOUR_SHOPIFY_API_SECRET_1]'
->>>>>>> 9dcc1a4 (fix : ドキュメント)
 WHERE Domain = 'store1.myshopify.com';
 
 -- 別のストアには別のCredentialsを設定
 UPDATE Stores 
-<<<<<<< HEAD
-<<<<<<< HEAD
 SET ApiKey = '[YOUR_SHOPIFY_API_KEY_2]',
     ApiSecret = '[YOUR_SHOPIFY_API_SECRET_2]'
-=======
-SET ApiKey = 'YOUR_SHOPIFY_API_KEY_2',
-    ApiSecret = 'YOUR_SHOPIFY_API_SECRET_2'
->>>>>>> 368c771 (fix : ドキュメント)
-=======
-SET ApiKey = '[YOUR_SHOPIFY_API_KEY_2]',
-    ApiSecret = '[YOUR_SHOPIFY_API_SECRET_2]'
->>>>>>> 9dcc1a4 (fix : ドキュメント)
 WHERE Domain = 'store2.myshopify.com';
 ```
 
@@ -257,18 +219,8 @@ private async Task SaveOrUpdateStore(string shop, string accessToken)
 
 1. **デフォルトCredentials**: 環境変数で設定（フォールバック用）
    ```bash
-<<<<<<< HEAD
-<<<<<<< HEAD
    Shopify__ApiKey=[YOUR_DEFAULT_SHOPIFY_API_KEY]
    Shopify__ApiSecret=[YOUR_DEFAULT_SHOPIFY_API_SECRET]
-=======
-   Shopify__ApiKey=YOUR_DEFAULT_SHOPIFY_API_KEY
-   Shopify__ApiSecret=YOUR_DEFAULT_SHOPIFY_API_SECRET
->>>>>>> 368c771 (fix : ドキュメント)
-=======
-   Shopify__ApiKey=[YOUR_DEFAULT_SHOPIFY_API_KEY]
-   Shopify__ApiSecret=[YOUR_DEFAULT_SHOPIFY_API_SECRET]
->>>>>>> 9dcc1a4 (fix : ドキュメント)
    ```
 
 2. **ストア固有Credentials**: データベースで管理
