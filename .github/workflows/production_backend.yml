@@ -25,7 +25,7 @@ env:
 jobs:
   production-deploy:
     runs-on: windows-latest
-    environment: production
+    environment: ec-ranger-prod
     
     steps:
     - name: 🛡️ Production deployment confirmation
