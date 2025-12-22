@@ -397,6 +397,189 @@ private async Task SaveOrUpdateStore(
 
 ---
 
+## DbContextの修正
+
+### ShopifyDbContext.csの修正
+
+`ShopifyApps`テーブルを追加するため、`ShopifyDbContext`を修正します。
+
+**ファイル**: `backend/ShopifyAnalyticsApi/Data/ShopifyDbContext.cs`
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ShopifyAnalyticsApi.Models;
+
+namespace ShopifyAnalyticsApi.Data
+{
+    public class ShopifyDbContext : DbContext
+    {
+        public ShopifyDbContext(DbContextOptions<ShopifyDbContext> options) : base(options)
+        {
+        }
+
+        // ... 既存のDbSets ...
+        public DbSet<Store> Stores { get; set; }
+        
+        // 追加: ShopifyAppsテーブル
+        public DbSet<ShopifyApp> ShopifyApps { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // ... 既存の設定 ...
+
+            // ShopifyAppエンティティの設定
+            modelBuilder.Entity<ShopifyApp>(entity =>
+            {
+                entity.ToTable("ShopifyApps");
+                
+                entity.HasKey(e => e.Id);
+                
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+                
+                entity.Property(e => e.DisplayName)
+                    .HasMaxLength(200);
+                
+                entity.Property(e => e.AppType)
+                    .IsRequired()
+                    .HasMaxLength(50);
+                
+                entity.Property(e => e.ApiKey)
+                    .IsRequired()
+                    .HasMaxLength(255);
+                
+                entity.Property(e => e.ApiSecret)
+                    .IsRequired()
+                    .HasMaxLength(255);
+                
+                entity.Property(e => e.AppUrl)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.RedirectUri)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.Scopes)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.Description)
+                    .HasMaxLength(1000);
+                
+                // インデックス設定
+                entity.HasIndex(e => e.ApiKey)
+                    .HasDatabaseName("IX_ShopifyApps_ApiKey");
+                
+                entity.HasIndex(e => e.AppType)
+                    .HasDatabaseName("IX_ShopifyApps_AppType");
+                
+                entity.HasIndex(e => e.IsActive)
+                    .HasDatabaseName("IX_ShopifyApps_IsActive");
+            });
+            
+            // StoreとShopifyAppのリレーション設定
+            modelBuilder.Entity<Store>()
+                .HasOne(s => s.ShopifyApp)
+                .WithMany(a => a.Stores)
+                .HasForeignKey(s => s.ShopifyAppId)
+                .OnDelete(DeleteBehavior.SetNull); // ShopifyApp削除時はNULLに設定
+        }
+    }
+}
+```
+
+---
+
+## Callbackメソッドの完全な修正コード
+
+### ShopifyAuthController.csのCallbackメソッド
+
+**ファイル**: `backend/ShopifyAnalyticsApi/Controllers/ShopifyAuthController.cs`
+
+```csharp
+[HttpGet("callback")]
+[AllowAnonymous]
+public async Task<IActionResult> Callback([FromQuery] ShopifyCallbackRequest request)
+{
+    try
+    {
+        // バリデーション
+        if (string.IsNullOrWhiteSpace(request.Code) || 
+            string.IsNullOrWhiteSpace(request.Shop) || 
+            string.IsNullOrWhiteSpace(request.State))
+        {
+            _logger.LogWarning("OAuthコールバック: 必須パラメータが不足. Code: {Code}, Shop: {Shop}, State: {State}", 
+                request.Code, request.Shop, request.State);
+            return BadRequest(new { error = "Missing required parameters" });
+        }
+
+        // stateの検証
+        var cacheKey = $"{StateCacheKeyPrefix}{request.State}";
+        var stateDataJson = _cache.Get<string>(cacheKey);
+        
+        if (string.IsNullOrEmpty(stateDataJson))
+        {
+            _logger.LogWarning("OAuthコールバック: 無効なstate. Shop: {Shop}, State: {State}", 
+                request.Shop, request.State);
+            return BadRequest(new { error = "Invalid state parameter" });
+        }
+
+        // stateからAPI Key/Secret/ShopifyAppIdを取得
+        var stateData = JsonSerializer.Deserialize<StateData>(stateDataJson);
+        if (stateData == null || string.IsNullOrEmpty(stateData.apiKey))
+        {
+            _logger.LogError("OAuthコールバック: stateデータの解析に失敗. Shop: {Shop}", request.Shop);
+            return StatusCode(500, new { error = "Failed to parse state data" });
+        }
+
+        // アクセストークンを取得
+        var accessToken = await ExchangeCodeForAccessTokenWithRetry(
+            request.Code, 
+            request.Shop, 
+            stateData.apiKey, 
+            stateData.apiSecret);
+
+        // ストア情報を保存/更新（ShopifyAppIdを含む）
+        await SaveOrUpdateStore(
+            request.Shop, 
+            accessToken, 
+            stateData.apiKey, 
+            stateData.apiSecret,
+            stateData.shopifyAppId); // ShopifyAppIdを渡す
+
+        // stateを削除（セキュリティのため）
+        _cache.Remove(cacheKey);
+
+        _logger.LogInformation("OAuth認証が完了しました. Shop: {Shop}, ShopifyAppId: {ShopifyAppId}", 
+            request.Shop, stateData.shopifyAppId);
+
+        // フロントエンドにリダイレクト
+        var redirectUrl = $"{GetShopifyAppUrl(stateData.apiKey)}/dashboard";
+        return Redirect(redirectUrl);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "OAuthコールバック処理中にエラーが発生. Shop: {Shop}", request.Shop);
+        return StatusCode(500, new { error = "Internal server error during OAuth callback" });
+    }
+}
+
+// StateDataクラス（コントローラー内のprivate class）
+private class StateData
+{
+    public string shop { get; set; } = string.Empty;
+    public string apiKey { get; set; } = string.Empty;
+    public string? apiSecret { get; set; }
+    public int? shopifyAppId { get; set; }
+}
+```
+
+**注意**: `GetShopifyAppUrl`メソッドは、`apiKey`から対応するApp URLを取得するヘルパーメソッドです。
+`ShopifyApps`テーブルから取得するか、環境変数から取得する実装が必要です。
+
+---
+
 ## マイグレーション手順
 
 ### 1. EF Core Migrationの作成
