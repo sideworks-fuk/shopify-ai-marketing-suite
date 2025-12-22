@@ -611,8 +611,16 @@ try
 
         foreach (var (key, value) in requiredSettings)
         {
-            if (string.IsNullOrEmpty(value) || IsPlaceholder(value))
+            var isNull = string.IsNullOrEmpty(value);
+            var isPlaceholder = !isNull && IsPlaceholder(value);
+            
+            Log.Information("DEBUG: Validating {Key} - IsNull: {IsNull}, IsPlaceholder: {IsPlaceholder}, ValueLength: {Length}", 
+                key, isNull, isPlaceholder, value?.Length ?? 0);
+            
+            if (isNull || isPlaceholder)
             {
+                Log.Error("SECURITY: Required configuration '{Key}' validation failed - IsNull: {IsNull}, IsPlaceholder: {IsPlaceholder}", 
+                    key, isNull, isPlaceholder);
                 throw new InvalidOperationException(
                     $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
                     "Production environment requires all secrets to be properly configured.");
