@@ -578,6 +578,34 @@ private class StateData
 **注意**: `GetShopifyAppUrl`メソッドは、`apiKey`から対応するApp URLを取得するヘルパーメソッドです。
 `ShopifyApps`テーブルから取得するか、環境変数から取得する実装が必要です。
 
+### GetShopifyAppUrlメソッドの実装
+
+**ファイル**: `backend/ShopifyAnalyticsApi/Controllers/ShopifyAuthController.cs`
+
+```csharp
+/// <summary>
+/// API KeyからApp URLを取得
+/// </summary>
+private async Task<string> GetShopifyAppUrl(string apiKey)
+{
+    var shopifyApp = await _context.ShopifyApps
+        .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
+    
+    if (shopifyApp != null && !string.IsNullOrEmpty(shopifyApp.AppUrl))
+    {
+        return shopifyApp.AppUrl;
+    }
+    
+    // フォールバック: 環境変数から取得
+    return GetShopifySetting("AppUrl") ?? "https://localhost:3000";
+}
+```
+
+**実装のポイント**:
+- `ShopifyApps`テーブルから`apiKey`で検索し、`IsActive = true`のアプリの`AppUrl`を取得
+- 見つからない場合は環境変数から取得（フォールバック）
+- それでも見つからない場合はデフォルトURLを返す
+
 ---
 
 ## マイグレーション手順
