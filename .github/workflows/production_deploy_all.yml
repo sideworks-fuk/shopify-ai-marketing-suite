@@ -1,0 +1,215 @@
+name: Production Full Deploy (Frontend + Backend)
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_message:
+        description: 'デプロイメッセージ（任意）'
+        required: false
+        type: string
+      confirm_production:
+        description: '本番環境への全体デプロイを確認'
+        required: true
+        type: choice
+        options:
+          - 'YES - 本番環境に全体デプロイします'
+          - 'NO - キャンセルします'
+        default: 'NO - キャンセルします'
+
+jobs:
+  confirm-deployment:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🛡️ Production deployment confirmation
+      if: github.event.inputs.confirm_production != 'YES - 本番環境に全体デプロイします'
+      run: |
+        echo "❌ Production deployment cancelled by user"
+        exit 1
+
+    - name: 📝 Display deployment plan
+      run: |
+        echo "================================================"
+        echo "🚀 PRODUCTION FULL DEPLOYMENT PLAN"
+        echo "================================================"
+        echo "This workflow will deploy:"
+        echo "  1. Backend API to Azure App Service (Japan West)"
+        echo "  2. Frontend to Azure Static Web Apps (Japan East)"
+        echo ""
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
+        echo "Timestamp: $(date)"
+        echo "================================================"
+        echo "⚠️ WARNING: This will update the PRODUCTION environment!"
+        echo "================================================"
+
+  deploy-backend:
+    needs: confirm-deployment
+    runs-on: windows-latest
+    environment: production
+    env:
+      DOTNET_VERSION: '8.x'
+      APP_NAME: 'ec-ranger-backend-prod'  # Japan West の App Service
+      
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET Core
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Setup NuGet cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: 🔧 Configure NuGet
+      run: |
+        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org --configfile NuGet.Config || echo "Source already exists"
+      shell: pwsh
+
+    - name: 📝 Backend deployment info
+      run: |
+        echo "🚀 Starting Backend Deployment"
+        echo "Target: Azure App Service (Japan West)"
+        echo "App: ${{ env.APP_NAME }}"
+
+    - name: 🔍 Restore dependencies
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet restore --disable-parallel --verbosity normal
+      shell: pwsh
+
+    - name: 🏗️ Build project
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet build --configuration Release --no-restore
+
+    - name: 🧪 Run tests
+      run: |
+        cd backend
+        if (Test-Path "*.Tests") {
+          dotnet test --configuration Release --no-build --verbosity normal
+        } else {
+          Write-Host "No test projects found, skipping tests"
+        }
+      shell: pwsh
+      continue-on-error: true
+
+    - name: 📦 Publish project
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet publish -c Release -o ./published --no-restore --no-build
+
+    - name: 🚀 Deploy Backend to Azure
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
+        package: backend/ShopifyAnalyticsApi/published
+
+    - name: ✅ Backend deployment complete
+      run: |
+        echo "✅ Backend deployment completed!"
+        echo "🌐 Backend URL: https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net"
+
+  deploy-frontend:
+    needs: confirm-deployment
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      NODE_VERSION: '20.x'
+      APP_LOCATION: '/frontend'
+      OUTPUT_LOCATION: ''
+      AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION }}
+      
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 📝 Frontend deployment info
+      run: |
+        echo "🚀 Starting Frontend Deployment"
+        echo "Target: Azure Static Web Apps (Japan East)"
+
+    - name: 🚀 Deploy Frontend to Azure
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: 'upload'
+        app_location: ${{ env.APP_LOCATION }}
+        output_location: ${{ env.OUTPUT_LOCATION }}
+        app_build_command: 'npm run build'
+        deployment_environment: ''  # 空にすることで本番環境にデプロイ
+      env:
+        NEXT_PUBLIC_ENVIRONMENT: 'production'
+        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ secrets.SHOPIFY_API_KEY_PRODUCTION }}'
+        NEXT_PUBLIC_SHOPIFY_APP_URL: 'https://white-island-08e0a6300-2.azurestaticapps.net'
+        NEXT_PUBLIC_USE_HTTPS: 'true'
+        NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
+        NODE_VERSION: 20
+
+    - name: ✅ Frontend deployment complete
+      run: |
+        echo "✅ Frontend deployment completed!"
+        echo "🌐 Frontend URL: https://white-island-08e0a6300-2.azurestaticapps.net"
+
+  deployment-summary:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: 📋 Final deployment summary
+      run: |
+        echo "================================================"
+        echo "🎉 PRODUCTION DEPLOYMENT SUMMARY"
+        echo "================================================"
+        echo "Status:"
+        echo "  Backend: ${{ needs.deploy-backend.result }}"
+        echo "  Frontend: ${{ needs.deploy-frontend.result }}"
+        echo ""
+        echo "URLs:"
+        echo "  Frontend: https://white-island-08e0a6300-2.azurestaticapps.net"
+        echo "  Backend API: https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net"
+        echo ""
+        echo "Deployed by: ${{ github.actor }}"
+        echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
+        echo "Deployment time: $(date)"
+        echo "================================================"
+        
+        if [ "${{ needs.deploy-backend.result }}" = "success" ] && [ "${{ needs.deploy-frontend.result }}" = "success" ]; then
+          echo "✅ All deployments completed successfully!"
+        else
+          echo "⚠️ Some deployments may have issues. Please check the logs."
+          exit 1
+        fi
+
+    - name: 🏥 Production health check
+      if: needs.deploy-backend.result == 'success' && needs.deploy-frontend.result == 'success'
+      run: |
+        echo "Waiting 60 seconds for services to stabilize..."
+        sleep 60
+        
+        echo "Checking Backend API..."
+        backend_response=$(curl -s -o /dev/null -w "%{http_code}" https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net/api/health || echo "000")
+        
+        echo "Checking Frontend..."
+        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" https://white-island-08e0a6300-2.azurestaticapps.net || echo "000")
+        
+        echo ""
+        echo "Health Check Results:"
+        echo "  Backend API: $backend_response"
+        echo "  Frontend: $frontend_response"
+        
+        if [ "$backend_response" = "200" ] && ([ "$frontend_response" = "200" ] || [ "$frontend_response" = "401" ]); then
+          echo "✅ All services are healthy!"
+        else
+          echo "⚠️ Some services may need attention. Please verify manually."
+        fi

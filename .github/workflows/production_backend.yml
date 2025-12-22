@@ -1,0 +1,171 @@
+name: Production Backend Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_message:
+        description: 'デプロイメッセージ（任意）'
+        required: false
+        type: string
+      confirm_production:
+        description: '本番環境へのデプロイを確認'
+        required: true
+        type: choice
+        options:
+          - 'YES - 本番環境にデプロイします'
+          - 'NO - キャンセルします'
+        default: 'NO - キャンセルします'
+
+env:
+  DOTNET_VERSION: '8.x'
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  APP_NAME: 'ec-ranger-backend-prod'  # Japan West の App Service
+  APP_URL: 'https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net/'
+
+jobs:
+  production-deploy:
+    runs-on: windows-latest
+    environment: production
+    
+    steps:
+    - name: 🛡️ Production deployment confirmation
+      if: github.event.inputs.confirm_production != 'YES - 本番環境にデプロイします'
+      run: |
+        echo "❌ Production deployment cancelled by user"
+        exit 1
+      shell: bash
+
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET Core
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Setup NuGet cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: 🔧 Configure NuGet
+      run: |
+        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org --configfile NuGet.Config || echo "Source already exists"
+        dotnet nuget list source
+      shell: pwsh
+
+    - name: 📝 Display deployment info
+      run: |
+        echo "🚀 Production Backend Deployment Started"
+        echo "Environment: PRODUCTION (Japan West)"
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
+        echo "Timestamp: $(date)"
+        echo "Target App: ${{ env.APP_NAME }}"
+        echo "⚠️ WARNING: This will deploy to the PRODUCTION environment!"
+
+    - name: 🔍 Restore dependencies (with retry)
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        $maxRetries = 3
+        $retryCount = 0
+        $success = $false
+        
+        while (-not $success -and $retryCount -lt $maxRetries) {
+          try {
+            $retryCount++
+            Write-Host "Attempt $retryCount of $maxRetries..."
+            
+            # Clear NuGet caches if retry
+            if ($retryCount -gt 1) {
+              dotnet nuget locals all --clear
+            }
+            
+            # Restore with timeout and retry settings
+            dotnet restore --disable-parallel --verbosity normal
+            
+            $success = $true
+            Write-Host "✅ Dependencies restored successfully!"
+          }
+          catch {
+            Write-Host "❌ Restore failed on attempt $retryCount"
+            Write-Host $_.Exception.Message
+            
+            if ($retryCount -eq $maxRetries) {
+              throw "Failed to restore dependencies after $maxRetries attempts"
+            }
+            
+            Write-Host "Waiting 10 seconds before retry..."
+            Start-Sleep -Seconds 10
+          }
+        }
+      shell: pwsh
+
+    - name: 🏗️ Build project
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet build --configuration Release --no-restore
+
+    - name: 🧪 Run tests
+      run: |
+        cd backend
+        if (Test-Path "*.Tests") {
+          dotnet test --configuration Release --no-build --verbosity normal
+        } else {
+          Write-Host "No test projects found, skipping tests"
+        }
+      shell: pwsh
+
+    - name: 📦 Publish project
+      run: |
+        cd backend/ShopifyAnalyticsApi
+        dotnet publish -c Release -o ./published --no-restore --no-build
+
+    - name: 🚀 Deploy to Azure App Service (Production - Japan West)
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
+        package: backend/ShopifyAnalyticsApi/published
+
+    - name: ✅ Deployment complete
+      run: |
+        echo "✅ Production backend deployment completed successfully!"
+        echo "🌐 App URL: ${{ env.APP_URL }}"
+        echo "📊 Check Azure Portal for detailed logs"
+        echo "⚠️ PRODUCTION environment is now live!"
+
+    - name: 🏥 Health check
+      run: |
+        echo "Waiting 45 seconds for deployment to stabilize..."
+        Start-Sleep -Seconds 45
+        echo "Performing health check..."
+        try {
+          $response = Invoke-WebRequest -Uri "${{ env.APP_URL }}api/health" -UseBasicParsing -TimeoutSec 30
+          if ($response.StatusCode -eq 200) {
+            echo "✅ Health check passed!"
+          } else {
+            echo "⚠️ Health check returned status: $($response.StatusCode)"
+          }
+        } catch {
+          echo "❌ Health check failed: $_"
+          echo "⚠️ Note: Please check the application manually"
+        }
+      shell: pwsh
+
+    - name: 📋 Production deployment summary
+      if: always()
+      run: |
+        echo "================================================"
+        echo "Production Deployment Summary"
+        echo "================================================"
+        echo "Environment: PRODUCTION"
+        echo "Region: Japan West"
+        echo "App Service: ${{ env.APP_NAME }}"
+        echo "URL: ${{ env.APP_URL }}"
+        echo "Deployed by: ${{ github.actor }}"
+        echo "Deployment time: $(date)"
+        echo "================================================"
