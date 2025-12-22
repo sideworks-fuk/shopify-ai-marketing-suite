@@ -39,6 +39,8 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/demo/login",
                 "/api/developer/login", 
                 "/api/shopify/oauth/callback",
+                "/api/shopify/install",
+                "/api/shopify/callback",
                 "/health",
                 "/hangfire"
             };
