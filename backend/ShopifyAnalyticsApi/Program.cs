@@ -571,11 +571,20 @@ try
         }
 
         // 必須環境変数チェック
+        var connectionString = app.Configuration.GetConnectionString("DefaultConnection");
+        var connectionStringPreview = connectionString != null && connectionString.Length > 50 
+            ? connectionString.Substring(0, 50) + "..." 
+            : connectionString ?? "NULL";
+        Log.Information("DEBUG: ConnectionString - IsNull: {IsNull}, Length: {Length}, Preview: {Preview}", 
+            connectionString == null,
+            connectionString?.Length ?? 0,
+            connectionStringPreview);
+        
         var requiredSettings = new[]
         {
             ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
             ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
-            ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
+            ("ConnectionStrings:DefaultConnection", connectionString)
         };
 
         // JwtSecretはDemoAllowed/AllAllowedモードでのみ必須
