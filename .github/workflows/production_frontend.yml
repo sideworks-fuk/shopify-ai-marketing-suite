@@ -62,7 +62,7 @@ jobs:
         NEXT_PUBLIC_ENVIRONMENT: 'production'
         NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net'  # Japan West バックエンド
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ vars.SHOPIFY_API_KEY_PRODUCTION }}'
-        NEXT_PUBLIC_SHOPIFY_APP_URL: 'https://white-island-08e0a6300-2.azurestaticapps.net'  # 本番用 Static Web Apps
+        NEXT_PUBLIC_SHOPIFY_APP_URL: 'https://white-island-08e0a6300.1.azurestaticapps.net'  # 本番用 Static Web Apps
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
         NODE_VERSION: 20
@@ -70,7 +70,7 @@ jobs:
     - name: ✅ Deployment complete
       run: |
         echo "✅ Production frontend deployment completed successfully!"
-        echo "🌐 App URL: https://white-island-08e0a6300-2.azurestaticapps.net"
+        echo "🌐 App URL: https://white-island-08e0a6300.1.azurestaticapps.net"
         echo "📊 Environment: PRODUCTION"
         echo "📊 Check Azure Portal for detailed logs"
         echo "⚠️ PRODUCTION environment is now live!"
@@ -80,7 +80,7 @@ jobs:
         echo "Waiting 45 seconds for deployment to stabilize..."
         sleep 45
         echo "Performing health check..."
-        url="https://white-island-08e0a6300-2.azurestaticapps.net"
+        url="https://white-island-08e0a6300.1.azurestaticapps.net"
         response=$(curl -s -o /dev/null -w "%{http_code}" $url)
         if [ "$response" = "200" ] || [ "$response" = "401" ]; then
           echo "✅ Health check passed! (Status: $response)"

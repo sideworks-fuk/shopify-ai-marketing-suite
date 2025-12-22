@@ -53,7 +53,7 @@ jobs:
 
     - name: 🔧 Configure NuGet
       run: |
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org --configfile backend/ShopifyAnalyticsApi/NuGet.Config || echo "Source already exists"
+        # NuGet source is already configured in NuGet.Config file
         dotnet nuget list source
       shell: pwsh
 

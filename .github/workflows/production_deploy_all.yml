@@ -69,7 +69,8 @@ jobs:
 
     - name: 🔧 Configure NuGet
       run: |
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org --configfile backend/ShopifyAnalyticsApi/NuGet.Config || echo "Source already exists"
+        # NuGet source is already configured in NuGet.Config file
+        dotnet nuget list source
       shell: pwsh
 
     - name: 📝 Backend deployment info
@@ -178,7 +179,7 @@ jobs:
         echo "  Frontend: ${{ needs.deploy-frontend.result }}"
         echo ""
         echo "URLs:"
-        echo "  Frontend: https://white-island-08e0a6300-2.azurestaticapps.net"
+        echo "  Frontend: https://white-island-08e0a6300.1.azurestaticapps.net"
         echo "  Backend API: https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net"
         echo ""
         echo "Deployed by: ${{ github.actor }}"
@@ -203,7 +204,7 @@ jobs:
         backend_response=$(curl -s -o /dev/null -w "%{http_code}" https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net/api/health || echo "000")
         
         echo "Checking Frontend..."
-        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" https://white-island-08e0a6300-2.azurestaticapps.net || echo "000")
+        frontend_response=$(curl -s -o /dev/null -w "%{http_code}" https://white-island-08e0a6300.1.azurestaticapps.net || echo "000")
         
         echo ""
         echo "Health Check Results:"
