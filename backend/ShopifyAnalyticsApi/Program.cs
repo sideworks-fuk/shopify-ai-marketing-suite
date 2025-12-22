@@ -408,16 +408,13 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Swaggerを本番環境でも有効化（Basic認証付き）
+app.UseMiddleware<SwaggerBasicAuthMiddleware>();
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    // 本番環境ではSwaggerを無効化（セキュリティ上の理由）
-    Log.Information("Swagger disabled in production environment for security");
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "EC Ranger API v1");
+});
 
 app.UseHttpsRedirection();
 
@@ -571,20 +568,11 @@ try
         }
 
         // 必須環境変数チェック
-        var connectionString = app.Configuration.GetConnectionString("DefaultConnection");
-        var connectionStringPreview = connectionString != null && connectionString.Length > 50 
-            ? connectionString.Substring(0, 50) + "..." 
-            : connectionString ?? "NULL";
-        Log.Information("DEBUG: ConnectionString - IsNull: {IsNull}, Length: {Length}, Preview: {Preview}", 
-            connectionString == null,
-            connectionString?.Length ?? 0,
-            connectionStringPreview);
-        
         var requiredSettings = new[]
         {
             ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
             ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
-            ("ConnectionStrings:DefaultConnection", connectionString)
+            ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
         };
 
         // JwtSecretはDemoAllowed/AllAllowedモードでのみ必須
@@ -611,16 +599,8 @@ try
 
         foreach (var (key, value) in requiredSettings)
         {
-            var isNull = string.IsNullOrEmpty(value);
-            var isPlaceholder = !isNull && IsPlaceholder(value);
-            
-            Log.Information("DEBUG: Validating {Key} - IsNull: {IsNull}, IsPlaceholder: {IsPlaceholder}, ValueLength: {Length}", 
-                key, isNull, isPlaceholder, value?.Length ?? 0);
-            
-            if (isNull || isPlaceholder)
+            if (string.IsNullOrEmpty(value) || IsPlaceholder(value))
             {
-                Log.Error("SECURITY: Required configuration '{Key}' validation failed - IsNull: {IsNull}, IsPlaceholder: {IsPlaceholder}", 
-                    key, isNull, isPlaceholder);
                 throw new InvalidOperationException(
                     $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
                     "Production environment requires all secrets to be properly configured.");
