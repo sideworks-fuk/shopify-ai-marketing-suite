@@ -447,6 +447,232 @@ WHERE [ShopifyAppId] IS NULL
 
 ---
 
+## インフラストラクチャ設定（複数のStatic Web Appsリソース）
+
+### 概要
+
+各Shopifyアプリ（公開/カスタム）ごとに**別々のAzure Static Web Appsリソース**を作成し、異なるサブドメイン（App URL）を設定する必要があります。
+
+### 1. Azure Static Web Appsリソースの作成
+
+#### 1.1 公開アプリ用Static Web Apps
+
+**リソース名**: `ec-ranger-frontend-public`（例）
+
+**設定項目**:
+- **App URL**: `https://ec-ranger-frontend-public.azurestaticapps.net`（自動生成）
+- **環境変数**:
+  - `NEXT_PUBLIC_SHOPIFY_API_KEY`: 公開アプリのAPI Key
+  - `NEXT_PUBLIC_API_URL`: バックエンドAPI URL（共有）
+  - `NEXT_PUBLIC_SHOPIFY_APP_URL`: `https://ec-ranger-frontend-public.azurestaticapps.net`
+
+#### 1.2 カスタムアプリ用Static Web Apps
+
+**リソース名**: `ec-ranger-frontend-custom`（例）
+
+**設定項目**:
+- **App URL**: `https://ec-ranger-frontend-custom.azurestaticapps.net`（自動生成）
+- **環境変数**:
+  - `NEXT_PUBLIC_SHOPIFY_API_KEY`: カスタムアプリのAPI Key
+  - `NEXT_PUBLIC_API_URL`: バックエンドAPI URL（共有）
+  - `NEXT_PUBLIC_SHOPIFY_APP_URL`: `https://ec-ranger-frontend-custom.azurestaticapps.net`
+
+### 2. Shopify Partnersダッシュボードでの設定
+
+#### 2.1 公開アプリの設定
+
+1. [Shopify Partners Dashboard](https://partners.shopify.com) にログイン
+2. 公開アプリを選択
+3. **App setup** → **App URL** に設定:
+   ```
+   https://ec-ranger-frontend-public.azurestaticapps.net
+   ```
+4. **Allowed redirection URL(s)** に設定:
+   ```
+   https://ec-ranger-frontend-public.azurestaticapps.net/api/shopify/callback
+   ```
+
+#### 2.2 カスタムアプリの設定
+
+1. カスタムアプリを選択
+2. **App setup** → **App URL** に設定:
+   ```
+   https://ec-ranger-frontend-custom.azurestaticapps.net
+   ```
+3. **Allowed redirection URL(s)** に設定:
+   ```
+   https://ec-ranger-frontend-custom.azurestaticapps.net/api/shopify/callback
+   ```
+
+### 3. GitHub Actionsワークフローの設定
+
+#### 3.1 公開アプリ用ワークフロー
+
+**ファイル**: `.github/workflows/frontend_deploy_public.yml`（例）
+
+```yaml
+name: Frontend Deploy - Public App
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Build
+        working-directory: ./frontend
+        env:
+          NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.SHOPIFY_API_KEY_PUBLIC }}
+          NEXT_PUBLIC_API_URL: ${{ vars.API_URL }}
+          NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.SHOPIFY_APP_URL_PUBLIC }}
+        run: npm run build
+      
+      - name: Deploy to Azure Static Web Apps (Public)
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PUBLIC }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'frontend'
+          output_location: 'out'
+          deployment_environment: ''
+        env:
+          NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.SHOPIFY_API_KEY_PUBLIC }}
+          NEXT_PUBLIC_API_URL: ${{ vars.API_URL }}
+          NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.SHOPIFY_APP_URL_PUBLIC }}
+```
+
+#### 3.2 カスタムアプリ用ワークフロー
+
+**ファイル**: `.github/workflows/frontend_deploy_custom.yml`（例）
+
+```yaml
+name: Frontend Deploy - Custom App
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Build
+        working-directory: ./frontend
+        env:
+          NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.SHOPIFY_API_KEY_CUSTOM }}
+          NEXT_PUBLIC_API_URL: ${{ vars.API_URL }}
+          NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.SHOPIFY_APP_URL_CUSTOM }}
+        run: npm run build
+      
+      - name: Deploy to Azure Static Web Apps (Custom)
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_CUSTOM }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'frontend'
+          output_location: 'out'
+          deployment_environment: ''
+        env:
+          NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.SHOPIFY_API_KEY_CUSTOM }}
+          NEXT_PUBLIC_API_URL: ${{ vars.API_URL }}
+          NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.SHOPIFY_APP_URL_CUSTOM }}
+```
+
+### 4. GitHub Variables/Secretsの設定
+
+#### 4.1 GitHub Variables（Repository Variables）
+
+| Variable名 | 公開アプリ用 | カスタムアプリ用 | 説明 |
+|-----------|------------|----------------|------|
+| `SHOPIFY_API_KEY_PUBLIC` | ✅ | - | 公開アプリのAPI Key |
+| `SHOPIFY_API_KEY_CUSTOM` | - | ✅ | カスタムアプリのAPI Key |
+| `SHOPIFY_APP_URL_PUBLIC` | ✅ | - | 公開アプリのApp URL |
+| `SHOPIFY_APP_URL_CUSTOM` | - | ✅ | カスタムアプリのApp URL |
+| `API_URL` | ✅ | ✅ | バックエンドAPI URL（共有） |
+
+#### 4.2 GitHub Secrets（Repository Secrets）
+
+| Secret名 | 公開アプリ用 | カスタムアプリ用 | 説明 |
+|---------|------------|----------------|------|
+| `AZURE_STATIC_WEB_APPS_API_TOKEN_PUBLIC` | ✅ | - | 公開アプリ用Static Web Appsのデプロイトークン |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN_CUSTOM` | - | ✅ | カスタムアプリ用Static Web Appsのデプロイトークン |
+
+**デプロイトークンの取得方法**:
+1. Azure PortalでStatic Web Appsリソースを開く
+2. **Manage deployment token** をクリック
+3. トークンをコピーしてGitHub Secretsに設定
+
+### 5. ShopifyAppsテーブルへのApp URL設定
+
+初期データ投入時に、実際のApp URLを設定する:
+
+```sql
+-- 公開アプリの登録（実際のApp URLを設定）
+INSERT INTO [dbo].[ShopifyApps] 
+    ([Name], [DisplayName], [AppType], [ApiKey], [ApiSecret], [AppUrl], [RedirectUri], [IsActive], [CreatedAt], [UpdatedAt])
+VALUES 
+    ('EC Ranger', 'EC Ranger - 公開アプリ', 'Public', 
+     '[YOUR_PUBLIC_APP_API_KEY]', '[YOUR_PUBLIC_APP_API_SECRET]', 
+     'https://ec-ranger-frontend-public.azurestaticapps.net',  -- 実際のApp URL
+     'https://ec-ranger-frontend-public.azurestaticapps.net/api/shopify/callback',  -- Redirect URI
+     1, GETUTCDATE(), GETUTCDATE());
+
+-- カスタムアプリの登録（実際のApp URLを設定）
+INSERT INTO [dbo].[ShopifyApps] 
+    ([Name], [DisplayName], [AppType], [ApiKey], [ApiSecret], [AppUrl], [RedirectUri], [IsActive], [CreatedAt], [UpdatedAt])
+VALUES 
+    ('EC Ranger Demo', 'EC Ranger - カスタムアプリ', 'Custom', 
+     '[YOUR_CUSTOM_APP_API_KEY]', '[YOUR_CUSTOM_APP_API_SECRET]', 
+     'https://ec-ranger-frontend-custom.azurestaticapps.net',  -- 実際のApp URL
+     'https://ec-ranger-frontend-custom.azurestaticapps.net/api/shopify/callback',  -- Redirect URI
+     1, GETUTCDATE(), GETUTCDATE());
+```
+
+### 6. コスト考慮事項
+
+**追加コスト**:
+- Static Web Apps: 2リソース（公開アプリ用 + カスタムアプリ用）
+- 無料プラン: 各リソースで100GB/月の帯域幅まで無料
+- Standardプラン: 必要に応じてアップグレード
+
+**コスト最適化**:
+- 開発環境では1つのStatic Web Appsリソースを共有することも可能（環境変数で切り替え）
+- 本番環境では分離を推奨（セキュリティと独立性のため）
+
+---
+
 ## メリット
 
 1. ✅ **重複の削減**: 同じアプリを使う複数のストアが、同じAPI Key/Secretを共有
@@ -459,21 +685,44 @@ WHERE [ShopifyAppId] IS NULL
 
 ## 注意点
 
-1. ⚠️ **マイグレーションの順序**: 既存データの移行を慎重に行う
-2. ⚠️ **後方互換性**: 既存の`Store.ApiKey`/`ApiSecret`は非推奨だが、しばらく残す
-3. ⚠️ **セキュリティ**: `ApiSecret`は暗号化して保存することを推奨（Phase 2で実装予定）
+1. ⚠️ **複数のStatic Web Appsリソースが必要**: 公開アプリとカスタムアプリで別々のリソースを作成する必要がある
+2. ⚠️ **異なるサブドメイン（App URL）の設定**: 各アプリごとに異なるApp URLをShopify Partnersダッシュボードで設定する必要がある
+3. ⚠️ **マイグレーションの順序**: 既存データの移行を慎重に行う
+4. ⚠️ **後方互換性**: 既存の`Store.ApiKey`/`ApiSecret`は非推奨だが、しばらく残す
+5. ⚠️ **セキュリティ**: `ApiSecret`は暗号化して保存することを推奨（Phase 2で実装予定）
+6. ⚠️ **GitHub Actionsワークフローの分離**: 各アプリごとに別々のワークフローを作成するか、条件分岐で処理を分ける必要がある
 
 ---
 
 ## 実装順序
 
 1. ✅ 設計書の作成（本ドキュメント）
-2. [ ] EF Core Migrationの作成
-3. [ ] エンティティモデルの追加・修正
-4. [ ] データ取得ロジックの修正
-5. [ ] 初期データの投入
-6. [ ] 既存ストアの移行
-7. [ ] テスト
+2. [ ] **インフラストラクチャの準備**
+   - [ ] 公開アプリ用Static Web Appsリソースの作成
+   - [ ] カスタムアプリ用Static Web Appsリソースの作成
+   - [ ] 各リソースのApp URLを確認・記録
+   - [ ] Shopify PartnersダッシュボードでApp URLを設定
+3. [ ] **GitHub Actionsワークフローの設定**
+   - [ ] 公開アプリ用ワークフローの作成/修正
+   - [ ] カスタムアプリ用ワークフローの作成/修正
+   - [ ] GitHub Variables/Secretsの設定
+4. [ ] **データベース実装**
+   - [ ] EF Core Migrationの作成
+   - [ ] エンティティモデルの追加・修正
+   - [ ] マイグレーションの実行
+5. [ ] **初期データの投入**
+   - [ ] 公開アプリの登録（実際のApp URLを設定）
+   - [ ] カスタムアプリの登録（実際のApp URLを設定）
+6. [ ] **コード実装**
+   - [ ] データ取得ロジックの修正
+   - [ ] `GetShopifyCredentialsAsync`の修正（ShopifyAppsテーブル優先）
+   - [ ] `SaveOrUpdateStore`の修正（ShopifyAppIdの設定）
+7. [ ] **既存ストアの移行**
+   - [ ] 既存ストアにShopifyAppIdを設定
+8. [ ] **テスト**
+   - [ ] 公開アプリでのインストールテスト
+   - [ ] カスタムアプリでのインストールテスト
+   - [ ] App URLの動作確認
 
 ---
 

@@ -23,9 +23,11 @@
 
 ## 解決策
 
-### 方針: フロントエンドからAPI Keyを渡す
+### 方針: フロントエンドからAPI Keyを渡す + ShopifyAppsテーブル優先
 
 フロントエンドは `NEXT_PUBLIC_SHOPIFY_API_KEY` を持っているため、それをバックエンドに渡すことで、どのShopifyアプリ（公開/カスタム）を使っているかを判断できる。
+
+**重要**: `ShopifyApps`テーブルから取得を優先し、存在しない場合は環境変数から取得（フォールバック）する。
 
 ---
 
@@ -82,20 +84,38 @@ public async Task<IActionResult> Install(
         // API Key/Secretの取得ロジック
         string finalApiKey;
         string? finalApiSecret;
+        int? shopifyAppId = null;
         
         if (!string.IsNullOrEmpty(apiKey))
         {
             // フロントエンドからAPI Keyが渡された場合
             _logger.LogInformation("フロントエンドからAPI Keyを受け取りました. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
             
-            // API Keyから対応するSecretを取得
-            finalApiKey = apiKey;
-            finalApiSecret = GetApiSecretByApiKey(apiKey);
+            // ShopifyAppテーブルから対応するアプリを検索（優先）
+            var shopifyApp = await _context.ShopifyApps
+                .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
             
-            if (string.IsNullOrEmpty(finalApiSecret))
+            if (shopifyApp != null)
             {
-                _logger.LogError("API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
-                return StatusCode(500, new { error = "API Secret not found for the provided API Key" });
+                finalApiKey = shopifyApp.ApiKey;
+                finalApiSecret = shopifyApp.ApiSecret;
+                shopifyAppId = shopifyApp.Id;
+                _logger.LogInformation("ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}", 
+                    shop, shopifyApp.Name);
+            }
+            else
+            {
+                // フォールバック: 環境変数から取得（後方互換性）
+                finalApiKey = apiKey;
+                finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
+                
+                if (string.IsNullOrEmpty(finalApiSecret))
+                {
+                    _logger.LogError("API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                    return StatusCode(500, new { error = "API Secret not found for the provided API Key" });
+                }
+                
+                _logger.LogInformation("環境変数からCredentialsを取得（フォールバック）. Shop: {Shop}", shop);
             }
         }
         else
@@ -116,8 +136,8 @@ public async Task<IActionResult> Install(
         var state = GenerateRandomString(32);
         var cacheKey = $"{StateCacheKeyPrefix}{state}";
         
-        // stateとAPI Key/Secretをキャッシュに保存（10分間有効）
-        var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret };
+        // stateとAPI Key/Secret/ShopifyAppIdをキャッシュに保存（10分間有効）
+        var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
         _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
         
         _logger.LogInformation("OAuth認証開始. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
@@ -142,19 +162,30 @@ public async Task<IActionResult> Install(
 }
 ```
 
-#### 2.2 GetApiSecretByApiKeyメソッドの追加
+#### 2.2 GetApiSecretByApiKeyAsyncメソッドの追加
 
 **変更箇所**: `backend/ShopifyAnalyticsApi/Controllers/ShopifyAuthController.cs`
 
 ```csharp
 /// <summary>
-/// API Keyから対応するSecretを取得
+/// API Keyから対応するSecretを取得（ShopifyAppsテーブル優先、フォールバックは環境変数）
 /// </summary>
-private string? GetApiSecretByApiKey(string apiKey)
+private async Task<string?> GetApiSecretByApiKeyAsync(string apiKey)
 {
     try
     {
-        // 環境変数から複数のAPI Key/Secretペアを取得
+        // 1. ShopifyAppsテーブルから取得（優先）
+        var shopifyApp = await _context.ShopifyApps
+            .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
+        
+        if (shopifyApp != null)
+        {
+            _logger.LogInformation("ShopifyAppテーブルからSecretを取得. ApiKey: {ApiKey}, App: {AppName}", 
+                apiKey, shopifyApp.Name);
+            return shopifyApp.ApiSecret;
+        }
+        
+        // 2. フォールバック: 環境変数から取得（後方互換性）
         // 公開アプリ用
         var publicAppApiKey = GetShopifySetting("PublicApp:ApiKey") ?? 
                              _configuration["Shopify:PublicApp:ApiKey"] ??
@@ -178,19 +209,19 @@ private string? GetApiSecretByApiKey(string apiKey)
         // API Keyが一致するSecretを返す
         if (!string.IsNullOrEmpty(publicAppApiKey) && publicAppApiKey == apiKey)
         {
-            _logger.LogInformation("公開アプリ用のCredentialsを使用. ApiKey: {ApiKey}", apiKey);
+            _logger.LogInformation("環境変数から公開アプリ用のCredentialsを取得. ApiKey: {ApiKey}", apiKey);
             return publicAppApiSecret;
         }
         
         if (!string.IsNullOrEmpty(customAppApiKey) && customAppApiKey == apiKey)
         {
-            _logger.LogInformation("カスタムアプリ用のCredentialsを使用. ApiKey: {ApiKey}", apiKey);
+            _logger.LogInformation("環境変数からカスタムアプリ用のCredentialsを取得. ApiKey: {ApiKey}", apiKey);
             return customAppApiSecret;
         }
         
         if (!string.IsNullOrEmpty(defaultApiKey) && defaultApiKey == apiKey)
         {
-            _logger.LogInformation("デフォルトCredentialsを使用. ApiKey: {ApiKey}", apiKey);
+            _logger.LogInformation("環境変数からデフォルトCredentialsを取得. ApiKey: {ApiKey}", apiKey);
             return defaultApiSecret;
         }
         
@@ -210,27 +241,73 @@ private string? GetApiSecretByApiKey(string apiKey)
 **変更箇所**: `backend/ShopifyAnalyticsApi/Controllers/ShopifyAuthController.cs`
 
 ```csharp
-// Callbackメソッドで、stateからAPI Key/Secretを取得
+// Callbackメソッドで、stateからAPI Key/Secret/ShopifyAppIdを取得
 var stateDataJson = _cache.Get<string>(cacheKey);
 if (!string.IsNullOrEmpty(stateDataJson))
 {
-    var stateData = JsonSerializer.Deserialize<dynamic>(stateDataJson);
-    // stateDataからapiKeyとapiSecretを取得して使用
+    var stateData = JsonSerializer.Deserialize<StateData>(stateDataJson);
+    // stateDataからapiKey、apiSecret、shopifyAppIdを取得
+    
+    // アクセストークンを取得
+    var accessToken = await ExchangeCodeForAccessTokenWithRetry(request.Code, request.Shop);
+    
+    // ストア情報を保存（ShopifyAppIdも含む）
+    await SaveOrUpdateStore(
+        request.Shop, 
+        accessToken, 
+        stateData.apiKey, 
+        stateData.apiSecret,
+        stateData.shopifyAppId);  // ShopifyAppIdを渡す
+}
+
+// StateDataクラス（匿名型の代わり）
+private class StateData
+{
+    public string shop { get; set; } = string.Empty;
+    public string apiKey { get; set; } = string.Empty;
+    public string? apiSecret { get; set; }
+    public int? shopifyAppId { get; set; }
 }
 ```
 
 ---
 
-### 3. 環境変数の設定
+### 3. データベースと環境変数の設定
 
-#### 3.1 バックエンド（Azure App Service）
+#### 3.1 ShopifyAppsテーブルへの初期データ投入（必須）
+
+**重要**: `ShopifyApps`テーブルに初期データを投入する必要があります。
+
+```sql
+-- 公開アプリの登録
+INSERT INTO [dbo].[ShopifyApps] 
+    ([Name], [DisplayName], [AppType], [ApiKey], [ApiSecret], [AppUrl], [IsActive], [CreatedAt], [UpdatedAt])
+VALUES 
+    ('EC Ranger', 'EC Ranger - 公開アプリ', 'Public', 
+     '[YOUR_PUBLIC_APP_API_KEY]', '[YOUR_PUBLIC_APP_API_SECRET]', 
+     'https://ec-ranger-frontend-public.azurestaticapps.net', 
+     1, GETUTCDATE(), GETUTCDATE());
+
+-- カスタムアプリの登録
+INSERT INTO [dbo].[ShopifyApps] 
+    ([Name], [DisplayName], [AppType], [ApiKey], [ApiSecret], [AppUrl], [IsActive], [CreatedAt], [UpdatedAt])
+VALUES 
+    ('EC Ranger Demo', 'EC Ranger - カスタムアプリ', 'Custom', 
+     '[YOUR_CUSTOM_APP_API_KEY]', '[YOUR_CUSTOM_APP_API_SECRET]', 
+     'https://ec-ranger-frontend-custom.azurestaticapps.net', 
+     1, GETUTCDATE(), GETUTCDATE());
+```
+
+#### 3.2 バックエンド環境変数（フォールバック用・後方互換性）
+
+**注意**: `ShopifyApps`テーブルが優先されますが、後方互換性のため環境変数も設定しておくことを推奨します。
 
 ```bash
-# 公開アプリ用
+# 公開アプリ用（フォールバック）
 Shopify__PublicApp__ApiKey=YOUR_PUBLIC_APP_API_KEY
 Shopify__PublicApp__ApiSecret=YOUR_PUBLIC_APP_API_SECRET
 
-# カスタムアプリ用
+# カスタムアプリ用（フォールバック）
 Shopify__CustomApp__ApiKey=YOUR_CUSTOM_APP_API_KEY
 Shopify__CustomApp__ApiSecret=YOUR_CUSTOM_APP_API_SECRET
 
@@ -266,8 +343,10 @@ NEXT_PUBLIC_SHOPIFY_API_KEY=YOUR_CUSTOM_APP_API_KEY
   ↓
 バックエンド: Install(shop, apiKey)
   ├─ apiKeyが渡された場合
-  │   ├─ GetApiSecretByApiKey(apiKey) でSecretを取得
-  │   └─ 環境変数から対応するSecretを取得
+  │   ├─ ShopifyAppsテーブルから取得を試みる（優先）
+  │   │   ├─ 見つかった場合: ApiSecretとShopifyAppIdを取得
+  │   │   └─ 見つからない場合: GetApiSecretByApiKeyAsync(apiKey) で環境変数から取得（フォールバック）
+  │   └─ stateにapiKey、apiSecret、shopifyAppIdを保存
   └─ apiKeyが渡されていない場合（既存ロジック）
       └─ GetShopifyCredentialsAsync(shop) でデータベースから取得
   ↓
@@ -278,11 +357,13 @@ Shopify OAuth URL構築（取得したAPI Keyを使用）
 [OAuth認証完了]
   ↓
 バックエンド: Callback(code, shop, state)
-  ├─ stateからAPI Key/Secretを取得
+  ├─ stateからAPI Key/Secret/ShopifyAppIdを取得
   └─ ExchangeCodeForAccessToken(code, shop, apiKey, apiSecret)
   ↓
-バックエンド: SaveOrUpdateStore(shop, accessToken, apiKey, apiSecret)
+バックエンド: SaveOrUpdateStore(shop, accessToken, apiKey, apiSecret, shopifyAppId)
   └─ データベースに保存（初回インストール時）
+      ├─ ShopifyAppIdを設定（優先）
+      └─ ApiKey/ApiSecretは後方互換性のため保存（ShopifyAppIdが設定されていない場合のみ）
 ```
 
 ---
@@ -290,42 +371,56 @@ Shopify OAuth URL構築（取得したAPI Keyを使用）
 ## メリット
 
 1. ✅ **初回インストール時の問題を解決**: フロントエンドからAPI Keyを渡すことで、どのアプリを使っているか判断可能
-2. ✅ **既存ロジックとの互換性**: API Keyが渡されていない場合は既存のロジックを使用
-3. ✅ **柔軟性**: 複数のShopifyアプリ（公開/カスタム）に対応可能
-4. ✅ **セキュリティ**: API Keyは公開情報のため、クエリパラメータで渡しても問題なし
+2. ✅ **ShopifyAppsテーブル優先**: アプリ情報を一元管理し、重複を削減
+3. ✅ **既存ロジックとの互換性**: API Keyが渡されていない場合は既存のロジックを使用
+4. ✅ **柔軟性**: 複数のShopifyアプリ（公開/カスタム）に対応可能
+5. ✅ **後方互換性**: 環境変数からの取得もサポート（フォールバック）
+6. ✅ **セキュリティ**: API Keyは公開情報のため、クエリパラメータで渡しても問題なし
 
 ---
 
 ## 注意点
 
-1. ⚠️ **API Keyは公開情報**: Shopify API Keyは公開情報のため、クエリパラメータで渡しても問題なし
-2. ⚠️ **API Secretは非公開**: API Secretは絶対にクエリパラメータで渡さない
-3. ⚠️ **環境変数の管理**: 各環境（開発/ステージング/本番）で適切に設定する必要がある
+1. ⚠️ **ShopifyAppsテーブルの初期データ投入が必須**: マイグレーション実行後、必ず初期データを投入する
+2. ⚠️ **API Keyは公開情報**: Shopify API Keyは公開情報のため、クエリパラメータで渡しても問題なし
+3. ⚠️ **API Secretは非公開**: API Secretは絶対にクエリパラメータで渡さない
+4. ⚠️ **環境変数はフォールバック**: `ShopifyApps`テーブルが優先されるが、後方互換性のため環境変数も設定しておくことを推奨
+5. ⚠️ **ShopifyAppIdの保存**: `SaveOrUpdateStore`で`shopifyAppId`を設定することで、ストアとアプリの関係を管理
 
 ---
 
 ## 実装順序
 
 1. ✅ 設計書の作成（本ドキュメント）
-2. [ ] バックエンドの修正
-   - [ ] `GetApiSecretByApiKey`メソッドの追加
-   - [ ] `Install`メソッドの修正
-   - [ ] `Callback`メソッドの修正（stateからAPI Key/Secretを取得）
-3. [ ] フロントエンドの修正
+2. [ ] **ShopifyAppsテーブルの実装（必須）**
+   - [ ] `ShopifyApp`エンティティの作成
+   - [ ] `Store`エンティティに`ShopifyAppId`を追加
+   - [ ] EF Core Migrationの作成
+   - [ ] マイグレーションの実行
+   - [ ] 初期データの投入（公開アプリ/カスタムアプリ）
+3. [ ] バックエンドの修正
+   - [ ] `GetApiSecretByApiKeyAsync`メソッドの追加（ShopifyAppsテーブル優先）
+   - [ ] `Install`メソッドの修正（`shopifyAppId`をstateに保存）
+   - [ ] `Callback`メソッドの修正（stateから`shopifyAppId`を取得）
+   - [ ] `SaveOrUpdateStore`メソッドの修正（`shopifyAppId`パラメータの追加）
+4. [ ] フロントエンドの修正
    - [ ] `install/page.tsx`の修正
    - [ ] `AuthenticationRequired.tsx`の修正
-4. [ ] 環境変数の設定
+5. [ ] 環境変数の設定（フォールバック用・後方互換性）
    - [ ] バックエンド（Azure App Service）
    - [ ] フロントエンド（Azure Static Web Apps）
-5. [ ] テスト
+6. [ ] テスト
    - [ ] 公開アプリでのインストールテスト
    - [ ] カスタムアプリでのインストールテスト
    - [ ] 既存ストアでの動作確認
+   - [ ] ShopifyAppsテーブルからの取得確認
+   - [ ] 環境変数フォールバックの確認
 
 ---
 
 ## 関連ドキュメント
 
+- `ShopifyAppsテーブル設計書.md` - ShopifyAppsテーブルの設計（必須参照）
 - `マルチアプリ対応設計書.md` - 全体設計
 - `実装方針決定書.md` - 実装方針
 - `公開アプリとカスタムアプリの構成パターン.md` - パターン比較
