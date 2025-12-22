@@ -111,6 +111,8 @@ jobs:
         app-name: ${{ env.APP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
         package: backend/ShopifyAnalyticsApi/published
+        app-settings: |
+          ASPNETCORE_ENVIRONMENT=Production
 
     - name: ✅ Backend deployment complete
       run: |
