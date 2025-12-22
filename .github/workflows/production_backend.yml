@@ -20,7 +20,7 @@ env:
   DOTNET_VERSION: '8.x'
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
   APP_NAME: 'ec-ranger-backend-prod'  # Japan West の App Service
-  APP_URL: 'https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net/'
+  APP_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net/'
 
 jobs:
   production-deploy:

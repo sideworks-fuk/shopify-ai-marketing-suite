@@ -60,7 +60,7 @@ jobs:
       env:
         # 本番環境用の環境変数
         NEXT_PUBLIC_ENVIRONMENT: 'production'
-        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbargbc4hfgh.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ vars.SHOPIFY_API_KEY_PRODUCTION }}'
         NEXT_PUBLIC_SHOPIFY_APP_URL: 'https://white-island-08e0a6300.1.azurestaticapps.net'  # 本番用 Static Web Apps
         NEXT_PUBLIC_USE_HTTPS: 'true'
