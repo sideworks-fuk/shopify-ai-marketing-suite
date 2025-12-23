@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Suspense } from "react"
 import { Inter } from "next/font/google"
 import { ZustandProvider } from "@/components/providers/ZustandProvider"
 import { AuthProvider } from "@/components/providers/AuthProvider"
@@ -51,21 +52,24 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <AuthProvider>
-          <StoreProvider>
-            <AuthGuard>
-              <SubscriptionProvider>
-                <ZustandProvider>
-                  <FilterProvider>
-                    <ConditionalLayout>
-                      {children}
-                    </ConditionalLayout>
-                  </FilterProvider>
-                </ZustandProvider>
-              </SubscriptionProvider>
-            </AuthGuard>
-          </StoreProvider>
-        </AuthProvider>
+        {/* useSearchParams() を使用する Client Component ツリーは Suspense 配下に置く（missing-suspense-with-csr-bailout対策） */}
+        <Suspense fallback={null}>
+          <AuthProvider>
+            <StoreProvider>
+              <AuthGuard>
+                <SubscriptionProvider>
+                  <ZustandProvider>
+                    <FilterProvider>
+                      <ConditionalLayout>
+                        {children}
+                      </ConditionalLayout>
+                    </FilterProvider>
+                  </ZustandProvider>
+                </SubscriptionProvider>
+              </AuthGuard>
+            </StoreProvider>
+          </AuthProvider>
+        </Suspense>
       </body>
     </html>
   )

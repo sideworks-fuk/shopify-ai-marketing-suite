@@ -10,6 +10,10 @@ import https from 'https';
  * @description Shopify OAuth認証後のコールバック処理（開発環境SSL対応）
  */
 
+// Azure Static Web Apps / Next.js ビルド時に静的最適化されないよう明示（request.url / request.headers を使用するため）
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // 開発環境用のHTTPSエージェント（SSL証明書検証を無効化）
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false
