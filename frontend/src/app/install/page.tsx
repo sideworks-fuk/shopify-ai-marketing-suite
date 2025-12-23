@@ -204,33 +204,56 @@ export default function InstallPolarisPage() {
       
       const installUrl = `${config.apiBaseUrl}/api/shopify/install?${installUrlParams.toString()}`;
       
-      console.log('📍 リダイレクト先:', installUrl);
-      console.log('🌍 現在の環境:', config.name);
-      console.log('🔄 コールバックURL:', `${window.location.origin}/api/shopify/callback`);
-      console.log('🔑 API Key:', apiKey ? `設定済み (${apiKey.substring(0, 8)}...)` : '未設定');
-      console.log('🔑 API Key (完全):', apiKey || '未設定');
-      console.log('🖼️ 埋め込みモード:', isEmbedded);
-      console.log('🌐 現在のオリジン:', window.location.origin);
+      // デバッグ情報をログ出力（リダイレクト前に必ず表示されるように）
+      const debugInfo = {
+        apiKey: apiKey || '未設定',
+        apiKeyPreview: apiKey ? `${apiKey.substring(0, 8)}...` : '未設定',
+        origin: window.location.origin,
+        installUrl,
+        callbackUrl: `${window.location.origin}/api/shopify/callback`,
+        environment: config.name,
+        isEmbedded,
+      };
+      
+      console.log('🔍 ===== OAuth開始デバッグ情報 =====');
+      console.log('🔑 API Key (完全):', debugInfo.apiKey);
+      console.log('🔑 API Key (プレビュー):', debugInfo.apiKeyPreview);
+      console.log('🌐 現在のオリジン:', debugInfo.origin);
+      console.log('📍 リダイレクト先:', debugInfo.installUrl);
+      console.log('🔄 コールバックURL:', debugInfo.callbackUrl);
+      console.log('🌍 現在の環境:', debugInfo.environment);
+      console.log('🖼️ 埋め込みモード:', debugInfo.isEmbedded);
+      console.log('🔍 ================================');
+      
+      // localStorageにも保存（エラー画面から戻ってきた時に確認できる）
+      try {
+        localStorage.setItem('oauth_debug_info', JSON.stringify(debugInfo));
+      } catch (e) {
+        console.warn('⚠️ localStorageへの保存に失敗:', e);
+      }
       
       // 埋め込みアプリ内かどうかを判定
       const isInIframe = typeof window !== 'undefined' && window.top !== window.self;
       
-      if (isEmbedded || isInIframe) {
-        // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
-        // OAuth認証はトップレベルで実行する必要があるため
-        console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
-        if (window.top) {
-          window.top.location.href = installUrl;
+      // リダイレクト前に少し待つ（Consoleログが表示される時間を確保）
+      setTimeout(() => {
+        if (isEmbedded || isInIframe) {
+          // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
+          // OAuth認証はトップレベルで実行する必要があるため
+          console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
+          if (window.top) {
+            window.top.location.href = installUrl;
+          } else {
+            // フォールバック: 通常のリダイレクト
+            console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
+            window.location.href = installUrl;
+          }
         } else {
-          // フォールバック: 通常のリダイレクト
-          console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
+          // 通常のリダイレクト（埋め込みアプリ外）
+          console.log('🌐 通常モードでリダイレクト');
           window.location.href = installUrl;
         }
-      } else {
-        // 通常のリダイレクト（埋め込みアプリ外）
-        console.log('🌐 通常モードでリダイレクト');
-        window.location.href = installUrl;
-      }
+      }, 500); // 500ms待ってからリダイレクト
     } catch (error) {
       console.error('❌ 接続エラー:', error);
       setError('接続処理中にエラーが発生しました。もう一度お試しください。');
