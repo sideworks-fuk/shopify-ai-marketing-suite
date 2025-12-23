@@ -228,12 +228,21 @@ export default function InstallPolarisPage() {
       // localStorageにも保存（エラー画面から戻ってきた時に確認できる）
       try {
         localStorage.setItem('oauth_debug_info', JSON.stringify(debugInfo));
+        localStorage.setItem('oauth_debug_timestamp', new Date().toISOString());
+        console.log('💾 デバッグ情報をlocalStorageに保存しました');
+        console.log('💾 確認方法: localStorage.getItem("oauth_debug_info")');
       } catch (e) {
         console.warn('⚠️ localStorageへの保存に失敗:', e);
       }
       
       // 埋め込みアプリ内かどうかを判定
       const isInIframe = typeof window !== 'undefined' && window.top !== window.self;
+      
+      // 開発環境では確認用に一時停止（本番では無効化）
+      const isDev = process.env.NODE_ENV === 'development';
+      if (isDev) {
+        console.log('⏸️ 開発環境: 3秒後にリダイレクトします（Consoleログを確認してください）');
+      }
       
       // リダイレクト前に少し待つ（Consoleログが表示される時間を確保）
       setTimeout(() => {
