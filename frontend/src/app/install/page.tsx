@@ -207,8 +207,10 @@ export default function InstallPolarisPage() {
       console.log('📍 リダイレクト先:', installUrl);
       console.log('🌍 現在の環境:', config.name);
       console.log('🔄 コールバックURL:', `${window.location.origin}/api/shopify/callback`);
-      console.log('🔑 API Key:', apiKey ? '設定済み' : '未設定');
+      console.log('🔑 API Key:', apiKey ? `設定済み (${apiKey.substring(0, 8)}...)` : '未設定');
+      console.log('🔑 API Key (完全):', apiKey || '未設定');
       console.log('🖼️ 埋め込みモード:', isEmbedded);
+      console.log('🌐 現在のオリジン:', window.location.origin);
       
       // 埋め込みアプリ内かどうかを判定
       const isInIframe = typeof window !== 'undefined' && window.top !== window.self;
