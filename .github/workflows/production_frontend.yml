@@ -7,6 +7,15 @@ on:
         description: 'デプロイメッセージ（任意）'
         required: false
         type: string
+      target_environment:
+        description: 'デプロイ対象（Production1=既存SWA / Production2=新SWA）'
+        required: true
+        type: choice
+        options:
+          - 'Production1'
+          - 'Production2'
+          - 'Both'
+        default: 'Production1'
       confirm_production:
         description: '本番環境へのデプロイを確認'
         required: true
@@ -20,8 +29,19 @@ env:
   NODE_VERSION: '20.x'
   APP_LOCATION: '/frontend'
   OUTPUT_LOCATION: ''
-  # 本番環境用のStatic Web Apps API トークン（Japan East）
-  AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION }}
+  # Production1 / Production2 のStatic Web Apps API トークン
+  AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET_PROD1: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION }}
+  AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET_PROD2: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRODUCTION_2 }}
+
+  # デプロイ先URL（ログ/ヘルスチェック用）
+  PROD1_FRONTEND_URL: 'https://white-island-08e0a6300.2.azurestaticapps.net'
+  PROD2_FRONTEND_URL: 'https://black-flower-004e1de00.2.azurestaticapps.net'
+
+  # Shopify App の公開APIキー（フロントのApp Bridge用）
+  # - 現状、GitHub Environment に Secrets と Variables の両方が混在しているため、
+  #   secrets を優先し、なければ vars を参照する（空注入を防ぐ）
+  PROD1_SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY_PRODUCTION || vars.SHOPIFY_API_KEY_PRODUCTION }}
+  PROD2_SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY_PRODUCTION_2 || vars.SHOPIFY_API_KEY_PRODUCTION_2 }}
 
 jobs:
   production-deploy:
@@ -44,13 +64,15 @@ jobs:
         echo "Environment: PRODUCTION"
         echo "Triggered by: ${{ github.actor }}"
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
+        echo "Target: ${{ github.event.inputs.target_environment }}"
         echo "Timestamp: $(date)"
         echo "⚠️ WARNING: This will deploy to the PRODUCTION environment!"
 
-    - name: 🚀 Deploy to Azure Static Web Apps (Production)
+    - name: 🚀 Deploy to Azure Static Web Apps (Production1)
+      if: github.event.inputs.target_environment == 'Production1' || github.event.inputs.target_environment == 'Both'
       uses: Azure/static-web-apps-deploy@v1
       with:
-        azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET }}
+        azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET_PROD1 }}
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         action: 'upload'
         app_location: ${{ env.APP_LOCATION }}
@@ -61,8 +83,29 @@ jobs:
         # 本番環境用の環境変数
         NEXT_PUBLIC_ENVIRONMENT: 'production'
         NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
-        NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ vars.SHOPIFY_API_KEY_PRODUCTION }}'
-        NEXT_PUBLIC_SHOPIFY_APP_URL: 'https://white-island-08e0a6300.1.azurestaticapps.net'  # 本番用 Static Web Apps
+        NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD1_SHOPIFY_API_KEY }}'
+        NEXT_PUBLIC_SHOPIFY_APP_URL: '${{ env.PROD1_FRONTEND_URL }}'
+        NEXT_PUBLIC_USE_HTTPS: 'true'
+        NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
+        NODE_VERSION: 20
+
+    - name: 🚀 Deploy to Azure Static Web Apps (Production2)
+      if: github.event.inputs.target_environment == 'Production2' || github.event.inputs.target_environment == 'Both'
+      uses: Azure/static-web-apps-deploy@v1
+      with:
+        azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET_PROD2 }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        action: 'upload'
+        app_location: ${{ env.APP_LOCATION }}
+        output_location: ${{ env.OUTPUT_LOCATION }}
+        app_build_command: 'npm run build'
+        deployment_environment: ''  # 空にすることで本番環境にデプロイ
+      env:
+        # 本番環境用の環境変数
+        NEXT_PUBLIC_ENVIRONMENT: 'production'
+        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD2_SHOPIFY_API_KEY }}'
+        NEXT_PUBLIC_SHOPIFY_APP_URL: '${{ env.PROD2_FRONTEND_URL }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
         NODE_VERSION: 20
@@ -70,17 +113,35 @@ jobs:
     - name: ✅ Deployment complete
       run: |
         echo "✅ Production frontend deployment completed successfully!"
-        echo "🌐 App URL: https://white-island-08e0a6300.1.azurestaticapps.net"
+        echo "Target: ${{ github.event.inputs.target_environment }}"
+        echo "🌐 Production1 URL: ${{ env.PROD1_FRONTEND_URL }}"
+        echo "🌐 Production2 URL: ${{ env.PROD2_FRONTEND_URL }}"
         echo "📊 Environment: PRODUCTION"
         echo "📊 Check Azure Portal for detailed logs"
         echo "⚠️ PRODUCTION environment is now live!"
 
-    - name: 🏥 Health check
+    - name: 🏥 Health check (Production1)
+      if: github.event.inputs.target_environment == 'Production1' || github.event.inputs.target_environment == 'Both'
       run: |
         echo "Waiting 45 seconds for deployment to stabilize..."
         sleep 45
         echo "Performing health check..."
-        url="https://white-island-08e0a6300.1.azurestaticapps.net"
+        url="${{ env.PROD1_FRONTEND_URL }}"
+        response=$(curl -s -o /dev/null -w "%{http_code}" $url)
+        if [ "$response" = "200" ] || [ "$response" = "401" ]; then
+          echo "✅ Health check passed! (Status: $response)"
+        else
+          echo "⚠️ Health check returned status: $response"
+          echo "Note: Please verify the application manually"
+        fi
+
+    - name: 🏥 Health check (Production2)
+      if: github.event.inputs.target_environment == 'Production2' || github.event.inputs.target_environment == 'Both'
+      run: |
+        echo "Waiting 45 seconds for deployment to stabilize..."
+        sleep 45
+        echo "Performing health check..."
+        url="${{ env.PROD2_FRONTEND_URL }}"
         response=$(curl -s -o /dev/null -w "%{http_code}" $url)
         if [ "$response" = "200" ] || [ "$response" = "401" ]; then
           echo "✅ Health check passed! (Status: $response)"
@@ -96,8 +157,10 @@ jobs:
         echo "Production Deployment Summary"
         echo "================================================"
         echo "Environment: PRODUCTION"
-        echo "Frontend URL: https://shopify-ai-marketing-suite-prod.azurestaticapps.net"
-        echo "Backend URL: https://shopifyapp-backend-prod.azurewebsites.net"
+        echo "Target: ${{ github.event.inputs.target_environment }}"
+        echo "Frontend (Production1): ${{ env.PROD1_FRONTEND_URL }}"
+        echo "Frontend (Production2): ${{ env.PROD2_FRONTEND_URL }}"
+        echo "Backend API: https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net"
         echo "Deployed by: ${{ github.actor }}"
         echo "Deployment time: $(date)"
         echo "================================================"
