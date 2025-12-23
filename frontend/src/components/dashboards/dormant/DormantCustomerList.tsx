@@ -77,6 +77,15 @@ interface DormantCustomerListProps {
 }
 
 export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisplayCount = 200, onMaxDisplayCountChange, isLoading: externalIsLoading = false }: DormantCustomerListProps) {
+  const riskLevelValues = useMemo(() => (['low', 'medium', 'high', 'critical'] as const), [])
+
+  const toRiskLevel = useMemo(() => {
+    return (value: unknown): RiskLevel | null => {
+      if (typeof value !== 'string') return null
+      return (riskLevelValues as readonly string[]).includes(value) ? (value as RiskLevel) : null
+    }
+  }, [riskLevelValues])
+
   // Propsの受け取り確認
   useEffect(() => {
     console.log('🎯 [DormantCustomerList] Props受け取り', {
@@ -111,13 +120,15 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
   // 購入履歴なし顧客の表示用データ処理
   const processCustomerDisplayData = (customer: ApiDormantCustomer) => {
     const isNoPurchase = hasNoPurchaseHistory(customer)
+    const normalizedRiskLevel: RiskLevel | 'unrated' =
+      isNoPurchase ? 'unrated' : (toRiskLevel(customer.riskLevel) ?? 'medium')
     
     return {
       ...customer,
       hasNoPurchaseHistory: isNoPurchase,
       displayLastPurchaseDate: isNoPurchase ? '購入履歴なし' : customer.lastPurchaseDate,
       displayDormancyDays: isNoPurchase ? '-' : customer.daysSinceLastPurchase,
-      displayRiskLevel: isNoPurchase ? 'unrated' : customer.riskLevel,
+      displayRiskLevel: normalizedRiskLevel,
       displayTotalSpent: isNoPurchase ? 0 : customer.totalSpent
     }
   }
@@ -435,7 +446,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       const customerName = customer.name || ''
       const lastPurchaseDate = customer.lastPurchaseDate
       const daysSince = customer.daysSinceLastPurchase || 0
-      const riskLevel = customer.riskLevel || 'medium'
+      const riskLevel = toRiskLevel(customer.riskLevel) ?? 'medium'
       const totalSpent = customer.totalSpent || 0
       
       return [

@@ -793,7 +793,7 @@ const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
             />
           ) : (
             <DormantCustomerList 
-              selectedSegment={filters.selectedSegment}
+              selectedSegment={filters.selectedSegment?.label ?? null}
               dormantData={filteredCustomers}
             />
           )

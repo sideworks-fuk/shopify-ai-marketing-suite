@@ -231,7 +231,13 @@ export class ApiClient {
       console.log('⏳ [APIClient.dormantCustomers] APIリクエスト送信中...');
       const startTime = Date.now();
       
-      const result = await this.request(url);
+      type DormantCustomersResponse = {
+        success?: boolean
+        data?: { customers?: unknown[] }
+        message?: string
+      }
+
+      const result = await this.request<DormantCustomersResponse>(url);
       
       const endTime = Date.now();
       const duration = endTime - startTime;

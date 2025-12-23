@@ -720,14 +720,17 @@ export default function DormantCustomersPage() {
             </div>
 
             {/* Step 3: 顧客リスト（テーブル形式・フィルタ・ページネーション対応） */}
-            {console.log('🎨 [レンダリング条件チェック]', {
-              isLoadingList,
-              isLoadingSummary,
-              hasSummaryData: !!summaryData,
-              dormantDataLength: dormantData.length,
-              selectedSegment,
-              timestamp: new Date().toISOString()
-            })}
+            {(() => {
+              console.log('🎨 [レンダリング条件チェック]', {
+                isLoadingList,
+                isLoadingSummary,
+                hasSummaryData: !!summaryData,
+                dormantDataLength: dormantData.length,
+                selectedSegment,
+                timestamp: new Date().toISOString()
+              })
+              return null
+            })()}
             {isLoadingList ? (
               <div className="bg-white rounded-lg shadow p-8">
                 <div className="flex flex-col items-center justify-center">
@@ -743,12 +746,15 @@ export default function DormantCustomersPage() {
             ) : (
               <Suspense fallback={<LoadingSpinner />}>
                 {/* デバッグ: 実際に渡されるデータを確認 */}
-                {console.log('🚀 [DormantCustomerList描画]', {
-                  selectedSegment,
-                  dormantDataLength: dormantData.length,
-                  isLoadingList,
-                  timestamp: new Date().toISOString()
-                })}
+                {(() => {
+                  console.log('🚀 [DormantCustomerList描画]', {
+                    selectedSegment,
+                    dormantDataLength: dormantData.length,
+                    isLoadingList,
+                    timestamp: new Date().toISOString()
+                  })
+                  return null
+                })()}
                 <DormantCustomerList 
                   selectedSegment={selectedSegment}
                   dormantData={dormantData}

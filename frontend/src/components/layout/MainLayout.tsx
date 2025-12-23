@@ -214,7 +214,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
                             {typeof item.icon === 'string' ? (
                               <span>{item.icon}</span>
                             ) : (
-                              <item.icon className="h-4 w-4 text-gray-600" />
+                              (() => {
+                                const Icon = item.icon as unknown as React.ElementType<{ className?: string }>
+                                return <Icon className="h-4 w-4 text-gray-600" />
+                              })()
                             )}
                             <div>
                               <div className="font-medium">{item.label}</div>
