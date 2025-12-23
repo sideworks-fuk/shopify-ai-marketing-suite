@@ -15,7 +15,8 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
     const loadAppBridge = async () => {
       try {
         const appBridgeModule = await import('@shopify/app-bridge-react')
-        const Provider = (appBridgeModule as any).AppProvider
+        // @shopify/app-bridge-react は通常 Provider をエクスポートする（AppProvider は存在しない版がある）
+        const Provider = (appBridgeModule as any).Provider ?? (appBridgeModule as any).AppProvider
         setAppProvider(() => Provider)
       } catch (error) {
         console.error('Failed to load @shopify/app-bridge-react:', error)

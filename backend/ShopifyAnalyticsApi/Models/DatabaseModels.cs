@@ -51,10 +51,13 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(100)]
         public string? TenantId { get; set; }
         
+        // 後方互換性のため残す（非推奨）
         [MaxLength(255)]
+        [Obsolete("Use ShopifyApp.ApiKey instead")]
         public string? ApiKey { get; set; }
         
         [MaxLength(255)]
+        [Obsolete("Use ShopifyApp.ApiSecret instead")]
         public string? ApiSecret { get; set; }
         
         public string? AccessToken { get; set; }
@@ -66,8 +69,12 @@ namespace ShopifyAnalyticsApi.Models
         public bool InitialSetupCompleted { get; set; } = false;
         public DateTime? LastSyncDate { get; set; }
         
+        // マルチアプリ対応: ShopifyAppへの外部キー
+        public int? ShopifyAppId { get; set; }
+        
         // ナビゲーションプロパティ
         public virtual Tenant? Tenant { get; set; }
+        public virtual ShopifyApp? ShopifyApp { get; set; }
         public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
         public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
@@ -456,5 +463,60 @@ namespace ShopifyAnalyticsApi.Models
         
         // ナビゲーションプロパティ
         public virtual Order Order { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// Shopifyアプリエンティティ（マルチアプリ対応）
+    /// 公開アプリとカスタムアプリの情報を一元管理
+    /// </summary>
+    public class ShopifyApp
+    {
+        [Key]
+        public int Id { get; set; }
+        
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+        
+        [MaxLength(200)]
+        public string? DisplayName { get; set; }
+        
+        [Required]
+        [MaxLength(50)]
+        public string AppType { get; set; } = string.Empty; // 'Public' or 'Custom'
+        
+        /// <summary>
+        /// Shopify API Key（Shopify Partners Dashboardの「Client ID」）
+        /// </summary>
+        [Required]
+        [MaxLength(255)]
+        public string ApiKey { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Shopify API Secret（Shopify Partners Dashboardの「Secret」）
+        /// </summary>
+        [Required]
+        [MaxLength(255)]
+        public string ApiSecret { get; set; } = string.Empty;
+        
+        [MaxLength(500)]
+        public string? AppUrl { get; set; }
+        
+        [MaxLength(500)]
+        public string? RedirectUri { get; set; }
+        
+        [MaxLength(500)]
+        public string? Scopes { get; set; }
+        
+        [MaxLength(1000)]
+        public string? Description { get; set; }
+        
+        public bool IsActive { get; set; } = true;
+        
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        
+        // ナビゲーションプロパティ
+        public virtual ICollection<Store> Stores { get; set; } = new List<Store>();
     }
 } 

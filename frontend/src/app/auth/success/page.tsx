@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/contexts/StoreContext';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { CheckCircle, Loader2 } from 'lucide-react';
 
 /**
@@ -16,61 +17,196 @@ export default function AuthSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshStores, setCurrentStore } = useStore();
+  const { markAuthenticated } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('認証情報を確認しています...');
 
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const handleAuthCallback = async () => {
       const shop = searchParams?.get('shop');
+      const hostFromQuery = searchParams?.get('host');
+      const embeddedFromQuery = searchParams?.get('embedded');
       const success = searchParams?.get('success');
       const error = searchParams?.get('error');
 
-      console.log('🔐 認証コールバック受信:', { shop, success, error });
+      // host/shop は埋め込み復帰の要。クエリに無い場合は sessionStorage から復元する（AppBridgeProvider と同じキー）
+      const persistedHost =
+        typeof window !== 'undefined' ? sessionStorage.getItem('shopify_host') : null;
+      const persistedShop =
+        typeof window !== 'undefined' ? sessionStorage.getItem('shopify_shop') : null;
+
+      const host = hostFromQuery || persistedHost;
+      const resolvedShop = shop || persistedShop;
+
+      if (typeof window !== 'undefined') {
+        if (hostFromQuery) sessionStorage.setItem('shopify_host', hostFromQuery);
+        if (shop) sessionStorage.setItem('shopify_shop', shop);
+      }
+
+      console.log('🔐 認証コールバック受信:', {
+        shop: resolvedShop,
+        host,
+        embedded: embeddedFromQuery,
+        success,
+        error,
+      });
 
       // エラーチェック
       if (error) {
-        setStatus('error');
-        setMessage(decodeURIComponent(error));
+        if (isMounted) {
+          setStatus('error');
+          setMessage(decodeURIComponent(error));
+        }
         return;
       }
 
-      if (!shop) {
-        setStatus('error');
-        setMessage('ストア情報が見つかりません');
+      if (!resolvedShop) {
+        if (isMounted) {
+          setStatus('error');
+          setMessage('ストア情報が見つかりません');
+        }
         return;
       }
 
       try {
-        setMessage('ストア情報を更新しています...');
+        if (isMounted) {
+          setMessage('ストア情報を更新しています...');
+        }
         
-        // ストア一覧を更新
-        await refreshStores();
+        // ストア一覧を更新（タイムアウト付き、失敗しても続行）
+        let resolvedStoreId: number | null = null;
+        try {
+          const refreshPromise = refreshStores();
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('タイムアウト')), 5000); // タイムアウトを5秒に短縮
+          });
+          
+          await Promise.race([refreshPromise, timeoutPromise]);
+          
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          
+          console.log('✅ ストア一覧の更新に成功');
+          
+          // クエリパラメータからstoreIdを取得（優先）
+          const storeIdParam = searchParams?.get('storeId');
+          if (storeIdParam) {
+            resolvedStoreId = parseInt(storeIdParam);
+            console.log('📋 クエリパラメータからStoreIdを取得:', resolvedStoreId);
+          } else if (resolvedShop) {
+            // storeIdがクエリパラメータにない場合、shopドメインからストアを検索
+            // 注意: refreshStores()が完了した後、StoreContextからストア一覧を取得する必要がある
+            // ここでは、APIから直接ストア一覧を取得して検索する
+            try {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7088';
+              const storesResponse = await fetch(`${apiUrl}/api/store`);
+              if (storesResponse.ok) {
+                const storesData = await storesResponse.json();
+                const stores = storesData.stores || storesData || [];
+                const matchedStore = stores.find((s: any) => 
+                  s.domain === resolvedShop || s.shopDomain === resolvedShop || s.shopifyShopId === resolvedShop
+                );
+                if (matchedStore) {
+                  resolvedStoreId = matchedStore.id;
+                  console.log('🔍 shopドメインからStoreIdを検索:', { shop, storeId: resolvedStoreId });
+                } else {
+                  console.warn('⚠️ shopドメインに一致するストアが見つかりませんでした:', resolvedShop);
+                }
+              }
+            } catch (searchError) {
+              console.warn('⚠️ ストア検索に失敗しました:', searchError);
+            }
+          }
+        } catch (refreshError: any) {
+          console.warn('⚠️ ストア一覧の更新に失敗しましたが、続行します:', refreshError);
+          // ストア一覧の更新に失敗しても続行（認証は完了しているため）
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          
+          // フォールバック: クエリパラメータからstoreIdを取得
+          const storeIdParam = searchParams?.get('storeId');
+          if (storeIdParam) {
+            resolvedStoreId = parseInt(storeIdParam);
+          }
+        }
         
-        // 現在のストアを設定
-        const storeId = parseInt(searchParams?.get('storeId') || '1');
-        setCurrentStore(storeId);
+        if (!isMounted) return;
         
-        // LocalStorageに保存
-        // Phase 2: currentStoreIdのみを使用
-        localStorage.setItem('currentStoreId', storeId.toString());
+        // 現在のストアを設定（storeIdが見つからない場合はデフォルト1を使用）
+        const finalStoreId = resolvedStoreId || parseInt(searchParams?.get('storeId') || '1');
         
-        setStatus('success');
-        setMessage('認証が完了しました！ダッシュボードへ移動します...');
+        // StoreContextにストアを設定
+        setCurrentStore(finalStoreId);
         
-        // 2秒後にダッシュボードへリダイレクト
-        setTimeout(() => {
-          router.push('/');
-        }, 2000);
+        // AuthProviderに認証状態を明示的に設定
+        markAuthenticated(finalStoreId);
         
-      } catch (error) {
-        console.error('❌ ストア情報の更新エラー:', error);
-        setStatus('error');
-        setMessage('ストア情報の更新に失敗しました。もう一度お試しください。');
+        // shopドメインも保存（後でストアを検索する際に使用）
+        if (resolvedShop) {
+          localStorage.setItem('shopDomain', resolvedShop);
+        }
+        
+        console.log('✅ 認証状態を設定しました:', { storeId: finalStoreId, shop: resolvedShop, host });
+        
+        if (isMounted) {
+          setStatus('success');
+          setMessage('認証が完了しました！ダッシュボードへ移動します...');
+          
+          // 1秒後にダッシュボードへリダイレクト（2秒から短縮）
+          setTimeout(() => {
+            if (isMounted) {
+              // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
+              // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
+              const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+              if (typeof window !== 'undefined' && host && resolvedShop && apiKey) {
+                const isTopWindow = window.top === window.self;
+                if (isTopWindow) {
+                  const adminAppUrl = `https://${resolvedShop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
+                  window.location.href = adminAppUrl;
+                  return;
+                }
+              }
+
+              // それ以外は通常遷移（hostがある場合は保持しておく）
+              if (host && resolvedShop) {
+                router.push(`/?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
+              } else {
+                router.push('/');
+              }
+            }
+          }, 1000);
+        }
+        
+      } catch (error: any) {
+        console.error('❌ 予期しないエラー:', error);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (isMounted) {
+          setStatus('error');
+          const errorMessage = error?.message || '予期しないエラーが発生しました。もう一度お試しください。';
+          setMessage(errorMessage);
+        }
       }
     };
 
     handleAuthCallback();
-  }, [searchParams, router, refreshStores, setCurrentStore]);
+
+    // クリーンアップ
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [searchParams, router]); // refreshStores と setCurrentStore を依存配列から削除
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">

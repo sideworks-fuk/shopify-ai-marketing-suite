@@ -1,6 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { createApp } from '@shopify/app-bridge'
 import { Redirect } from '@shopify/app-bridge/actions'
 import { getSessionToken } from '@shopify/app-bridge-utils'
@@ -40,29 +41,68 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
   const [isEmbedded, setIsEmbedded] = useState(false)
   const [shop, setShop] = useState<string | null>(null)
   const [host, setHost] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
+  const apiKey = useMemo(() => process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '', [])
+  const storageKeys = useMemo(() => ({ host: 'shopify_host', shop: 'shopify_shop' }), [])
 
   useEffect(() => {
     const initializeAppBridge = () => {
       try {
-        // URLパラメータからshopとhostを取得
-        const urlParams = new URLSearchParams(window.location.search)
-        const shopParam = urlParams.get('shop')
-        const hostParam = urlParams.get('host')
+        const inIframe = typeof window !== 'undefined' && window.location !== window.parent.location
 
-        if (shopParam && hostParam) {
-          setShop(shopParam)
-          setHost(hostParam)
-          setIsEmbedded(true)
+        // Next.jsのsearchParams（ルーティング遷移で変化する）から取得
+        const shopParam = searchParams?.get('shop')
+        const hostParam = searchParams?.get('host')
+
+        // host/shop を永続化（埋め込み遷移でクエリが落ちることがあるため）
+        if (typeof window !== 'undefined') {
+          if (hostParam) sessionStorage.setItem(storageKeys.host, hostParam)
+          if (shopParam) sessionStorage.setItem(storageKeys.shop, shopParam)
+        }
+
+        const persistedHost =
+          typeof window !== 'undefined' ? sessionStorage.getItem(storageKeys.host) : null
+        const persistedShop =
+          typeof window !== 'undefined' ? sessionStorage.getItem(storageKeys.shop) : null
+
+        const resolvedHost = hostParam || persistedHost
+        const resolvedShop = shopParam || persistedShop
+
+        // 埋め込み判定: iframe内 or host/shop が存在
+        const embedded = Boolean(inIframe || hostParam || resolvedHost)
+        setIsEmbedded(embedded)
+
+        if (embedded && resolvedHost && apiKey) {
+          setShop(resolvedShop)
+          setHost(resolvedHost)
+
+          // host がURLから落ちている場合は補完（Shopify埋め込みの安定動作に必須）
+          if (typeof window !== 'undefined' && !hostParam) {
+            const url = new URL(window.location.href)
+            if (!url.searchParams.get('host')) {
+              url.searchParams.set('host', resolvedHost)
+              if (resolvedShop && !url.searchParams.get('shop')) {
+                url.searchParams.set('shop', resolvedShop)
+              }
+              // embedded=1 が無いケースもあるため補完（useIsEmbedded等の検知補助）
+              if (!url.searchParams.get('embedded')) {
+                url.searchParams.set('embedded', '1')
+              }
+              window.history.replaceState({}, document.title, url.toString())
+            }
+          }
 
           // App Bridgeを初期化
           const appBridge = createApp({
-            apiKey: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '',
-            host: hostParam,
+            apiKey,
+            host: resolvedHost,
             forceRedirect: true
           })
 
           setApp(appBridge)
-          console.log('✅ Shopify App Bridge initialized', { shop: shopParam, host: hostParam })
+          console.log('✅ Shopify App Bridge initialized', { shop: resolvedShop, host: resolvedHost })
           
           // トップレベルリダイレクトの処理（条件付き）
           if (window.top !== window.self) {
@@ -70,8 +110,13 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
             appBridge.dispatch(Redirect.toApp({ path: window.location.pathname }))
           }
         } else {
-          console.log('ℹ️ Not running in Shopify embedded context')
-          setIsEmbedded(false)
+          console.log('ℹ️ Not running in Shopify embedded context or missing host/apiKey', {
+            inIframe,
+            hostParam,
+            persistedHost,
+            apiKeyConfigured: Boolean(apiKey),
+          })
+          setApp(null)
         }
       } catch (error) {
         console.error('❌ Failed to initialize App Bridge:', error)
@@ -80,7 +125,7 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
     }
 
     initializeAppBridge()
-  }, [])
+  }, [apiKey, pathname, searchParams, storageKeys.host, storageKeys.shop])
 
   const getToken = async (): Promise<string | null> => {
     if (!app || !isEmbedded) {

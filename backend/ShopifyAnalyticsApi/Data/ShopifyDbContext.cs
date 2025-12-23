@@ -20,6 +20,7 @@ namespace ShopifyAnalyticsApi.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductVariant> ProductVariants { get; set; }
         public DbSet<Store> Stores { get; set; }
+        public DbSet<ShopifyApp> ShopifyApps { get; set; }
         public DbSet<SyncStatus> SyncStatuses { get; set; }
         
         // 同期管理用のDbSets
@@ -140,6 +141,62 @@ namespace ShopifyAnalyticsApi.Data
             
             modelBuilder.Entity<AuthenticationLog>()
                 .HasIndex(a => a.AuthMode);
+
+            // ShopifyAppエンティティの設定
+            modelBuilder.Entity<ShopifyApp>(entity =>
+            {
+                entity.ToTable("ShopifyApps");
+                
+                entity.HasKey(e => e.Id);
+                
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+                
+                entity.Property(e => e.DisplayName)
+                    .HasMaxLength(200);
+                
+                entity.Property(e => e.AppType)
+                    .IsRequired()
+                    .HasMaxLength(50);
+                
+                entity.Property(e => e.ApiKey)
+                    .IsRequired()
+                    .HasMaxLength(255);
+                
+                entity.Property(e => e.ApiSecret)
+                    .IsRequired()
+                    .HasMaxLength(255);
+                
+                entity.Property(e => e.AppUrl)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.RedirectUri)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.Scopes)
+                    .HasMaxLength(500);
+                
+                entity.Property(e => e.Description)
+                    .HasMaxLength(1000);
+                
+                // インデックス設定
+                entity.HasIndex(e => e.ApiKey)
+                    .HasDatabaseName("IX_ShopifyApps_ApiKey");
+                
+                entity.HasIndex(e => e.AppType)
+                    .HasDatabaseName("IX_ShopifyApps_AppType");
+                
+                entity.HasIndex(e => e.IsActive)
+                    .HasDatabaseName("IX_ShopifyApps_IsActive");
+            });
+            
+            // StoreとShopifyAppのリレーション設定
+            modelBuilder.Entity<Store>()
+                .HasOne(s => s.ShopifyApp)
+                .WithMany(a => a.Stores)
+                .HasForeignKey(s => s.ShopifyAppId)
+                .OnDelete(DeleteBehavior.SetNull); // ShopifyApp削除時はNULLに設定
 
             // Storeとのリレーション設定
             modelBuilder.Entity<Customer>()

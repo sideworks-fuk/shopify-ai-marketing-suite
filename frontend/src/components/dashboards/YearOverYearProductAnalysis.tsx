@@ -20,7 +20,10 @@ import {
   AlertCircle,
   Play,
 } from "lucide-react"
-import { yearOverYearApi, YearOverYearProductData, MonthlyComparisonData } from "../../lib/api/year-over-year"
+import type { ApiResponse } from "../../lib/data-access/types/api"
+import type { YearOverYearProductData, YearOverYearResponse } from "../../lib/api/year-over-year"
+import { useAuth } from "@/components/providers/AuthProvider"
+import FeatureLockedScreen from "@/components/billing/FeatureLockedScreen"
 
 // APIデータ用の統一型定義
 interface MonthlyProductData {
@@ -153,6 +156,7 @@ const ProductTableRowVirtual = React.memo(({
 ProductTableRowVirtual.displayName = "ProductTableRowVirtual"
 
 const YearOverYearProductAnalysis = () => {
+  const { getApiClient, currentStoreId } = useAuth()
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
@@ -183,23 +187,46 @@ const YearOverYearProductAnalysis = () => {
   const [categories, setCategories] = useState<string[]>([])
   const [hasData, setHasData] = useState(false) // データ取得済みフラグ
   const [lastFetchViewMode, setLastFetchViewMode] = useState<"sales" | "quantity" | "orders" | null>(null) // 最後に取得したviewMode
+  const [featureDenied, setFeatureDenied] = useState<string | null>(null)
+
+  const resolveStoreId = useCallback((): number | null => {
+    if (typeof currentStoreId === 'number' && currentStoreId > 0) return currentStoreId
+    if (typeof window === 'undefined') return null
+    const saved = localStorage.getItem('currentStoreId')
+    if (!saved) return null
+    const parsed = Number.parseInt(saved, 10)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  }, [currentStoreId])
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setFeatureDenied(null)
 
     try {
-      const response = await yearOverYearApi.getYearOverYearAnalysis({
-        storeId: 1,
-        year: selectedYear,
-        viewMode: viewMode,
-        sortBy: sortBy === "growth" ? "growth_rate" : sortBy === "total" ? "total_sales" : "name",
-        sortDescending: true,
-        searchTerm: filters.searchTerm || undefined,
-        growthRateFilter: filters.growthRate === "all" ? undefined : filters.growthRate as any,
-        category: filters.category === "all" ? undefined : filters.category,
-      })
+      const storeId = resolveStoreId()
+      if (!storeId) {
+        throw new Error('ストア情報が取得できません。Shopify管理画面からアプリを起動し直してください。')
+      }
+
+      const params = new URLSearchParams()
+      params.append('storeId', String(storeId))
+      params.append('year', String(selectedYear))
+      params.append('viewMode', viewMode)
+      params.append(
+        'sortBy',
+        sortBy === 'growth' ? 'growth_rate' : sortBy === 'total' ? 'total_sales' : 'name',
+      )
+      params.append('sortDescending', 'true')
+      if (filters.searchTerm) params.append('searchTerm', filters.searchTerm)
+      if (filters.growthRate !== 'all') params.append('growthRateFilter', filters.growthRate)
+      if (filters.category !== 'all') params.append('category', filters.category)
+
+      const apiClient = getApiClient()
+      const response = await apiClient.get<ApiResponse<YearOverYearResponse>>(
+        `/api/analytics/year-over-year?${params.toString()}`,
+      )
 
       if (response.success && response.data) {
         setApiData(response.data.products)
@@ -213,13 +240,21 @@ const YearOverYearProductAnalysis = () => {
       }
     } catch (err) {
       console.error('年次比較データ取得エラー:', err)
-      setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+
+      // 403（機能制限）は「エラー」ではなくロック画面で案内する
+      const message = err instanceof Error ? err.message : ''
+      if (message.includes('403') && message.includes('Feature not available')) {
+        setFeatureDenied('year_over_year')
+        setError(null)
+      } else {
+        setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました')
+      }
       setApiData([]) // エラー時は空配列に設定
     } finally {
       setLoading(false)
       setHasData(true) // データ取得試行完了
     }
-  }, [selectedYear, viewMode, sortBy, filters])
+  }, [filters, getApiClient, resolveStoreId, selectedYear, sortBy, viewMode])
 
   // APIデータを表示形式に変換する関数
   const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
@@ -369,6 +404,16 @@ const YearOverYearProductAnalysis = () => {
     link.click()
     document.body.removeChild(link)
   }, [sortedData, selectedYear, previousYear, viewMode, formatValue])
+
+  // ⚠️ 重要: hooksの呼び出し順序が変わらないよう、早期returnはhooks定義の後に行う
+  if (featureDenied) {
+    return (
+      <FeatureLockedScreen
+        featureName="前年同月比分析"
+        featureType="year_over_year"
+      />
+    )
+  }
 
 
   return (

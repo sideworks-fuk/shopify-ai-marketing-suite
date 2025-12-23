@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/providers/AuthProvider';
 import type { BillingPlan, Subscription, BillingInfo } from '@/types/billing';
 
 // Feature access levels by plan
@@ -149,6 +150,7 @@ interface SubscriptionProviderProps {
 
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const router = useRouter();
+  const { getApiClient, isApiClientReady } = useAuth(); // ApiClientを取得（認証ヘッダーを自動設定）
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>(MOCK_PLANS);
   const [loading, setLoading] = useState(true);
@@ -158,22 +160,18 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   // Fetch selected feature for free plan users
   const fetchSelectedFeature = useCallback(async () => {
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${backendUrl}/api/feature-selection/current`, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSelectedFeature(data.selectedFeature || null);
+      const apiClient = getApiClient();
+      const response = await apiClient.get<{ selectedFeature: SelectedFeature | null }>('/api/feature-selection/current');
+      
+      if (response && response.selectedFeature !== undefined) {
+        setSelectedFeature(response.selectedFeature || null);
       }
     } catch (err) {
       console.error('Error fetching selected feature:', err);
+      // エラー時はnullを設定（404など）
+      setSelectedFeature(null);
     }
-  }, []);
+  }, [getApiClient]);
 
   // Fetch subscription data
   const fetchSubscriptionData = useCallback(async () => {
@@ -181,37 +179,30 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setLoading(true);
       setError(null);
 
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiClient = getApiClient();
       
       // Fetch current subscription
-      const subResponse = await fetch(`${backendUrl}/api/subscription/status`, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      if (subResponse.ok) {
-        const subData = await subResponse.json();
+      try {
+        const subData = await apiClient.get<{ subscription: Subscription | null }>('/api/subscription/status');
         setSubscription(subData.subscription || null);
-      } else if (subResponse.status === 404) {
-        // No subscription found - that's ok for new users
-        setSubscription(null);
-      } else {
-        throw new Error('Failed to fetch subscription data');
+      } catch (subErr: any) {
+        // 404エラーの場合はサブスクリプションなしとして扱う
+        if (subErr?.message?.includes('404') || subErr?.message?.includes('Not Found')) {
+          setSubscription(null);
+        } else {
+          throw subErr;
+        }
       }
 
       // Fetch available plans
-      const plansResponse = await fetch(`${backendUrl}/api/subscription/plans`, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      if (plansResponse.ok) {
-        const plansData = await plansResponse.json();
-        setPlans(plansData.plans || MOCK_PLANS);
+      try {
+        const plansData = await apiClient.get<{ plans: BillingPlan[] }>('/api/subscription/plans');
+        if (plansData.plans && Array.isArray(plansData.plans)) {
+          setPlans(plansData.plans);
+        }
+      } catch (plansErr) {
+        console.warn('Failed to fetch plans, using mock plans:', plansErr);
+        // プラン取得に失敗してもモックプランを使用して続行
       }
     } catch (err) {
       console.error('Error fetching subscription data:', err);
@@ -231,12 +222,19 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getApiClient]);
 
   useEffect(() => {
+    // ApiClientが初期化されるまで待機
+    if (!isApiClientReady) {
+      console.log('⏳ ApiClientの初期化を待機中...');
+      return;
+    }
+    
+    console.log('✅ ApiClientが準備完了、サブスクリプションデータを取得します');
     fetchSubscriptionData();
     fetchSelectedFeature();
-  }, [fetchSubscriptionData, fetchSelectedFeature]);
+  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature]);
 
   // Calculate derived values
   const currentPlan = plans.find(p => p.id === subscription?.planId) || null;

@@ -49,7 +49,9 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var subscription = await _context.StoreSubscriptions
                     .Include(s => s.Plan)
-                    .Where(s => s.StoreId == StoreId && s.Status == "active")
+                    .Where(s =>
+                        s.StoreId == StoreId &&
+                        (s.Status == "active" || s.Status == "trialing"))
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
@@ -59,8 +61,32 @@ namespace ShopifyAnalyticsApi.Controllers
                     {
                         hasActiveSubscription = false,
                         requiresPayment = true,
-                        message = "No active subscription found"
+                        message = "No active subscription found",
+                        subscription = (object?)null
                     });
+                }
+
+                // フロント（SubscriptionContext/useFeatureAccess）向けの planId マッピング
+                // - 案1: trialing は professional 相当として扱い、全機能アクセスを許可する
+                var planIdForFrontend = "starter";
+                var planName = subscription.Plan?.Name ?? subscription.PlanName ?? "Free";
+                var normalizedPlanName = planName.Trim().ToLowerInvariant();
+                var isTrialing = string.Equals(subscription.Status, "trialing", StringComparison.OrdinalIgnoreCase);
+                if (isTrialing)
+                {
+                    planIdForFrontend = "professional";
+                }
+                else if (normalizedPlanName.Contains("enterprise"))
+                {
+                    planIdForFrontend = "enterprise";
+                }
+                else if (normalizedPlanName.Contains("pro") || normalizedPlanName.Contains("professional") || normalizedPlanName.Contains("basic"))
+                {
+                    planIdForFrontend = "professional";
+                }
+                else if (normalizedPlanName.Contains("free") || subscription.Plan?.Price == 0)
+                {
+                    planIdForFrontend = "starter";
                 }
 
                 return Ok(new
@@ -69,18 +95,30 @@ namespace ShopifyAnalyticsApi.Controllers
                     requiresPayment = false,
                     subscription = new
                     {
-                        planName = subscription.Plan?.Name,
-                        price = subscription.Plan?.Price,
+                        // frontend/src/types/billing.ts の Subscription 互換（id/planId/status/dates）
+                        id = subscription.Id.ToString(),
+                        planId = planIdForFrontend,
                         status = subscription.Status,
-                        isInTrialPeriod = subscription.IsInTrialPeriod,
+                        currentPeriodStart = subscription.ActivatedAt ?? subscription.CreatedAt,
+                        currentPeriodEnd = subscription.CurrentPeriodEnd ?? subscription.TrialEndsAt ?? subscription.CreatedAt.AddDays(14),
+                        trialEnd = subscription.TrialEndsAt,
+
+                        // 既存互換/表示用（残す）
+                        planName = subscription.Plan?.Name ?? subscription.PlanName,
+                        price = subscription.Plan?.Price,
+                        isInTrialPeriod = isTrialing ? (subscription.TrialEndsAt.HasValue && subscription.TrialEndsAt > DateTime.UtcNow) : subscription.IsInTrialPeriod,
                         trialEndsAt = subscription.TrialEndsAt,
                         daysLeftInTrial = subscription.DaysLeftInTrial,
-                        currentPeriodEnd = subscription.CurrentPeriodEnd,
-                        features = subscription.Plan?.Features != null 
-                            ? JsonSerializer.Deserialize<object>(subscription.Plan.Features) 
+                        features = subscription.Plan?.Features != null
+                            ? JsonSerializer.Deserialize<object>(subscription.Plan.Features)
                             : null
                     }
                 });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access while getting subscription status");
+                return Unauthorized(new { error = "Unauthorized", message = ex.Message });
             }
             catch (Exception ex)
             {

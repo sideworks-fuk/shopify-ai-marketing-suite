@@ -39,27 +39,7 @@ export function ShopifyNavigationMenu() {
     )
   } catch (error) {
     console.warn('ShopifyNavigationMenu: NavMenuの初期化に失敗しました', error)
-    // エラー時はフォールバック（通常のナビゲーションとして表示）
-    return (
-      <nav className="shopify-navigation-fallback">
-        <ul style={{ listStyle: 'none', padding: 0, display: 'flex', gap: '1rem' }}>
-          <li><a href="/" className="flex items-center">
-            <Image
-              src="/branding/logo.png"
-              alt="EC Ranger"
-              width={120}
-              height={30}
-              className="h-6 w-auto"
-              priority
-            />
-          </a></li>
-          <li><a href="/setup/initial">データ同期</a></li>
-          <li><a href="/sync">同期ステータス</a></li>
-          <li><a href="/sales/year-over-year">前年同月比分析</a></li>
-          <li><a href="/purchase/count-analysis">購入回数分析</a></li>
-          <li><a href="/customers/dormant">休眠顧客分析</a></li>
-        </ul>
-      </nav>
-    )
+    // embedded内でページ上にメニューが出ると二重ナビになりUXが悪いので表示しない
+    return null
   }
 }

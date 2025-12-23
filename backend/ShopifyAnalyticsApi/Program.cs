@@ -306,12 +306,24 @@ builder.Services.AddCors(options =>
     if (environment == "Development")
     {
         // 開発環境: credentials対応の設定
+        // appsettings.Development.jsonのCors:AllowedOriginsから読み込む
         options.AddPolicy("AllowAll", policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
+            if (corsOrigins.Length > 0)
+            {
+                policy.WithOrigins(corsOrigins)
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            }
+            else
+            {
+                // フォールバック: デフォルトのlocalhost
+                policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            }
         });
     }
     else
@@ -343,9 +355,30 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests; // 標準的な429ステータスコード
     
+    // レート制限をスキップするパス（ヘルスチェックなど）
+    var skipRateLimitPaths = new[]
+    {
+        "/health",
+        "/health/ready",
+        "/api/health",
+        "/swagger",
+        "/hangfire"
+    };
+    
+    var environment = builder.Environment.EnvironmentName;
+    var isDevelopment = environment == "Development";
+    
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
         httpContext => 
         {
+            // レート制限をスキップするパスをチェック
+            var path = httpContext.Request.Path.Value?.ToLower() ?? "";
+            if (skipRateLimitPaths.Any(skipPath => path.StartsWith(skipPath)))
+            {
+                // レート制限なし（無制限）
+                return RateLimitPartition.GetNoLimiter("no-limit");
+            }
+            
             // 認証済みユーザー: 複合キー（ユーザーID + ストアドメイン）でパーティション分け（200回/分）
             if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
@@ -394,12 +427,20 @@ builder.Services.AddRateLimiter(options =>
             
             // 匿名ユーザーはIPアドレスでパーティション分け（DoS攻撃対策）
             var anonymousIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            
+            // 開発環境ではレート制限を無効化（デバッグのため）
+            if (isDevelopment)
+            {
+                return RateLimitPartition.GetNoLimiter($"dev-{anonymousIp}");
+            }
+            
+            // 本番環境: 50回/分
             return RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: $"anonymous-{anonymousIp}",
                 factory: partition => new FixedWindowRateLimiterOptions
                 {
                     AutoReplenishment = true,
-                    PermitLimit = 50, // 匿名ユーザーはより低い制限
+                    PermitLimit = 50,
                     Window = TimeSpan.FromMinutes(1)
                 });
         });
@@ -485,7 +526,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ヘルスチェックエンドポイントを追加
+// /health と /api/health の両方をサポート（フロントエンドの互換性のため）
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/api/health");
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")

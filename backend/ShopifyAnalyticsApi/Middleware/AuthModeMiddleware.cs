@@ -101,8 +101,65 @@ namespace ShopifyAnalyticsApi.Middleware
             bool isDeveloperValid = false;
             AuthenticationResult? authResult = null;
 
-            // トークン検証
-            if (!string.IsNullOrEmpty(token))
+            // OAuth認証成功後のセッションCookieを確認（埋め込みアプリでない場合の認証）
+            // これはAuthorizationヘッダーがない場合のフォールバックとして機能
+            var oauthSessionCookie = context.Request.Cookies["oauth_session"];
+            
+            // デバッグ: すべてのCookieをログに記録
+            if (_env.IsDevelopment())
+            {
+                var allCookies = string.Join(", ", context.Request.Cookies.Select(c => $"{c.Key}={c.Value.Substring(0, Math.Min(50, c.Value.Length))}..."));
+                _logger.LogDebug("Request cookies: {Cookies}", allCookies);
+                _logger.LogDebug("Looking for oauth_session cookie. Found: {Found}, Value: {Value}", 
+                    !string.IsNullOrEmpty(oauthSessionCookie), 
+                    oauthSessionCookie != null ? oauthSessionCookie.Substring(0, Math.Min(100, oauthSessionCookie.Length)) : "null");
+            }
+            
+            if (!string.IsNullOrEmpty(oauthSessionCookie))
+            {
+                try
+                {
+                    var sessionData = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(oauthSessionCookie);
+                    if (sessionData.TryGetProperty("storeId", out var storeIdElement) && 
+                        sessionData.TryGetProperty("shop", out var shopElement))
+                    {
+                        var storeId = storeIdElement.GetInt32();
+                        var shop = shopElement.GetString();
+                        
+                        // セッションの有効性を確認（ストアが存在し、アクティブかどうか）
+                        // 注: ここでは簡易実装。本番環境では、セッションデータベースやRedisを使用することを推奨
+                        _logger.LogInformation("OAuth session cookie validation successful. StoreId: {StoreId}, Shop: {Shop}", storeId, shop);
+                        
+                        // 認証結果を設定
+                        authResult = new AuthenticationResult
+                        {
+                            IsValid = true,
+                            StoreId = storeId,
+                            ShopDomain = shop,
+                            AuthMode = "OAuthSession"
+                        };
+                    }
+                    else
+                    {
+                        _logger.LogWarning("OAuth session cookie missing required properties. storeId: {HasStoreId}, shop: {HasShop}", 
+                            sessionData.TryGetProperty("storeId", out _), 
+                            sessionData.TryGetProperty("shop", out _));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "OAuth session cookie parsing failed. Cookie value: {CookieValue}", 
+                        oauthSessionCookie.Substring(0, Math.Min(200, oauthSessionCookie.Length)));
+                }
+            }
+            else
+            {
+                _logger.LogDebug("OAuth session cookie not found in request");
+            }
+
+            // OAuthセッションCookieが有効な場合は、それを使用（優先）
+            // トークン検証は、セッションCookieがない場合のみ実行
+            if (authResult == null && !string.IsNullOrEmpty(token))
             {
                 try
                 {
@@ -166,11 +223,14 @@ namespace ShopifyAnalyticsApi.Middleware
                 }
             }
 
+            // OAuthRequired判定用: Shopify埋め込みトークン(OAuth) or OAuthセッションCookie を許可
+            var hasValidOAuthLikeAuth = isOAuthValid || string.Equals(authResult?.AuthMode, "OAuthSession", StringComparison.OrdinalIgnoreCase);
+
             // 認証モード別の処理
             switch (authMode)
             {
                 case "OAuthRequired":
-                    if (!isOAuthValid)
+                    if (!hasValidOAuthLikeAuth)
                     {
                         _logger.LogWarning(
                             "OAuth authentication required but not provided. Path: {Path}",
@@ -250,7 +310,12 @@ namespace ShopifyAnalyticsApi.Middleware
                 // 認証モードを設定
                 context.Items["AuthMode"] = authResult.AuthMode;
                 context.Items["IsReadOnly"] = authResult.IsReadOnly;
-                context.Items["StoreId"] = authResult.StoreId;
+
+                // StoreId は int として格納（Nullable<int> のボクシングだと取得側の型判定に失敗して 500 の原因になる）
+                if (authResult.StoreId.HasValue)
+                {
+                    context.Items["StoreId"] = authResult.StoreId.Value;
+                }
                 context.Items["UserId"] = authResult.UserId;
 
                 // Level 3: OAuth認証

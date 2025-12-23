@@ -18,6 +18,18 @@ export class ApiClient {
   private async getAuthHeaders(): Promise<HeadersInit> {
     const config = getAuthModeConfig();
 
+    // OAuth認証成功後（埋め込みアプリでない場合）は、Cookieベースの認証を使用
+    // バックエンドがCookieから認証情報を読み取るため、Authorizationヘッダーは不要
+    const oauthAuthenticated = typeof window !== 'undefined' 
+      ? localStorage.getItem('oauth_authenticated') === 'true'
+      : false;
+    
+    if (oauthAuthenticated && !this.options.getShopifyToken) {
+      // OAuth認証成功後、埋め込みアプリでない場合: Cookieベース認証を使用
+      console.log('🔐 OAuth認証済み: Cookieベース認証を使用（Authorizationヘッダーは不要）');
+      return {};
+    }
+
     // Shopify埋め込みアプリの場合、セッショントークンを取得
     if (this.options.getShopifyToken) {
       try {
@@ -68,9 +80,17 @@ export class ApiClient {
     console.log('⏳ [APIClient.request] fetch呼び出し中...');
     const fetchStartTime = Date.now();
 
+    // Cookieベース認証を使用する場合、credentials: 'include' が必要
+    // これにより、クロスオリジンリクエストでもCookieが送信される
+    const oauthAuthenticated = typeof window !== 'undefined' 
+      ? localStorage.getItem('oauth_authenticated') === 'true'
+      : false;
+    const needsCredentials = oauthAuthenticated && !this.options.getShopifyToken;
+
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: needsCredentials ? 'include' : (options.credentials || 'same-origin'),
     });
     
     const fetchEndTime = Date.now();
@@ -85,9 +105,23 @@ export class ApiClient {
       const errorText = await response.text();
       console.error('❌ API Error:', response.status, errorText);
       
-      // 401エラーの場合は1回だけリトライ
-      if (response.status === 401 && !__retried) {
+      // 429エラー（レート制限）の場合はリトライしない
+      if (response.status === 429) {
+        console.warn('⚠️ レート制限エラー（429）: リトライしません。しばらく待ってから再試行してください。');
+        // 429エラー時はグローバルイベントを発火してユーザーに通知
+        window.dispatchEvent(new CustomEvent('rate-limit-error', { 
+          detail: { endpoint, retryAfter: 60 } // 60秒後に再試行を推奨
+        }));
+        throw new Error(`API Error: ${response.status} ${errorText}`);
+      }
+      
+      // 401エラーの場合は1回だけリトライ（埋め込みアプリの場合のみ、かつ429エラーを避けるため）
+      // OAuth認証済み（Cookieベース）の場合は、Cookieが送信されていない可能性があるためリトライしない
+      if (response.status === 401 && !__retried && this.options.getShopifyToken) {
         console.log('🔄 401エラー: トークンを再取得してリトライします');
+        
+        // リトライ前に少し待機（429エラーを避けるため）
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // トークンを再取得
         const newHeaders = await this.getAuthHeaders();
@@ -102,8 +136,11 @@ export class ApiClient {
         }, true);
       }
       
-      // リトライ後も失敗した場合のみauth:errorを発火
+      // リトライ後も失敗した場合、またはOAuth認証済み（Cookieベース）の場合のみauth:errorを発火
       if (response.status === 401) {
+        if (needsCredentials) {
+          console.warn('⚠️ Cookieベース認証で401エラー: Cookieが正しく送信されていない可能性があります');
+        }
         console.log('🔴 認証エラー: グローバルイベントを発火');
         window.dispatchEvent(new Event('auth:error'));
       }

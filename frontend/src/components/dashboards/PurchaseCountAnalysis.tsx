@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,7 @@ import { DownloadIcon, TrendingUpIcon, UsersIcon, ShoppingCartIcon, AlertCircleI
 import { formatCurrency, formatPercentage, formatNumber } from "@/lib/format"
 import { getApiUrl, addStoreIdToParams } from "@/lib/api-config"
 import { handleError } from "@/lib/error-handler"
+import { useAuth } from "@/components/providers/AuthProvider"
 
 // 購入回数の階層定義（0回を含む）
 const PURCHASE_TIERS = [
@@ -44,16 +45,22 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
   conditions, 
   onAnalysisComplete 
 }: PurchaseCountAnalysisProps) {
+  const { getApiClient } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [analysisData, setAnalysisData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const isRequestingRef = useRef(false) // リクエスト中の重複を防ぐフラグ
 
-  useEffect(() => {
-    fetchAnalysisData()
-  }, [conditions])
+  // fetchAnalysisDataをuseCallbackでメモ化（重複リクエストを防ぐ）
+  const fetchAnalysisData = useCallback(async () => {
+    // 既にリクエスト中の場合はスキップ
+    if (isRequestingRef.current) {
+      console.log('⚠️ 既にリクエスト中のため、重複リクエストをスキップします')
+      return
+    }
 
-  const fetchAnalysisData = async () => {
     try {
+      isRequestingRef.current = true
       setIsLoading(true)
       setError(null)
 
@@ -64,26 +71,11 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
         tierMode: "simplified" // 5階層モードを指定
       })
 
-      // デモトークンを取得
-      const demoToken = localStorage.getItem('demoToken')
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }
-      
-      if (demoToken) {
-        headers['Authorization'] = `Bearer ${demoToken}`
-      }
+      console.log('🔄 購入回数分析データ取得開始:', { params, timestamp: conditions.timestamp })
 
-      const response = await fetch(`${getApiUrl()}/api/purchase/count-analysis?${params}`, {
-        headers
-      })
-      
-      if (!response.ok) {
-        throw new Error(`APIエラー: ${response.status}`)
-      }
-
-      const result = await response.json()
+      // ApiClientを使用してリクエスト（認証ヘッダーは自動設定）
+      const apiClient = getApiClient()
+      const result = await apiClient.get<any>(`/api/purchase/count-analysis?${params}`)
       if (result.success) {
         console.log('📊 購入回数分析データ取得:', {
           hasSummary: !!result.data?.summary,
@@ -102,9 +94,15 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
       setError(error instanceof Error ? error.message : "データ取得に失敗しました")
     } finally {
       setIsLoading(false)
+      isRequestingRef.current = false
       onAnalysisComplete?.()
     }
-  }
+  }, [conditions.period, conditions.segment, conditions.compareWithPrevious, conditions.timestamp, getApiClient, onAnalysisComplete])
+
+  // conditions.timestampが変更された時のみ実行（重複実行を防ぐ）
+  useEffect(() => {
+    fetchAnalysisData()
+  }, [conditions.timestamp, fetchAnalysisData])
 
   const exportToCSV = () => {
     if (!analysisData) return

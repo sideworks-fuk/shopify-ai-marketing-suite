@@ -1,8 +1,7 @@
 'use client'
 
 import React, { ReactNode } from 'react'
-import { AppBridgeProvider } from '@/providers/AppBridgeProvider'
-import { ShopifyNavigationMenu } from '@/components/shopify/ShopifyNavigationMenu'
+import { EmbeddedTopNav } from './EmbeddedTopNav'
 
 interface EmbeddedAppLayoutProps {
   children: ReactNode
@@ -10,13 +9,12 @@ interface EmbeddedAppLayoutProps {
 
 export function EmbeddedAppLayout({ children }: EmbeddedAppLayoutProps) {
   return (
-    <AppBridgeProvider>
-      <div className="shopify-embedded">
-        <ShopifyNavigationMenu />
-        <main className="shopify-app-content">
-          {children}
-        </main>
-      </div>
-    </AppBridgeProvider>
+    <div className="shopify-embedded">
+      {/* 埋め込み時: サイドメニューは出さず、上部の軽量ナビのみ（host/shop等のクエリ維持） */}
+      <EmbeddedTopNav />
+      <main className="shopify-app-content">
+        {children}
+      </main>
+    </div>
   )
 }

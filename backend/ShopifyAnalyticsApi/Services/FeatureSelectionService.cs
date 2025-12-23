@@ -23,6 +23,9 @@ namespace ShopifyAnalyticsApi.Services
         private const string CACHE_KEY_PREFIX = "feature_selection_";
         private const int CACHE_DURATION_MINUTES = 5;
 
+        // 無料プランで未選択の場合のデフォルト機能（初回UX改善）
+        private const string DEFAULT_FREE_FEATURE = FeatureConstants.DormantAnalysis;
+
         public FeatureSelectionService(
             ShopifyDbContext context,
             ILogger<FeatureSelectionService> logger,
@@ -62,14 +65,24 @@ namespace ShopifyAnalyticsApi.Services
                 .FirstOrDefaultAsync(ss => ss.StoreId == storeId && ss.Status == "active");
 
             var planType = GetPlanType(subscription);
+
+            // ✅ UX改善: 無料プランで未選択の場合はデフォルト機能を「選択済み扱い」にする
+            // - これにより FeatureAccessMiddleware で selectedFeatures=[] となって 403 になる問題を回避
+            // - 物理的なDB更新は SelectFeature API を通したタイミングで行う（GETでは更新しない）
+            var effectiveSelectedFeatureId = selection?.SelectedFeatureId;
+            if (planType == PlanTypes.Free && string.IsNullOrEmpty(effectiveSelectedFeatureId))
+            {
+                effectiveSelectedFeatureId = DEFAULT_FREE_FEATURE;
+            }
+
             var response = new CurrentSelectionResponse
             {
-                SelectedFeature = selection?.SelectedFeatureId,
+                SelectedFeature = effectiveSelectedFeatureId,
                 CanChangeToday = selection?.CanChangeToday ?? true,
                 NextChangeAvailableDate = selection?.NextChangeAvailableDate ?? DateTime.UtcNow,
                 PlanType = planType,
-                AvailableFeatures = GetAvailableFeatures(planType, selection?.SelectedFeatureId),
-                UsageLimit = await GetUsageLimitAsync(storeId, selection?.SelectedFeatureId)
+                AvailableFeatures = GetAvailableFeatures(planType, effectiveSelectedFeatureId),
+                UsageLimit = await GetUsageLimitAsync(storeId, effectiveSelectedFeatureId)
             };
 
             // キャッシュに保存
@@ -468,7 +481,17 @@ namespace ShopifyAnalyticsApi.Services
 
         private string GetPlanType(StoreSubscription? subscription)
         {
-            if (subscription == null || subscription.Status != "active")
+            if (subscription == null)
+                return PlanTypes.Free;
+
+            // ✅ 案1: trialing 中は有料相当として全機能解放
+            if (string.Equals(subscription.Status, "trialing", StringComparison.OrdinalIgnoreCase))
+            {
+                var inTrial = !subscription.TrialEndsAt.HasValue || subscription.TrialEndsAt > DateTime.UtcNow;
+                return inTrial ? PlanTypes.Professional : PlanTypes.Free;
+            }
+
+            if (!string.Equals(subscription.Status, "active", StringComparison.OrdinalIgnoreCase))
                 return PlanTypes.Free;
 
             var planName = subscription.Plan?.Name?.ToLower() ?? "free";
@@ -504,7 +527,9 @@ namespace ShopifyAnalyticsApi.Services
             var usage = await GetFeatureUsageAsync(storeId, featureId);
             var subscription = await _context.StoreSubscriptions
                 .Include(ss => ss.Plan)
-                .FirstOrDefaultAsync(ss => ss.StoreId == storeId && ss.Status == "active");
+                .FirstOrDefaultAsync(ss =>
+                    ss.StoreId == storeId &&
+                    (ss.Status == "active" || ss.Status == "trialing"));
             
             var planType = GetPlanType(subscription);
             var limits = await _context.FeatureLimits
@@ -598,7 +623,18 @@ namespace ShopifyAnalyticsApi.Services
 
             if (selection == null || string.IsNullOrEmpty(selection.SelectedFeatureId))
             {
-                return Enumerable.Empty<AvailableFeature>();
+                // ✅ UX改善: 未選択なら無料プランのデフォルト機能を選択済み扱い
+                var featureId = DEFAULT_FREE_FEATURE;
+                return new[] {
+                    new AvailableFeature
+                    {
+                        FeatureId = featureId,
+                        DisplayName = FeatureConstants.FeatureDisplayNames.GetValueOrDefault(featureId, featureId),
+                        Description = FeatureConstants.FeatureDescriptions.GetValueOrDefault(featureId, ""),
+                        IsSelected = true,
+                        IsAccessible = true
+                    }
+                };
             }
 
             // 選択された機能IDをAvailableFeatureオブジェクトに変換

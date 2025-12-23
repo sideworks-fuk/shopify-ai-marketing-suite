@@ -61,6 +61,11 @@ namespace ShopifyAnalyticsApi.Services
         public int? StoreId { get; set; }
 
         /// <summary>
+        /// Shopifyストアドメイン
+        /// </summary>
+        public string? ShopDomain { get; set; }
+
+        /// <summary>
         /// 認証モード
         /// </summary>
         public string AuthMode { get; set; } = string.Empty;

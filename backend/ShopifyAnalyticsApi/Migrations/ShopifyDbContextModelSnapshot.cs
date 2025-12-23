@@ -22,7 +22,49 @@ namespace ShopifyAnalyticsApi.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Customer", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.AuthenticationLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthMode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthMode");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("AuthenticationLogs");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Customer", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -78,6 +120,9 @@ namespace ShopifyAnalyticsApi.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -127,7 +172,7 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "ShopifyCustomerId");
 
-                    b.ToTable("Customers", (string)null);
+                    b.ToTable("Customers");
 
                     b.HasData(
                         new
@@ -135,10 +180,11 @@ namespace ShopifyAnalyticsApi.Migrations
                             Id = 1,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 6, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5957),
+                            CreatedAt = new DateTime(2025, 11, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(457),
                             CustomerSegment = "リピーター",
                             Email = "yamada@example.com",
                             FirstName = "太郎",
+                            IsActive = true,
                             LastName = "山田",
                             OrdersCount = 3,
                             Phone = "090-1234-5678",
@@ -146,17 +192,18 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxExempt = false,
                             TotalOrders = 3,
                             TotalSpent = 25000m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5961)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(460)
                         },
                         new
                         {
                             Id = 2,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5963),
+                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(463),
                             CustomerSegment = "新規顧客",
                             Email = "sato@example.com",
                             FirstName = "花子",
+                            IsActive = true,
                             LastName = "佐藤",
                             OrdersCount = 1,
                             Phone = "080-9876-5432",
@@ -164,28 +211,514 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxExempt = false,
                             TotalOrders = 1,
                             TotalSpent = 8500m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5964)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(463)
                         },
                         new
                         {
                             Id = 3,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 1, 22, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5966),
+                            CreatedAt = new DateTime(2025, 6, 25, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(466),
                             CustomerSegment = "VIP顧客",
                             Email = "suzuki@example.com",
                             FirstName = "一郎",
+                            IsActive = true,
                             LastName = "鈴木",
                             OrdersCount = 15,
                             StoreId = 1,
                             TaxExempt = false,
                             TotalOrders = 15,
                             TotalSpent = 125000m,
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5967)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(467)
                         });
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Order", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.DemoSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastAccessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.ToTable("DemoSessions");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.FeatureLimit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChangeCooldownDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DailyLimit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FeatureId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MonthlyLimit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlanType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FeatureLimits");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.FeatureSelectionChangeHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AfterFeatureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BeforeFeatureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ChangedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IdempotencyToken")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("FeatureSelectionChangeHistories");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.FeatureUsageLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AfterFeatureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BeforeFeatureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FeatureId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IdempotencyToken")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("FeatureUsageLogs");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRComplianceLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ShopDomain")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("GDPRComplianceLogs");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRDeletionLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AnonymizedData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DeletionMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("GDPRRequestId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GDPRRequestId");
+
+                    b.ToTable("GDPRDeletionLogs");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AuditLog")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CustomerEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<long?>("CustomerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExportUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExportedData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("MaxRetries")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OrdersToRedact")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProcessingDetails")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessingStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ScheduledFor")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ShopDomain")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ShopifyRequestId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("WebhookPayload")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueDate");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("ShopDomain", "RequestType");
+
+                    b.ToTable("GDPRRequests");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRStatistics", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("AverageProcessingHours")
+                        .HasColumnType("float");
+
+                    b.Property<int>("CompletedOnTime")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompletedRequests")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("int");
+
+                    b.Property<double>("MaxProcessingHours")
+                        .HasColumnType("float");
+
+                    b.Property<double>("MinProcessingHours")
+                        .HasColumnType("float");
+
+                    b.Property<int>("Overdue")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("TotalRequests")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Period", "RequestType")
+                        .IsUnique();
+
+                    b.ToTable("GDPRStatistics");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.InstallationHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("InstalledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Scopes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ShopDomain")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UninstalledAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("InstallationHistories");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Order", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -204,8 +737,29 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Property<int>("CustomerId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FinancialStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FulfillmentStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ShopifyCustomerId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ShopifyOrderId")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -226,6 +780,9 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("TotalTax")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -238,40 +795,44 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "OrderNumber");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6086),
+                            CreatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(516),
                             Currency = "JPY",
                             CustomerId = 1,
+                            FinancialStatus = "pending",
                             OrderNumber = "ORD-001",
                             Status = "completed",
                             StoreId = 1,
                             SubtotalPrice = 6300m,
                             TaxPrice = 700m,
                             TotalPrice = 7000m,
-                            UpdatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6086)
+                            TotalTax = 0m,
+                            UpdatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(516)
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6094),
+                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(520),
                             Currency = "JPY",
                             CustomerId = 2,
+                            FinancialStatus = "pending",
                             OrderNumber = "ORD-002",
                             Status = "completed",
                             StoreId = 1,
                             SubtotalPrice = 7700m,
                             TaxPrice = 800m,
                             TotalPrice = 8500m,
-                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6095)
+                            TotalTax = 0m,
+                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(520)
                         });
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.OrderItem", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.OrderItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -319,6 +880,10 @@ namespace ShopifyAnalyticsApi.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("ProductId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("ProductTitle")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -338,12 +903,28 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Property<bool>("RequiresShipping")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ShopifyLineItemId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ShopifyProductId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ShopifyVariantId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Sku")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("Taxable")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("decimal(18,2)");
@@ -359,14 +940,14 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
                             CompareAtPrice = 4000m,
-                            CreatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6166),
+                            CreatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(552),
                             Option1Name = "サイズ",
                             Option1Value = "M",
                             Option2Name = "カラー",
@@ -382,14 +963,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TSHIRT-001",
                             Taxable = true,
                             TotalPrice = 7000m,
-                            UpdatedAt = new DateTime(2025, 7, 7, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6167),
+                            UpdatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(553),
                             VariantTitle = "M / ブルー"
                         },
                         new
                         {
                             Id = 2,
                             CompareAtPrice = 3200m,
-                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6177),
+                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(557),
                             Option1Name = "容量",
                             Option1Value = "500ml",
                             OrderId = 2,
@@ -403,14 +984,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TUMBLER-001",
                             Taxable = true,
                             TotalPrice = 2800m,
-                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6177),
+                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(557),
                             VariantTitle = "500ml"
                         },
                         new
                         {
                             Id = 3,
                             CompareAtPrice = 4800m,
-                            CreatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6181),
+                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(561),
                             Option1Name = "容量",
                             Option1Value = "100g",
                             OrderId = 2,
@@ -424,12 +1005,12 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TEA-001",
                             Taxable = true,
                             TotalPrice = 4200m,
-                            UpdatedAt = new DateTime(2025, 7, 14, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6181),
+                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(562),
                             VariantTitle = "100g"
                         });
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Product", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Product", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -459,6 +1040,10 @@ namespace ShopifyAnalyticsApi.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("ShopifyProductId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<int>("StoreId")
                         .HasColumnType("int");
 
@@ -480,45 +1065,45 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("StoreId", "Title");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
                             Category = "衣類",
-                            CreatedAt = new DateTime(2025, 5, 22, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6052),
+                            CreatedAt = new DateTime(2025, 10, 23, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(490),
                             Description = "環境に優しいオーガニックコットン100%のTシャツ",
                             InventoryQuantity = 50,
                             StoreId = 1,
                             Title = "オーガニックコットンTシャツ",
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6053)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(490)
                         },
                         new
                         {
                             Id = 2,
                             Category = "雑貨",
-                            CreatedAt = new DateTime(2025, 6, 6, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6056),
+                            CreatedAt = new DateTime(2025, 11, 7, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(492),
                             Description = "保温・保冷効果抜群のステンレス製タンブラー",
                             InventoryQuantity = 25,
                             StoreId = 1,
                             Title = "ステンレス製タンブラー",
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6056)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(493)
                         },
                         new
                         {
                             Id = 3,
                             Category = "食品",
-                            CreatedAt = new DateTime(2025, 6, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6058),
+                            CreatedAt = new DateTime(2025, 11, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(495),
                             Description = "厳選されたオーガニック緑茶の詰め合わせセット",
                             InventoryQuantity = 15,
                             StoreId = 1,
                             Title = "オーガニック緑茶セット",
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(6059)
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(495)
                         });
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.ProductVariant", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.ProductVariant", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -572,12 +1157,20 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Property<bool>("RequiresShipping")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ShopifyVariantId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("Sku")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("Taxable")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -593,10 +1186,231 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ProductVariants", (string)null);
+                    b.ToTable("ProductVariants");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Store", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.ShopifyApp", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApiKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ApiSecret")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("AppType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("AppUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RedirectUri")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Scopes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApiKey")
+                        .HasDatabaseName("IX_ShopifyApps_ApiKey");
+
+                    b.HasIndex("AppType")
+                        .HasDatabaseName("IX_ShopifyApps_AppType");
+
+                    b.HasIndex("IsActive")
+                        .HasDatabaseName("IX_ShopifyApps_IsActive");
+
+                    b.ToTable("ShopifyApps", (string)null);
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Store", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ApiKey")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ApiSecret")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Domain")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("InitialSetupCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastSyncDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Scopes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Settings")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ShopifyAppId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ShopifyShopId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShopifyAppId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("Stores");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2024, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(276),
+                            DataType = "production",
+                            Domain = "fuk-dev1.myshopify.com",
+                            InitialSetupCompleted = false,
+                            IsActive = true,
+                            Name = "テストストア",
+                            ShopifyShopId = "test-store",
+                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(282)
+                        });
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.StoreSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActivatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ConfirmationUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PlanId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlanName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long?>("ShopifyChargeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("StoreSubscriptions");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SubscriptionPlan", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -607,16 +1421,536 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Domain")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                    b.Property<string>("Features")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("ShopifyShopId")
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("TrialDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SubscriptionPlans");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncCheckpoint", b =>
+                {
+                    b.Property<int>("CheckpointId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CheckpointId"));
+
+                    b.Property<bool>("CanResume")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastProcessedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSuccessfulCursor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RecordsProcessedSoFar")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SyncEndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SyncStartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("CheckpointId");
+
+                    b.HasIndex("StoreId", "DataType");
+
+                    b.ToTable("SyncCheckpoints");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncHistory", b =>
+                {
+                    b.Property<int>("HistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HistoryId"));
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateRangeEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateRangeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan?>("Duration")
+                        .HasColumnType("time");
+
+                    b.Property<string>("ErrorDetails")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FailedRecords")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProcessedRecords")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecordsFailed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecordsProcessed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SyncType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("TotalRecords")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TriggeredBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("HistoryId");
+
+                    b.HasIndex("StoreId", "StartedAt");
+
+                    b.ToTable("SyncHistories");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncProgressDetail", b =>
+                {
+                    b.Property<int>("ProgressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProgressId"));
+
+                    b.Property<int?>("AverageResponseTime")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BatchIdentifier")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("BatchStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CurrentBatch")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrentPage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EstimatedCompletionTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastUpdateAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RecordsInBatch")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RecordsInDateRange")
+                        .HasColumnType("int");
+
+                    b.Property<float?>("RecordsPerSecond")
+                        .HasColumnType("real");
+
+                    b.Property<int>("RecordsSkipped")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecordsWithErrors")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SyncStateId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TotalBatches")
+                        .HasColumnType("int");
+
+                    b.HasKey("ProgressId");
+
+                    b.HasIndex("SyncStateId");
+
+                    b.ToTable("SyncProgressDetails");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncRangeSetting", b =>
+                {
+                    b.Property<int>("SettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SettingId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DataType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IncludeArchived")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("YearsBack")
+                        .HasColumnType("int");
+
+                    b.HasKey("SettingId");
+
+                    b.HasIndex("StoreId", "DataType");
+
+                    b.ToTable("SyncRangeSettings");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncState", b =>
+                {
+                    b.Property<int>("SyncStateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SyncStateId"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CustomerCursor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DateRangeEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DateRangeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FailedRecords")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderCursor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProcessedRecords")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductCursor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("ProgressPercentage")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SyncType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("TotalRecords")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalRecordsFailed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalRecordsProcessed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SyncStateId");
+
+                    b.HasIndex("StoreId", "SyncType");
+
+                    b.ToTable("SyncStates");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncStatus", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrentTask")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ProcessedRecords")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("StoreId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("SyncPeriod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SyncType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("TotalRecords")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SyncStatuses");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Tenant", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tenants");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.UserFeatureSelection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastChangeDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NextChangeAvailableDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SelectedFeatureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("UserFeatureSelections");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.WebhookEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ScheduledDeletionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ShopDomain")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -625,38 +1959,99 @@ namespace ShopifyAnalyticsApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Stores", (string)null);
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2024, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5698),
-                            Domain = "fuk-dev1.myshopify.com",
-                            Name = "テストストア",
-                            ShopifyShopId = "test-store",
-                            UpdatedAt = new DateTime(2025, 7, 21, 11, 36, 21, 476, DateTimeKind.Utc).AddTicks(5728)
-                        });
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("ShopDomain", "Topic");
+
+                    b.ToTable("WebhookEvents");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Customer", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Customer", b =>
                 {
-                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", null)
                         .WithMany("Customers")
                         .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Order", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.FeatureSelectionChangeHistory", b =>
                 {
-                    b.HasOne("ShopifyTestApi.Models.Customer", "Customer")
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.FeatureUsageLog", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRComplianceLog", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRDeletionLog", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.GDPRRequest", "GDPRRequest")
+                        .WithMany()
+                        .HasForeignKey("GDPRRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GDPRRequest");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.GDPRRequest", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.InstallationHistory", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Order", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Customer", "Customer")
                         .WithMany("Orders")
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", null)
                         .WithMany("Orders")
                         .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -665,9 +2060,9 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Navigation("Customer");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.OrderItem", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.OrderItem", b =>
                 {
-                    b.HasOne("ShopifyTestApi.Models.Order", "Order")
+                    b.HasOne("ShopifyAnalyticsApi.Models.Order", "Order")
                         .WithMany("OrderItems")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -676,18 +2071,18 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Product", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Product", b =>
                 {
-                    b.HasOne("ShopifyTestApi.Models.Store", null)
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", null)
                         .WithMany("Products")
                         .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.ProductVariant", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.ProductVariant", b =>
                 {
-                    b.HasOne("ShopifyTestApi.Models.Product", "Product")
+                    b.HasOne("ShopifyAnalyticsApi.Models.Product", "Product")
                         .WithMany("Variants")
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -696,28 +2091,162 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Customer", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Store", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.ShopifyApp", "ShopifyApp")
+                        .WithMany("Stores")
+                        .HasForeignKey("ShopifyAppId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ShopifyAnalyticsApi.Models.Tenant", "Tenant")
+                        .WithMany("Stores")
+                        .HasForeignKey("TenantId");
+
+                    b.Navigation("ShopifyApp");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.StoreSubscription", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.SubscriptionPlan", "Plan")
+                        .WithMany("StoreSubscriptions")
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany("StoreSubscriptions")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncCheckpoint", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncHistory", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncProgressDetail", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.SyncState", "SyncState")
+                        .WithMany("ProgressDetails")
+                        .HasForeignKey("SyncStateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SyncState");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncRangeSetting", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncState", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.UserFeatureSelection", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.WebhookEvent", b =>
+                {
+                    b.HasOne("ShopifyAnalyticsApi.Models.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Customer", b =>
                 {
                     b.Navigation("Orders");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Order", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Order", b =>
                 {
                     b.Navigation("OrderItems");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Product", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Product", b =>
                 {
                     b.Navigation("Variants");
                 });
 
-            modelBuilder.Entity("ShopifyTestApi.Models.Store", b =>
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.ShopifyApp", b =>
+                {
+                    b.Navigation("Stores");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Store", b =>
                 {
                     b.Navigation("Customers");
 
                     b.Navigation("Orders");
 
                     b.Navigation("Products");
+
+                    b.Navigation("StoreSubscriptions");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SubscriptionPlan", b =>
+                {
+                    b.Navigation("StoreSubscriptions");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.SyncState", b =>
+                {
+                    b.Navigation("ProgressDetails");
+                });
+
+            modelBuilder.Entity("ShopifyAnalyticsApi.Models.Tenant", b =>
+                {
+                    b.Navigation("Stores");
                 });
 #pragma warning restore 612, 618
         }

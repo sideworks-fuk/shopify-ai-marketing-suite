@@ -25,12 +25,26 @@ namespace ShopifyAnalyticsApi.Middleware
         // 機能別のエンドポイントマッピング（文字列定数を使用）
         private readonly Dictionary<string, string> _featureEndpoints = new()
         {
-            { "/api/analytics", FeatureConstants.DormantAnalysis }, // デフォルトで休眠顧客分析にマップ
+            // NOTE: prefix で判定するため、より具体的なパスを先に定義する（順序重要）
+
+            // 顧客分析（休眠）
+            { "/api/customer/dormant", FeatureConstants.DormantAnalysis },
             { "/api/dormant", FeatureConstants.DormantAnalysis },
+
+            // 商品分析（前年同月比）: 実際のAPIは /api/analytics/* 配下
+            { "/api/analytics/year-over-year", FeatureConstants.YoyComparison },
+            { "/api/analytics/product-types", FeatureConstants.YoyComparison },
+            { "/api/analytics/vendors", FeatureConstants.YoyComparison },
+            { "/api/analytics/date-range", FeatureConstants.YoyComparison },
             { "/api/yearoveryear", FeatureConstants.YoyComparison },
             { "/api/yoy", FeatureConstants.YoyComparison },
-            { "/api/monthlysales", FeatureConstants.PurchaseFrequency },
-            { "/api/purchase", FeatureConstants.PurchaseFrequency }
+
+            // 購買分析（購入回数など）
+            { "/api/purchase", FeatureConstants.PurchaseFrequency },
+            { "/api/analytics/monthly-sales", FeatureConstants.PurchaseFrequency },
+            { "/api/analytics/monthly-sales/summary", FeatureConstants.PurchaseFrequency },
+            { "/api/analytics/monthly-sales/categories", FeatureConstants.PurchaseFrequency },
+            { "/api/analytics/monthly-sales/trends", FeatureConstants.PurchaseFrequency }
         };
 
         public FeatureAccessMiddleware(
@@ -89,14 +103,25 @@ namespace ShopifyAnalyticsApi.Middleware
                     
                     // 外部キー関係の問題を回避するため、別々にクエリ
                     var subscription = await dbContext.StoreSubscriptions
-                        .FirstOrDefaultAsync(ss => ss.StoreId == storeIdInt && ss.Status == "active");
+                        .FirstOrDefaultAsync(ss =>
+                            ss.StoreId == storeIdInt &&
+                            (ss.Status == "active" || ss.Status == "trialing"));
                     
                     var isPaid = false;
                     if (subscription != null)
                     {
-                        var plan = await dbContext.SubscriptionPlans
-                            .FirstOrDefaultAsync(p => p.Id == subscription.PlanId);
-                        isPaid = plan != null && plan.Name != "Free";
+                        // ✅ 案1: インストール直後は trialing を「有料相当」として全機能解放
+                        if (string.Equals(subscription.Status, "trialing", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // TrialEndsAt が未設定の場合も「トライアル中」とみなす（開発/初期化の安全側）
+                            isPaid = !subscription.TrialEndsAt.HasValue || subscription.TrialEndsAt > DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            var plan = await dbContext.SubscriptionPlans
+                                .FirstOrDefaultAsync(p => p.Id == subscription.PlanId);
+                            isPaid = plan != null && plan.Name != "Free";
+                        }
                     }
                     
                     // 選択された機能を取得

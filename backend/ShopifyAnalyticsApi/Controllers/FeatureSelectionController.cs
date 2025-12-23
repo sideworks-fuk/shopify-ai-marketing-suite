@@ -50,6 +50,11 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 return Ok(result);
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access while getting current feature selection");
+                return Unauthorized(new { error = "Unauthorized", message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to get current feature selection");

@@ -51,8 +51,8 @@ CREATE TABLE [dbo].[ShopifyApps] (
     [Name] NVARCHAR(100) NOT NULL,                    -- アプリ名（例: "EC Ranger"）
     [DisplayName] NVARCHAR(200) NULL,                 -- 表示名（例: "EC Ranger - 公開アプリ"）
     [AppType] NVARCHAR(50) NOT NULL,                  -- アプリタイプ（"Public" / "Custom"）
-    [ApiKey] NVARCHAR(255) NOT NULL,                  -- Shopify API Key
-    [ApiSecret] NVARCHAR(255) NOT NULL,                -- Shopify API Secret（暗号化推奨）
+    [ApiKey] NVARCHAR(255) NOT NULL,                  -- Shopify API Key（Shopify Partners Dashboardの「Client ID」）
+    [ApiSecret] NVARCHAR(255) NOT NULL,                -- Shopify API Secret（Shopify Partners Dashboardの「Secret」、暗号化推奨）
     [AppUrl] NVARCHAR(500) NULL,                       -- App URL（例: "https://ec-ranger-frontend-public.azurestaticapps.net"）
     [RedirectUri] NVARCHAR(500) NULL,                  -- OAuth Redirect URI
     [Scopes] NVARCHAR(500) NULL,                      -- 要求するスコープ（例: "read_orders,read_products"）
@@ -119,10 +119,16 @@ namespace ShopifyAnalyticsApi.Models
         [MaxLength(50)]
         public string AppType { get; set; } = "Public"; // "Public" or "Custom"
         
+        /// <summary>
+        /// Shopify API Key（Shopify Partners Dashboardの「Client ID」）
+        /// </summary>
         [Required]
         [MaxLength(255)]
         public string ApiKey { get; set; } = string.Empty;
         
+        /// <summary>
+        /// Shopify API Secret（Shopify Partners Dashboardの「Secret」）
+        /// </summary>
         [Required]
         [MaxLength(255)]
         public string ApiSecret { get; set; } = string.Empty;

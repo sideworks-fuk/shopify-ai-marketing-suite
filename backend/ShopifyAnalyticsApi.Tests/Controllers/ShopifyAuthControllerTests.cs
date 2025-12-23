@@ -56,13 +56,13 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
         }
 
         [Fact]
-        public void Install_WithValidShopDomain_ReturnsRedirect()
+        public async Task Install_WithValidShopDomain_ReturnsRedirect()
         {
             // Arrange
             var shop = "test-shop.myshopify.com";
 
             // Act
-            var result = _controller.Install(shop);
+            var result = await _controller.Install(shop);
 
             // Assert
             Assert.IsType<RedirectResult>(result);
@@ -72,26 +72,26 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
         }
 
         [Fact]
-        public void Install_WithInvalidShopDomain_ReturnsBadRequest()
+        public async Task Install_WithInvalidShopDomain_ReturnsBadRequest()
         {
             // Arrange
             var shop = "invalid-shop.com";
 
             // Act
-            var result = _controller.Install(shop);
+            var result = await _controller.Install(shop);
 
             // Assert
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
         [Fact]
-        public void Install_WithNullShopDomain_ReturnsBadRequest()
+        public async Task Install_WithNullShopDomain_ReturnsBadRequest()
         {
             // Arrange
             string? shop = null;
 
             // Act
-            var result = _controller.Install(shop);
+            var result = await _controller.Install(shop!);
 
             // Assert
             Assert.IsType<BadRequestObjectResult>(result);
@@ -167,10 +167,10 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
         [InlineData("", false)]
         [InlineData(null, false)]
         [InlineData("shop<script>.myshopify.com", false)]
-        public void IsValidShopDomain_ValidatesCorrectly(string shop, bool expected)
+        public async Task IsValidShopDomain_ValidatesCorrectly(string shop, bool expected)
         {
             // Arrange & Act
-            var result = _controller.Install(shop);
+            var result = await _controller.Install(shop);
 
             // Assert
             if (expected)
@@ -184,14 +184,14 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
         }
 
         [Fact]
-        public void Install_GeneratesUniqueStateForEachRequest()
+        public async Task Install_GeneratesUniqueStateForEachRequest()
         {
             // Arrange
             var shop = "test-shop.myshopify.com";
 
             // Act
-            var result1 = _controller.Install(shop);
-            var result2 = _controller.Install(shop);
+            var result1 = await _controller.Install(shop);
+            var result2 = await _controller.Install(shop);
 
             // Assert
             Assert.IsType<RedirectResult>(result1);

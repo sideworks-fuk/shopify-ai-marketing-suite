@@ -17,6 +17,7 @@ import { migrateLocalStorageVariables } from '@/lib/localstorage-migration'
 interface AuthContextType {
   isAuthenticated: boolean
   isInitializing: boolean
+  isApiClientReady: boolean
   currentStoreId: number | null
   authError: string | null
   authMode: 'shopify' | 'demo' | null
@@ -25,6 +26,7 @@ interface AuthContextType {
   clearError: () => void
   refreshAuth: () => Promise<void>
   getApiClient: () => ApiClient
+  markAuthenticated: (storeId: number) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -49,34 +51,57 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [authError, setAuthError] = useState<string | null>(null)
   const [authMode, setAuthMode] = useState<'shopify' | 'demo' | null>(null)
   const [apiClient, setApiClient] = useState<ApiClient | null>(null)
+  const [isApiClientReady, setIsApiClientReady] = useState(false)
   
   const { getToken, isEmbedded } = useAppBridge()
 
   // APIクライアントの初期化
   useEffect(() => {
-    const client = new ApiClient()
+    let client: ApiClient;
     
     if (isEmbedded) {
       // Shopify埋め込みアプリの場合
-      client.setShopifyTokenProvider(async () => {
-        const token = await getToken();
-        if (!token) {
-          throw new Error('Shopify session token not available');
+      client = new ApiClient(undefined, {
+        getShopifyToken: async () => {
+          const token = await getToken();
+          if (!token) {
+            throw new Error('Shopify session token not available');
+          }
+          return token;
         }
-        return token;
-      })
+      });
       setAuthMode('shopify')
       console.log('🔗 Shopify埋め込みアプリモードでAPIクライアントを初期化')
     } else {
-      // スタンドアロンアプリの場合（デモモード）
-      client.setDemoTokenProvider(() => {
-        return localStorage.getItem('demoToken')
-      })
-      setAuthMode('demo')
-      console.log('🔗 デモモードでAPIクライアントを初期化')
+      // スタンドアロンアプリの場合
+      // OAuth認証成功後は、バックエンドがCookieベースの認証を使用する想定
+      // デモトークンがある場合は使用、ない場合はOAuth認証成功フラグを確認
+      const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
+      const demoToken = localStorage.getItem('demoToken')
+      
+      if (oauthAuthenticated === 'true') {
+        // OAuth認証成功後: Cookieベースの認証を使用（Authorizationヘッダーは不要）
+        client = new ApiClient(); // getShopifyTokenなし = Cookieベース認証
+        setAuthMode('shopify')
+        console.log('🔗 OAuth認証済み: Cookieベース認証を使用')
+      } else if (demoToken) {
+        // デモモード
+        client = new ApiClient(undefined, {
+          getDemoToken: () => demoToken
+        });
+        setAuthMode('demo')
+        console.log('🔗 デモモードでAPIクライアントを初期化')
+      } else {
+        // 認証なし
+        client = new ApiClient();
+        setAuthMode(null)
+        console.log('⚠️ 認証情報が見つかりません')
+      }
     }
     
     setApiClient(client)
+    setIsApiClientReady(true)
+    console.log('✅ APIクライアントの初期化が完了しました')
   }, [getToken, isEmbedded])
 
   // アプリ起動時の自動認証
@@ -217,6 +242,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     return apiClient
   }
 
+  // OAuth認証成功時に認証状態を明示的に設定するメソッド
+  const markAuthenticated = (storeId: number) => {
+    console.log('✅ OAuth認証成功をマーク:', { storeId })
+    setIsAuthenticated(true)
+    setCurrentStoreId(storeId)
+    setAuthError(null)
+    localStorage.setItem('currentStoreId', storeId.toString())
+    localStorage.setItem('oauth_authenticated', 'true') // OAuth認証成功フラグ
+  }
+
   // グローバルな認証エラーを監視
   useEffect(() => {
     const handler = (event: Event) => {
@@ -228,9 +263,25 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     return () => window.removeEventListener('auth:error', handler)
   }, [])
 
+  // OAuth認証成功フラグを確認（初期化時）
+  useEffect(() => {
+    const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
+    if (oauthAuthenticated === 'true' && !isAuthenticated) {
+      const savedStoreId = localStorage.getItem('currentStoreId')
+      if (savedStoreId) {
+        const storeId = parseInt(savedStoreId, 10)
+        console.log('🔄 OAuth認証フラグを確認、認証状態を復元:', { storeId })
+        setIsAuthenticated(true)
+        setCurrentStoreId(storeId)
+        setAuthError(null)
+      }
+    }
+  }, [isAuthenticated])
+
   const value: AuthContextType = {
     isAuthenticated,
     isInitializing,
+    isApiClientReady,
     currentStoreId,
     authError,
     authMode,
@@ -239,6 +290,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     clearError,
     refreshAuth,
     getApiClient,
+    markAuthenticated,
   }
 
   return (

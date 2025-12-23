@@ -4,7 +4,8 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useStore } from '@/contexts/StoreContext'
-import { getAuthModeConfig } from '@/lib/config/environments'
+import { getAuthModeConfig, getCurrentEnvironmentConfig } from '@/lib/config/environments'
+import { useIsEmbedded } from '@/hooks/useIsEmbedded'
 
 type Props = {
   message?: string
@@ -13,50 +14,88 @@ type Props = {
 export default function AuthenticationRequired({ message }: Props) {
   const { login, currentStoreId, isInitializing } = useAuth()
   const { currentStore } = useStore()
+  const isEmbedded = useIsEmbedded()
 
   // 環境設定を取得（UI表示用のみ）
   const config = getAuthModeConfig()
+  const envConfig = getCurrentEnvironmentConfig()
+
+  // URLパラメータから shop を取得
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const shopFromUrl = urlParams?.get('shop')
+  const shopFromLocalStorage = typeof window !== 'undefined' ? localStorage.getItem('shopDomain') : null
+  const hasShopParam = !!shopFromUrl
+
+  // ストアドメインを取得する関数（Shopify標準フローに従う）
+  const getShopDomain = (): string | null => {
+    // 優先順位: URLパラメータ > localStorage > StoreContext
+    // 手動入力は削除（Shopify標準フローに従う）
+    return shopFromUrl || shopFromLocalStorage || currentStore.shopDomain || null
+  }
 
   const onShopifyAuth = async () => {
     // Shopify OAuth認証を開始
-    // 優先順位: URLパラメータ > StoreContext > エラー
-    const urlParams = new URLSearchParams(window.location.search)
-    const shopFromUrl = urlParams.get('shop')
-    const domain = shopFromUrl || currentStore.shopDomain
+    // Shopify標準フロー: shopパラメータが必要
+    
+    // ドメインを取得
+    let domain = getShopDomain()
+    
+    // ドメインが取得できた場合、.myshopify.comを自動補完
+    if (domain && !domain.includes('.myshopify.com')) {
+      domain = `${domain}.myshopify.com`
+    }
     
     if (!domain) {
-      // ストアドメインが不明な場合はエラー
-      console.error('❌ ストアドメインが見つかりません', {
-        currentStore,
-        shopDomain: domain,
-        shopFromUrl,
-        urlParams: window.location.search
-      })
-      
-      // より詳細なエラーメッセージ
-      const errorMessage = config.environment === 'production'
-        ? 'ストア情報が見つかりません。Shopifyアプリを再インストールしてください。'
-        : `ストア情報が見つかりません。\n\n` +
-          `現在のストア: ${currentStore.name} (ID: ${currentStore.id})\n` +
-          `shopDomain: ${domain ?? '未設定'}\n` +
-          `URLパラメータ: ${window.location.search}\n` +
-          `shop (URL): ${shopFromUrl ?? '未設定'}\n\n` +
-          `デバッグ情報:\n` +
-          `- URLパラメータに ?shop=xxx.myshopify.com が含まれていません\n` +
-          `- StoreContextからshopDomainを取得できませんでした\n` +
-          `- Shopifyアプリは通常、shopパラメータ付きで起動されます`
-      
-      alert(errorMessage)
+      // ストアドメインが不明な場合は、/install ページにリダイレクト
+      // または、Shopify管理画面から起動するよう促す
+      console.warn('⚠️ ストアドメインが見つかりません。/install ページにリダイレクトします。')
+      window.location.href = '/install'
       return
     }
     
+    // API Keyを環境変数から取得（マルチアプリ対応）
+    const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY
+    
     // Shopify OAuth認証フローを開始
-    const shopifyAuthUrl = `/api/shopify/install?shop=${domain}`
-    console.log('🔐 Shopify OAuth認証を開始:', shopifyAuthUrl, {
-      source: shopFromUrl ? 'URL parameter' : 'StoreContext',
-      domain
+    // apiKeyパラメータを追加（バックエンドでShopifyAppsテーブルから対応するアプリを検索するため）
+    const shopifyAuthUrlParams = new URLSearchParams({
+      shop: domain,
+      redirect_uri: `${window.location.origin}/api/shopify/callback`
     })
-    window.location.href = shopifyAuthUrl
+    
+    // API Keyが設定されている場合は追加
+    if (apiKey) {
+      shopifyAuthUrlParams.append('apiKey', apiKey)
+    }
+    
+    // バックエンドのフルURLを使用
+    const shopifyAuthUrl = `${envConfig.apiBaseUrl}/api/shopify/install?${shopifyAuthUrlParams.toString()}`
+    console.log('🔐 Shopify OAuth認証を開始:', shopifyAuthUrl, {
+      source: shopFromUrl ? 'URL parameter' : shopFromLocalStorage ? 'localStorage' : 'StoreContext',
+      domain,
+      apiKey: apiKey ? '設定済み' : '未設定',
+      isEmbedded
+    })
+    
+    // 埋め込みアプリ内かどうかを判定
+    const isInIframe = typeof window !== 'undefined' && window.top !== window.self
+    
+    if (isEmbedded || isInIframe) {
+      // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
+      // OAuth認証はトップレベルで実行する必要があるため
+      console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用')
+      if (window.top) {
+        window.top.location.href = shopifyAuthUrl
+      } else {
+        // フォールバック: 通常のリダイレクト
+        console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用')
+        window.location.href = shopifyAuthUrl
+      }
+    } else {
+      // 通常のリダイレクト（埋め込みアプリ外）
+      console.log('🌐 通常モードでリダイレクト')
+      window.location.href = shopifyAuthUrl
+    }
   }
 
   const onDemoAuth = () => {
@@ -65,10 +104,10 @@ export default function AuthenticationRequired({ message }: Props) {
     window.location.href = '/demo/login'
   }
 
-  // URLパラメータから shop を取得
-  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-  const shopFromUrl = urlParams?.get('shop')
-  const hasShopParam = !!shopFromUrl
+  const onGoToInstall = () => {
+    // /install ページにリダイレクト（ストアドメインを入力できる）
+    window.location.href = '/install'
+  }
 
   // 環境に応じたタイトル
   const title = config.environment === 'production' 
@@ -109,11 +148,13 @@ export default function AuthenticationRequired({ message }: Props) {
           )}
         </h1>
         
-        {/* 本番環境 + shop パラメータなし: Shopify管理画面に戻るよう促す */}
-        {config.environment === 'production' && !hasShopParam ? (
+        {/* shop パラメータがない場合: Shopify管理画面から起動するよう促す */}
+        {!hasShopParam ? (
           <div>
             <p className="text-gray-600 mb-6">
-              このアプリはShopify管理画面から起動してください。
+              {config.environment === 'production' 
+                ? 'このアプリはShopify管理画面から起動してください。'
+                : 'ストアドメインが取得できませんでした。Shopify管理画面から起動するか、インストールページでストアドメインを入力してください。'}
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
               <p className="text-sm text-blue-800 font-semibold mb-2">
@@ -125,14 +166,25 @@ export default function AuthenticationRequired({ message }: Props) {
                 <li>「EC Ranger」を選択</li>
               </ol>
             </div>
-            <a
-              href="https://admin.shopify.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              Shopify管理画面を開く
-            </a>
+            <div className="space-y-3">
+              <a
+                href="https://admin.shopify.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-center"
+              >
+                Shopify管理画面を開く
+              </a>
+              {config.environment !== 'production' && (
+                <Button
+                  onClick={onGoToInstall}
+                  variant="outline"
+                  className="w-full"
+                >
+                  インストールページでストアドメインを入力
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div>

@@ -5,7 +5,7 @@
 
 ## ディレクトリ構造
 ```
-docs/04-development/03-データベース/マイグレーション/
+docs/05-development/03-データベース/マイグレーション/
 ├── database-migration-tracking.md (本ファイル)
 ├── 2025-08-02-EmergencyIndexes.sql
 ├── 2025-08-05-AddInitialSetupFeature.sql
@@ -23,6 +23,9 @@ docs/04-development/03-データベース/マイグレーション/
 ├── 2025-10-20-FIX-FeatureLimits-IDs.sql
 ├── 2025-10-23-ADD-MissingOrderAndCustomerColumns.sql
 ├── 2025-10-26-AddAuthenticationTables.sql
+├── 20251222_AddShopifyAppsTable_Development.sql
+├── 20251222_AddShopifyAppsTable_Production.sql
+├── 20251222_AddShopifyAppsTable.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -46,6 +49,11 @@ docs/04-development/03-データベース/マイグレーション/
 | **2025-10-20-FIX-FeatureLimits-IDs.sql** | 2025-10-20 | 福田+AI | **機能ID統一修正（year_over_year→yoy_comparison等）** | ✅ 適用済 (2025-10-20 16:23) | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql** | 2025-10-23 | 福田+AI | **Orders/Customersテーブルに不足カラム追加（ShopifyCustomerId, Email, TotalTax, IsActive等）** | ✅ 適用済 (2025-10-24 08:31) | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-10-26-AddAuthenticationTables.sql** | 2025-10-26 | Takashi (福田+AI) | **認証テーブル追加（DemoSessions, AuthenticationLogs）認証モード制御機能のため** | ✅ 適用済 (2025-10-26 09:58) | ⏳ 未適用 | ⏳ 未適用 |
+| **20251222_AddShopifyAppsTable_Development.sql** | 2025-12-22 | 福田+AI | **ShopifyAppsテーブル作成・初期データ投入（開発環境用）マルチアプリ対応** | ✅ 適用済 (2025-12-23 00:36) | ⏳ 未適用 | ⏳ 未適用 |
+| **20251222_AddShopifyAppsTable_Production.sql** | 2025-12-22 | 福田+AI | **ShopifyAppsテーブル作成・初期データ投入（本番環境用）マルチアプリ対応** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-23-AddPlanNameToStoreSubscriptions.sql** | 2025-12-23 | 福田+AI | **StoreSubscriptionsにPlanNameカラム追加（Invalid column name 'PlanName' 解消）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-23-AddRowVersionToUserFeatureSelections.sql** | 2025-12-23 | 福田+AI | **UserFeatureSelectionsにRowVersion(rowversion)追加（Invalid column name 'RowVersion' 解消）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-23-SeedSubscriptionPlans.sql** | 2025-12-23 | 福田+AI | **SubscriptionPlans 初期マスタ投入（Free/Professional/Enterprise）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -62,6 +70,8 @@ docs/04-development/03-データベース/マイグレーション/
 10. **2025-10-20-FIX-FeatureLimits-IDs.sql**
 11. **2025-10-23-ADD-MissingOrderAndCustomerColumns.sql**
 12. **2025-10-26-AddAuthenticationTables.sql**
+13. **20251222_AddShopifyAppsTable_Development.sql** (開発環境用) ✅ 適用済 (2025-12-23 00:36)
+14. **20251222_AddShopifyAppsTable_Production.sql** (本番環境用)
 
 ### エラー発生（修正版で解決済み）❌→✅
 - 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
@@ -121,7 +131,7 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 ## 記録ルール
 
 ### スクリプト作成時
-1. `docs/04-development/03-データベース/マイグレーション/` に保存
+1. `docs/05-development/03-データベース/マイグレーション/` に保存
 2. ファイル名: `YYYY-MM-DD-[説明].sql`
 3. スクリプト内にコメントで以下を記載：
    ```sql
@@ -186,6 +196,15 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 分散環境対応（Redis + Database）
   - セキュリティ監査ログ機能
 
-最終更新: 2025-10-26 10:00
+### 🆕 ShopifyAppsテーブル追加（2025-12-22）
+- **20251222_AddShopifyAppsTable_Development.sql** / **20251222_AddShopifyAppsTable_Production.sql** - マルチアプリ対応のためのテーブル追加
+  - **ShopifyAppsテーブル**: Shopifyアプリ情報を一元管理（Name, ApiKey, ApiSecret, AppUrl等）
+  - **Storesテーブル**: `ShopifyAppId`カラム追加（外部キー）
+  - **初期データ投入**: 公開アプリとカスタムアプリの登録
+  - **既存ストア移行**: 既存ストアにShopifyAppIdを設定
+  - 環境別に分離（開発環境/本番環境）
+  - EF Core Migration: `AddShopifyAppsTable`
+
+最終更新: 2025-12-22 15:30
 管理者: 福田
-更新者: Takashi (福田 + AI Assistant)
+更新者: 福田 + AI Assistant
