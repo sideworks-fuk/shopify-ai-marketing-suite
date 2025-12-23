@@ -610,11 +610,12 @@ try
                 "This is a critical security requirement.");
         }
 
-        // 必須環境変数チェック
+        // 必須設定チェック
+        // 本番ではDB接続は必須。ShopifyのApiKey/ApiSecretは「単一アプリ」前提のフォールバック設定であり、
+        // マルチアプリ（ShopifyAppsテーブル）運用では必須ではない。
+        // ただし、最低1件以上の有効なShopifyAppsが存在しない場合は起動を止める（認証が成立しないため）。
         var requiredSettings = new[]
         {
-            ("Shopify:ApiKey", app.Configuration["Shopify:ApiKey"]),
-            ("Shopify:ApiSecret", app.Configuration["Shopify:ApiSecret"]),
             ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
         };
 
@@ -648,6 +649,37 @@ try
                     $"SECURITY: Required configuration '{key}' is not set or contains placeholder. " +
                     "Production environment requires all secrets to be properly configured.");
             }
+        }
+
+        // ShopifyApps（マルチアプリ）運用の必須チェック
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+            var hasActiveShopifyApp = db.ShopifyApps.Any(a =>
+                a.IsActive &&
+                !string.IsNullOrEmpty(a.ApiKey) && !IsPlaceholder(a.ApiKey) &&
+                !string.IsNullOrEmpty(a.ApiSecret) && !IsPlaceholder(a.ApiSecret) &&
+                !string.IsNullOrEmpty(a.AppUrl) && !IsPlaceholder(a.AppUrl));
+
+            if (!hasActiveShopifyApp)
+            {
+                // 旧方式（単一アプリ）の設定が入っている場合は許容
+                var legacyApiKey = app.Configuration["Shopify:ApiKey"];
+                var legacyApiSecret = app.Configuration["Shopify:ApiSecret"];
+                if (string.IsNullOrEmpty(legacyApiKey) || IsPlaceholder(legacyApiKey) ||
+                    string.IsNullOrEmpty(legacyApiSecret) || IsPlaceholder(legacyApiSecret))
+                {
+                    throw new InvalidOperationException(
+                        "SECURITY: No active Shopify app credentials found. " +
+                        "Configure either ShopifyApps table (ApiKey/ApiSecret/AppUrl) or legacy Shopify:ApiKey/Shopify:ApiSecret.");
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            // DB接続が壊れている場合も起動を止める（本番の基本要件）
+            throw new InvalidOperationException("SECURITY: Failed to validate ShopifyApps configuration against the database.", ex);
         }
 
         Log.Information("✅ Production environment validation passed");
