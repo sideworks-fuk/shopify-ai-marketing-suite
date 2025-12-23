@@ -251,7 +251,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         .Select(q => new KeyValuePair<string, StringValues>(q.Key, q.Value))
                         .ToList();
                     
-                    var isValidHmac = _oauthService.VerifyHmac(queryParams);
+                    // stateに含めたApiSecret（ShopifyApps由来）をHMAC検証に使用（マルチアプリ対応）
+                    var isValidHmac = _oauthService.VerifyHmac(queryParams, secretOverride: stateData.apiSecret);
                     
                     if (!isValidHmac && !isDevelopment)
                     {

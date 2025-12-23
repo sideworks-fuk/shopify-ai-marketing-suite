@@ -36,9 +36,14 @@ namespace ShopifyAnalyticsApi.Services
         /// <summary>
         /// HMACを検証する（ShopifySharpライブラリ使用）
         /// </summary>
-        public bool VerifyHmac(IEnumerable<KeyValuePair<string, StringValues>> queryParams, string? expectedHmac = null)
+        public bool VerifyHmac(IEnumerable<KeyValuePair<string, StringValues>> queryParams, string? expectedHmac = null, string? secretOverride = null)
         {
-            var secret = GetShopifySetting("ApiSecret");
+            // マルチアプリ対応:
+            // OAuthコールバックでは state に紐づく ApiSecret（=ShopifyApps由来）を優先して使用できるようにする。
+            // これにより Shopify:ApiSecret（単一アプリ固定）への依存を減らせる。
+            var secret = !string.IsNullOrWhiteSpace(secretOverride)
+                ? secretOverride
+                : GetShopifySetting("ApiSecret");
             if (string.IsNullOrWhiteSpace(secret))
             {
                 _logger.LogError("HMAC検証エラー: ApiSecretが設定されていません");

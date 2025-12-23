@@ -16,21 +16,21 @@ namespace ShopifyAnalyticsApi.Middleware
         private readonly RequestDelegate _next;
         private readonly ILogger<ShopifyEmbeddedAppMiddleware> _logger;
         private readonly IConfiguration _configuration;
-        private readonly ShopifyDbContext _dbContext;
 
         public ShopifyEmbeddedAppMiddleware(
             RequestDelegate next,
             ILogger<ShopifyEmbeddedAppMiddleware> logger,
-            IConfiguration configuration,
-            ShopifyDbContext dbContext)
+            IConfiguration configuration)
         {
             _next = next;
             _logger = logger;
             _configuration = configuration;
-            _dbContext = dbContext;
         }
 
-        public async Task InvokeAsync(HttpContext context)
+        // NOTE:
+        // Middleware は root provider で生成されるため、DbContext（scoped）をコンストラクタ注入すると起動時に例外になります。
+        // scoped 依存は InvokeAsync の引数で受け取る（メソッド注入）ことで、リクエストスコープで解決されます。
+        public async Task InvokeAsync(HttpContext context, ShopifyDbContext dbContext)
         {
             // Shopifyセッショントークンのチェック
             if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
@@ -45,7 +45,7 @@ namespace ShopifyAnalyticsApi.Middleware
                         var sessionToken = token.Replace("Bearer session-token:", "", StringComparison.OrdinalIgnoreCase).Trim();
                         
                         // Shopifyセッショントークンの検証
-                        var validatedToken = ValidateShopifySessionToken(sessionToken);
+                        var validatedToken = ValidateShopifySessionToken(sessionToken, dbContext);
                         
                         if (validatedToken != null)
                         {
@@ -72,7 +72,7 @@ namespace ShopifyAnalyticsApi.Middleware
             await _next(context);
         }
 
-        private JwtSecurityToken? ValidateShopifySessionToken(string token)
+        private JwtSecurityToken? ValidateShopifySessionToken(string token, ShopifyDbContext dbContext)
         {
             try
             {
@@ -98,7 +98,7 @@ namespace ShopifyAnalyticsApi.Middleware
                 string? shopifySecret = null;
                 if (!string.IsNullOrEmpty(audienceApiKey))
                 {
-                    shopifySecret = _dbContext.ShopifyApps
+                    shopifySecret = dbContext.ShopifyApps
                         .Where(a => a.ApiKey == audienceApiKey && a.IsActive)
                         .Select(a => a.ApiSecret)
                         .FirstOrDefault();
