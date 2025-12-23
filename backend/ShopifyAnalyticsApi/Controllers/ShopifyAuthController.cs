@@ -98,6 +98,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 string finalApiKey;
                 string? finalApiSecret;
                 int? shopifyAppId = null;
+                string? shopifyAppUrl = null;
                 
                 if (!string.IsNullOrEmpty(apiKey))
                 {
@@ -111,6 +112,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         finalApiKey = shopifyApp.ApiKey;
                         finalApiSecret = shopifyApp.ApiSecret;
                         shopifyAppId = shopifyApp.Id;
+                        shopifyAppUrl = shopifyApp.AppUrl;
                         _logger.LogInformation("ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}", 
                             shop, shopifyApp.Name);
                     }
@@ -125,6 +127,8 @@ namespace ShopifyAnalyticsApi.Controllers
                             _logger.LogError("API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                             return StatusCode(500, new { error = "API Secret not found for the provided API Key" });
                         }
+
+                        _logger.LogWarning("ShopifyAppsに該当するApiKeyが見つからないためフォールバック. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                     }
                 }
                 else
@@ -153,7 +157,24 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // Shopify OAuth URLを構築
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                var redirectUri = GetRedirectUri();
+                
+                // マルチアプリ対応:
+                // redirect_uri は「どのSWA（App URL）」から開始したかに依存するため、
+                // ShopifyApps.AppUrl が取得できる場合はそれを優先して使用する。
+                // （固定の SHOPIFY_FRONTEND_BASEURL だと Prod1/Prod2 を同一バックエンドで運用できない）
+                if (string.IsNullOrWhiteSpace(shopifyAppUrl))
+                {
+                    shopifyAppUrl = await _context.ShopifyApps
+                        .Where(a => a.ApiKey == finalApiKey && a.IsActive)
+                        .Select(a => a.AppUrl)
+                        .FirstOrDefaultAsync();
+                }
+
+                var redirectUri = !string.IsNullOrWhiteSpace(shopifyAppUrl)
+                    ? $"{shopifyAppUrl.TrimEnd('/')}/api/shopify/callback"
+                    : GetRedirectUri();
+                
+                _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
 
                 var authUrl = $"https://{shop}/admin/oauth/authorize" +
                     $"?client_id={finalApiKey}" +

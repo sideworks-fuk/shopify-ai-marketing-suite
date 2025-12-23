@@ -41,7 +41,13 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/shopify/oauth/callback",
                 "/api/shopify/install",
                 "/api/shopify/callback",
+                // 診断/テスト用（[AllowAnonymous] を付けても、このミドルウェアが先に判定するため明示的にスキップする）
+                "/api/shopify/test-settings",
+                "/api/shopify/test-oauth-url",
+                "/api/shopify/test-hybrid-mode",
+                "/api/shopify/test-config",
                 "/health",
+                "/swagger",
                 "/hangfire"
             };
 
