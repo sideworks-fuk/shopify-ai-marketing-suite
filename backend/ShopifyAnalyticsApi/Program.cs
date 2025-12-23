@@ -656,7 +656,15 @@ try
         {
             using var scope = app.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
-            var hasActiveShopifyApp = db.ShopifyApps.Any(a =>
+            // NOTE:
+            // EF Core の式ツリー内でローカル関数(IsPlaceholder)を呼べないため、
+            // 必要なカラムだけDBから取得してメモリ上で検証する。
+            var shopifyApps = db.ShopifyApps
+                .AsNoTracking()
+                .Select(a => new { a.IsActive, a.ApiKey, a.ApiSecret, a.AppUrl })
+                .ToList();
+
+            var hasActiveShopifyApp = shopifyApps.Any(a =>
                 a.IsActive &&
                 !string.IsNullOrEmpty(a.ApiKey) && !IsPlaceholder(a.ApiKey) &&
                 !string.IsNullOrEmpty(a.ApiSecret) && !IsPlaceholder(a.ApiSecret) &&
