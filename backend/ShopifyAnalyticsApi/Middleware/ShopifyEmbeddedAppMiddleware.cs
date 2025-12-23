@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
+using ShopifyAnalyticsApi.Data;
 
 namespace ShopifyAnalyticsApi.Middleware
 {
@@ -14,15 +16,18 @@ namespace ShopifyAnalyticsApi.Middleware
         private readonly RequestDelegate _next;
         private readonly ILogger<ShopifyEmbeddedAppMiddleware> _logger;
         private readonly IConfiguration _configuration;
+        private readonly ShopifyDbContext _dbContext;
 
         public ShopifyEmbeddedAppMiddleware(
             RequestDelegate next,
             ILogger<ShopifyEmbeddedAppMiddleware> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ShopifyDbContext dbContext)
         {
             _next = next;
             _logger = logger;
             _configuration = configuration;
+            _dbContext = dbContext;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -72,11 +77,38 @@ namespace ShopifyAnalyticsApi.Middleware
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var shopifySecret = _configuration["Shopify:ApiSecret"];
-                
+
+                // マルチアプリ対応: aud(=Client ID/ApiKey) から ShopifyApps の ApiSecret を選択
+                string? audienceApiKey = null;
+                try
+                {
+                    var jwt = tokenHandler.ReadJwtToken(token);
+                    audienceApiKey = jwt.Audiences?.FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to read JWT for audience extraction in middleware");
+                }
+
+                if (string.IsNullOrEmpty(audienceApiKey))
+                {
+                    audienceApiKey = _configuration["Shopify:ApiKey"];
+                }
+
+                string? shopifySecret = null;
+                if (!string.IsNullOrEmpty(audienceApiKey))
+                {
+                    shopifySecret = _dbContext.ShopifyApps
+                        .Where(a => a.ApiKey == audienceApiKey && a.IsActive)
+                        .Select(a => a.ApiSecret)
+                        .FirstOrDefault();
+                }
+
+                shopifySecret ??= _configuration["Shopify:ApiSecret"];
+
                 if (string.IsNullOrEmpty(shopifySecret))
                 {
-                    _logger.LogWarning("Shopify client secret not configured");
+                    _logger.LogWarning("Shopify client secret not configured (ShopifyApps/config). ApiKey: {ApiKey}", audienceApiKey ?? "null");
                     return null;
                 }
 
@@ -85,12 +117,25 @@ namespace ShopifyAnalyticsApi.Middleware
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(shopifySecret)),
                     ValidateIssuer = true,
+                    IssuerValidator = (issuer, token, parameters) =>
+                    {
+                        if (string.IsNullOrEmpty(issuer))
+                        {
+                            throw new SecurityTokenInvalidIssuerException("Issuer is null or empty");
+                        }
+
+                        var uri = new Uri(issuer);
+                        if (uri.Host.EndsWith(".myshopify.com") || uri.Host == "admin.shopify.com")
+                        {
+                            return issuer;
+                        }
+                        throw new SecurityTokenInvalidIssuerException($"Invalid issuer: {issuer}");
+                    },
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero,
                     // Shopifyのトークンは "dest" (destination) と "aud" (audience) を使用
-                    ValidAudience = _configuration["Shopify:ApiKey"],
-                    ValidIssuer = null // Shopifyはissuerを含まない場合がある
+                    ValidAudience = audienceApiKey
                 };
 
                 SecurityToken validatedToken;

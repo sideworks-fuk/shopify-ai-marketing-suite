@@ -38,11 +38,46 @@ namespace ShopifyAnalyticsApi.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var apiSecret = _config["Shopify:ApiSecret"];
+
+                // マルチアプリ対応:
+                // Shopify session token の aud(=Client ID / ApiKey) に応じて ShopifyApps から ApiSecret を選択する
+                // これを行わないと、Prod2で発行されたトークンをProd1のSecretで検証してしまい401になる
+                string? audienceApiKey = null;
+                try
+                {
+                    var jwt = tokenHandler.ReadJwtToken(token);
+                    audienceApiKey = jwt.Audiences?.FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read JWT (audience extraction). Falling back to configured Shopify:ApiKey");
+                }
+
+                if (string.IsNullOrEmpty(audienceApiKey))
+                {
+                    audienceApiKey = _config["Shopify:ApiKey"];
+                }
+
+                string? apiSecret = null;
+                if (!string.IsNullOrEmpty(audienceApiKey))
+                {
+                    apiSecret = await _dbContext.ShopifyApps
+                        .Where(a => a.ApiKey == audienceApiKey && a.IsActive)
+                        .Select(a => a.ApiSecret)
+                        .FirstOrDefaultAsync();
+
+                    if (!string.IsNullOrEmpty(apiSecret))
+                    {
+                        _logger.LogInformation("Resolved Shopify ApiSecret from ShopifyApps by audience(ApiKey). ApiKey: {ApiKey}", audienceApiKey);
+                    }
+                }
+
+                // フォールバック（単一アプリ構成/後方互換）
+                apiSecret ??= _config["Shopify:ApiSecret"];
 
                 if (string.IsNullOrEmpty(apiSecret))
                 {
-                    _logger.LogError("Shopify API Secret is not configured");
+                    _logger.LogError("Shopify API Secret is not configured (neither ShopifyApps nor configuration). ApiKey: {ApiKey}", audienceApiKey ?? "null");
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -79,7 +114,7 @@ namespace ShopifyAnalyticsApi.Services
                         }
                     },
                     ValidateAudience = true,
-                    ValidAudience = _config["Shopify:ApiKey"],
+                    ValidAudience = audienceApiKey,
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromMinutes(5)
                 };
