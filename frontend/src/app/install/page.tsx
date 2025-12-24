@@ -18,6 +18,7 @@ import {
 } from '@shopify/polaris';
 import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 import { useIsEmbedded } from '@/hooks/useIsEmbedded';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 /**
  * Shopifyアプリ接続ページ（Polaris版）
@@ -39,6 +40,7 @@ export default function InstallPolarisPage() {
   const [autoRedirecting, setAutoRedirecting] = useState(false);
   const [isDirectAccess, setIsDirectAccess] = useState(false); // ブラウザで直接アクセスした場合
   const isEmbedded = useIsEmbedded();
+  const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
 
   const normalizeShopDomain = useCallback((value: string): string => {
     const v = value.trim().toLowerCase();
@@ -82,11 +84,28 @@ export default function InstallPolarisPage() {
     setShopDomainLocked(true);
 
     // 登録済みか判定して通常画面へ
+    // 重要: 認証状態を確認し、未認証の場合は登録済みストアチェックをスキップ
     const checkAndRedirect = async () => {
+      // 認証状態の初期化を待つ
+      if (isInitializing) {
+        console.log('⏳ 認証状態の初期化を待機中...');
+        return;
+      }
+
+      // 未認証の場合は、登録済みストアチェックをスキップしてインストール画面を表示
+      // アンインストール後でもデータベースにストア情報が残っている可能性があるため
+      if (!isAuthenticated) {
+        console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。');
+        return;
+      }
+
+      // 認証済みの場合のみ、登録済みストアチェックを実行
       try {
-        console.log('🔍 登録済みストアをチェック中...', { shop: normalizedShop });
+        console.log('🔍 登録済みストアをチェック中...', { shop: normalizedShop, isAuthenticated });
         const config = getCurrentEnvironmentConfig();
-        const response = await fetch(`${config.apiBaseUrl}/api/store`);
+        const response = await fetch(`${config.apiBaseUrl}/api/store`, {
+          credentials: 'include', // JWTトークンを送信
+        });
         
         if (!response.ok) {
           console.warn('⚠️ ストア一覧の取得に失敗:', response.status, response.statusText);
@@ -135,7 +154,7 @@ export default function InstallPolarisPage() {
     };
 
     void checkAndRedirect();
-  }, [normalizeShopDomain, toSubdomainInput]);
+  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing]);
 
   // URLパラメータからエラー情報を取得
   useEffect(() => {
