@@ -73,47 +73,77 @@ export default function InitialSetupPage() {
     }
   }, [])
 
-  // ダミーデータで履歴を表示
+  // バックエンドAPIから実際の統計情報を取得
   useEffect(() => {
-    // ダミーの同期履歴
-    setSyncHistory([
-      {
-        id: '1',
-        startTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        endTime: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(),
-        status: 'completed',
-        recordsProcessed: 15234,
-        syncType: 'scheduled',
-        duration: 3600
-      },
-      {
-        id: '2',
-        startTime: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-        endTime: new Date(Date.now() - 47 * 60 * 60 * 1000).toISOString(),
-        status: 'completed',
-        recordsProcessed: 14892,
-        syncType: 'manual',
-        duration: 3200
-      },
-      {
-        id: '3',
-        startTime: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-        endTime: new Date(Date.now() - 71 * 60 * 60 * 1000).toISOString(),
-        status: 'completed',
-        recordsProcessed: 14567,
-        syncType: 'initial',
-        duration: 4500
-      }
-    ])
+    const fetchSyncStats = async () => {
+      try {
+        setIsLoadingHistory(true)
+        const apiUrl = getApiUrl()
+        
+        // データベース統計を取得
+        const statsResponse = await fetch(`${apiUrl}/api/database/stats`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // JWTトークンを送信
+        })
 
-    // ダミーの統計情報
-    setSyncStats({
-      totalCustomers: 5234,
-      totalOrders: 15892,
-      totalProducts: 342,
-      lastSyncTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      nextScheduledSync: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-    })
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json()
+          if (statsData.success && statsData.data) {
+            // バックエンドから取得した実際のデータを設定
+            setSyncStats({
+              totalCustomers: statsData.data.customers || 0,
+              totalOrders: statsData.data.orders || 0,
+              totalProducts: statsData.data.products || 0,
+              lastSyncTime: statsData.data.lastUpdated || undefined,
+              nextScheduledSync: undefined // スケジュール情報は別途取得が必要
+            })
+            console.log('✅ 同期統計を取得:', statsData.data)
+          } else {
+            // データが取得できない場合は0件を表示
+            setSyncStats({
+              totalCustomers: 0,
+              totalOrders: 0,
+              totalProducts: 0,
+              lastSyncTime: undefined,
+              nextScheduledSync: undefined
+            })
+            console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
+          }
+        } else {
+          // APIエラーの場合も0件を表示
+          console.warn('⚠️ 同期統計の取得に失敗:', statsResponse.status, statsResponse.statusText)
+          setSyncStats({
+            totalCustomers: 0,
+            totalOrders: 0,
+            totalProducts: 0,
+            lastSyncTime: undefined,
+            nextScheduledSync: undefined
+          })
+        }
+
+        // 同期履歴を取得（オプション）
+        // TODO: 実際の同期履歴APIエンドポイントを実装したら、ここで取得
+        setSyncHistory([])
+      } catch (err) {
+        console.error('❌ 同期統計の取得中にエラーが発生:', err)
+        // エラー時も0件を表示
+        setSyncStats({
+          totalCustomers: 0,
+          totalOrders: 0,
+          totalProducts: 0,
+          lastSyncTime: undefined,
+          nextScheduledSync: undefined
+        })
+        setSyncHistory([])
+      } finally {
+        setIsLoadingHistory(false)
+      }
+    }
+
+    void fetchSyncStats()
   }, [])
 
   const handleStartSync = async () => {
@@ -175,7 +205,23 @@ export default function InitialSetupPage() {
         </div>
 
         {/* 統計カード */}
-        {syncStats && (
+        {isLoadingHistory ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="bg-gray-50 border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between h-16">
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                      <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+                    </div>
+                    <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : syncStats ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardContent className="p-4">
@@ -232,6 +278,56 @@ export default function InitialSetupPage() {
                         minute: '2-digit'
                       }).replace(/\//g, '/') : '未同期'}
                     </p>
+                  </div>
+                  <Clock className="h-8 w-8 text-orange-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between h-16">
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">顧客データ</p>
+                    <p className="text-2xl font-bold text-blue-900">0</p>
+                  </div>
+                  <Users className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between h-16">
+                  <div>
+                    <p className="text-sm text-green-600 font-medium">注文データ</p>
+                    <p className="text-2xl font-bold text-green-900">0</p>
+                  </div>
+                  <ShoppingCart className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between h-16">
+                  <div>
+                    <p className="text-sm text-purple-600 font-medium">商品データ</p>
+                    <p className="text-2xl font-bold text-purple-900">0</p>
+                  </div>
+                  <Package className="h-8 w-8 text-purple-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between h-16">
+                  <div>
+                    <p className="text-sm text-orange-600 font-medium">最終同期</p>
+                    <p className="text-xl font-bold text-orange-900">未同期</p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-500" />
                 </div>

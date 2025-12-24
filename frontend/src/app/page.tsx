@@ -19,12 +19,17 @@ export default function HomePage() {
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
-    // 初期化中は何もしない
-    if (isInitializing) return
+    // 初期化中は何もしない（認証状態の判定を待つ）
+    if (isInitializing) {
+      console.log('⏳ 認証状態の初期化中...');
+      return;
+    }
 
     const shop = searchParams?.get('shop')
     const host = searchParams?.get('host')
     const embedded = searchParams?.get('embedded')
+
+    console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded });
 
     if (isAuthenticated) {
       // 認証済みの場合、ダッシュボードにリダイレクト

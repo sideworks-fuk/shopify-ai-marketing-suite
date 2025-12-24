@@ -37,6 +37,7 @@ export default function InstallPolarisPage() {
   const [errorDetails, setErrorDetails] = useState<{title: string, message: string}>({title: '', message: ''});
   const [shopDomainLocked, setShopDomainLocked] = useState(false);
   const [autoRedirecting, setAutoRedirecting] = useState(false);
+  const [isDirectAccess, setIsDirectAccess] = useState(false); // ブラウザで直接アクセスした場合
   const isEmbedded = useIsEmbedded();
 
   const normalizeShopDomain = useCallback((value: string): string => {
@@ -66,7 +67,15 @@ export default function InstallPolarisPage() {
       console.log('💾 hostパラメータを保存:', hostFromUrl);
     }
     
-    if (!shopFromUrl) return;
+    // shopパラメータがない場合（ブラウザで直接アクセス）を検出
+    if (!shopFromUrl) {
+      setIsDirectAccess(true);
+      console.log('🌐 ブラウザで直接アクセスを検出');
+      return;
+    }
+    
+    // shopパラメータがある場合（Shopify Adminから起動）は直接アクセスではない
+    setIsDirectAccess(false);
 
     const normalizedShop = normalizeShopDomain(shopFromUrl);
     setShopDomain(toSubdomainInput(normalizedShop));
@@ -75,13 +84,24 @@ export default function InstallPolarisPage() {
     // 登録済みか判定して通常画面へ
     const checkAndRedirect = async () => {
       try {
+        console.log('🔍 登録済みストアをチェック中...', { shop: normalizedShop });
         const config = getCurrentEnvironmentConfig();
         const response = await fetch(`${config.apiBaseUrl}/api/store`);
-        if (!response.ok) return;
+        
+        if (!response.ok) {
+          console.warn('⚠️ ストア一覧の取得に失敗:', response.status, response.statusText);
+          return;
+        }
 
         const result: unknown = await response.json();
         const stores = (result as any)?.data?.stores as any[] | undefined;
-        if (!Array.isArray(stores)) return;
+        
+        if (!Array.isArray(stores)) {
+          console.warn('⚠️ ストア一覧の形式が不正:', result);
+          return;
+        }
+
+        console.log('📋 取得したストア数:', stores.length);
 
         const matched = stores.find((s) => {
           const candidate = (s?.shopDomain || s?.domain || s?.ShopDomain || s?.Domain || '').toString().toLowerCase();
@@ -90,7 +110,12 @@ export default function InstallPolarisPage() {
           return candNorm === normalizedShop;
         });
 
-        if (!matched?.id) return;
+        if (!matched?.id) {
+          console.log('ℹ️ 登録済みストアが見つかりませんでした。インストール画面を表示します。');
+          return;
+        }
+
+        console.log('✅ 登録済みストアを検出:', { storeId: matched.id, shop: normalizedShop });
 
         // StoreId を保存（既存ロジックは currentStoreId を参照）
         localStorage.setItem('currentStoreId', String(matched.id));
@@ -100,9 +125,12 @@ export default function InstallPolarisPage() {
 
         // host / embedded / shop 等のクエリを維持して通常画面へ
         const targetPath = '/customers/dormant';
-        window.location.replace(`${targetPath}?${params.toString()}`);
-      } catch {
+        const redirectUrl = `${targetPath}?${params.toString()}`;
+        console.log('↪️ 登録済みストアを検出したため、通常画面にリダイレクト:', redirectUrl);
+        window.location.replace(redirectUrl);
+      } catch (error) {
         // 失敗時は接続画面を表示（ユーザーが手動で進められるように）
+        console.error('❌ 登録済みストアのチェック中にエラーが発生:', error);
       }
     };
 
@@ -324,6 +352,24 @@ export default function InstallPolarisPage() {
                   </Text>
                 </Box>
               </div>
+
+              {/* ブラウザで直接アクセスした場合の説明文 */}
+              {isDirectAccess && (
+                <Card>
+                  <Banner
+                    title="推奨されるアクセス方法"
+                    tone="info"
+                  >
+                    <p>
+                      このアプリは<strong>Shopify管理画面</strong>からアクセスすることを推奨します。
+                      ブラウザで直接アクセスした場合でも接続は可能ですが、Shopify管理画面からアクセスすることで、より安全にアプリを利用できます。
+                    </p>
+                    <p style={{ marginTop: '8px' }}>
+                      既にアプリをインストール済みの場合は、Shopify管理画面の左メニューから「EC Ranger」を選択してください。
+                    </p>
+                  </Banner>
+                </Card>
+              )}
 
               <Card>
                 <BlockStack gap="400">
