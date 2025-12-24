@@ -174,11 +174,14 @@ export default function AuthSuccessPage() {
                 }
               }
 
-              // それ以外は通常遷移（hostがある場合は保持しておく）
+              // それ以外は認証済みページ（/customers/dormant）にリダイレクト
+              // / は認証が必要なため、認証状態が反映される前にリダイレクトするとinstall画面に戻ってしまう
               if (host && resolvedShop) {
-                router.push(`/?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
+                router.push(`/customers/dormant?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
+              } else if (resolvedShop) {
+                router.push(`/customers/dormant?shop=${encodeURIComponent(resolvedShop)}`);
               } else {
-                router.push('/');
+                router.push('/customers/dormant');
               }
             }
           }, 1000);

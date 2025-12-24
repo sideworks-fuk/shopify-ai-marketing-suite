@@ -87,6 +87,9 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                // デバッグ: リクエストパラメータをログ出力
+                _logger.LogInformation("===== OAuth Install 開始 ===== Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                
                 // ショップドメインの検証
                 if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
                 {
@@ -102,8 +105,20 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 if (!string.IsNullOrEmpty(apiKey))
                 {
+                    // デバッグ: ShopifyAppsテーブルの全データを確認（開発環境のみ）
+                    var isDevelopment = HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment();
+                    if (isDevelopment)
+                    {
+                        var allApps = await _context.ShopifyApps
+                            .Select(a => new { a.Id, a.Name, a.ApiKey, a.IsActive, a.AppUrl })
+                            .ToListAsync();
+                        _logger.LogInformation("ShopifyAppsテーブル全データ: {Apps}", 
+                            System.Text.Json.JsonSerializer.Serialize(allApps));
+                    }
+                    
                     // フロントエンドからAPI Keyが渡された場合
                     // ShopifyAppテーブルから対応するアプリを検索
+                    _logger.LogInformation("ShopifyAppsテーブルを検索中. ApiKey: {ApiKey}, IsActive: true", apiKey);
                     var shopifyApp = await _context.ShopifyApps
                         .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
                     
@@ -113,22 +128,42 @@ namespace ShopifyAnalyticsApi.Controllers
                         finalApiSecret = shopifyApp.ApiSecret;
                         shopifyAppId = shopifyApp.Id;
                         shopifyAppUrl = shopifyApp.AppUrl;
-                        _logger.LogInformation("ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}", 
-                            shop, shopifyApp.Name);
+                        _logger.LogInformation("✅ ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}, AppUrl: {AppUrl}", 
+                            shop, shopifyApp.Name, shopifyAppUrl);
                     }
                     else
                     {
+                        _logger.LogWarning("⚠️ ShopifyAppsテーブルに該当するApiKeyが見つかりません. ApiKey: {ApiKey}, IsActive: true で検索", apiKey);
+                        
+                        // デバッグ: IsActive=false のレコードも確認
+                        var inactiveApp = await _context.ShopifyApps
+                            .FirstOrDefaultAsync(a => a.ApiKey == apiKey);
+                        if (inactiveApp != null)
+                        {
+                            _logger.LogWarning("⚠️ 該当するApiKeyは存在しますが、IsActive=false です. App: {AppName}, IsActive: {IsActive}", 
+                                inactiveApp.Name, inactiveApp.IsActive);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ 該当するApiKeyがShopifyAppsテーブルに存在しません");
+                        }
+                        
                         // フォールバック: 環境変数から取得
+                        _logger.LogInformation("フォールバック: GetApiSecretByApiKeyAsync を呼び出し中...");
                         finalApiKey = apiKey;
                         finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
                         
                         if (string.IsNullOrEmpty(finalApiSecret))
                         {
-                            _logger.LogError("API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
-                            return StatusCode(500, new { error = "API Secret not found for the provided API Key" });
+                            _logger.LogError("❌ API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                            return StatusCode(500, new { 
+                                error = "API Secret not found for the provided API Key",
+                                apiKey = apiKey,
+                                message = "ShopifyAppsテーブルに該当するApiKeyが見つからないか、IsActive=falseです"
+                            });
                         }
 
-                        _logger.LogWarning("ShopifyAppsに該当するApiKeyが見つからないためフォールバック. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                        _logger.LogWarning("⚠️ ShopifyAppsに該当するApiKeyが見つからないためフォールバック. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                     }
                 }
                 else
@@ -617,6 +652,45 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 _logger.LogError(ex, "OAuth URL生成テスト中にエラーが発生");
                 return StatusCode(500, new { error = "OAuth URL generation test failed" });
+            }
+        }
+
+        /// <summary>
+        /// デバッグ用エンドポイント - ShopifyAppsテーブルの状態確認
+        /// </summary>
+        [HttpGet("debug-shopify-apps")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DebugShopifyApps()
+        {
+            try
+            {
+                var apps = await _context.ShopifyApps
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Name,
+                        a.DisplayName,
+                        a.AppType,
+                        ApiKey = a.ApiKey.Substring(0, Math.Min(8, a.ApiKey.Length)) + "...",
+                        ApiKeyFull = a.ApiKey,
+                        AppUrl = a.AppUrl,
+                        IsActive = a.IsActive,
+                        a.CreatedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    message = "ShopifyAppsテーブルの状態",
+                    count = apps.Count,
+                    apps = apps,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ShopifyAppsテーブル確認中にエラーが発生");
+                return StatusCode(500, new { error = "Failed to query ShopifyApps table", details = ex.Message });
             }
         }
 

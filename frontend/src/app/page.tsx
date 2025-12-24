@@ -1,6 +1,8 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/components/providers/AuthProvider'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +13,56 @@ import {
 } from 'lucide-react'
 
 export default function HomePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { isAuthenticated, isInitializing } = useAuth()
+
+  // 認証状態に基づいてリダイレクト
+  useEffect(() => {
+    // 初期化中は何もしない
+    if (isInitializing) return
+
+    const shop = searchParams?.get('shop')
+    const host = searchParams?.get('host')
+    const embedded = searchParams?.get('embedded')
+
+    if (isAuthenticated) {
+      // 認証済みの場合、ダッシュボードにリダイレクト
+      const params = new URLSearchParams()
+      if (shop) params.set('shop', shop)
+      if (host) params.set('host', host)
+      if (embedded) params.set('embedded', embedded)
+      
+      const queryString = params.toString()
+      const redirectUrl = `/customers/dormant${queryString ? `?${queryString}` : ''}`
+      console.log('✅ 認証済み: ダッシュボードにリダイレクト:', redirectUrl)
+      router.replace(redirectUrl)
+    } else {
+      // 未認証の場合、インストールページにリダイレクト
+      const params = new URLSearchParams()
+      if (shop) params.set('shop', shop)
+      if (host) params.set('host', host)
+      if (embedded) params.set('embedded', embedded)
+      
+      const queryString = params.toString()
+      const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+      console.log('⚠️ 未認証: インストールページにリダイレクト:', redirectUrl)
+      router.replace(redirectUrl)
+    }
+  }, [isAuthenticated, isInitializing, router, searchParams])
+
+  // リダイレクト中はローディング表示
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       {/* メインコンテンツ */}

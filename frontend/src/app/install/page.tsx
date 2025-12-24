@@ -58,6 +58,14 @@ export default function InstallPolarisPage() {
 
     const params = new URLSearchParams(window.location.search);
     const shopFromUrl = params.get('shop');
+    const hostFromUrl = params.get('host');
+    
+    // hostパラメータをsessionStorageに保存（OAuth認証フローで引き継ぐため）
+    if (hostFromUrl) {
+      sessionStorage.setItem('shopify_host', hostFromUrl);
+      console.log('💾 hostパラメータを保存:', hostFromUrl);
+    }
+    
     if (!shopFromUrl) return;
 
     const normalizedShop = normalizeShopDomain(shopFromUrl);
@@ -190,6 +198,12 @@ export default function InstallPolarisPage() {
       // API Keyを環境変数から取得（マルチアプリ対応）
       const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
       
+      // hostパラメータを取得（OAuth認証フローで引き継ぐため）
+      const hostParam = typeof window !== 'undefined' 
+        ? new URLSearchParams(window.location.search).get('host') 
+          || sessionStorage.getItem('shopify_host')
+        : null;
+      
       // フロントエンドのコールバックAPIを使用（ハイブリッド方式）
       // apiKeyパラメータを追加（バックエンドでShopifyAppsテーブルから対応するアプリを検索するため）
       const installUrlParams = new URLSearchParams({
@@ -200,6 +214,12 @@ export default function InstallPolarisPage() {
       // API Keyが設定されている場合は追加
       if (apiKey) {
         installUrlParams.append('apiKey', apiKey);
+      }
+      
+      // hostパラメータがあれば追加（バックエンドのコールバックで引き継ぐため）
+      if (hostParam) {
+        installUrlParams.append('host', hostParam);
+        console.log('🔗 hostパラメータをOAuth認証フローに追加:', hostParam);
       }
       
       const installUrl = `${config.apiBaseUrl}/api/shopify/install?${installUrlParams.toString()}`;
@@ -330,7 +350,7 @@ export default function InstallPolarisPage() {
                     loading={loading}
                     disabled={!shopDomain.trim() || autoRedirecting}
                   >
-                    {loading ? '接続中...' : 'Shopifyに接続'}
+                    {loading ? '接続中...' : '接続を開始'}
                   </Button>
 
                   {loading && (

@@ -8,7 +8,7 @@ import { DeveloperModeBanner } from '@/components/dev/DeveloperModeBanner'
 import { getAuthModeConfig } from '@/lib/config/environments'
 
 const publicPaths = [
-  // '/', // 🔒 ルートページも認証が必要な場合はコメントアウト
+  '/', // 🔓 ルートページは認証状態に基づいてリダイレクトするため、publicPathsに追加
   '/install',
   '/auth/login',
   '/auth/callback',
