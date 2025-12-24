@@ -25,35 +25,40 @@ export default function HomePage() {
       return;
     }
 
-    const shop = searchParams?.get('shop')
-    const host = searchParams?.get('host')
-    const embedded = searchParams?.get('embedded')
+    // 初期化完了後、少し待機してからリダイレクト（認証状態の変動を防ぐ）
+    const timeoutId = setTimeout(() => {
+      const shop = searchParams?.get('shop')
+      const host = searchParams?.get('host')
+      const embedded = searchParams?.get('embedded')
 
-    console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded });
+      console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded });
 
-    if (isAuthenticated) {
-      // 認証済みの場合、ダッシュボードにリダイレクト
-      const params = new URLSearchParams()
-      if (shop) params.set('shop', shop)
-      if (host) params.set('host', host)
-      if (embedded) params.set('embedded', embedded)
-      
-      const queryString = params.toString()
-      const redirectUrl = `/customers/dormant${queryString ? `?${queryString}` : ''}`
-      console.log('✅ 認証済み: ダッシュボードにリダイレクト:', redirectUrl)
-      router.replace(redirectUrl)
-    } else {
-      // 未認証の場合、インストールページにリダイレクト
-      const params = new URLSearchParams()
-      if (shop) params.set('shop', shop)
-      if (host) params.set('host', host)
-      if (embedded) params.set('embedded', embedded)
-      
-      const queryString = params.toString()
-      const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
-      console.log('⚠️ 未認証: インストールページにリダイレクト:', redirectUrl)
-      router.replace(redirectUrl)
-    }
+      if (isAuthenticated) {
+        // 認証済みの場合、ダッシュボードにリダイレクト
+        const params = new URLSearchParams()
+        if (shop) params.set('shop', shop)
+        if (host) params.set('host', host)
+        if (embedded) params.set('embedded', embedded)
+        
+        const queryString = params.toString()
+        const redirectUrl = `/customers/dormant${queryString ? `?${queryString}` : ''}`
+        console.log('✅ 認証済み: ダッシュボードにリダイレクト:', redirectUrl)
+        router.replace(redirectUrl)
+      } else {
+        // 未認証の場合、インストールページにリダイレクト
+        const params = new URLSearchParams()
+        if (shop) params.set('shop', shop)
+        if (host) params.set('host', host)
+        if (embedded) params.set('embedded', embedded)
+        
+        const queryString = params.toString()
+        const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+        console.log('⚠️ 未認証: インストールページにリダイレクト:', redirectUrl)
+        router.replace(redirectUrl)
+      }
+    }, 100); // 100ms待機してからリダイレクト
+
+    return () => clearTimeout(timeoutId);
   }, [isAuthenticated, isInitializing, router, searchParams])
 
   // リダイレクト中はローディング表示

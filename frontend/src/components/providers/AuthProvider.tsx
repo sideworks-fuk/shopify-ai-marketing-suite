@@ -263,8 +263,14 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     return () => window.removeEventListener('auth:error', handler)
   }, [])
 
-  // OAuth認証成功フラグを確認（初期化時）
+  // OAuth認証成功フラグを確認（初期化完了後）
+  // 重要: 初期化が完了してから実行することで、認証状態の変動を防ぐ
   useEffect(() => {
+    // 初期化中は実行しない
+    if (isInitializing) {
+      return
+    }
+
     const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
     if (oauthAuthenticated === 'true' && !isAuthenticated) {
       const savedStoreId = localStorage.getItem('currentStoreId')
@@ -276,7 +282,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         setAuthError(null)
       }
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, isInitializing])
 
   const value: AuthContextType = {
     isAuthenticated,

@@ -9,20 +9,47 @@ interface ZustandProviderProps {
 }
 
 export function ZustandProvider({ children }: ZustandProviderProps) {
-  const [isHydrated, setIsHydrated] = useState(false)
+  // セッション内でハイドレーション完了状態を保持（ページ遷移後も再表示しない）
+  const [isHydrated, setIsHydrated] = useState(() => {
+    if (typeof window === 'undefined') return false
+    // セッション内で既にハイドレーション完了している場合は即座にtrue
+    return sessionStorage.getItem('zustand_hydrated') === 'true'
+  })
 
   // Zustand stores
   const appStore = useAppStore()
   const filtersStore = useAnalysisFiltersStore()
 
   useEffect(() => {
-    // クライアントサイドでのハイドレーション完了を確認
-    const timer = setTimeout(() => {
-      setIsHydrated(true)
-    }, 500) // 500ms待機でハイドレーション完了を確実に確保
+    // 既にハイドレーション完了している場合はスキップ
+    if (isHydrated) {
+      return
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    // クライアントサイドでのハイドレーション完了を確認
+    // タイマーを短縮（500ms → 100ms）し、実際のハイドレーション完了も確認
+    const checkHydration = () => {
+      if (typeof window !== 'undefined') {
+        setIsHydrated(true)
+        // セッション内でハイドレーション完了状態を保存
+        sessionStorage.setItem('zustand_hydrated', 'true')
+      }
+    }
+
+    // 即座にチェック（windowが利用可能な場合）
+    if (typeof window !== 'undefined') {
+      // 次のティックで実行（Reactのレンダリングサイクルを考慮）
+      const immediateTimer = setTimeout(checkHydration, 0)
+      
+      // フォールバック: 100ms後に確実に完了させる
+      const fallbackTimer = setTimeout(checkHydration, 100)
+
+      return () => {
+        clearTimeout(immediateTimer)
+        clearTimeout(fallbackTimer)
+      }
+    }
+  }, [isHydrated])
 
   // ハイドレーション完了前は最小限のUIを表示
   if (!isHydrated) {
