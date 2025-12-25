@@ -20,6 +20,7 @@ export default function AuthSuccessPage() {
   const { markAuthenticated } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('認証情報を確認しています...');
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,6 +54,20 @@ export default function AuthSuccessPage() {
         success,
         error,
       });
+
+      // localStorageからデバッグ情報を取得
+      try {
+        const savedDebugInfo = typeof window !== 'undefined' 
+          ? localStorage.getItem('oauth_debug_info')
+          : null;
+        if (savedDebugInfo) {
+          const parsed = JSON.parse(savedDebugInfo);
+          setDebugInfo(parsed);
+          console.log('💾 保存されたデバッグ情報:', parsed);
+        }
+      } catch (e) {
+        console.warn('⚠️ デバッグ情報の読み取りに失敗:', e);
+      }
 
       // エラーチェック
       if (error) {
@@ -237,6 +252,48 @@ export default function AuthSuccessPage() {
                 <p className="text-sm text-gray-500">
                   ショップ: {searchParams?.get('shop')}
                 </p>
+                {debugInfo && process.env.NODE_ENV === 'development' && (
+                  <details className="mt-4 text-left">
+                    <summary className="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900">
+                      🔍 デバッグ情報を表示
+                    </summary>
+                    <div className="mt-2 p-3 bg-gray-50 rounded text-xs font-mono overflow-auto max-h-60">
+                      <div className="mb-2">
+                        <strong>OAuth URL:</strong>
+                        <div className="break-all text-blue-600">{debugInfo.authUrl}</div>
+                      </div>
+                      <div className="mb-2">
+                        <strong>API Key:</strong> {debugInfo.apiKeyPreview}
+                      </div>
+                      <div className="mb-2">
+                        <strong>環境:</strong> {debugInfo.environment}
+                      </div>
+                      <div className="mb-2">
+                        <strong>埋め込みモード:</strong> {debugInfo.isEmbedded ? 'Yes' : 'No'}
+                      </div>
+                      <div className="mb-2">
+                        <strong>タイムスタンプ:</strong>{' '}
+                        {typeof window !== 'undefined' 
+                          ? localStorage.getItem('oauth_debug_timestamp') 
+                          : 'N/A'}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            const info = localStorage.getItem('oauth_debug_info');
+                            if (info) {
+                              navigator.clipboard.writeText(info);
+                              alert('デバッグ情報をクリップボードにコピーしました');
+                            }
+                          }
+                        }}
+                        className="mt-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                      >
+                        クリップボードにコピー
+                      </button>
+                    </div>
+                  </details>
+                )}
               </div>
             </>
           )}

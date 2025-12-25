@@ -56,45 +56,71 @@ export default function AuthenticationRequired({ message }: Props) {
     // API Keyを環境変数から取得（マルチアプリ対応）
     const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY
     
-    // Shopify OAuth認証フローを開始
-    // apiKeyパラメータを追加（バックエンドでShopifyAppsテーブルから対応するアプリを検索するため）
-    const shopifyAuthUrlParams = new URLSearchParams({
-      shop: domain,
-      redirect_uri: `${window.location.origin}/api/shopify/callback`
-    })
-    
-    // API Keyが設定されている場合は追加
-    if (apiKey) {
-      shopifyAuthUrlParams.append('apiKey', apiKey)
-    }
-    
-    // バックエンドのフルURLを使用
-    const shopifyAuthUrl = `${envConfig.apiBaseUrl}/api/shopify/install?${shopifyAuthUrlParams.toString()}`
-    console.log('🔐 Shopify OAuth認証を開始:', shopifyAuthUrl, {
-      source: shopFromUrl ? 'URL parameter' : shopFromLocalStorage ? 'localStorage' : 'StoreContext',
-      domain,
-      apiKey: apiKey ? '設定済み' : '未設定',
-      isEmbedded
-    })
-    
-    // 埋め込みアプリ内かどうかを判定
-    const isInIframe = typeof window !== 'undefined' && window.top !== window.self
-    
-    if (isEmbedded || isInIframe) {
-      // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
-      // OAuth認証はトップレベルで実行する必要があるため
-      console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用')
-      if (window.top) {
-        window.top.location.href = shopifyAuthUrl
+    try {
+      // バックエンドからOAuth URLを取得（JSON形式）
+      const installUrlParams = new URLSearchParams({
+        shop: domain,
+      })
+      
+      // API Keyが設定されている場合は追加
+      if (apiKey) {
+        installUrlParams.append('apiKey', apiKey)
+      }
+      
+      const installUrlApi = `${envConfig.apiBaseUrl}/api/shopify/install-url?${installUrlParams.toString()}`
+      
+      console.log('🔍 OAuth URL取得開始:', installUrlApi)
+      
+      // バックエンドからOAuth URLを取得
+      const response = await fetch(installUrlApi, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      const shopifyAuthUrl = data.authUrl
+      
+      if (!shopifyAuthUrl) {
+        throw new Error('OAuth URLが取得できませんでした')
+      }
+      
+      console.log('🔐 Shopify OAuth認証を開始:', shopifyAuthUrl, {
+        source: shopFromUrl ? 'URL parameter' : shopFromLocalStorage ? 'localStorage' : 'StoreContext',
+        domain,
+        apiKey: apiKey ? '設定済み' : '未設定',
+        isEmbedded
+      })
+      
+      // 埋め込みアプリ内かどうかを判定
+      const isInIframe = typeof window !== 'undefined' && window.top !== window.self
+      
+      if (isEmbedded || isInIframe) {
+        // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
+        // OAuth認証はトップレベルで実行する必要があるため
+        console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用')
+        if (window.top) {
+          window.top.location.href = shopifyAuthUrl
+        } else {
+          // フォールバック: 通常のリダイレクト
+          console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用')
+          window.location.href = shopifyAuthUrl
+        }
       } else {
-        // フォールバック: 通常のリダイレクト
-        console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用')
+        // 通常のリダイレクト（埋め込みアプリ外）
+        console.log('🌐 通常モードでリダイレクト')
         window.location.href = shopifyAuthUrl
       }
-    } else {
-      // 通常のリダイレクト（埋め込みアプリ外）
-      console.log('🌐 通常モードでリダイレクト')
-      window.location.href = shopifyAuthUrl
+    } catch (error: any) {
+      console.error('❌ OAuth URL取得エラー:', error)
+      // エラーが発生した場合は、/install ページにリダイレクト
+      window.location.href = '/install'
     }
   }
 

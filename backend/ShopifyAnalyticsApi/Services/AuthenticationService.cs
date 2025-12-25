@@ -264,7 +264,34 @@ namespace ShopifyAnalyticsApi.Services
                     ClockSkew = TimeSpan.FromMinutes(5)
                 };
 
-                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+                SecurityToken validatedToken;
+                System.Security.Claims.ClaimsPrincipal principal;
+                
+                try
+                {
+                    principal = tokenHandler.ValidateToken(token, validationParameters, out validatedToken);
+                }
+                catch (Microsoft.IdentityModel.Tokens.SecurityTokenSignatureKeyNotFoundException ex)
+                {
+                    // JWTトークンにkidが含まれていない、または署名検証に失敗した場合
+                    // これはデモトークンではない可能性が高いため、無効なトークンとして扱う
+                    _logger.LogDebug("Token signature validation failed (likely not a demo token): {Error}", ex.Message);
+                    return new AuthenticationResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid demo token format"
+                    };
+                }
+                catch (Microsoft.IdentityModel.Tokens.SecurityTokenException ex)
+                {
+                    // その他のJWT検証エラー（有効期限切れ、形式不正など）
+                    _logger.LogDebug("Token validation failed (likely not a demo token): {Error}", ex.Message);
+                    return new AuthenticationResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = "Invalid demo token"
+                    };
+                }
 
                 // トークンからセッション情報を取得
                 var sessionId = principal.FindFirst("session_id")?.Value;

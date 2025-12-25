@@ -251,11 +251,10 @@ export default function InstallPolarisPage() {
           || sessionStorage.getItem('shopify_host')
         : null;
       
-      // フロントエンドのコールバックAPIを使用（ハイブリッド方式）
+      // バックエンドからOAuth URLを取得（JSON形式）
       // apiKeyパラメータを追加（バックエンドでShopifyAppsテーブルから対応するアプリを検索するため）
       const installUrlParams = new URLSearchParams({
         shop: fullDomain,
-        redirect_uri: `${window.location.origin}/api/shopify/callback`,
       });
       
       // API Keyが設定されている場合は追加
@@ -263,30 +262,52 @@ export default function InstallPolarisPage() {
         installUrlParams.append('apiKey', apiKey);
       }
       
-      // hostパラメータがあれば追加（バックエンドのコールバックで引き継ぐため）
-      if (hostParam) {
-        installUrlParams.append('host', hostParam);
-        console.log('🔗 hostパラメータをOAuth認証フローに追加:', hostParam);
+      const installUrlApi = `${config.apiBaseUrl}/api/shopify/install-url?${installUrlParams.toString()}`;
+      
+      console.log('🔍 OAuth URL取得開始:', installUrlApi);
+      
+      // バックエンドからOAuth URLを取得
+      const response = await fetch(installUrlApi, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const installUrl = `${config.apiBaseUrl}/api/shopify/install?${installUrlParams.toString()}`;
+      const data = await response.json();
+      const authUrl = data.authUrl;
       
-      // デバッグ情報をログ出力（リダイレクト前に必ず表示されるように）
+      if (!authUrl) {
+        throw new Error('OAuth URLが取得できませんでした');
+      }
+      
+      // デバッグ情報をログ出力（APIレスポンスも含める）
       const debugInfo = {
         apiKey: apiKey || '未設定',
         apiKeyPreview: apiKey ? `${apiKey.substring(0, 8)}...` : '未設定',
         origin: window.location.origin,
-        installUrl,
+        authUrl,
         callbackUrl: `${window.location.origin}/api/shopify/callback`,
         environment: config.name,
         isEmbedded,
+        apiResponse: {
+          status: response.status,
+          statusText: response.statusText,
+          url: installUrlApi,
+        },
+        timestamp: new Date().toISOString(),
       };
       
       console.log('🔍 ===== OAuth開始デバッグ情報 =====');
       console.log('🔑 API Key (完全):', debugInfo.apiKey);
       console.log('🔑 API Key (プレビュー):', debugInfo.apiKeyPreview);
       console.log('🌐 現在のオリジン:', debugInfo.origin);
-      console.log('📍 リダイレクト先:', debugInfo.installUrl);
+      console.log('📍 Shopify OAuth URL:', debugInfo.authUrl);
       console.log('🔄 コールバックURL:', debugInfo.callbackUrl);
       console.log('🌍 現在の環境:', debugInfo.environment);
       console.log('🖼️ 埋め込みモード:', debugInfo.isEmbedded);
@@ -318,16 +339,16 @@ export default function InstallPolarisPage() {
           // OAuth認証はトップレベルで実行する必要があるため
           console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
           if (window.top) {
-            window.top.location.href = installUrl;
+            window.top.location.href = authUrl;
           } else {
             // フォールバック: 通常のリダイレクト
             console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
-            window.location.href = installUrl;
+            window.location.href = authUrl;
           }
         } else {
           // 通常のリダイレクト（埋め込みアプリ外）
           console.log('🌐 通常モードでリダイレクト');
-          window.location.href = installUrl;
+          window.location.href = authUrl;
         }
       }, 500); // 500ms待ってからリダイレクト
     } catch (error) {
