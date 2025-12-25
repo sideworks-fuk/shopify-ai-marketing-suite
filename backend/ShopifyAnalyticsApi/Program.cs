@@ -236,11 +236,21 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
 // HangFire設定
+var hangfireConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(hangfireConnectionString))
+{
+    var errorMessage = "HangFire requires a database connection string. " +
+                      "Please set 'ConnectionStrings:DefaultConnection' in appsettings.json or " +
+                      "set 'ConnectionStrings__DefaultConnection' environment variable.";
+    Log.Error(errorMessage);
+    throw new InvalidOperationException(errorMessage);
+}
+
 builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new Hangfire.SqlServer.SqlServerStorageOptions
+    .UseSqlServerStorage(hangfireConnectionString, new Hangfire.SqlServer.SqlServerStorageOptions
     {
         CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
         SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
