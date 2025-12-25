@@ -39,6 +39,7 @@ export default function InstallPolarisPage() {
   const [shopDomainLocked, setShopDomainLocked] = useState(false);
   const [autoRedirecting, setAutoRedirecting] = useState(false);
   const [isDirectAccess, setIsDirectAccess] = useState(false); // ブラウザで直接アクセスした場合
+  const [isInstalling, setIsInstalling] = useState(false); // インストール処理中フラグ（useRefの代わりにstateを使用）
   const isEmbedded = useIsEmbedded();
   const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
 
@@ -86,10 +87,10 @@ export default function InstallPolarisPage() {
     // 登録済みか判定して通常画面へ
     // 重要: 認証状態を確認し、未認証の場合は登録済みストアチェックをスキップ
     const checkAndRedirect = async () => {
-      // インストール処理中（loading状態）の場合は、自動リダイレクトをスキップ
+      // インストール処理中（loading状態またはisInstallingフラグ）の場合は、自動リダイレクトをスキップ
       // OAuth認証フロー中にダッシュボードが一瞬表示されるのを防ぐため
-      if (loading) {
-        console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。');
+      if (loading || isInstalling) {
+        console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。', { loading, isInstalling });
         return;
       }
 
@@ -161,7 +162,7 @@ export default function InstallPolarisPage() {
     };
 
     void checkAndRedirect();
-  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading]);
+  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading, isInstalling]);
 
   // URLパラメータからエラー情報を取得
   useEffect(() => {
@@ -236,6 +237,7 @@ export default function InstallPolarisPage() {
     }
 
     setLoading(true);
+    setIsInstalling(true); // インストール処理開始をマーク
     simulateProgress();
 
     try {
@@ -273,25 +275,40 @@ export default function InstallPolarisPage() {
       
       console.log('🔍 OAuth URL取得開始:', installUrlApi);
       
-      // バックエンドからOAuth URLを取得
-      const response = await fetch(installUrlApi, {
+      // バックエンドからOAuth URLを取得（タイムアウト付き）
+      const fetchPromise = fetch(installUrlApi, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
       
+      const timeoutPromise = new Promise<Response>((_, reject) => {
+        setTimeout(() => reject(new Error('OAuth URL取得がタイムアウトしました（10秒）')), 10000);
+      });
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // JSON解析に失敗した場合は、デフォルトのエラーメッセージを使用
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
-      const authUrl = data.authUrl;
+      const authUrl = data?.authUrl;
       
-      if (!authUrl) {
-        throw new Error('OAuth URLが取得できませんでした');
+      if (!authUrl || typeof authUrl !== 'string') {
+        console.error('❌ OAuth URL取得失敗: レスポンスデータ:', data);
+        throw new Error('OAuth URLが取得できませんでした。レスポンスにauthUrlが含まれていません。');
       }
+      
+      console.log('✅ OAuth URL取得成功:', authUrl.substring(0, 100) + '...');
       
       // デバッグ情報をログ出力（APIレスポンスも含める）
       const debugInfo = {
@@ -346,33 +363,42 @@ export default function InstallPolarisPage() {
         try {
           console.log('🔄 リダイレクト実行開始:', { authUrl, isEmbedded, isInIframe });
           
+          // リダイレクト前にローディング状態を維持（画面が切り替わらないようにする）
+          // 注意: setLoading(false)を呼ばないことで、ローディング画面を表示し続ける
+          
           if (isEmbedded || isInIframe) {
             // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
             // OAuth認証はトップレベルで実行する必要があるため
             console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
             if (window.top && window.top !== window.self) {
-              console.log('✅ window.top.location.hrefに設定:', authUrl);
-              window.top.location.href = authUrl;
+              console.log('✅ window.top.location.replace()に設定:', authUrl);
+              window.top.location.replace(authUrl); // replaceを使用して履歴に残さない
             } else {
               // フォールバック: 通常のリダイレクト
               console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
-              console.log('✅ window.location.hrefに設定:', authUrl);
-              window.location.href = authUrl;
+              console.log('✅ window.location.replace()に設定:', authUrl);
+              window.location.replace(authUrl);
             }
           } else {
             // 通常のリダイレクト（埋め込みアプリ外）
             console.log('🌐 通常モードでリダイレクト');
-            console.log('✅ window.location.hrefに設定:', authUrl);
-            window.location.href = authUrl;
+            console.log('✅ window.location.replace()に設定:', authUrl);
+            window.location.replace(authUrl); // replaceを使用して履歴に残さない
           }
           
-          // リダイレクトが実行されなかった場合のフォールバック（3秒後）
+          // リダイレクトが実行されなかった場合のフォールバック（1秒後）
           setTimeout(() => {
-            if (window.location.href !== authUrl && window.location.pathname !== '/auth/success') {
-              console.error('❌ リダイレクトが実行されませんでした。強制的にリダイレクトします。');
+            const currentUrl = window.location.href;
+            const currentPath = window.location.pathname;
+            if (!currentUrl.includes(authUrl.split('?')[0]) && currentPath !== '/auth/success') {
+              console.error('❌ リダイレクトが実行されませんでした。強制的にリダイレクトします。', {
+                currentUrl,
+                currentPath,
+                expectedAuthUrl: authUrl
+              });
               window.location.replace(authUrl);
             }
-          }, 3000);
+          }, 1000);
         } catch (redirectError) {
           console.error('❌ リダイレクト実行中にエラーが発生:', redirectError);
           // エラーが発生した場合でも、強制的にリダイレクトを試みる
@@ -382,6 +408,7 @@ export default function InstallPolarisPage() {
             console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
             setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
             setLoading(false);
+            setIsInstalling(false);
           }
         }
       };
@@ -396,11 +423,13 @@ export default function InstallPolarisPage() {
       }
     } catch (error) {
       console.error('❌ 接続エラー:', error);
-      setError('接続処理中にエラーが発生しました。もう一度お試しください。');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(`接続処理中にエラーが発生しました: ${errorMessage}`);
       setLoading(false);
+      setIsInstalling(false); // インストール処理終了をマーク
       setInstallProgress(0);
     }
-  }, [shopDomain]);
+  }, [shopDomain, isEmbedded]);
 
   return (
     <div style={{ backgroundColor: '#F6F6F7', minHeight: '100vh' }}>
