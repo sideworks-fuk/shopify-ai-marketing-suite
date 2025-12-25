@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Page,
   Card,
@@ -19,6 +20,8 @@ import {
 import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
 import { useIsEmbedded } from '@/hooks/useIsEmbedded';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { useAppBridge } from '@/lib/shopify/app-bridge-provider';
+import { Redirect } from '@shopify/app-bridge/actions';
 
 /**
  * Shopifyアプリ接続ページ（Polaris版）
@@ -43,6 +46,8 @@ export default function InstallPolarisPage() {
   const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
   const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
+  const { app } = useAppBridge(); // App Bridgeインスタンスを取得
+  const searchParams = useSearchParams(); // URLパラメータを取得
 
   const normalizeShopDomain = useCallback((value: string): string => {
     const v = value.trim().toLowerCase();
@@ -336,30 +341,62 @@ export default function InstallPolarisPage() {
       }
       
       // ==========================================================
-      // HTTPリダイレクト方式でOAuth認証を開始
+      // Shopify公式ドキュメントに基づく埋め込みアプリ対応
+      // https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/authorization-code-grant
       // ==========================================================
-      // window.location.hrefを使用してバックエンドにリダイレクト
-      // → バックエンドがHTTP 302リダイレクトを返す
-      // → ブラウザがトップレベルウィンドウでShopify OAuth URLに遷移
+      // Step 2: Request authorization code
+      // - embedded=1の場合: App Bridgeを使用してiframeから脱出してからリダイレクト
+      // - embedded=0または非埋め込みの場合: 直接リダイレクト
       // ==========================================================
-      console.log('🚀 HTTPリダイレクト方式でOAuth認証を開始:', installUrl);
-      console.log('📝 この方式はiframe内のクロスオリジン制限を回避できます');
       
-      // 現在のURLを保存（リダイレクト確認用）
-      const beforeRedirect = window.location.href;
+      const embeddedParam = searchParams?.get('embedded');
+      const isEmbeddedMode = embeddedParam === '1' || isEmbedded;
       
-      // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
-      window.location.href = installUrl;
-      
-      // リダイレクトが実行されたかどうかを確認（1秒後）
-      setTimeout(() => {
-        if (window.location.href === beforeRedirect) {
-          console.error('❌ リダイレクトが実行されませんでした');
-          setError('リダイレクトに失敗しました。もう一度お試しください。');
-          setLoading(false);
-          isInstallingRef.current = false;
+      // embedded=1かつApp Bridgeが利用可能な場合
+      if (isEmbeddedMode && app) {
+        console.log('🖼️ 埋め込みアプリモード: App Bridgeを使用してiframeから脱出');
+        console.log('📍 リダイレクト先:', installUrl);
+        
+        try {
+          // Shopify公式ドキュメントに基づく実装:
+          // App BridgeのRedirect.toApp()を使用して同じURLにリダイレクト（embedded=0を追加）
+          // これによりiframeから脱出できる
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('embedded', '0');
+          const escapedUrl = currentUrl.toString();
+          
+          console.log('🔄 iframe脱出用URL:', escapedUrl);
+          app.dispatch(Redirect.toApp({ path: escapedUrl }));
+          console.log('✅ App Bridgeリダイレクトを実行しました（iframe脱出）');
+          
+          // iframe脱出後、embedded=0の状態で再度この関数が呼ばれる
+          // その時はelseブロックで直接リダイレクトされる
+        } catch (error) {
+          console.error('❌ App Bridgeリダイレクトに失敗:', error);
+          // フォールバック: 通常のリダイレクトを試行
+          window.location.href = installUrl;
         }
-      }, 1000);
+      } else {
+        // embedded=0または非埋め込みの場合、直接バックエンドにリダイレクト
+        console.log('🚀 通常モード: 直接リダイレクトでOAuth認証を開始:', installUrl);
+        console.log('📝 バックエンドがHTTP 302リダイレクトでOAuth URLに遷移します');
+        
+        // 現在のURLを保存（リダイレクト確認用）
+        const beforeRedirect = window.location.href;
+        
+        // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
+        window.location.href = installUrl;
+        
+        // リダイレクトが実行されたかどうかを確認（1秒後）
+        setTimeout(() => {
+          if (window.location.href === beforeRedirect) {
+            console.error('❌ リダイレクトが実行されませんでした');
+            setError('リダイレクトに失敗しました。もう一度お試しください。');
+            setLoading(false);
+            isInstallingRef.current = false;
+          }
+        }, 1000);
+      }
     } catch (error) {
       console.error('❌ ===== 接続エラー発生 =====');
       console.error('エラーオブジェクト:', error);
