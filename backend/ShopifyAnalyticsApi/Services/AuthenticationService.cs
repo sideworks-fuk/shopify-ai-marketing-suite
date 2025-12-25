@@ -299,7 +299,7 @@ namespace ShopifyAnalyticsApi.Services
 
                 if (authMode != "demo")
                 {
-                    _logger.LogWarning("Token is not a demo token");
+                    _logger.LogDebug("Token is not a demo token (expected behavior for non-demo tokens)");
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -309,7 +309,7 @@ namespace ShopifyAnalyticsApi.Services
 
                 if (string.IsNullOrEmpty(sessionId))
                 {
-                    _logger.LogWarning("Session ID not found in demo token");
+                    _logger.LogDebug("Session ID not found in demo token");
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -322,7 +322,7 @@ namespace ShopifyAnalyticsApi.Services
 
                 if (session == null)
                 {
-                    _logger.LogWarning("Demo session not found or expired: {SessionId}", sessionId);
+                    _logger.LogDebug("Demo session not found or expired: {SessionId}", sessionId);
                     return new AuthenticationResult
                     {
                         IsValid = false,
@@ -347,7 +347,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             catch (SecurityTokenExpiredException ex)
             {
-                _logger.LogWarning(ex, "Demo token has expired");
+                _logger.LogDebug(ex, "Demo token has expired");
                 return new AuthenticationResult
                 {
                     IsValid = false,
@@ -356,7 +356,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             catch (SecurityTokenException ex)
             {
-                _logger.LogWarning(ex, "Invalid demo token");
+                _logger.LogDebug(ex, "Invalid demo token (expected behavior for non-demo tokens)");
                 return new AuthenticationResult
                 {
                     IsValid = false,
