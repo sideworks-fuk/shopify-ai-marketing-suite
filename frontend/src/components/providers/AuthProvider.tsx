@@ -106,8 +106,14 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   // アプリ起動時の自動認証
   useEffect(() => {
+    // APIクライアントが準備完了していない場合は実行しない
+    if (!apiClient || !isApiClientReady) {
+      console.log('⏳ APIクライアントの準備を待機中...', { apiClient: !!apiClient, isApiClientReady })
+      return
+    }
+
     const initializeAuth = async () => {
-      console.log('🚀 認証の初期化を開始...')
+      console.log('🚀 認証の初期化を開始...', { authMode, isEmbedded })
       try {
         setIsInitializing(true)
         setAuthError(null)
@@ -165,6 +171,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
             console.log('⚠️ 認証情報が見つかりません（authMode=null）')
             setIsAuthenticated(false)
           }
+        } else {
+          // authModeが設定されているが、上記の条件に該当しない場合
+          console.log('⚠️ 未対応のauthMode:', authMode)
+          setIsAuthenticated(false)
         }
       } catch (error: any) {
         console.error('❌ 認証の初期化に失敗:', error)
@@ -172,14 +182,21 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         setIsAuthenticated(false)
         console.log('⚠️ 認証なしでアプリケーションを継続します')
       } finally {
+        // 認証状態をログ出力（finallyブロック内なので、この時点での状態を確認）
+        const finalAuthState = localStorage.getItem('oauth_authenticated') === 'true' || 
+                               localStorage.getItem('demoToken') !== null
+        console.log('✅ 認証の初期化が完了しました', { 
+          authMode, 
+          isEmbedded, 
+          oauthAuthenticated: localStorage.getItem('oauth_authenticated'),
+          finalAuthState 
+        })
         setIsInitializing(false)
       }
     }
     
-    if (apiClient) {
-      initializeAuth()
-    }
-  }, [apiClient, authMode, isEmbedded, getToken])
+    initializeAuth()
+  }, [apiClient, isApiClientReady, authMode, isEmbedded, getToken])
 
   const login = async (storeId: number) => {
     try {
