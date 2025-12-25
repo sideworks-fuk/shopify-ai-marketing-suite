@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
 import Link from 'next/link'
@@ -11,11 +11,13 @@ import {
   Database,
   Settings
 } from 'lucide-react'
+import { getCurrentEnvironmentConfig } from '@/lib/config/environments'
 
 export default function HomePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isAuthenticated, isInitializing, isApiClientReady } = useAuth()
+  const { isAuthenticated, isInitializing, isApiClientReady, getApiClient } = useAuth()
+  const [isCheckingStore, setIsCheckingStore] = useState(false)
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function HomePage() {
     }
 
     // 初期化完了後、少し待機してからリダイレクト（認証状態の変動を防ぐ）
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       const shop = searchParams?.get('shop')
       const host = searchParams?.get('host')
       const embedded = searchParams?.get('embedded')
@@ -34,16 +36,89 @@ export default function HomePage() {
       console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded, isApiClientReady });
 
       if (isAuthenticated) {
-        // 認証済みの場合、ダッシュボードにリダイレクト
-        const params = new URLSearchParams()
-        if (shop) params.set('shop', shop)
-        if (host) params.set('host', host)
-        if (embedded) params.set('embedded', embedded)
-        
-        const queryString = params.toString()
-        const redirectUrl = `/customers/dormant${queryString ? `?${queryString}` : ''}`
-        console.log('✅ 認証済み: ダッシュボードにリダイレクト:', redirectUrl)
-        router.replace(redirectUrl)
+        // 認証済みの場合、実際にストアが存在するか確認
+        // 初回インストール時は oauth_authenticated フラグがあってもストアが存在しない可能性がある
+        try {
+          setIsCheckingStore(true)
+          console.log('🔍 ストアの存在を確認中...')
+          
+          const config = getCurrentEnvironmentConfig()
+          const response = await fetch(`${config.apiBaseUrl}/api/store`, {
+            credentials: 'include',
+          })
+          
+          if (response.ok) {
+            const result: unknown = await response.json()
+            const stores = (result as any)?.data?.stores as any[] | undefined
+            
+            if (Array.isArray(stores) && stores.length > 0) {
+              // ストアが存在する場合、ダッシュボードにリダイレクト
+              const params = new URLSearchParams()
+              if (shop) params.set('shop', shop)
+              if (host) params.set('host', host)
+              if (embedded) params.set('embedded', embedded)
+              
+              const queryString = params.toString()
+              const redirectUrl = `/customers/dormant${queryString ? `?${queryString}` : ''}`
+              console.log('✅ 認証済み & ストア存在: ダッシュボードにリダイレクト:', redirectUrl)
+              router.replace(redirectUrl)
+            } else {
+              // ストアが存在しない場合、インストールページにリダイレクト
+              console.log('⚠️ 認証済みだがストアが存在しない: インストールページにリダイレクト')
+              // oauth_authenticated フラグをクリア（初回インストールとして扱う）
+              localStorage.removeItem('oauth_authenticated')
+              localStorage.removeItem('currentStoreId')
+              
+              const params = new URLSearchParams()
+              if (shop) params.set('shop', shop)
+              if (host) params.set('host', host)
+              if (embedded) params.set('embedded', embedded)
+              
+              const queryString = params.toString()
+              const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+              console.log('🔄 初回インストール: インストールページにリダイレクト:', redirectUrl)
+              router.replace(redirectUrl)
+            }
+          } else if (response.status === 401) {
+            // 401エラーの場合、認証が無効なのでインストールページにリダイレクト
+            console.log('⚠️ 認証エラー (401): インストールページにリダイレクト')
+            localStorage.removeItem('oauth_authenticated')
+            localStorage.removeItem('currentStoreId')
+            
+            const params = new URLSearchParams()
+            if (shop) params.set('shop', shop)
+            if (host) params.set('host', host)
+            if (embedded) params.set('embedded', embedded)
+            
+            const queryString = params.toString()
+            const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+            router.replace(redirectUrl)
+          } else {
+            // その他のエラーの場合も、安全側に倒してインストールページにリダイレクト
+            console.warn('⚠️ ストア確認エラー:', response.status, 'インストールページにリダイレクト')
+            const params = new URLSearchParams()
+            if (shop) params.set('shop', shop)
+            if (host) params.set('host', host)
+            if (embedded) params.set('embedded', embedded)
+            
+            const queryString = params.toString()
+            const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+            router.replace(redirectUrl)
+          }
+        } catch (error) {
+          console.error('❌ ストア確認中にエラー:', error)
+          // エラー時も安全側に倒してインストールページにリダイレクト
+          const params = new URLSearchParams()
+          if (shop) params.set('shop', shop)
+          if (host) params.set('host', host)
+          if (embedded) params.set('embedded', embedded)
+          
+          const queryString = params.toString()
+          const redirectUrl = `/install${queryString ? `?${queryString}` : ''}`
+          router.replace(redirectUrl)
+        } finally {
+          setIsCheckingStore(false)
+        }
       } else {
         // 未認証の場合、インストールページにリダイレクト
         const params = new URLSearchParams()
