@@ -15,13 +15,13 @@ import {
 export default function HomePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isAuthenticated, isInitializing } = useAuth()
+  const { isAuthenticated, isInitializing, isApiClientReady } = useAuth()
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
-    // 初期化中は何もしない（認証状態の判定を待つ）
-    if (isInitializing) {
-      console.log('⏳ 認証状態の初期化中...');
+    // 初期化中またはAPIクライアントが準備完了していない場合は何もしない（認証状態の判定を待つ）
+    if (isInitializing || !isApiClientReady) {
+      console.log('⏳ 認証状態の初期化中...', { isInitializing, isApiClientReady });
       return;
     }
 
@@ -31,7 +31,7 @@ export default function HomePage() {
       const host = searchParams?.get('host')
       const embedded = searchParams?.get('embedded')
 
-      console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded });
+      console.log('🔍 認証状態をチェック:', { isAuthenticated, shop, host, embedded, isApiClientReady });
 
       if (isAuthenticated) {
         // 認証済みの場合、ダッシュボードにリダイレクト
@@ -56,10 +56,10 @@ export default function HomePage() {
         console.log('⚠️ 未認証: インストールページにリダイレクト:', redirectUrl)
         router.replace(redirectUrl)
       }
-    }, 100); // 100ms待機してからリダイレクト
+    }, 200); // 200ms待機してからリダイレクト（100msから延長）
 
     return () => clearTimeout(timeoutId);
-  }, [isAuthenticated, isInitializing, router, searchParams])
+  }, [isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
 
   // リダイレクト中はローディング表示
   if (isInitializing) {
