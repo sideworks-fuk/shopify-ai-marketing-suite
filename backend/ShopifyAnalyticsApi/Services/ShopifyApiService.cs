@@ -201,17 +201,174 @@ namespace ShopifyAnalyticsApi.Services
             return syncedCount;
         }
 
+        /// <summary>
+        /// 顧客データを1ページ取得（保存は行わない）
+        /// </summary>
+        public async Task<(List<ShopifyCustomer> Customers, string? NextPageInfo)> FetchCustomersPageAsync(
+            int storeId, DateTime? sinceDate = null, string? pageInfo = null)
+        {
+            var store = await _context.Stores.FindAsync(storeId);
+            if (store == null || string.IsNullOrEmpty(store.AccessToken))
+            {
+                throw new InvalidOperationException($"Store {storeId} not found or not authenticated");
+            }
+
+            var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
+            var url = BuildCustomersUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            var response = await _retryPolicy.ExecuteAsync(async () => 
+                await client.GetAsync(url));
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json);
+                
+                var nextPageInfo = ExtractPageInfo(response.Headers);
+                return (customersData?.Customers ?? new List<ShopifyCustomer>(), 
+                       string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
+            }
+            else
+            {
+                _logger.LogError($"Failed to fetch customers: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Error content: {errorContent}");
+                throw new HttpRequestException($"Failed to fetch customers: {response.StatusCode}");
+            }
+        }
+
+        /// <summary>
+        /// 注文データを1ページ取得（保存は行わない）
+        /// </summary>
+        public async Task<(List<ShopifyOrder> Orders, string? NextPageInfo)> FetchOrdersPageAsync(
+            int storeId, DateTime? sinceDate = null, string? pageInfo = null)
+        {
+            var store = await _context.Stores.FindAsync(storeId);
+            if (store == null || string.IsNullOrEmpty(store.AccessToken))
+            {
+                throw new InvalidOperationException($"Store {storeId} not found or not authenticated");
+            }
+
+            var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
+            var url = BuildOrdersUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            var response = await _retryPolicy.ExecuteAsync(async () => 
+                await client.GetAsync(url));
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json);
+                
+                var nextPageInfo = ExtractPageInfo(response.Headers);
+                return (ordersData?.Orders ?? new List<ShopifyOrder>(), 
+                       string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
+            }
+            else
+            {
+                _logger.LogError($"Failed to fetch orders: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Error content: {errorContent}");
+                throw new HttpRequestException($"Failed to fetch orders: {response.StatusCode}");
+            }
+        }
+
+        /// <summary>
+        /// 商品データを1ページ取得（保存は行わない）
+        /// </summary>
+        public async Task<(List<ShopifyProduct> Products, string? NextPageInfo)> FetchProductsPageAsync(
+            int storeId, DateTime? sinceDate = null, string? pageInfo = null)
+        {
+            var store = await _context.Stores.FindAsync(storeId);
+            if (store == null || string.IsNullOrEmpty(store.AccessToken))
+            {
+                throw new InvalidOperationException($"Store {storeId} not found or not authenticated");
+            }
+
+            var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
+            var url = BuildProductsUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            var response = await _retryPolicy.ExecuteAsync(async () => 
+                await client.GetAsync(url));
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json);
+                
+                var nextPageInfo = ExtractPageInfo(response.Headers);
+                return (productsData?.Products ?? new List<ShopifyProduct>(), 
+                       string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
+            }
+            else
+            {
+                _logger.LogError($"Failed to fetch products: {response.StatusCode}");
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Error content: {errorContent}");
+                throw new HttpRequestException($"Failed to fetch products: {response.StatusCode}");
+            }
+        }
+
         #region Private Methods
 
         private HttpClient CreateShopifyClient(string shopUrl, string accessToken)
         {
+            // AccessTokenが暗号化されている場合は復号化
+            var decryptedToken = DecryptTokenIfEncrypted(accessToken);
+            
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
+            client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", decryptedToken);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             return client;
         }
 
-        private string BuildCustomersUrl(string shopUrl, DateTime? sinceDate, string pageInfo)
+        /// <summary>
+        /// トークンが暗号化されている場合は復号化する
+        /// </summary>
+        private string DecryptTokenIfEncrypted(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return token;
+            }
+
+            // Base64エンコードされた文字列かどうかを簡易チェック
+            // 暗号化されたトークンは通常Base64エンコードされている
+            try
+            {
+                var key = _configuration["Shopify:EncryptionKey"];
+                if (string.IsNullOrEmpty(key))
+                {
+                    // 暗号化キーが設定されていない場合は、Base64デコードを試みる
+                    var bytes = Convert.FromBase64String(token);
+                    return System.Text.Encoding.UTF8.GetString(bytes);
+                }
+
+                // AES暗号化されたトークンを復号化
+                using var aes = System.Security.Cryptography.Aes.Create();
+                aes.Key = Convert.FromBase64String(key);
+                
+                var fullCipher = Convert.FromBase64String(token);
+                var iv = new byte[aes.IV.Length];
+                var cipher = new byte[fullCipher.Length - iv.Length];
+                
+                Buffer.BlockCopy(fullCipher, 0, iv, 0, iv.Length);
+                Buffer.BlockCopy(fullCipher, iv.Length, cipher, 0, cipher.Length);
+                
+                aes.IV = iv;
+                
+                using var decryptor = aes.CreateDecryptor();
+                using var msDecrypt = new MemoryStream(cipher);
+                using var csDecrypt = new System.Security.Cryptography.CryptoStream(msDecrypt, decryptor, System.Security.Cryptography.CryptoStreamMode.Read);
+                using var srDecrypt = new StreamReader(csDecrypt);
+                
+                return srDecrypt.ReadToEnd();
+            }
+            catch
+            {
+                // 復号化に失敗した場合は、そのまま返す（既に復号化済みの可能性）
+                return token;
+            }
+        }
+
+        private string BuildCustomersUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/customers.json?limit=250";
             
@@ -228,7 +385,7 @@ namespace ShopifyAnalyticsApi.Services
             return baseUrl;
         }
 
-        private string BuildProductsUrl(string shopUrl, DateTime? sinceDate, string pageInfo)
+        private string BuildProductsUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/products.json?limit=250";
             
@@ -245,7 +402,7 @@ namespace ShopifyAnalyticsApi.Services
             return baseUrl;
         }
 
-        private string BuildOrdersUrl(string shopUrl, DateTime? sinceDate, string pageInfo)
+        private string BuildOrdersUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/orders.json?limit=250&status=any";
             
@@ -299,8 +456,17 @@ namespace ShopifyAnalyticsApi.Services
                 existingCustomer.FirstName = customer.FirstName;
                 existingCustomer.LastName = customer.LastName;
                 existingCustomer.Email = customer.Email;
+                existingCustomer.Phone = customer.Phone;
                 existingCustomer.TotalSpent = customer.TotalSpent;
                 existingCustomer.TotalOrders = customer.OrdersCount;
+                // 分析に必要なフィールド
+                existingCustomer.ProvinceCode = customer.ProvinceCode ?? customer.DefaultAddress?.ProvinceCode;
+                existingCustomer.CountryCode = customer.CountryCode ?? customer.DefaultAddress?.CountryCode;
+                existingCustomer.City = customer.City ?? customer.DefaultAddress?.City;
+                existingCustomer.Tags = customer.Tags;
+                existingCustomer.AcceptsEmailMarketing = customer.AcceptsEmailMarketing;
+                existingCustomer.AcceptsSMSMarketing = customer.AcceptsSMSMarketing;
+                existingCustomer.AddressPhone = customer.DefaultAddress?.Phone;
                 existingCustomer.UpdatedAt = DateTime.UtcNow;
             }
             else
@@ -313,8 +479,17 @@ namespace ShopifyAnalyticsApi.Services
                     FirstName = customer.FirstName,
                     LastName = customer.LastName,
                     Email = customer.Email,
+                    Phone = customer.Phone,
                     TotalSpent = customer.TotalSpent,
                     TotalOrders = customer.OrdersCount,
+                    // 分析に必要なフィールド
+                    ProvinceCode = customer.ProvinceCode ?? customer.DefaultAddress?.ProvinceCode,
+                    CountryCode = customer.CountryCode ?? customer.DefaultAddress?.CountryCode,
+                    City = customer.City ?? customer.DefaultAddress?.City,
+                    Tags = customer.Tags,
+                    AcceptsEmailMarketing = customer.AcceptsEmailMarketing,
+                    AcceptsSMSMarketing = customer.AcceptsSMSMarketing,
+                    AddressPhone = customer.DefaultAddress?.Phone,
                     IsActive = true,
                     CreatedAt = customer.CreatedAt ?? DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -414,16 +589,35 @@ namespace ShopifyAnalyticsApi.Services
                 .FirstOrDefaultAsync(o => o.StoreId == storeId && 
                                         o.ShopifyOrderId == order.Id.ToString());
 
+            // CustomerIdを取得
+            int customerId = 0;
+            if (order.Customer != null && !string.IsNullOrEmpty(order.Customer.Id.ToString()))
+            {
+                var customer = await _context.Customers
+                    .FirstOrDefaultAsync(c => 
+                        c.StoreId == storeId && 
+                        c.ShopifyCustomerId == order.Customer.Id.ToString());
+                
+                if (customer != null)
+                {
+                    customerId = customer.Id;
+                }
+            }
+
             if (existingOrder != null)
             {
                 // 更新
+                existingOrder.OrderNumber = order.OrderNumber ?? $"#{order.Id}";
                 existingOrder.TotalPrice = order.TotalPrice;
                 existingOrder.SubtotalPrice = order.SubtotalPrice;
                 existingOrder.TotalTax = order.TotalTax;
                 existingOrder.TaxPrice = order.TotalTax;  // 互換性のため
-                existingOrder.Currency = order.Currency;
-                existingOrder.FinancialStatus = order.FinancialStatus;
+                existingOrder.Currency = order.Currency ?? "JPY";
+                existingOrder.Status = order.Status ?? "pending";
+                existingOrder.FinancialStatus = order.FinancialStatus ?? "pending";
                 existingOrder.FulfillmentStatus = order.FulfillmentStatus;
+                existingOrder.Email = order.Email;
+                existingOrder.CustomerId = customerId; // CustomerIdも更新
                 existingOrder.UpdatedAt = DateTime.UtcNow;
 
                 // 注文アイテム更新
@@ -466,13 +660,16 @@ namespace ShopifyAnalyticsApi.Services
                     StoreId = storeId,
                     ShopifyOrderId = order.Id.ToString(),
                     ShopifyCustomerId = order.Customer?.Id.ToString(),
+                    OrderNumber = order.OrderNumber ?? $"#{order.Id}",
                     Email = order.Email,
+                    CustomerId = customerId, // CustomerIdを設定
                     TotalPrice = order.TotalPrice,
                     SubtotalPrice = order.SubtotalPrice,
                     TotalTax = order.TotalTax,
                     TaxPrice = order.TotalTax,  // 互換性のため
-                    Currency = order.Currency,
-                    FinancialStatus = order.FinancialStatus,
+                    Currency = order.Currency ?? "JPY",
+                    Status = order.Status ?? "pending",
+                    FinancialStatus = order.FinancialStatus ?? "pending",
                     FulfillmentStatus = order.FulfillmentStatus,
                     CreatedAt = order.CreatedAt ?? DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
@@ -508,76 +705,100 @@ namespace ShopifyAnalyticsApi.Services
 
         #region Response Models
 
-        private class ShopifyCustomersResponse
+        // 内部モデルをpublicにして、ジョブクラスから使用可能にする
+        public class ShopifyCustomersResponse
         {
-            public List<ShopifyCustomer> Customers { get; set; }
+            public List<ShopifyCustomer> Customers { get; set; } = new();
         }
 
-        private class ShopifyCustomer
+        public class ShopifyCustomer
         {
             public long Id { get; set; }
-            public string FirstName { get; set; }
-            public string LastName { get; set; }
-            public string Email { get; set; }
+            public string FirstName { get; set; } = string.Empty;
+            public string LastName { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string? Phone { get; set; }
             public decimal TotalSpent { get; set; }
             public int OrdersCount { get; set; }
             public DateTime? CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
+            // 分析に必要なフィールド
+            public string? ProvinceCode { get; set; }
+            public string? CountryCode { get; set; }
+            public string? City { get; set; }
+            public string? Tags { get; set; }
+            public bool AcceptsEmailMarketing { get; set; }
+            public bool AcceptsSMSMarketing { get; set; }
+            // 住所情報（Default Address）
+            public ShopifyCustomerAddress? DefaultAddress { get; set; }
         }
 
-        private class ShopifyProductsResponse
+        public class ShopifyCustomerAddress
         {
-            public List<ShopifyProduct> Products { get; set; }
+            public string? ProvinceCode { get; set; }
+            public string? CountryCode { get; set; }
+            public string? City { get; set; }
+            public string? Phone { get; set; }
         }
 
-        private class ShopifyProduct
+        public class ShopifyProductsResponse
+        {
+            public List<ShopifyProduct> Products { get; set; } = new();
+        }
+
+        public class ShopifyProduct
         {
             public long Id { get; set; }
-            public string Title { get; set; }
-            public string ProductType { get; set; }
-            public string Vendor { get; set; }
+            public string Title { get; set; } = string.Empty;
+            public string? ProductType { get; set; }
+            public string? Vendor { get; set; }
             public DateTime? CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
-            public List<ShopifyVariant> Variants { get; set; }
+            public List<ShopifyVariant> Variants { get; set; } = new();
         }
 
-        private class ShopifyVariant
+        public class ShopifyVariant
         {
             public long Id { get; set; }
-            public string Title { get; set; }
+            public string Title { get; set; } = string.Empty;
             public decimal Price { get; set; }
-            public string Sku { get; set; }
+            public string? Sku { get; set; }
         }
 
-        private class ShopifyOrdersResponse
+        public class ShopifyOrdersResponse
         {
-            public List<ShopifyOrder> Orders { get; set; }
+            public List<ShopifyOrder> Orders { get; set; } = new();
         }
 
-        private class ShopifyOrder
+        public class ShopifyOrder
         {
             public long Id { get; set; }
-            public string Email { get; set; }
+            public string? Email { get; set; }
+            public string? OrderNumber { get; set; }
             public decimal TotalPrice { get; set; }
             public decimal SubtotalPrice { get; set; }
             public decimal TotalTax { get; set; }
-            public string Currency { get; set; }
-            public string FinancialStatus { get; set; }
-            public string FulfillmentStatus { get; set; }
+            public string Currency { get; set; } = "JPY";
+            public string FinancialStatus { get; set; } = "pending";
+            public string? FulfillmentStatus { get; set; }
+            public string? Status { get; set; }
             public DateTime? CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
-            public ShopifyCustomer Customer { get; set; }
-            public List<ShopifyLineItem> LineItems { get; set; }
+            public ShopifyCustomer? Customer { get; set; }
+            public List<ShopifyLineItem> LineItems { get; set; } = new();
         }
 
-        private class ShopifyLineItem
+        public class ShopifyLineItem
         {
             public long Id { get; set; }
             public long? ProductId { get; set; }
             public long? VariantId { get; set; }
-            public string Title { get; set; }
+            public string Title { get; set; } = string.Empty;
             public int Quantity { get; set; }
             public decimal Price { get; set; }
+            public string? Sku { get; set; }
+            public string? VariantTitle { get; set; }
+            public string? Vendor { get; set; }
         }
 
         #endregion

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Data;
+using ShopifyAnalyticsApi.Attributes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http.Extensions;
 using System.Security.Cryptography;
@@ -493,7 +494,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// テスト用エンドポイント - OAuth設定の確認
         /// </summary>
         [HttpGet("test-config")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public IActionResult TestConfig()
         {
             try
@@ -550,7 +551,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// テスト用エンドポイント - ハイブリッド方式のテスト
         /// </summary>
         [HttpGet("test-hybrid-mode")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public IActionResult TestHybridMode([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
@@ -612,7 +613,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// テスト用エンドポイント - OAuth URL生成テスト
         /// </summary>
         [HttpGet("test-oauth-url")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public IActionResult TestOAuthUrl([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
@@ -659,7 +660,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// デバッグ用エンドポイント - ShopifyAppsテーブルの状態確認
         /// </summary>
         [HttpGet("debug-shopify-apps")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public async Task<IActionResult> DebugShopifyApps()
         {
             try
@@ -672,7 +673,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         a.DisplayName,
                         a.AppType,
                         ApiKey = a.ApiKey.Substring(0, Math.Min(8, a.ApiKey.Length)) + "...",
-                        ApiKeyFull = a.ApiKey,
+                        // ApiKeyFullは削除（セキュリティのため）
                         AppUrl = a.AppUrl,
                         IsActive = a.IsActive,
                         a.CreatedAt
@@ -695,10 +696,120 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
+        /// デバッグ用エンドポイント - Storeテーブルの状態確認（AccessTokenの保存状況を確認）
+        /// </summary>
+        [HttpGet("debug-stores")]
+        [RequireDeveloperAuth]
+        public async Task<IActionResult> DebugStores([FromQuery] string? shop = null)
+        {
+            try
+            {
+                var query = _context.Stores.AsQueryable();
+                
+                if (!string.IsNullOrEmpty(shop))
+                {
+                    query = query.Where(s => s.Domain == shop);
+                }
+
+                var stores = await query
+                    .Include(s => s.ShopifyApp)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.Domain,
+                        s.ShopifyShopId,
+                        HasAccessToken = !string.IsNullOrEmpty(s.AccessToken),
+                        AccessTokenLength = s.AccessToken != null ? s.AccessToken.Length : 0,
+                        AccessTokenPreview = s.AccessToken != null 
+                            ? s.AccessToken.Substring(0, Math.Min(20, s.AccessToken.Length)) + "..." 
+                            : null,
+                        HasApiKey = !string.IsNullOrEmpty(s.ApiKey),
+                        HasApiSecret = !string.IsNullOrEmpty(s.ApiSecret),
+                        ShopifyAppId = s.ShopifyAppId,
+                        ShopifyAppName = s.ShopifyApp != null ? s.ShopifyApp.Name : null,
+                        s.IsActive,
+                        s.LastSyncDate,
+                        s.InitialSetupCompleted,
+                        s.CreatedAt,
+                        s.UpdatedAt,
+                        // AccessTokenの復号化テスト（エラーが発生しないか確認）
+                        CanDecryptToken = s.AccessToken != null
+                    })
+                    .ToListAsync();
+
+                // AccessTokenの復号化テストを実行
+                var storesWithDecryptTest = stores.Select(s =>
+                {
+                    bool canDecrypt = false;
+                    string? decryptError = null;
+                    
+                    if (s.HasAccessToken)
+                    {
+                        try
+                        {
+                            var store = _context.Stores.Find(s.Id);
+                            if (store != null && !string.IsNullOrEmpty(store.AccessToken))
+                            {
+                                var decrypted = DecryptToken(store.AccessToken);
+                                canDecrypt = !string.IsNullOrEmpty(decrypted);
+                                if (canDecrypt)
+                                {
+                                    // 復号化成功（最初の10文字のみ表示）
+                                    decryptError = $"復号化成功: {decrypted.Substring(0, Math.Min(10, decrypted.Length))}...";
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            decryptError = $"復号化エラー: {ex.Message}";
+                        }
+                    }
+                    
+                    return new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.Domain,
+                        s.ShopifyShopId,
+                        s.HasAccessToken,
+                        s.AccessTokenLength,
+                        s.AccessTokenPreview,
+                        s.HasApiKey,
+                        s.HasApiSecret,
+                        s.ShopifyAppId,
+                        s.ShopifyAppName,
+                        s.IsActive,
+                        s.LastSyncDate,
+                        s.InitialSetupCompleted,
+                        s.CreatedAt,
+                        s.UpdatedAt,
+                        CanDecryptToken = canDecrypt,
+                        DecryptTestResult = decryptError
+                    };
+                }).ToList();
+
+                return Ok(new
+                {
+                    message = "Storeテーブルの状態（AccessToken保存状況）",
+                    count = storesWithDecryptTest.Count,
+                    stores = storesWithDecryptTest,
+                    timestamp = DateTime.UtcNow,
+                    note = "AccessTokenは暗号化されて保存されています。DecryptTestResultで復号化の可否を確認できます。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Storeテーブル確認中にエラーが発生");
+                return StatusCode(500, new { error = "Failed to query Store table", details = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// テスト用エンドポイント - 設定値確認テスト
         /// </summary>
         [HttpGet("test-settings")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public IActionResult TestSettings()
         {
             try
@@ -737,7 +848,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// テスト用エンドポイント - 暗号化テスト
         /// </summary>
         [HttpPost("test-encryption")]
-        [AllowAnonymous]
+        [RequireDeveloperAuth]
         public IActionResult TestEncryption([FromBody] TestEncryptionRequest request)
         {
             try

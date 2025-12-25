@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
 using ShopifyAnalyticsApi.Helpers;
+using ShopifyAnalyticsApi.Attributes;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
-    [AllowAnonymous]
     [ApiController]
     [Route("api/[controller]")]
     public class DebugController : ControllerBase
@@ -27,6 +27,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// GET: api/debug/segment-analysis
         /// </summary>
         [HttpGet("segment-analysis")]
+        [RequireDeveloperAuth]
         public async Task<ActionResult<object>> GetSegmentDebugInfo(
             [FromQuery] int storeId = 1,
             [FromQuery] string period = "12months")

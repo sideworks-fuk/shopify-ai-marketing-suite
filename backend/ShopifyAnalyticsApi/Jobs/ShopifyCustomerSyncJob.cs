@@ -94,14 +94,15 @@ namespace ShopifyAnalyticsApi.Jobs
                     
                     // 同期実行（ページネーション処理）
                     var hasMorePages = true;
-                    var batchSize = 250;
+                    var currentPageInfo = lastCursor;
+                    var batchSize = 100; // バッチ処理のサイズ
                     var page = 1;
                     
                     while (hasMorePages)
                     {
-                        // 顧客データを取得（実際の実装ではShopifyApiServiceを拡張）
-                        var customers = await FetchCustomersFromShopify(
-                            store, dateRange, page, batchSize);
+                        // 顧客データを取得（実際のShopify API呼び出し）
+                        var (customers, nextPageInfo) = await FetchCustomersFromShopify(
+                            store, dateRange, currentPageInfo);
                         
                         if (customers == null || !customers.Any())
                         {
@@ -109,38 +110,62 @@ namespace ShopifyAnalyticsApi.Jobs
                             break;
                         }
                         
-                        // データベースに保存
+                        // バッチ処理でデータベースに保存
+                        var batch = new List<Customer>();
                         foreach (var customer in customers)
                         {
-                            await SaveOrUpdateCustomer(storeId, customer);
-                            syncedCount++;
+                            customer.StoreId = storeId;
+                            batch.Add(customer);
+                            
+                            // バッチサイズに達したら保存
+                            if (batch.Count >= batchSize)
+                            {
+                                await SaveOrUpdateCustomersBatch(storeId, batch);
+                                syncedCount += batch.Count;
+                                totalProcessed += batch.Count;
+                                batch.Clear();
+                                
+                                // 進捗を更新
+                                await _progressTracker.UpdateProgressAsync(
+                                    syncStateId, totalProcessed, null, $"Page-{page}");
+                                
+                                // チェックポイントを保存
+                                await _checkpointManager.SaveCheckpointAsync(
+                                    storeId, "Customers", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
+                            }
                         }
                         
-                        totalProcessed += customers.Count();
-                        
-                        // 進捗を更新
-                        await _progressTracker.UpdateProgressAsync(
-                            syncStateId, totalProcessed, null, $"Page-{page}");
-                        
-                        // チェックポイントを保存（100件ごと）
-                        if (totalProcessed % 100 == 0)
+                        // 残りのバッチを保存
+                        if (batch.Any())
                         {
+                            await SaveOrUpdateCustomersBatch(storeId, batch);
+                            syncedCount += batch.Count;
+                            totalProcessed += batch.Count;
+                            
+                            // 進捗を更新
+                            await _progressTracker.UpdateProgressAsync(
+                                syncStateId, totalProcessed, null, $"Page-{page}");
+                            
+                            // チェックポイントを保存
                             await _checkpointManager.SaveCheckpointAsync(
-                                storeId, "Customers", $"page-{page}", totalProcessed, dateRange);
+                                storeId, "Customers", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
                         }
                         
                         _logger.LogInformation(
-                            $"Processed page {page} with {customers.Count()} customers. Total: {totalProcessed}");
+                            $"Processed page {page} with {customers.Count} customers. Total: {totalProcessed}");
                         
-                        page++;
-                        
-                        // Rate Limit対策
-                        await Task.Delay(TimeSpan.FromMilliseconds(500));
-                        
-                        // ページネーション終了判定（仮実装）
-                        if (customers.Count() < batchSize)
+                        // 次のページがあるかチェック
+                        if (string.IsNullOrEmpty(nextPageInfo))
                         {
                             hasMorePages = false;
+                        }
+                        else
+                        {
+                            currentPageInfo = nextPageInfo;
+                            page++;
+                            
+                            // Rate Limit対策
+                            await Task.Delay(TimeSpan.FromMilliseconds(500));
                         }
                     }
                     
@@ -174,66 +199,112 @@ namespace ShopifyAnalyticsApi.Jobs
         }
 
         /// <summary>
-        /// Shopifyから顧客データを取得（仮実装）
+        /// Shopifyから顧客データを取得（実際のAPI呼び出し）
         /// </summary>
-        private async Task<Customer[]> FetchCustomersFromShopify(
-            Store store, DateRange dateRange, int page, int limit)
+        private async Task<(List<Customer> Customers, string? NextPageInfo)> FetchCustomersFromShopify(
+            Store store, DateRange dateRange, string? pageInfo)
         {
-            // TODO: 実際のShopify API呼び出しを実装
-            // ここでは仮のデータを返す
-            await Task.Delay(100); // API呼び出しのシミュレーション
-            
-            if (page > 3) // 仮に3ページまでとする
-                return Array.Empty<Customer>();
-            
-            var customers = new Customer[Math.Min(limit, 50)]; // テスト用に少なめ
-            for (int i = 0; i < customers.Length; i++)
+            try
             {
-                customers[i] = new Customer
+                var sinceDate = dateRange.Start;
+                var (shopifyCustomers, nextPageInfo) = await _shopifyApi.FetchCustomersPageAsync(
+                    store.Id, sinceDate, pageInfo);
+
+                var customers = new List<Customer>();
+                foreach (var shopifyCustomer in shopifyCustomers)
                 {
-                    ShopifyCustomerId = $"shop_{store.Id}_cust_{page}_{i}",
-                    FirstName = $"Customer{page}_{i}",
-                    LastName = $"Test",
-                    Email = $"customer{page}_{i}@example.com",
-                    Phone = $"090-{page:0000}-{i:0000}",
-                    TotalSpent = (decimal)(1000 * page + 100 * i),
-                    TotalOrders = page + i,
-                    CustomerSegment = i % 3 == 0 ? "VIP" : i % 2 == 0 ? "リピーター" : "新規",
-                    CreatedAt = DateTime.UtcNow.AddDays(-30 + i),
-                    UpdatedAt = DateTime.UtcNow
-                };
+                    var customer = ConvertToCustomerEntity(shopifyCustomer);
+                    customers.Add(customer);
+                }
+
+                return (customers, nextPageInfo);
             }
-            
-            return customers;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to fetch customers from Shopify for store {store.Id}");
+                throw;
+            }
         }
 
         /// <summary>
-        /// 顧客データを保存または更新
+        /// ShopifyCustomerをCustomerエンティティに変換
         /// </summary>
-        private async Task SaveOrUpdateCustomer(int storeId, Customer customer)
+        private Customer ConvertToCustomerEntity(ShopifyApiService.ShopifyCustomer shopifyCustomer)
         {
-            var existingCustomer = await _context.Customers
-                .FirstOrDefaultAsync(c => 
-                    c.StoreId == storeId && 
-                    c.ShopifyCustomerId == customer.ShopifyCustomerId);
-            
-            if (existingCustomer != null)
+            return new Customer
             {
-                // 既存データを更新
-                existingCustomer.FirstName = customer.FirstName;
-                existingCustomer.LastName = customer.LastName;
-                existingCustomer.Email = customer.Email;
-                existingCustomer.Phone = customer.Phone;
-                existingCustomer.TotalSpent = customer.TotalSpent;
-                existingCustomer.TotalOrders = customer.TotalOrders;
-                existingCustomer.CustomerSegment = customer.CustomerSegment;
-                existingCustomer.UpdatedAt = DateTime.UtcNow;
-            }
-            else
+                ShopifyCustomerId = shopifyCustomer.Id.ToString(),
+                FirstName = shopifyCustomer.FirstName ?? string.Empty,
+                LastName = shopifyCustomer.LastName ?? string.Empty,
+                Email = shopifyCustomer.Email ?? string.Empty,
+                Phone = shopifyCustomer.Phone,
+                TotalSpent = shopifyCustomer.TotalSpent,
+                TotalOrders = shopifyCustomer.OrdersCount,
+                // 分析に必要なフィールド
+                ProvinceCode = shopifyCustomer.ProvinceCode ?? shopifyCustomer.DefaultAddress?.ProvinceCode,
+                CountryCode = shopifyCustomer.CountryCode ?? shopifyCustomer.DefaultAddress?.CountryCode,
+                City = shopifyCustomer.City ?? shopifyCustomer.DefaultAddress?.City,
+                Tags = shopifyCustomer.Tags,
+                AcceptsEmailMarketing = shopifyCustomer.AcceptsEmailMarketing,
+                AcceptsSMSMarketing = shopifyCustomer.AcceptsSMSMarketing,
+                AddressPhone = shopifyCustomer.DefaultAddress?.Phone,
+                CreatedAt = shopifyCustomer.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+        }
+
+        /// <summary>
+        /// 顧客データをバッチ処理で保存または更新
+        /// </summary>
+        private async Task SaveOrUpdateCustomersBatch(int storeId, List<Customer> customers)
+        {
+            if (!customers.Any()) return;
+
+            var shopifyCustomerIds = customers
+                .Where(c => !string.IsNullOrEmpty(c.ShopifyCustomerId))
+                .Select(c => c.ShopifyCustomerId!)
+                .ToList();
+
+            // 既存の顧客を一括取得
+            var existingCustomers = await _context.Customers
+                .Where(c => c.StoreId == storeId && shopifyCustomerIds.Contains(c.ShopifyCustomerId!))
+                .ToDictionaryAsync(c => c.ShopifyCustomerId!);
+
+            foreach (var customer in customers)
             {
-                // 新規データを追加
-                customer.StoreId = storeId;
-                _context.Customers.Add(customer);
+                if (string.IsNullOrEmpty(customer.ShopifyCustomerId))
+                {
+                    _logger.LogWarning("ShopifyCustomerId is null, skipping customer: {Email}", customer.Email);
+                    continue;
+                }
+
+                if (existingCustomers.TryGetValue(customer.ShopifyCustomerId, out var existingCustomer))
+                {
+                    // 既存データを更新
+                    existingCustomer.FirstName = customer.FirstName;
+                    existingCustomer.LastName = customer.LastName;
+                    existingCustomer.Email = customer.Email;
+                    existingCustomer.Phone = customer.Phone;
+                    existingCustomer.TotalSpent = customer.TotalSpent;
+                    existingCustomer.TotalOrders = customer.TotalOrders;
+                    // 分析に必要なフィールド
+                    existingCustomer.ProvinceCode = customer.ProvinceCode;
+                    existingCustomer.CountryCode = customer.CountryCode;
+                    existingCustomer.City = customer.City;
+                    existingCustomer.Tags = customer.Tags;
+                    existingCustomer.AcceptsEmailMarketing = customer.AcceptsEmailMarketing;
+                    existingCustomer.AcceptsSMSMarketing = customer.AcceptsSMSMarketing;
+                    existingCustomer.AddressPhone = customer.AddressPhone;
+                    existingCustomer.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // 新規データを追加
+                    customer.StoreId = storeId;
+                    customer.CreatedAt = customer.CreatedAt == default ? DateTime.UtcNow : customer.CreatedAt;
+                    _context.Customers.Add(customer);
+                }
             }
             
             await _context.SaveChangesAsync();

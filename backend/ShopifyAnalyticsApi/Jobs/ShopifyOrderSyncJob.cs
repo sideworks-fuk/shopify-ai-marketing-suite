@@ -94,14 +94,15 @@ namespace ShopifyAnalyticsApi.Jobs
                     
                     // 同期実行（ページネーション処理）
                     var hasMorePages = true;
-                    var batchSize = 250;
+                    var currentPageInfo = lastCursor;
+                    var batchSize = 50; // バッチ処理のサイズ（注文は明細も含むため小さめ）
                     var page = 1;
                     
                     while (hasMorePages)
                     {
-                        // 注文データを取得（実際の実装ではShopifyApiServiceを拡張）
-                        var orders = await FetchOrdersFromShopify(
-                            store, dateRange, page, batchSize);
+                        // 注文データを取得（実際のShopify API呼び出し）
+                        var (orders, nextPageInfo) = await FetchOrdersFromShopify(
+                            store, dateRange, currentPageInfo);
                         
                         if (orders == null || !orders.Any())
                         {
@@ -109,48 +110,62 @@ namespace ShopifyAnalyticsApi.Jobs
                             break;
                         }
                         
-                        // データベースに保存
+                        // バッチ処理でデータベースに保存
+                        var batch = new List<Order>();
                         foreach (var order in orders)
                         {
-                            await SaveOrUpdateOrder(storeId, order);
+                            order.StoreId = storeId;
+                            batch.Add(order);
                             
-                            // 注文明細も保存
-                            if (order.OrderItems != null && order.OrderItems.Any())
+                            // バッチサイズに達したら保存
+                            if (batch.Count >= batchSize)
                             {
-                                foreach (var item in order.OrderItems)
-                                {
-                                    await SaveOrUpdateOrderItem(order.Id, item);
-                                }
+                                await SaveOrUpdateOrdersBatch(storeId, batch);
+                                syncedCount += batch.Count;
+                                totalProcessed += batch.Count;
+                                batch.Clear();
+                                
+                                // 進捗を更新
+                                await _progressTracker.UpdateProgressAsync(
+                                    syncStateId, totalProcessed, null, $"Page-{page}");
+                                
+                                // チェックポイントを保存
+                                await _checkpointManager.SaveCheckpointAsync(
+                                    storeId, "Orders", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
                             }
-                            
-                            syncedCount++;
                         }
                         
-                        totalProcessed += orders.Count();
-                        
-                        // 進捗を更新
-                        await _progressTracker.UpdateProgressAsync(
-                            syncStateId, totalProcessed, null, $"Page-{page}");
-                        
-                        // チェックポイントを保存（50件ごと）
-                        if (totalProcessed % 50 == 0)
+                        // 残りのバッチを保存
+                        if (batch.Any())
                         {
+                            await SaveOrUpdateOrdersBatch(storeId, batch);
+                            syncedCount += batch.Count;
+                            totalProcessed += batch.Count;
+                            
+                            // 進捗を更新
+                            await _progressTracker.UpdateProgressAsync(
+                                syncStateId, totalProcessed, null, $"Page-{page}");
+                            
+                            // チェックポイントを保存
                             await _checkpointManager.SaveCheckpointAsync(
-                                storeId, "Orders", $"page-{page}", totalProcessed, dateRange);
+                                storeId, "Orders", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
                         }
                         
                         _logger.LogInformation(
-                            $"Processed page {page} with {orders.Count()} orders. Total: {totalProcessed}");
+                            $"Processed page {page} with {orders.Count} orders. Total: {totalProcessed}");
                         
-                        page++;
-                        
-                        // Rate Limit対策
-                        await Task.Delay(TimeSpan.FromMilliseconds(500));
-                        
-                        // ページネーション終了判定（仮実装）
-                        if (orders.Count() < batchSize)
+                        // 次のページがあるかチェック
+                        if (string.IsNullOrEmpty(nextPageInfo))
                         {
                             hasMorePages = false;
+                        }
+                        else
+                        {
+                            currentPageInfo = nextPageInfo;
+                            page++;
+                            
+                            // Rate Limit対策
+                            await Task.Delay(TimeSpan.FromMilliseconds(500));
                         }
                     }
                     
@@ -184,144 +199,208 @@ namespace ShopifyAnalyticsApi.Jobs
         }
 
         /// <summary>
-        /// Shopifyから注文データを取得（仮実装）
+        /// Shopifyから注文データを取得（実際のAPI呼び出し）
         /// </summary>
-        private async Task<Order[]> FetchOrdersFromShopify(
-            Store store, DateRange dateRange, int page, int limit)
+        private async Task<(List<Order> Orders, string? NextPageInfo)> FetchOrdersFromShopify(
+            Store store, DateRange dateRange, string? pageInfo)
         {
-            // TODO: 実際のShopify API呼び出しを実装
-            // ここでは仮のデータを返す
-            await Task.Delay(100); // API呼び出しのシミュレーション
-            
-            if (page > 2) // 仮に2ページまでとする
-                return Array.Empty<Order>();
-            
-            var orders = new Order[Math.Min(limit, 30)]; // テスト用に少なめ
-            for (int i = 0; i < orders.Length; i++)
+            try
             {
-                var orderId = Guid.NewGuid().ToString();
-                orders[i] = new Order
+                var sinceDate = dateRange.Start;
+                var (shopifyOrders, nextPageInfo) = await _shopifyApi.FetchOrdersPageAsync(
+                    store.Id, sinceDate, pageInfo);
+
+                var orders = new List<Order>();
+                foreach (var shopifyOrder in shopifyOrders)
                 {
-                    ShopifyOrderId = $"shop_{store.Id}_order_{page}_{i}",
-                    OrderNumber = $"#100{page}{i:00}",
-                    TotalPrice = (decimal)(1000 * page + 100 * i),
-                    SubtotalPrice = (decimal)(900 * page + 90 * i),
-                    TotalTax = (decimal)(100 * page + 10 * i),
-                    Currency = "JPY",
-                    FinancialStatus = i % 3 == 0 ? "paid" : i % 2 == 0 ? "pending" : "refunded",
-                    FulfillmentStatus = i % 3 == 0 ? "fulfilled" : i % 2 == 0 ? "partial" : null,
-                    Email = $"customer{page}_{i}@example.com",
-                    CreatedAt = DateTime.UtcNow.AddDays(-30 + i),
-                    UpdatedAt = DateTime.UtcNow,
-                    OrderItems = GenerateOrderItems(orderId, page, i)
-                };
+                    var order = await ConvertToOrderEntity(store.Id, shopifyOrder);
+                    orders.Add(order);
+                }
+
+                return (orders, nextPageInfo);
             }
-            
-            return orders;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to fetch orders from Shopify for store {store.Id}");
+                throw;
+            }
         }
 
         /// <summary>
-        /// 注文明細データを生成（テスト用）
+        /// ShopifyOrderをOrderエンティティに変換（CustomerIdも設定）
         /// </summary>
-        private OrderItem[] GenerateOrderItems(string orderId, int page, int orderIndex)
+        private async Task<Order> ConvertToOrderEntity(int storeId, ShopifyApiService.ShopifyOrder shopifyOrder)
         {
-            var itemCount = (orderIndex % 3) + 1; // 1-3個の商品
-            var items = new OrderItem[itemCount];
-            
-            for (int i = 0; i < itemCount; i++)
+            // CustomerIdを取得（ShopifyCustomerIdから）
+            int customerId = 0;
+            if (shopifyOrder.Customer != null && !string.IsNullOrEmpty(shopifyOrder.Customer.Id.ToString()))
             {
-                items[i] = new OrderItem
+                var customer = await _context.Customers
+                    .FirstOrDefaultAsync(c => 
+                        c.StoreId == storeId && 
+                        c.ShopifyCustomerId == shopifyOrder.Customer.Id.ToString());
+                
+                if (customer != null)
                 {
-                    ShopifyLineItemId = $"line_{orderId}_{i}",
-                    ProductId = $"product_{(i + 1) * 100}",
-                    ShopifyVariantId = $"variant_{(i + 1) * 1000}",
-                    Title = $"商品{page}-{orderIndex}-{i}",
-                    VariantTitle = $"サイズ{i + 1}",
-                    Sku = $"SKU-{page}{orderIndex:00}{i:00}",
-                    ProductVendor = $"ベンダー{i % 3 + 1}",
-                    Quantity = (i % 3) + 1,
-                    Price = (decimal)(1000 + 100 * i),
-                    TotalPrice = (decimal)(1000 + 100 * i),
-                    RequiresShipping = true,
-                    CreatedAt = DateTime.UtcNow.AddDays(-30 + orderIndex),
-                    UpdatedAt = DateTime.UtcNow
-                };
+                    customerId = customer.Id;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Customer not found for order {OrderId}, ShopifyCustomerId: {ShopifyCustomerId}",
+                        shopifyOrder.Id, shopifyOrder.Customer.Id);
+                }
             }
-            
-            return items;
+
+            var order = new Order
+            {
+                ShopifyOrderId = shopifyOrder.Id.ToString(),
+                ShopifyCustomerId = shopifyOrder.Customer?.Id.ToString(),
+                OrderNumber = shopifyOrder.OrderNumber ?? $"#{shopifyOrder.Id}",
+                Email = shopifyOrder.Email,
+                CustomerId = customerId, // 関連付け
+                TotalPrice = shopifyOrder.TotalPrice,
+                SubtotalPrice = shopifyOrder.SubtotalPrice,
+                TotalTax = shopifyOrder.TotalTax,
+                TaxPrice = shopifyOrder.TotalTax, // 互換性のため
+                Currency = shopifyOrder.Currency ?? "JPY",
+                Status = shopifyOrder.Status ?? "pending",
+                FinancialStatus = shopifyOrder.FinancialStatus ?? "pending",
+                FulfillmentStatus = shopifyOrder.FulfillmentStatus,
+                CreatedAt = shopifyOrder.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                OrderItems = new List<OrderItem>()
+            };
+
+            // 注文明細を変換
+            if (shopifyOrder.LineItems != null)
+            {
+                foreach (var lineItem in shopifyOrder.LineItems)
+                {
+                    order.OrderItems.Add(new OrderItem
+                    {
+                        ShopifyLineItemId = lineItem.Id.ToString(),
+                        ShopifyProductId = lineItem.ProductId?.ToString(),
+                        ShopifyVariantId = lineItem.VariantId?.ToString(),
+                        ProductTitle = lineItem.Title,
+                        Title = lineItem.Title,
+                        VariantTitle = lineItem.VariantTitle,
+                        Sku = lineItem.Sku,
+                        ProductVendor = lineItem.Vendor,
+                        Quantity = lineItem.Quantity,
+                        Price = lineItem.Price,
+                        TotalPrice = lineItem.Price * lineItem.Quantity,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            return order;
         }
 
-        /// <summary>
-        /// 注文データを保存または更新
-        /// </summary>
-        private async Task SaveOrUpdateOrder(int storeId, Order order)
-        {
-            var existingOrder = await _context.Orders
-                .FirstOrDefaultAsync(o => 
-                    o.StoreId == storeId && 
-                    o.ShopifyOrderId == order.ShopifyOrderId);
-            
-            if (existingOrder != null)
-            {
-                // 既存データを更新
-                existingOrder.OrderNumber = order.OrderNumber;
-                existingOrder.TotalPrice = order.TotalPrice;
-                existingOrder.SubtotalPrice = order.SubtotalPrice;
-                existingOrder.TotalTax = order.TotalTax;
-                existingOrder.Currency = order.Currency;
-                existingOrder.FinancialStatus = order.FinancialStatus;
-                existingOrder.FulfillmentStatus = order.FulfillmentStatus;
-                existingOrder.Email = order.Email;
-                existingOrder.UpdatedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                // 新規データを追加
-                order.StoreId = storeId;
-                order.Id = 0; // EFに新規エンティティとして認識させる
-                _context.Orders.Add(order);
-            }
-            
-            await _context.SaveChangesAsync();
-            
-            // 保存後、OrderIdを取得
-            if (existingOrder != null)
-            {
-                order.Id = existingOrder.Id;
-            }
-        }
 
         /// <summary>
-        /// 注文明細データを保存または更新
+        /// 注文データをバッチ処理で保存または更新（注文明細も含む）
         /// </summary>
-        private async Task SaveOrUpdateOrderItem(int orderId, OrderItem item)
+        private async Task SaveOrUpdateOrdersBatch(int storeId, List<Order> orders)
         {
-            var existingItem = await _context.OrderItems
-                .FirstOrDefaultAsync(i => 
-                    i.OrderId == orderId && 
-                    i.ShopifyLineItemId == item.ShopifyLineItemId);
-            
-            if (existingItem != null)
+            if (!orders.Any()) return;
+
+            var shopifyOrderIds = orders
+                .Where(o => !string.IsNullOrEmpty(o.ShopifyOrderId))
+                .Select(o => o.ShopifyOrderId!)
+                .ToList();
+
+            // 既存の注文を一括取得（注文明細も含む）
+            var existingOrders = await _context.Orders
+                .Include(o => o.OrderItems)
+                .Where(o => o.StoreId == storeId && shopifyOrderIds.Contains(o.ShopifyOrderId!))
+                .ToDictionaryAsync(o => o.ShopifyOrderId!);
+
+            foreach (var order in orders)
             {
-                // 既存データを更新
-                existingItem.ProductId = item.ProductId;
-                existingItem.ShopifyVariantId = item.ShopifyVariantId;
-                existingItem.Title = item.Title;
-                existingItem.VariantTitle = item.VariantTitle;
-                existingItem.Sku = item.Sku;
-                existingItem.ProductVendor = item.ProductVendor;
-                existingItem.Quantity = item.Quantity;
-                existingItem.Price = item.Price;
-                existingItem.TotalPrice = item.TotalPrice;
-                existingItem.RequiresShipping = item.RequiresShipping;
-                existingItem.UpdatedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                // 新規データを追加
-                item.OrderId = orderId;
-                item.Id = 0; // EFに新規エンティティとして認識させる
-                _context.OrderItems.Add(item);
+                if (string.IsNullOrEmpty(order.ShopifyOrderId))
+                {
+                    _logger.LogWarning("ShopifyOrderId is null, skipping order: {OrderNumber}", order.OrderNumber);
+                    continue;
+                }
+
+                if (existingOrders.TryGetValue(order.ShopifyOrderId, out var existingOrder))
+                {
+                    // 既存データを更新
+                    existingOrder.OrderNumber = order.OrderNumber;
+                    existingOrder.TotalPrice = order.TotalPrice;
+                    existingOrder.SubtotalPrice = order.SubtotalPrice;
+                    existingOrder.TotalTax = order.TotalTax;
+                    existingOrder.TaxPrice = order.TaxPrice;
+                    existingOrder.Currency = order.Currency;
+                    existingOrder.Status = order.Status;
+                    existingOrder.FinancialStatus = order.FinancialStatus;
+                    existingOrder.FulfillmentStatus = order.FulfillmentStatus;
+                    existingOrder.Email = order.Email;
+                    existingOrder.CustomerId = order.CustomerId; // CustomerIdも更新
+                    existingOrder.UpdatedAt = DateTime.UtcNow;
+
+                    // 注文明細を更新
+                    if (order.OrderItems != null && order.OrderItems.Any())
+                    {
+                        var existingItemDict = existingOrder.OrderItems
+                            .Where(i => !string.IsNullOrEmpty(i.ShopifyLineItemId))
+                            .ToDictionary(i => i.ShopifyLineItemId!);
+
+                        foreach (var item in order.OrderItems)
+                        {
+                            if (string.IsNullOrEmpty(item.ShopifyLineItemId))
+                            {
+                                _logger.LogWarning("ShopifyLineItemId is null, skipping order item");
+                                continue;
+                            }
+
+                            if (existingItemDict.TryGetValue(item.ShopifyLineItemId, out var existingItem))
+                            {
+                                // 既存の明細を更新
+                                existingItem.ProductId = item.ProductId;
+                                existingItem.ShopifyProductId = item.ShopifyProductId;
+                                existingItem.ShopifyVariantId = item.ShopifyVariantId;
+                                existingItem.Title = item.Title;
+                                existingItem.ProductTitle = item.ProductTitle;
+                                existingItem.VariantTitle = item.VariantTitle;
+                                existingItem.Sku = item.Sku;
+                                existingItem.ProductVendor = item.ProductVendor;
+                                existingItem.Quantity = item.Quantity;
+                                existingItem.Price = item.Price;
+                                existingItem.TotalPrice = item.TotalPrice;
+                                existingItem.UpdatedAt = DateTime.UtcNow;
+                            }
+                            else
+                            {
+                                // 新規の明細を追加
+                                item.OrderId = existingOrder.Id;
+                                item.Id = 0;
+                                existingOrder.OrderItems.Add(item);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // 新規データを追加
+                    order.StoreId = storeId;
+                    order.Id = 0;
+                    order.CreatedAt = order.CreatedAt == default ? DateTime.UtcNow : order.CreatedAt;
+                    
+                    // 注文明細のOrderIdを設定
+                    if (order.OrderItems != null)
+                    {
+                        foreach (var item in order.OrderItems)
+                        {
+                            item.Id = 0; // 新規エンティティとして認識させる
+                        }
+                    }
+                    
+                    _context.Orders.Add(order);
+                }
             }
             
             await _context.SaveChangesAsync();

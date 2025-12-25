@@ -98,32 +98,79 @@ namespace ShopifyAnalyticsApi.Jobs
                     
                     // 同期実行（ページネーション処理）
                     var hasMorePages = true;
-                    var batchSize = 250;
+                    var currentPageInfo = lastCursor;
+                    var batchSize = 100; // バッチ処理のサイズ
+                    var page = 1;
                     
                     while (hasMorePages)
                     {
-                        // ShopifyApiServiceを呼び出し（実際の実装では改修が必要）
-                        // var result = await _shopifyApi.SyncProductsPageAsync(
-                        //     storeId, dateRange, lastCursor, batchSize);
+                        // 商品データを取得（実際のShopify API呼び出し）
+                        var (shopifyProducts, nextPageInfo) = await _shopifyApi.FetchProductsPageAsync(
+                            storeId, dateRange.Start, currentPageInfo);
                         
-                        // この部分は実際のAPI実装に合わせて調整
-                        var batchCount = await _shopifyApi.SyncProductsAsync(storeId, dateRange.Start);
-                        syncedCount += batchCount;
-                        totalProcessed += batchCount;
-                        
-                        // 進捗を更新
-                        await _progressTracker.UpdateProgressAsync(
-                            syncStateId, totalProcessed, null, $"Batch-{totalProcessed}");
-                        
-                        // チェックポイントを保存（100件ごと）
-                        if (totalProcessed % 100 == 0)
+                        if (shopifyProducts == null || !shopifyProducts.Any())
                         {
-                            await _checkpointManager.SaveCheckpointAsync(
-                                storeId, "Products", lastCursor ?? "", totalProcessed, dateRange);
+                            hasMorePages = false;
+                            break;
                         }
                         
-                        // TODO: 実際のページネーション処理
-                        hasMorePages = false; // 暫定的に1回で終了
+                        // バッチ処理でデータベースに保存
+                        var batch = new List<Product>();
+                        foreach (var shopifyProduct in shopifyProducts)
+                        {
+                            var product = ConvertToProductEntity(storeId, shopifyProduct);
+                            batch.Add(product);
+                            
+                            // バッチサイズに達したら保存
+                            if (batch.Count >= batchSize)
+                            {
+                                await SaveOrUpdateProductsBatch(storeId, batch);
+                                syncedCount += batch.Count;
+                                totalProcessed += batch.Count;
+                                batch.Clear();
+                                
+                                // 進捗を更新
+                                await _progressTracker.UpdateProgressAsync(
+                                    syncStateId, totalProcessed, null, $"Page-{page}");
+                                
+                                // チェックポイントを保存
+                                await _checkpointManager.SaveCheckpointAsync(
+                                    storeId, "Products", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
+                            }
+                        }
+                        
+                        // 残りのバッチを保存
+                        if (batch.Any())
+                        {
+                            await SaveOrUpdateProductsBatch(storeId, batch);
+                            syncedCount += batch.Count;
+                            totalProcessed += batch.Count;
+                            
+                            // 進捗を更新
+                            await _progressTracker.UpdateProgressAsync(
+                                syncStateId, totalProcessed, null, $"Page-{page}");
+                            
+                            // チェックポイントを保存
+                            await _checkpointManager.SaveCheckpointAsync(
+                                storeId, "Products", currentPageInfo ?? $"page-{page}", totalProcessed, dateRange);
+                        }
+                        
+                        _logger.LogInformation(
+                            $"Processed page {page} with {shopifyProducts.Count} products. Total: {totalProcessed}");
+                        
+                        // 次のページがあるかチェック
+                        if (string.IsNullOrEmpty(nextPageInfo))
+                        {
+                            hasMorePages = false;
+                        }
+                        else
+                        {
+                            currentPageInfo = nextPageInfo;
+                            page++;
+                            
+                            // Rate Limit対策
+                            await Task.Delay(TimeSpan.FromMilliseconds(500));
+                        }
                     }
                     
                     // 同期完了
@@ -258,6 +305,132 @@ namespace ShopifyAnalyticsApi.Jobs
                 _logger.LogError(ex, "Error checking deleted products");
                 // エラーが発生しても同期処理は続行
             }
+        }
+
+        /// <summary>
+        /// ShopifyProductをProductエンティティに変換
+        /// </summary>
+        private Product ConvertToProductEntity(int storeId, ShopifyApiService.ShopifyProduct shopifyProduct)
+        {
+            var product = new Product
+            {
+                StoreId = storeId,
+                ShopifyProductId = shopifyProduct.Id.ToString(),
+                Title = shopifyProduct.Title ?? string.Empty,
+                ProductType = shopifyProduct.ProductType,
+                Vendor = shopifyProduct.Vendor,
+                CreatedAt = shopifyProduct.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Variants = new List<ProductVariant>()
+            };
+
+            // バリアントを変換
+            if (shopifyProduct.Variants != null)
+            {
+                foreach (var variant in shopifyProduct.Variants)
+                {
+                    product.Variants.Add(new ProductVariant
+                    {
+                        ShopifyVariantId = variant.Id.ToString(),
+                        Title = variant.Title ?? string.Empty,
+                        Price = variant.Price,
+                        Sku = variant.Sku,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            return product;
+        }
+
+        /// <summary>
+        /// 商品データをバッチ処理で保存または更新（バリアントも含む）
+        /// </summary>
+        private async Task SaveOrUpdateProductsBatch(int storeId, List<Product> products)
+        {
+            if (!products.Any()) return;
+
+            var shopifyProductIds = products
+                .Where(p => !string.IsNullOrEmpty(p.ShopifyProductId))
+                .Select(p => p.ShopifyProductId!)
+                .ToList();
+
+            // 既存の商品を一括取得（バリアントも含む）
+            var existingProducts = await _context.Products
+                .Include(p => p.Variants)
+                .Where(p => p.StoreId == storeId && shopifyProductIds.Contains(p.ShopifyProductId!))
+                .ToDictionaryAsync(p => p.ShopifyProductId!);
+
+            foreach (var product in products)
+            {
+                if (string.IsNullOrEmpty(product.ShopifyProductId))
+                {
+                    _logger.LogWarning("ShopifyProductId is null, skipping product: {Title}", product.Title);
+                    continue;
+                }
+
+                if (existingProducts.TryGetValue(product.ShopifyProductId, out var existingProduct))
+                {
+                    // 既存データを更新
+                    existingProduct.Title = product.Title;
+                    existingProduct.ProductType = product.ProductType;
+                    existingProduct.Vendor = product.Vendor;
+                    existingProduct.UpdatedAt = DateTime.UtcNow;
+
+                    // バリアントを更新
+                    if (product.Variants != null && product.Variants.Any())
+                    {
+                        var existingVariantDict = existingProduct.Variants
+                            .Where(v => !string.IsNullOrEmpty(v.ShopifyVariantId))
+                            .ToDictionary(v => v.ShopifyVariantId!);
+
+                        foreach (var variant in product.Variants)
+                        {
+                            if (string.IsNullOrEmpty(variant.ShopifyVariantId))
+                            {
+                                _logger.LogWarning("ShopifyVariantId is null, skipping variant");
+                                continue;
+                            }
+
+                            if (existingVariantDict.TryGetValue(variant.ShopifyVariantId, out var existingVariant))
+                            {
+                                // 既存のバリアントを更新
+                                existingVariant.Title = variant.Title;
+                                existingVariant.Price = variant.Price;
+                                existingVariant.Sku = variant.Sku;
+                                existingVariant.UpdatedAt = DateTime.UtcNow;
+                            }
+                            else
+                            {
+                                // 新規のバリアントを追加
+                                variant.Id = 0;
+                                existingProduct.Variants.Add(variant);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // 新規データを追加
+                    product.StoreId = storeId;
+                    product.Id = 0;
+                    product.CreatedAt = product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt;
+                    
+                    // バリアントのIDをリセット
+                    if (product.Variants != null)
+                    {
+                        foreach (var variant in product.Variants)
+                        {
+                            variant.Id = 0; // 新規エンティティとして認識させる
+                        }
+                    }
+                    
+                    _context.Products.Add(product);
+                }
+            }
+            
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>

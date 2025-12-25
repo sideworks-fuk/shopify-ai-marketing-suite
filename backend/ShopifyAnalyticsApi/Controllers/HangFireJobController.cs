@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Hangfire;
 using ShopifyAnalyticsApi.Jobs;
+using ShopifyAnalyticsApi.Attributes;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -148,7 +149,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// テスト用のシンプルなジョブを実行
         /// </summary>
         [HttpPost("test-job")]
-        [AllowAnonymous] // テスト用なので認証なしでアクセス可能
+        [RequireDeveloperAuth] // 開発者認証が必要
         public IActionResult TriggerTestJob()
         {
             try
