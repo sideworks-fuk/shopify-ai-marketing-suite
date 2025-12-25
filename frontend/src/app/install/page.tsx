@@ -361,7 +361,14 @@ export default function InstallPolarisPage() {
       // リダイレクト処理（開発環境では短い遅延、本番環境では即座）
       const performRedirect = () => {
         try {
-          console.log('🔄 リダイレクト実行開始:', { authUrl, isEmbedded, isInIframe });
+          // デバッグ用: リダイレクト前の状態を詳細にログ出力
+          console.log('🔄 ===== リダイレクト実行開始 =====');
+          console.log('📍 現在のURL:', window.location.href);
+          console.log('📍 現在のパス:', window.location.pathname);
+          console.log('🔗 OAuth URL:', authUrl);
+          console.log('🖼️ 埋め込みモード:', { isEmbedded, isInIframe, canAccessTopWindow: window.top !== null });
+          console.log('⏰ リダイレクト時刻:', new Date().toISOString());
+          console.log('🔄 ================================');
           
           // リダイレクト前にローディング状態を維持（画面が切り替わらないようにする）
           // 注意: setLoading(false)を呼ばないことで、ローディング画面を表示し続ける
@@ -371,8 +378,17 @@ export default function InstallPolarisPage() {
             // OAuth認証はトップレベルで実行する必要があるため
             console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
             if (window.top && window.top !== window.self) {
-              console.log('✅ window.top.location.replace()に設定:', authUrl);
-              window.top.location.replace(authUrl); // replaceを使用して履歴に残さない
+              console.log('✅ 埋め込みアプリ内: window.top.location.replace()を実行');
+              console.log('🔗 リダイレクト先:', authUrl);
+              try {
+                window.top.location.replace(authUrl); // replaceを使用して履歴に残さない
+                console.log('✅ window.top.location.replace()実行完了');
+              } catch (topError) {
+                console.error('❌ window.top.location.replace()実行エラー:', topError);
+                // フォールバック: 通常のリダイレクト
+                console.warn('⚠️ フォールバック: window.location.replace()を使用');
+                window.location.replace(authUrl);
+              }
             } else {
               // フォールバック: 通常のリダイレクト
               console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
@@ -383,20 +399,45 @@ export default function InstallPolarisPage() {
             // 通常のリダイレクト（埋め込みアプリ外）
             console.log('🌐 通常モードでリダイレクト');
             console.log('✅ window.location.replace()に設定:', authUrl);
-            window.location.replace(authUrl); // replaceを使用して履歴に残さない
+            try {
+              window.location.replace(authUrl); // replaceを使用して履歴に残さない
+              console.log('✅ window.location.replace()実行完了');
+            } catch (redirectError) {
+              console.error('❌ window.location.replace()実行エラー:', redirectError);
+              // 最後の手段: hrefを使用
+              console.warn('⚠️ フォールバック: window.location.hrefを使用');
+              window.location.href = authUrl;
+            }
           }
           
           // リダイレクトが実行されなかった場合のフォールバック（1秒後）
           setTimeout(() => {
             const currentUrl = window.location.href;
             const currentPath = window.location.pathname;
-            if (!currentUrl.includes(authUrl.split('?')[0]) && currentPath !== '/auth/success') {
-              console.error('❌ リダイレクトが実行されませんでした。強制的にリダイレクトします。', {
-                currentUrl,
-                currentPath,
-                expectedAuthUrl: authUrl
-              });
-              window.location.replace(authUrl);
+            const authUrlBase = authUrl.split('?')[0];
+            const shouldRedirect = !currentUrl.includes(authUrlBase) && 
+                                   currentPath !== '/auth/success' && 
+                                   currentPath !== '/setup/initial' &&
+                                   currentPath !== '/customers/dormant';
+            
+            if (shouldRedirect) {
+              console.error('❌ ===== リダイレクトが実行されませんでした =====');
+              console.error('📍 現在のURL:', currentUrl);
+              console.error('📍 現在のパス:', currentPath);
+              console.error('🔗 期待されるOAuth URL:', authUrl);
+              console.error('⏰ チェック時刻:', new Date().toISOString());
+              console.error('🔄 強制的にリダイレクトします');
+              console.error('❌ ===========================================');
+              try {
+                window.location.replace(authUrl);
+              } catch (forceError) {
+                console.error('❌ 強制リダイレクトも失敗:', forceError);
+                setError(`リダイレクトに失敗しました: ${forceError instanceof Error ? forceError.message : 'Unknown error'}`);
+                setLoading(false);
+                setIsInstalling(false);
+              }
+            } else {
+              console.log('✅ リダイレクト確認: 正常に遷移しています', { currentPath });
             }
           }, 1000);
         } catch (redirectError) {

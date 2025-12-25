@@ -88,17 +88,27 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                _logger.LogInformation("🔍 ===== OAuth URL取得リクエスト受信 ===== ");
+                _logger.LogInformation("📍 Shop: {Shop}", shop);
+                _logger.LogInformation("🔑 ApiKey: {ApiKey}", apiKey ?? "未指定");
+                _logger.LogInformation("⏰ リクエスト時刻: {Timestamp}", DateTime.UtcNow);
+                
                 var authUrl = await BuildOAuthUrlAsync(shop, apiKey);
+                
                 if (string.IsNullOrEmpty(authUrl))
                 {
+                    _logger.LogError("❌ OAuth URL生成失敗. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey ?? "未指定");
                     return BadRequest(new { error = "Failed to build OAuth URL" });
                 }
+                
+                _logger.LogInformation("✅ OAuth URL生成成功. Shop: {Shop}, AuthUrl: {AuthUrl}", shop, authUrl);
+                _logger.LogInformation("🔍 ============================================");
                 
                 return Ok(new { authUrl });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "OAuth URL取得中にエラーが発生. Shop: {Shop}", shop);
+                _logger.LogError(ex, "❌ OAuth URL取得中にエラーが発生. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey ?? "未指定");
                 return StatusCode(500, new { error = "Failed to get OAuth URL", details = ex.Message });
             }
         }
