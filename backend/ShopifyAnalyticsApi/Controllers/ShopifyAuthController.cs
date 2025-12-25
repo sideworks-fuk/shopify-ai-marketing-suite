@@ -78,6 +78,127 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
+        /// OAuth URLを取得する（JSON形式、フロントエンド用）
+        /// </summary>
+        /// <param name="shop">ショップドメイン (例: example.myshopify.com)</param>
+        /// <param name="apiKey">フロントエンドから渡されるAPI Key（オプション）</param>
+        [HttpGet("install-url")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetInstallUrl([FromQuery] string shop, [FromQuery] string? apiKey = null)
+        {
+            try
+            {
+                var authUrl = await BuildOAuthUrlAsync(shop, apiKey);
+                if (string.IsNullOrEmpty(authUrl))
+                {
+                    return BadRequest(new { error = "Failed to build OAuth URL" });
+                }
+                
+                return Ok(new { authUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "OAuth URL取得中にエラーが発生. Shop: {Shop}", shop);
+                return StatusCode(500, new { error = "Failed to get OAuth URL", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// OAuth URLを構築する共通メソッド
+        /// </summary>
+        private async Task<string?> BuildOAuthUrlAsync(string shop, string? apiKey = null)
+        {
+            // ショップドメインの検証
+            if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
+            {
+                _logger.LogWarning("無効なショップドメイン: {Shop}", shop);
+                return null;
+            }
+
+            // API Key/Secretの取得ロジック
+            string finalApiKey;
+            string? finalApiSecret;
+            int? shopifyAppId = null;
+            string? shopifyAppUrl = null;
+            
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                var shopifyApp = await _context.ShopifyApps
+                    .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
+                
+                if (shopifyApp != null)
+                {
+                    finalApiKey = shopifyApp.ApiKey;
+                    finalApiSecret = shopifyApp.ApiSecret;
+                    shopifyAppId = shopifyApp.Id;
+                    shopifyAppUrl = shopifyApp.AppUrl;
+                }
+                else
+                {
+                    finalApiKey = apiKey;
+                    finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
+                    
+                    if (string.IsNullOrEmpty(finalApiSecret))
+                    {
+                        _logger.LogError("❌ API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                        return null;
+                    }
+                }
+            }
+            else
+            {
+                var (dbApiKey, dbApiSecret) = await GetShopifyCredentialsAsync(shop);
+                finalApiKey = dbApiKey;
+                finalApiSecret = dbApiSecret;
+            }
+            
+            if (string.IsNullOrEmpty(finalApiKey))
+            {
+                _logger.LogError("API Keyが見つかりません. Shop: {Shop}", shop);
+                return null;
+            }
+
+            // CSRF対策用のstateを生成
+            var state = GenerateRandomString(32);
+            var cacheKey = $"{StateCacheKeyPrefix}{state}";
+            
+            // stateとAPI Key/Secret/ShopifyAppIdをキャッシュに保存（10分間有効）
+            var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
+            _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
+            
+            _logger.LogInformation("OAuth認証開始. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
+
+            // Shopify OAuth URLを構築
+            var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+            _logger.LogInformation("OAuth認証スコープ: {Scopes}", scopes);
+            
+            // マルチアプリ対応
+            if (string.IsNullOrWhiteSpace(shopifyAppUrl))
+            {
+                shopifyAppUrl = await _context.ShopifyApps
+                    .Where(a => a.ApiKey == finalApiKey && a.IsActive)
+                    .Select(a => a.AppUrl)
+                    .FirstOrDefaultAsync();
+            }
+
+            var redirectUri = !string.IsNullOrWhiteSpace(shopifyAppUrl)
+                ? $"{shopifyAppUrl.TrimEnd('/')}/api/shopify/callback"
+                : GetRedirectUri();
+            
+            _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
+
+            var authUrl = $"https://{shop}/admin/oauth/authorize" +
+                $"?client_id={finalApiKey}" +
+                $"&scope={scopes}" +
+                $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                $"&state={state}";
+
+            _logger.LogInformation("生成されたOAuth認証URL: {AuthUrl}", authUrl);
+            
+            return authUrl;
+        }
+
+        /// <summary>
         /// Shopifyアプリのインストールを開始する
         /// </summary>
         /// <param name="shop">ショップドメイン (例: example.myshopify.com)</param>
@@ -91,135 +212,11 @@ namespace ShopifyAnalyticsApi.Controllers
                 // デバッグ: リクエストパラメータをログ出力
                 _logger.LogInformation("===== OAuth Install 開始 ===== Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                 
-                // ショップドメインの検証
-                if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
+                var authUrl = await BuildOAuthUrlAsync(shop, apiKey);
+                if (string.IsNullOrEmpty(authUrl))
                 {
-                    _logger.LogWarning("無効なショップドメイン: {Shop}", shop);
-                    return BadRequest(new { error = "Invalid shop domain" });
+                    return BadRequest(new { error = "Invalid shop domain or failed to build OAuth URL" });
                 }
-
-                // API Key/Secretの取得ロジック
-                string finalApiKey;
-                string? finalApiSecret;
-                int? shopifyAppId = null;
-                string? shopifyAppUrl = null;
-                
-                if (!string.IsNullOrEmpty(apiKey))
-                {
-                    // デバッグ: ShopifyAppsテーブルの全データを確認（開発環境のみ）
-                    var isDevelopment = HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment();
-                    if (isDevelopment)
-                    {
-                        var allApps = await _context.ShopifyApps
-                            .Select(a => new { a.Id, a.Name, a.ApiKey, a.IsActive, a.AppUrl })
-                            .ToListAsync();
-                        _logger.LogInformation("ShopifyAppsテーブル全データ: {Apps}", 
-                            System.Text.Json.JsonSerializer.Serialize(allApps));
-                    }
-                    
-                    // フロントエンドからAPI Keyが渡された場合
-                    // ShopifyAppテーブルから対応するアプリを検索
-                    _logger.LogInformation("ShopifyAppsテーブルを検索中. ApiKey: {ApiKey}, IsActive: true", apiKey);
-                    var shopifyApp = await _context.ShopifyApps
-                        .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
-                    
-                    if (shopifyApp != null)
-                    {
-                        finalApiKey = shopifyApp.ApiKey;
-                        finalApiSecret = shopifyApp.ApiSecret;
-                        shopifyAppId = shopifyApp.Id;
-                        shopifyAppUrl = shopifyApp.AppUrl;
-                        _logger.LogInformation("✅ ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}, AppUrl: {AppUrl}", 
-                            shop, shopifyApp.Name, shopifyAppUrl);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("⚠️ ShopifyAppsテーブルに該当するApiKeyが見つかりません. ApiKey: {ApiKey}, IsActive: true で検索", apiKey);
-                        
-                        // デバッグ: IsActive=false のレコードも確認
-                        var inactiveApp = await _context.ShopifyApps
-                            .FirstOrDefaultAsync(a => a.ApiKey == apiKey);
-                        if (inactiveApp != null)
-                        {
-                            _logger.LogWarning("⚠️ 該当するApiKeyは存在しますが、IsActive=false です. App: {AppName}, IsActive: {IsActive}", 
-                                inactiveApp.Name, inactiveApp.IsActive);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ 該当するApiKeyがShopifyAppsテーブルに存在しません");
-                        }
-                        
-                        // フォールバック: 環境変数から取得
-                        _logger.LogInformation("フォールバック: GetApiSecretByApiKeyAsync を呼び出し中...");
-                        finalApiKey = apiKey;
-                        finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
-                        
-                        if (string.IsNullOrEmpty(finalApiSecret))
-                        {
-                            _logger.LogError("❌ API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
-                            return StatusCode(500, new { 
-                                error = "API Secret not found for the provided API Key",
-                                apiKey = apiKey,
-                                message = "ShopifyAppsテーブルに該当するApiKeyが見つからないか、IsActive=falseです"
-                            });
-                        }
-
-                        _logger.LogWarning("⚠️ ShopifyAppsに該当するApiKeyが見つからないためフォールバック. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
-                    }
-                }
-                else
-                {
-                    // フロントエンドからAPI Keyが渡されていない場合（既存のロジック）
-                    var (dbApiKey, dbApiSecret) = await GetShopifyCredentialsAsync(shop);
-                    finalApiKey = dbApiKey;
-                    finalApiSecret = dbApiSecret;
-                }
-                
-                if (string.IsNullOrEmpty(finalApiKey))
-                {
-                    _logger.LogError("API Keyが見つかりません. Shop: {Shop}", shop);
-                    return StatusCode(500, new { error = "API Key not configured" });
-                }
-
-                // CSRF対策用のstateを生成
-                var state = GenerateRandomString(32);
-                var cacheKey = $"{StateCacheKeyPrefix}{state}";
-                
-                // stateとAPI Key/Secret/ShopifyAppIdをキャッシュに保存（10分間有効）
-                var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
-                _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
-                
-                _logger.LogInformation("OAuth認証開始. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
-
-                // Shopify OAuth URLを構築
-                var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                _logger.LogInformation("OAuth認証スコープ: {Scopes}", scopes);
-                
-                // マルチアプリ対応:
-                // redirect_uri は「どのSWA（App URL）」から開始したかに依存するため、
-                // ShopifyApps.AppUrl が取得できる場合はそれを優先して使用する。
-                // （固定の SHOPIFY_FRONTEND_BASEURL だと Prod1/Prod2 を同一バックエンドで運用できない）
-                if (string.IsNullOrWhiteSpace(shopifyAppUrl))
-                {
-                    shopifyAppUrl = await _context.ShopifyApps
-                        .Where(a => a.ApiKey == finalApiKey && a.IsActive)
-                        .Select(a => a.AppUrl)
-                        .FirstOrDefaultAsync();
-                }
-
-                var redirectUri = !string.IsNullOrWhiteSpace(shopifyAppUrl)
-                    ? $"{shopifyAppUrl.TrimEnd('/')}/api/shopify/callback"
-                    : GetRedirectUri();
-                
-                _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
-
-                var authUrl = $"https://{shop}/admin/oauth/authorize" +
-                    $"?client_id={finalApiKey}" +
-                    $"&scope={scopes}" +
-                    $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                    $"&state={state}";
-
-                _logger.LogInformation("生成されたOAuth認証URL: {AuthUrl}", authUrl);
 
                 // Shopifyの認証ページにリダイレクト
                 return Redirect(authUrl);
@@ -1040,19 +1037,59 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 var responseJson = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(responseJson))
+                {
+                    _logger.LogError("Shopify OAuth応答が空です. Shop: {Shop}", shop);
+                    return null;
+                }
+                
                 _logger.LogDebug("トークン取得成功. Shop: {Shop}, Response Length: {Length}", 
-                    shop, responseJson?.Length ?? 0);
+                    shop, responseJson.Length);
+                
+                // デバッグ: Shopifyからの応答をログ出力（access_tokenはマスク）
+                try
+                {
+                    var responseObj = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                    var maskedResponse = responseJson;
+                    if (responseObj.TryGetProperty("access_token", out var accessTokenElement))
+                    {
+                        var accessToken = accessTokenElement.GetString();
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            // access_tokenをマスク（最初の10文字と最後の4文字のみ表示）
+                            var maskedToken = accessToken.Length > 14 
+                                ? $"{accessToken.Substring(0, 10)}...{accessToken.Substring(accessToken.Length - 4)}"
+                                : "***";
+                            maskedResponse = maskedResponse.Replace(accessToken, maskedToken);
+                        }
+                    }
+                    _logger.LogInformation("Shopify OAuth応答（access_tokenマスク済み）: {Response}", maskedResponse);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Shopify応答のログ出力中にエラーが発生");
+                }
                 
                 var tokenResponse = JsonSerializer.Deserialize<ShopifyTokenResponse>(responseJson);
                 
                 if (tokenResponse?.AccessToken != null)
                 {
+                    // scopeが空の場合は、OAuth URLでリクエストしたスコープを使用
+                    if (string.IsNullOrWhiteSpace(tokenResponse.Scope))
+                    {
+                        var requestedScopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                        _logger.LogWarning("Shopify応答にscopeが含まれていません. リクエストしたスコープを使用します. Shop: {Shop}, RequestedScopes: {Scopes}", 
+                            shop, requestedScopes);
+                        tokenResponse.Scope = requestedScopes;
+                    }
+                    
                     _logger.LogInformation("アクセストークン取得成功. Shop: {Shop}, 承認されたスコープ: {Scope}", 
                         shop, tokenResponse.Scope ?? "未設定");
                 }
                 else
                 {
-                    _logger.LogWarning("アクセストークンがレスポンスに含まれていません. Shop: {Shop}", shop);
+                    _logger.LogWarning("アクセストークンがレスポンスに含まれていません. Shop: {Shop}, Response: {Response}", 
+                        shop, responseJson?.Substring(0, Math.Min(200, responseJson?.Length ?? 0)));
                 }
                 
                 return tokenResponse;
@@ -1083,7 +1120,7 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                // 既存のストアを検索
+                // 既存のストアを検索（通常のDomainで検索、IsActiveは問わない）
                 var store = await _context.Stores
                     .Include(s => s.ShopifyApp)
                     .FirstOrDefaultAsync(s => s.Domain == shopDomain);
@@ -1101,6 +1138,19 @@ namespace ShopifyAnalyticsApi.Controllers
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.Stores.Add(store);
+                    _logger.LogInformation("新規ストアを作成. Shop: {Shop}", shopDomain);
+                }
+                else
+                {
+                    // 既存レコードを更新（IsActiveがfalseの場合はtrueに戻す）
+                    if (!store.IsActive)
+                    {
+                        _logger.LogInformation("ストアを再アクティブ化. Shop: {Shop}, StoreId: {StoreId}", 
+                            shopDomain, store.Id);
+                        store.IsActive = true;
+                    }
+                    _logger.LogInformation("既存ストアを更新. Shop: {Shop}, StoreId: {StoreId}", 
+                        shopDomain, store.Id);
                 }
 
                 // ShopifyAppIdを設定（優先）
