@@ -54,6 +54,9 @@ docs/05-development/03-データベース/マイグレーション/
 | **2025-12-23-AddPlanNameToStoreSubscriptions.sql** | 2025-12-23 | 福田+AI | **StoreSubscriptionsにPlanNameカラム追加（Invalid column name 'PlanName' 解消）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-12-23-AddRowVersionToUserFeatureSelections.sql** | 2025-12-23 | 福田+AI | **UserFeatureSelectionsにRowVersion(rowversion)追加（Invalid column name 'RowVersion' 解消）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-12-23-SeedSubscriptionPlans.sql** | 2025-12-23 | 福田+AI | **SubscriptionPlans 初期マスタ投入（Free/Professional/Enterprise）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-25-FIX-AddMissingColumnsToFeatureLimits.sql** | 2025-12-25 | 福田+AI | **FeatureLimitsテーブルに不足カラム追加（ChangeCooldownDays, IsActive）404エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-25-FIX-AddEntityTypeToSyncStatuses.sql** | 2025-12-25 | 福田+AI | **SyncStatusesテーブルに不足カラム追加（EntityType）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2025-12-25-FIX-CreateSyncManagementTables.sql** | 2025-12-25 | 福田+AI | **同期管理関連テーブル作成（SyncCheckpoints, SyncRangeSettings, SyncProgressDetails, SyncStates, SyncHistories）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ✅ 適用済 (2025-12-25) |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
