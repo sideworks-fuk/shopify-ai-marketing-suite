@@ -54,27 +54,33 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
-        /// リダイレクトURIを取得する（フロントエンドのコールバックURLを使用）
+        /// リダイレクトURIを取得する（バックエンドのコールバックURLを使用）
         /// </summary>
+        /// <remarks>
+        /// 重要: OAuthコールバックはバックエンドで処理されるため、
+        /// フロントエンドURLではなくバックエンドURLを使用する必要があります。
+        /// フロントエンド（Azure Static Web Apps等）には/api/shopify/callbackエンドポイントが
+        /// 存在しないため、フロントエンドURLを使用するとOAuthフローが失敗します。
+        /// </remarks>
         private string GetRedirectUri()
         {
-            // フロントエンドのコールバックURLを設定ファイルから取得（必須）
-            // 環境変数 → Shopify:Frontend:BaseUrl → Frontend:BaseUrl の順で検索
-            var frontendUrl = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL") ?? 
-                             _configuration["Shopify:Frontend:BaseUrl"] ?? 
-                             _configuration["Frontend:BaseUrl"];
+            // バックエンドのコールバックURLを使用（OAuthコールバックはバックエンドで処理するため）
+            // 優先順位: 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
+            var backendUrl = Environment.GetEnvironmentVariable("SHOPIFY_BACKEND_BASEURL") ?? 
+                             _configuration["Backend:BaseUrl"];
             
-            if (string.IsNullOrWhiteSpace(frontendUrl))
+            if (string.IsNullOrWhiteSpace(backendUrl))
             {
-                _logger.LogError("Frontend:BaseUrl設定が見つかりません。設定ファイルを確認してください。");
-                _logger.LogError("検索したパス: SHOPIFY_FRONTEND_BASEURL, Shopify:Frontend:BaseUrl, Frontend:BaseUrl");
-                throw new InvalidOperationException("Frontend:BaseUrl設定が必要です。appsettings.jsonまたは環境変数で設定してください。");
+                // 設定がない場合は現在のリクエストからバックエンドURLを取得
+                backendUrl = GetBaseUrl();
+                _logger.LogInformation("Backend:BaseUrl設定がないため、現在のリクエストからURLを取得: {BackendUrl}", backendUrl);
             }
             
-            _logger.LogInformation("リダイレクトURI生成: FrontendUrl={FrontendUrl}, RedirectUri={RedirectUri}", 
-                frontendUrl, $"{frontendUrl}/api/shopify/callback");
+            var redirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
+            _logger.LogInformation("リダイレクトURI生成: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
+                backendUrl, redirectUri);
             
-            return $"{frontendUrl}/api/shopify/callback";
+            return redirectUri;
         }
 
         /// <summary>

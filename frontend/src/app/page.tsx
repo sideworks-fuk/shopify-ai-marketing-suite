@@ -21,6 +21,32 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState('認証状態を確認中...')
   const hasProcessedRef = useRef(false)
 
+  // タイムアウト処理: 5秒以上待機してもリダイレクトされない場合はインストールページへ
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (!hasProcessedRef.current) {
+        console.warn('⏰ [ルートページ] タイムアウト: 5秒経過しても認証状態が確定しませんでした')
+        console.warn('⏰ [ルートページ] 強制的にインストールページへリダイレクトします')
+        
+        const shop = searchParams?.get('shop')
+        const host = searchParams?.get('host')
+        const embedded = searchParams?.get('embedded')
+        
+        const params = new URLSearchParams()
+        if (shop) params.set('shop', shop)
+        if (host) params.set('host', host)
+        if (embedded) params.set('embedded', embedded)
+        const queryString = params.toString()
+        
+        hasProcessedRef.current = true
+        setStatusMessage('インストールページへ移動中...')
+        router.replace(`/install${queryString ? `?${queryString}` : ''}`)
+      }
+    }, 5000) // 5秒タイムアウト
+
+    return () => clearTimeout(timeoutId)
+  }, [router, searchParams])
+
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
     // 既に処理済みの場合はスキップ
