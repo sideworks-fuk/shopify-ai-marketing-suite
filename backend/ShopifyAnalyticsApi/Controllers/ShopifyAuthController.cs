@@ -193,6 +193,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // Shopify OAuth URLを構築
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                _logger.LogInformation("OAuth認証スコープ: {Scopes}", scopes);
                 
                 // マルチアプリ対応:
                 // redirect_uri は「どのSWA（App URL）」から開始したかに依存するため、
@@ -217,6 +218,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     $"&scope={scopes}" +
                     $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                     $"&state={state}";
+
+                _logger.LogInformation("生成されたOAuth認証URL: {AuthUrl}", authUrl);
 
                 // Shopifyの認証ページにリダイレクト
                 return Redirect(authUrl);
