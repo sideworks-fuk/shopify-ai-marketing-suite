@@ -424,7 +424,7 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
-        /// Webhook署名を検証する
+        /// Webhook署名を検証する（マルチアプリ対応）
         /// </summary>
         private async Task<bool> VerifyWebhookRequest()
         {
@@ -442,8 +442,39 @@ namespace ShopifyAnalyticsApi.Controllers
                 var body = await GetRequestBodyAsync();
                 Request.Body.Position = 0;
 
-                // HMACを計算
-                var secret = _configuration["Shopify:WebhookSecret"];
+                // マルチアプリ対応: ストアドメインからShopifyAppを特定してWebhookSecretを取得
+                string? secret = null;
+                
+                // X-Shopify-Shop-Domainヘッダーからストアドメインを取得
+                if (Request.Headers.TryGetValue("X-Shopify-Shop-Domain", out var shopDomainHeader))
+                {
+                    var shopDomain = shopDomainHeader.ToString();
+                    if (!string.IsNullOrWhiteSpace(shopDomain))
+                    {
+                        // ストアからShopifyAppを取得
+                        var store = await _context.Stores
+                            .Include(s => s.ShopifyApp)
+                            .FirstOrDefaultAsync(s => s.Domain == shopDomain);
+                        
+                        if (store?.ShopifyApp != null && store.ShopifyApp.IsActive)
+                        {
+                            // ShopifyAppのApiSecretを使用（Webhook Secretは通常ApiSecretと同じ）
+                            secret = store.ShopifyApp.ApiSecret;
+                            _logger.LogDebug("Webhook SecretをShopifyAppから取得. Shop: {Shop}, App: {App}", shopDomain, store.ShopifyApp.Name);
+                        }
+                    }
+                }
+                
+                // フォールバック: 設定ファイルから取得
+                if (string.IsNullOrWhiteSpace(secret))
+                {
+                    secret = _configuration["Shopify:WebhookSecret"];
+                    if (!string.IsNullOrWhiteSpace(secret))
+                    {
+                        _logger.LogDebug("Webhook Secretを設定ファイルから取得");
+                    }
+                }
+                
                 if (string.IsNullOrWhiteSpace(secret))
                 {
                     _logger.LogError("Webhook秘密鍵が設定されていません");
@@ -558,16 +589,25 @@ namespace ShopifyAnalyticsApi.Controllers
             var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
             if (store != null)
             {
-                store.IsActive = false;
-                store.UpdatedAt = DateTime.UtcNow;
-                
-                // UninstalledAtを記録
+                // 元のDomainをSettingsに保存（再インストール時の検索用）
                 var settings = string.IsNullOrEmpty(store.Settings) 
                     ? new Dictionary<string, object>() 
                     : JsonSerializer.Deserialize<Dictionary<string, object>>(store.Settings) ?? new Dictionary<string, object>();
                 
+                settings["OriginalDomain"] = store.Domain; // 元のDomainを保存
                 settings["UninstalledAt"] = DateTime.UtcNow;
                 settings["ScheduledDeletionDate"] = DateTime.UtcNow.AddDays(daysToDelete);
+                
+                // ストアを非アクティブ化
+                store.IsActive = false;
+                store.UpdatedAt = DateTime.UtcNow;
+                
+                // Domainを無効化（再インストール時に既存レコードが見つからないようにする）
+                // ただし、レコードは残す（削除と同じ扱いにするため）
+                store.Domain = $"{store.Domain}_uninstalled_{DateTime.UtcNow:yyyyMMddHHmmss}";
+                
+                // AccessTokenをクリア（セキュリティのため）
+                store.AccessToken = null;
                 
                 store.Settings = JsonSerializer.Serialize(settings);
                 
