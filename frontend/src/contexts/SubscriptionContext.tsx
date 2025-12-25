@@ -158,8 +158,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeature | null>(null);
   
-  // インストールページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+  // インストールページまたはルートページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+  // ルートページ（/）は認証状態を確認中で、認証が完了していない可能性があるため
   const isInstallPage = pathname === '/install';
+  const isRootPage = pathname === '/';
 
   // Fetch selected feature for free plan users
   const fetchSelectedFeature = useCallback(async () => {
@@ -229,9 +231,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   }, [getApiClient]);
 
   useEffect(() => {
-    // インストールページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
-    if (isInstallPage) {
-      console.log('⏸️ インストールページのため、サブスクリプションデータの取得をスキップします');
+    // インストールページまたはルートページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+    // ルートページ（/）は認証状態を確認中で、認証が完了していない可能性があるため
+    if (isInstallPage || isRootPage) {
+      console.log('⏸️ インストールページまたはルートページのため、サブスクリプションデータの取得をスキップします', { pathname, isInstallPage, isRootPage });
       setLoading(false);
       return;
     }
@@ -245,7 +248,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     console.log('✅ ApiClientが準備完了、サブスクリプションデータを取得します');
     fetchSubscriptionData();
     fetchSelectedFeature();
-  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature, isInstallPage]);
+  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature, isInstallPage, isRootPage, pathname]);
 
   // Calculate derived values
   const currentPlan = plans.find(p => p.id === subscription?.planId) || null;
