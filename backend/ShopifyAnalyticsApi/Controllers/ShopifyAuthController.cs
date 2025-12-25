@@ -57,14 +57,16 @@ namespace ShopifyAnalyticsApi.Controllers
         /// リダイレクトURIを取得する（バックエンドのコールバックURLを使用）
         /// </summary>
         /// <remarks>
-        /// 重要: OAuthコールバックはバックエンドで処理されるため、
-        /// フロントエンドURLではなくバックエンドURLを使用する必要があります。
-        /// フロントエンド（Azure Static Web Apps等）には/api/shopify/callbackエンドポイントが
-        /// 存在しないため、フロントエンドURLを使用するとOAuthフローが失敗します。
+        /// このメソッドは、ShopifyAppsテーブルのAppUrlが設定されていない場合の
+        /// フォールバックとして使用されます。
+        /// 
+        /// 通常は、ShopifyAppsテーブルのAppUrl（フロントエンドURL）が使用され、
+        /// フロントエンドの/api/shopify/callback（Next.js API Route）が
+        /// バックエンドの/api/shopify/callbackにリクエストを転送します。
         /// </remarks>
         private string GetRedirectUri()
         {
-            // バックエンドのコールバックURLを使用（OAuthコールバックはバックエンドで処理するため）
+            // バックエンドのコールバックURLを使用（AppUrlが設定されていない場合のフォールバック）
             // 優先順位: 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
             var backendUrl = Environment.GetEnvironmentVariable("SHOPIFY_BACKEND_BASEURL") ?? 
                              _configuration["Backend:BaseUrl"];
@@ -77,7 +79,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             
             var redirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
-            _logger.LogInformation("リダイレクトURI生成: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
+            _logger.LogInformation("リダイレクトURI生成（フォールバック）: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
                 backendUrl, redirectUri);
             
             return redirectUri;
@@ -188,7 +190,7 @@ namespace ShopifyAnalyticsApi.Controllers
             var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
             _logger.LogInformation("OAuth認証スコープ: {Scopes}", scopes);
             
-            // マルチアプリ対応
+            // マルチアプリ対応: AppUrlを取得（フロントエンドへのリダイレクト用）
             if (string.IsNullOrWhiteSpace(shopifyAppUrl))
             {
                 shopifyAppUrl = await _context.ShopifyApps
@@ -197,6 +199,11 @@ namespace ShopifyAnalyticsApi.Controllers
                     .FirstOrDefaultAsync();
             }
 
+            // redirect_uriの決定:
+            // - AppUrlが設定されている場合: フロントエンドURLを使用（フロントエンドの/api/shopify/callbackがバックエンドに転送する）
+            // - AppUrlが設定されていない場合: バックエンドURLを直接使用
+            // 注意: フロントエンドの/api/shopify/callbackはNext.js API Routeで実装されており、
+            // バックエンドの/api/shopify/callbackにリクエストを転送するプロキシとして機能する
             var redirectUri = !string.IsNullOrWhiteSpace(shopifyAppUrl)
                 ? $"{shopifyAppUrl.TrimEnd('/')}/api/shopify/callback"
                 : GetRedirectUri();
