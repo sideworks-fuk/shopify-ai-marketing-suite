@@ -472,6 +472,22 @@ RecurringJob.AddOrUpdate<GdprProcessingJob>(
     job => job.ProcessPendingRequests(),
     "*/5 * * * *");
 
+// データ同期の定期ジョブを自動登録
+try
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        ShopifyProductSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
+        ShopifyCustomerSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
+        ShopifyOrderSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
+        Log.Information("All recurring sync jobs registered successfully");
+    }
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Failed to register recurring sync jobs");
+}
+
 // セキュリティヘッダーを追加
 app.Use(async (context, next) =>
 {

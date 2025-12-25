@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Services;
+using ShopifyAnalyticsApi.Jobs;
 using System.ComponentModel.DataAnnotations;
+using Hangfire;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -18,6 +20,10 @@ namespace ShopifyAnalyticsApi.Controllers
         private readonly IStoreService _storeService;
         private readonly ShopifyDataSyncService _syncService;
         private readonly ShopifyApiService _apiService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly ShopifyProductSyncJob _productSyncJob;
+        private readonly ShopifyCustomerSyncJob _customerSyncJob;
+        private readonly ShopifyOrderSyncJob _orderSyncJob;
         private readonly ILogger<SyncController> _logger;
 
         public SyncController(
@@ -25,12 +31,20 @@ namespace ShopifyAnalyticsApi.Controllers
             IStoreService storeService,
             ShopifyDataSyncService syncService,
             ShopifyApiService apiService,
+            IBackgroundJobClient backgroundJobClient,
+            ShopifyProductSyncJob productSyncJob,
+            ShopifyCustomerSyncJob customerSyncJob,
+            ShopifyOrderSyncJob orderSyncJob,
             ILogger<SyncController> logger) : base(logger)
         {
             _context = context;
             _storeService = storeService;
             _syncService = syncService;
             _apiService = apiService;
+            _backgroundJobClient = backgroundJobClient;
+            _productSyncJob = productSyncJob;
+            _customerSyncJob = customerSyncJob;
+            _orderSyncJob = orderSyncJob;
             _logger = logger;
         }
 
@@ -72,25 +86,18 @@ namespace ShopifyAnalyticsApi.Controllers
                 _context.SyncStatuses.Add(syncStatus);
                 await _context.SaveChangesAsync();
 
-                // バックグラウンドで同期を開始
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _syncService.StartInitialSync(currentStore.Id, syncStatus.Id, request.SyncPeriod);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error in background sync for store {StoreId}", currentStore.Id);
-                    }
-                });
+                // HangFireバックグラウンドジョブとして登録
+                var jobId = _backgroundJobClient.Enqueue(() => 
+                    _syncService.StartInitialSync(currentStore.Id, syncStatus.Id, request.SyncPeriod));
 
-                _logger.LogInformation("Initial sync started for store: {StoreName} (ID: {StoreId}), period: {SyncPeriod}", 
-                    currentStore.Name, currentStore.Id, request.SyncPeriod);
+                _logger.LogInformation(
+                    "Initial sync job enqueued. JobId: {JobId}, StoreId: {StoreId}, StoreName: {StoreName}, Period: {SyncPeriod}", 
+                    jobId, currentStore.Id, currentStore.Name, request.SyncPeriod);
 
                 return Ok(new
                 {
                     syncId = syncStatus.Id,
+                    jobId = jobId,
                     status = "started",
                     message = "Initial sync has been started"
                 });
@@ -376,41 +383,41 @@ namespace ShopifyAnalyticsApi.Controllers
             _context.SyncStatuses.Add(syncStatus);
             await _context.SaveChangesAsync();
 
-            // バックグラウンドで同期を実行（本来はHangfireなどを使用）
-            _ = Task.Run(async () =>
+            // HangFireバックグラウンドジョブとして登録
+            var jobIds = new List<string>();
+
+            if (request.Type == "all" || request.Type == "products")
             {
-                try
-                {
-                    if (request.Type == "all" || request.Type == "products")
-                    {
-                        await _apiService.SyncProductsAsync(currentStore.Id);
-                    }
-                    if (request.Type == "all" || request.Type == "customers")
-                    {
-                        await _apiService.SyncCustomersAsync(currentStore.Id);
-                    }
-                    if (request.Type == "all" || request.Type == "orders")
-                    {
-                        await _apiService.SyncOrdersAsync(currentStore.Id);
-                    }
+                var productJobId = _backgroundJobClient.Enqueue<ShopifyProductSyncJob>(
+                    job => job.SyncProducts(currentStore.Id, null));
+                jobIds.Add($"products:{productJobId}");
+                _logger.LogInformation("Product sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
+                    productJobId, currentStore.Id);
+            }
 
-                    syncStatus.Status = "completed";
-                    syncStatus.EndDate = DateTime.UtcNow;
-                }
-                catch (Exception ex)
-                {
-                    syncStatus.Status = "failed";
-                    syncStatus.ErrorMessage = ex.Message;
-                    syncStatus.EndDate = DateTime.UtcNow;
-                }
+            if (request.Type == "all" || request.Type == "customers")
+            {
+                var customerJobId = _backgroundJobClient.Enqueue<ShopifyCustomerSyncJob>(
+                    job => job.SyncCustomers(currentStore.Id, null));
+                jobIds.Add($"customers:{customerJobId}");
+                _logger.LogInformation("Customer sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
+                    customerJobId, currentStore.Id);
+            }
 
-                await _context.SaveChangesAsync();
-            });
+            if (request.Type == "all" || request.Type == "orders")
+            {
+                var orderJobId = _backgroundJobClient.Enqueue<ShopifyOrderSyncJob>(
+                    job => job.SyncOrders(currentStore.Id, null));
+                jobIds.Add($"orders:{orderJobId}");
+                _logger.LogInformation("Order sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
+                    orderJobId, currentStore.Id);
+            }
 
             return Ok(new 
             { 
                 success = true, 
-                message = $"{request.Type}データの同期を開始しました" 
+                message = $"{request.Type}データの同期を開始しました",
+                jobIds = jobIds
             });
         }
         catch (Exception ex)
