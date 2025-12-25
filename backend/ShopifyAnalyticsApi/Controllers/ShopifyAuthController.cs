@@ -306,27 +306,28 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 // アクセストークンを取得（リトライ機能付き）
-                var accessToken = await ExchangeCodeForAccessTokenWithRetry(
+                var tokenResponse = await ExchangeCodeForAccessTokenWithRetry(
                     code, 
                     shop, 
                     stateData.apiKey, 
                     stateData.apiSecret);
-                if (string.IsNullOrWhiteSpace(accessToken))
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
                 {
                     _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", shop);
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
-                // ストア情報を保存・更新（ShopifyAppIdも保存）
+                // ストア情報を保存・更新（ShopifyAppIdも保存、承認されたスコープも保存）
                 var storeId = await SaveOrUpdateStore(
                     shop, 
-                    accessToken, 
+                    tokenResponse.AccessToken, 
                     stateData.apiKey, 
                     stateData.apiSecret,
-                    stateData.shopifyAppId);
+                    stateData.shopifyAppId,
+                    tokenResponse.Scope);
 
                 // Webhook登録
-                await RegisterWebhooks(shop, accessToken);
+                await RegisterWebhooks(shop, tokenResponse.AccessToken);
 
                 // ✅ 案1: インストール直後はトライアル（trialing）を自動付与して全機能を解放
                 await EnsureTrialSubscriptionAsync(storeId);
@@ -456,22 +457,22 @@ namespace ShopifyAnalyticsApi.Controllers
                 int? shopifyAppId = store?.ShopifyAppId;
 
                 // アクセストークンを取得（リトライ機能付き）
-                var accessToken = await ExchangeCodeForAccessTokenWithRetry(
+                var tokenResponse = await ExchangeCodeForAccessTokenWithRetry(
                     request.Code, 
                     request.Shop, 
                     apiKey, 
                     apiSecret);
-                if (string.IsNullOrWhiteSpace(accessToken))
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
                 {
                     _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", request.Shop);
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
-                // ストア情報を保存・更新（ShopifyAppIdも保存）
-                var storeId = await SaveOrUpdateStore(request.Shop, accessToken, apiKey, apiSecret, shopifyAppId);
+                // ストア情報を保存・更新（ShopifyAppIdも保存、承認されたスコープも保存）
+                var storeId = await SaveOrUpdateStore(request.Shop, tokenResponse.AccessToken, apiKey, apiSecret, shopifyAppId, tokenResponse.Scope);
 
                 // Webhook登録
-                await RegisterWebhooks(request.Shop, accessToken);
+                await RegisterWebhooks(request.Shop, tokenResponse.AccessToken);
 
                 // ✅ 案1: インストール直後はトライアル（trialing）を自動付与して全機能を解放
                 await EnsureTrialSubscriptionAsync(storeId);
@@ -699,6 +700,79 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
+        /// デバッグ用エンドポイント - 承認済みスコープの確認
+        /// </summary>
+        [HttpGet("debug-approved-scopes")]
+        [RequireDeveloperAuth]
+        public async Task<IActionResult> DebugApprovedScopes([FromQuery] string? shop = null)
+        {
+            try
+            {
+                var query = _context.Stores.AsQueryable();
+                
+                if (!string.IsNullOrEmpty(shop))
+                {
+                    query = query.Where(s => s.Domain == shop);
+                }
+
+                var stores = await query
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.Domain,
+                        s.ShopifyShopId,
+                        Settings = s.Settings
+                    })
+                    .ToListAsync();
+
+                var storesWithScopes = stores.Select(s =>
+                {
+                    string? approvedScope = null;
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(s.Settings))
+                        {
+                            var settings = JsonSerializer.Deserialize<Dictionary<string, object>>(s.Settings);
+                            if (settings != null && settings.ContainsKey("ShopifyScope"))
+                            {
+                                approvedScope = settings["ShopifyScope"]?.ToString();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Settingsの解析に失敗. StoreId: {StoreId}", s.Id);
+                    }
+
+                    return new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.Domain,
+                        s.ShopifyShopId,
+                        ApprovedScope = approvedScope ?? "未設定",
+                        HasSettings = !string.IsNullOrEmpty(s.Settings)
+                    };
+                }).ToList();
+
+                return Ok(new
+                {
+                    message = "承認済みスコープの確認",
+                    count = storesWithScopes.Count,
+                    stores = storesWithScopes,
+                    timestamp = DateTime.UtcNow,
+                    note = "ApprovedScopeはOAuth認証時にShopifyから返されたスコープです。"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "承認済みスコープ確認中にエラーが発生");
+                return StatusCode(500, new { error = "Failed to query approved scopes", details = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// デバッグ用エンドポイント - Storeテーブルの状態確認（AccessTokenの保存状況を確認）
         /// </summary>
         [HttpGet("debug-stores")]
@@ -911,7 +985,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <summary>
         /// 認証コードをアクセストークンに交換する
         /// </summary>
-        private async Task<string?> ExchangeCodeForAccessToken(
+        private async Task<ShopifyTokenResponse?> ExchangeCodeForAccessToken(
             string code, 
             string shop, 
             string apiKey, 
@@ -973,14 +1047,15 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 if (tokenResponse?.AccessToken != null)
                 {
-                    _logger.LogInformation("アクセストークン取得成功. Shop: {Shop}", shop);
+                    _logger.LogInformation("アクセストークン取得成功. Shop: {Shop}, 承認されたスコープ: {Scope}", 
+                        shop, tokenResponse.Scope ?? "未設定");
                 }
                 else
                 {
                     _logger.LogWarning("アクセストークンがレスポンスに含まれていません. Shop: {Shop}", shop);
                 }
                 
-                return tokenResponse?.AccessToken;
+                return tokenResponse;
             }
             catch (Exception ex)
             {
@@ -997,12 +1072,14 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <param name="apiKey">使用したAPI Key（オプション、後方互換性のため）</param>
         /// <param name="apiSecret">使用したAPI Secret（オプション、後方互換性のため）</param>
         /// <param name="shopifyAppId">ShopifyAppId（オプション、優先的に設定）</param>
+        /// <param name="approvedScope">Shopifyから返された承認済みスコープ（オプション）</param>
         private async Task<int> SaveOrUpdateStore(
             string shopDomain, 
             string accessToken, 
             string? apiKey = null, 
             string? apiSecret = null,
-            int? shopifyAppId = null)
+            int? shopifyAppId = null,
+            string? approvedScope = null)
         {
             try
             {
@@ -1050,10 +1127,15 @@ namespace ShopifyAnalyticsApi.Controllers
                 store.AccessToken = EncryptToken(accessToken);
 
                 // トークンと認証情報を更新（暗号化して保存）
+                // 承認済みスコープが提供されている場合はそれを使用、なければ設定ファイルのスコープを使用
+                var scopeToSave = !string.IsNullOrWhiteSpace(approvedScope) 
+                    ? approvedScope 
+                    : GetShopifySetting("Scopes");
+                
                 store.Settings = JsonSerializer.Serialize(new
                 {
                     ShopifyAccessToken = EncryptToken(accessToken),
-                    ShopifyScope = GetShopifySetting("Scopes"),
+                    ShopifyScope = scopeToSave,
                     InstalledAt = DateTime.UtcNow,
                     LastTokenRefresh = DateTime.UtcNow
                 });
