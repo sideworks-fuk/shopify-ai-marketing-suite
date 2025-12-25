@@ -54,19 +54,17 @@ namespace ShopifyAnalyticsApi.Controllers
         }
 
         /// <summary>
-        /// リダイレクトURIを取得する（バックエンドのコールバックURLを使用）
+        /// リダイレクトURIを取得する（OAuthコールバックはバックエンドで処理するため）
         /// </summary>
         /// <remarks>
-        /// このメソッドは、ShopifyAppsテーブルのAppUrlが設定されていない場合の
-        /// フォールバックとして使用されます。
+        /// Shopify公式ドキュメントに基づき、OAuthコールバックはバックエンドで直接処理するため、
+        /// 常にバックエンドURLを使用します。
         /// 
-        /// 通常は、ShopifyAppsテーブルのAppUrl（フロントエンドURL）が使用され、
-        /// フロントエンドの/api/shopify/callback（Next.js API Route）が
-        /// バックエンドの/api/shopify/callbackにリクエストを転送します。
+        /// 優先順位: 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
         /// </remarks>
         private string GetRedirectUri()
         {
-            // バックエンドのコールバックURLを使用（AppUrlが設定されていない場合のフォールバック）
+            // バックエンドのコールバックURLを使用（OAuthコールバックはバックエンドで処理するため）
             // 優先順位: 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
             var backendUrl = Environment.GetEnvironmentVariable("SHOPIFY_BACKEND_BASEURL") ?? 
                              _configuration["Backend:BaseUrl"];
@@ -79,7 +77,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             
             var redirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
-            _logger.LogInformation("リダイレクトURI生成（フォールバック）: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
+            _logger.LogInformation("リダイレクトURI生成: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
                 backendUrl, redirectUri);
             
             return redirectUri;
@@ -200,13 +198,10 @@ namespace ShopifyAnalyticsApi.Controllers
             }
 
             // redirect_uriの決定:
-            // - AppUrlが設定されている場合: フロントエンドURLを使用（フロントエンドの/api/shopify/callbackがバックエンドに転送する）
-            // - AppUrlが設定されていない場合: バックエンドURLを直接使用
-            // 注意: フロントエンドの/api/shopify/callbackはNext.js API Routeで実装されており、
-            // バックエンドの/api/shopify/callbackにリクエストを転送するプロキシとして機能する
-            var redirectUri = !string.IsNullOrWhiteSpace(shopifyAppUrl)
-                ? $"{shopifyAppUrl.TrimEnd('/')}/api/shopify/callback"
-                : GetRedirectUri();
+            // Shopify公式ドキュメントに基づき、OAuthコールバックはバックエンドで直接処理するため、
+            // 常にバックエンドURLを使用する
+            // 修正前: フロントエンドURLを使用していたが、プロキシが複雑性を増すため削除
+            var redirectUri = GetRedirectUri();
             
             _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
 
@@ -313,15 +308,20 @@ namespace ShopifyAnalyticsApi.Controllers
                     // stateに含めたApiSecret（ShopifyApps由来）をHMAC検証に使用（マルチアプリ対応）
                     var isValidHmac = _oauthService.VerifyHmac(queryParams, secretOverride: stateData.apiSecret);
                     
-                    if (!isValidHmac && !isDevelopment)
+                    if (!isValidHmac)
                     {
-                        _logger.LogWarning("HMAC検証失敗. Shop: {Shop}", shop);
-                        return Unauthorized(new { error = "HMAC validation failed" });
-                    }
-                    
-                    if (!isValidHmac && isDevelopment)
-                    {
-                        _logger.LogWarning("開発環境のためHMAC検証失敗を無視. Shop: {Shop}", shop);
+                        _logger.LogError("HMAC検証失敗. Shop: {Shop}, IsDevelopment: {IsDevelopment}", shop, isDevelopment);
+                        
+                        if (isDevelopment)
+                        {
+                            // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
+                            _logger.LogWarning("開発環境のためHMAC検証失敗を許可しますが、本番環境ではエラーになります");
+                        }
+                        else
+                        {
+                            // 本番環境ではエラーを返す
+                            return Unauthorized(new { error = "HMAC validation failed" });
+                        }
                     }
                 }
 
@@ -337,83 +337,23 @@ namespace ShopifyAnalyticsApi.Controllers
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
-                // ストア情報を保存・更新（ShopifyAppIdも保存、承認されたスコープも保存）
-                var storeId = await SaveOrUpdateStore(
-                    shop, 
-                    tokenResponse.AccessToken, 
-                    stateData.apiKey, 
+                // OAuth認証成功後の共通処理（ストア保存、Webhook登録、トライアル付与）
+                var storeId = await ProcessOAuthSuccessAsync(
+                    shop,
+                    tokenResponse.AccessToken,
+                    stateData.apiKey,
                     stateData.apiSecret,
                     stateData.shopifyAppId,
                     tokenResponse.Scope);
 
-                // Webhook登録
-                await RegisterWebhooks(shop, tokenResponse.AccessToken);
+                // セッションCookieを設定
+                SetOAuthSessionCookie(storeId, shop);
 
-                // ✅ 案1: インストール直後はトライアル（trialing）を自動付与して全機能を解放
-                await EnsureTrialSubscriptionAsync(storeId);
-
-                _logger.LogInformation("OAuth認証完了. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}", 
-                    shop, storeId, stateData.shopifyAppId);
-
-                // OAuth認証成功後、セッションCookieを設定（埋め込みアプリでない場合の認証に使用）
-                // Cookie名: oauth_session
-                // 値: storeIdとshopドメインを含むJSON（暗号化推奨だが、開発環境では簡易実装）
-                var sessionData = new
-                {
-                    storeId = storeId,
-                    shop = shop,
-                    authenticatedAt = DateTime.UtcNow
-                };
-                var sessionJson = System.Text.Json.JsonSerializer.Serialize(sessionData);
-                
-                // Cookie 設定
-                // - ngrok(フロント) → localhost(バック) のようなクロスサイト fetch では SameSite=Lax だと Cookie が送信されず 401 になる
-                // - そのため「フロントBaseUrlのHost」と「このリクエストHost」が異なる場合は SameSite=None にする
-                // 注: isDevelopmentはメソッドの先頭で既に定義済み
-                var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
-                var isCrossSite = false;
-                if (!string.IsNullOrWhiteSpace(frontendBaseUrl) && Uri.TryCreate(frontendBaseUrl, UriKind.Absolute, out var feUri))
-                {
-                    isCrossSite = !string.Equals(feUri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase);
-                }
-
-                var sessionCookieOptions = new CookieOptions
-                {
-                    HttpOnly = true, // JavaScriptからアクセス不可（XSS対策）
-                    SameSite = isCrossSite ? SameSiteMode.None : SameSiteMode.Lax,
-                    // SameSite=None の場合は Secure 必須。Lax の場合は環境/スキームに追従
-                    Secure = isCrossSite ? true : (!isDevelopment || Request.IsHttps),
-                    Expires = DateTimeOffset.UtcNow.AddDays(30), // 30日間有効
-                    Path = "/"
-                };
-                
-                // SameSite=Noneの場合はSecure=trueが必須
-                if (sessionCookieOptions.SameSite == SameSiteMode.None)
-                {
-                    sessionCookieOptions.Secure = true;
-                }
-                
-                Response.Cookies.Append("oauth_session", sessionJson, sessionCookieOptions);
-                _logger.LogInformation("OAuth認証セッションCookieを設定しました. StoreId: {StoreId}, Shop: {Shop}, Secure: {Secure}, SameSite: {SameSite}, IsDevelopment: {IsDevelopment}", 
-                    storeId, shop, sessionCookieOptions.Secure, sessionCookieOptions.SameSite, isDevelopment);
-
-                // フロントエンドにリダイレクト（認証成功ページを経由）
-                var appUrl = await GetShopifyAppUrlAsync(stateData.apiKey);
-                // embeddedアプリ復帰のため host / embedded を可能な限り引き継ぐ
+                // リダイレクトURLを構築
                 var hostParam = HttpContext.Request.Query["host"].ToString();
                 var embeddedParam = HttpContext.Request.Query["embedded"].ToString();
+                var redirectUrl = await BuildRedirectUrlAsync(shop, storeId, stateData.apiKey, hostParam, embeddedParam);
 
-                var redirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true";
-                if (!string.IsNullOrWhiteSpace(hostParam))
-                {
-                    redirectUrl += $"&host={Uri.EscapeDataString(hostParam)}";
-                }
-                // embedded は "1" などの値が来る。無い場合でもフロント側で補完できるが、あれば引き継ぐ
-                if (!string.IsNullOrWhiteSpace(embeddedParam))
-                {
-                    redirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
-                }
-                _logger.LogInformation("OAuth認証完了後のリダイレクト: {RedirectUrl}", redirectUrl);
                 return Redirect(redirectUrl);
             }
             catch (Exception ex)
@@ -443,38 +383,73 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // State検証（CSRF対策）
                 var cacheKey = $"{StateCacheKeyPrefix}{request.State}";
-                if (!_cache.TryGetValue<string>(cacheKey, out var cachedShop) || cachedShop != request.Shop)
+                var stateDataJson = _cache.Get<string>(cacheKey);
+                
+                if (string.IsNullOrEmpty(stateDataJson))
                 {
                     _logger.LogWarning("無効なstate. Shop: {Shop}, State: {State}", request.Shop, request.State);
+                    return Unauthorized(new { error = "Invalid state parameter" });
+                }
+
+                // stateからAPI Key/Secret/ShopifyAppIdを取得
+                var stateData = JsonSerializer.Deserialize<StateData>(stateDataJson);
+                if (stateData == null || string.IsNullOrEmpty(stateData.apiKey))
+                {
+                    _logger.LogError("OAuthコールバック: stateデータの解析に失敗. Shop: {Shop}", request.Shop);
+                    return StatusCode(500, new { error = "Failed to parse state data" });
+                }
+
+                // State検証: stateに含まれるshopとリクエストのshopが一致するか確認
+                if (stateData.shop != request.Shop)
+                {
+                    _logger.LogWarning("stateのshopとリクエストのshopが一致しません. StateShop: {StateShop}, RequestShop: {RequestShop}", 
+                        stateData.shop, request.Shop);
                     return Unauthorized(new { error = "Invalid state parameter" });
                 }
 
                 // キャッシュからstateを削除（使い捨て）
                 _cache.Remove(cacheKey);
 
-                // HMAC検証（オプション - 開発環境ではスキップ）
+                // 開発環境判定
+                var isDevelopment = HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment();
+
+                // HMAC検証（ShopifySharpライブラリ使用）
                 if (!string.IsNullOrWhiteSpace(request.Hmac) && !string.IsNullOrWhiteSpace(request.Timestamp))
                 {
-                    var isDevelopment = _configuration["ASPNETCORE_ENVIRONMENT"] == "Development";
-                    
-                    if (!isDevelopment && !await VerifyHmacAsync(request.Code, request.Shop, request.State, request.Timestamp, request.Hmac))
+                    // クエリパラメータをShopifyOAuthService用に準備
+                    var queryParams = new List<KeyValuePair<string, StringValues>>
                     {
-                        _logger.LogWarning("HMAC検証失敗. Shop: {Shop}", request.Shop);
-                        return Unauthorized(new { error = "HMAC validation failed" });
-                    }
-                    
-                    if (isDevelopment)
+                        new("code", request.Code),
+                        new("shop", request.Shop),
+                        new("state", request.State),
+                        new("timestamp", request.Timestamp),
+                        new("hmac", request.Hmac)
+                    };
+
+                    // stateに含めたApiSecret（ShopifyApps由来）をHMAC検証に使用（マルチアプリ対応）
+                    var isValidHmac = _oauthService.VerifyHmac(queryParams, secretOverride: stateData.apiSecret);
+
+                    if (!isValidHmac)
                     {
-                        _logger.LogInformation("開発環境のためHMAC検証をスキップ. Shop: {Shop}", request.Shop);
+                        _logger.LogError("HMAC検証失敗. Shop: {Shop}, IsDevelopment: {IsDevelopment}", request.Shop, isDevelopment);
+
+                        if (isDevelopment)
+                        {
+                            // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
+                            _logger.LogWarning("開発環境のためHMAC検証失敗を許可しますが、本番環境ではエラーになります");
+                        }
+                        else
+                        {
+                            // 本番環境ではエラーを返す
+                            return Unauthorized(new { error = "HMAC validation failed" });
+                        }
                     }
                 }
 
-                // ストア情報を取得（ShopifyAppを含む）
-                var (apiKey, apiSecret) = await GetShopifyCredentialsAsync(request.Shop);
-                var store = await _context.Stores
-                    .Include(s => s.ShopifyApp)
-                    .FirstOrDefaultAsync(s => s.Domain == request.Shop);
-                int? shopifyAppId = store?.ShopifyAppId;
+                // stateDataからAPI Key/Secret/ShopifyAppIdを取得（Callbackメソッドと同様）
+                var apiKey = stateData.apiKey;
+                var apiSecret = stateData.apiSecret;
+                var shopifyAppId = stateData.shopifyAppId;
 
                 // アクセストークンを取得（リトライ機能付き）
                 var tokenResponse = await ExchangeCodeForAccessTokenWithRetry(
@@ -488,16 +463,14 @@ namespace ShopifyAnalyticsApi.Controllers
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
-                // ストア情報を保存・更新（ShopifyAppIdも保存、承認されたスコープも保存）
-                var storeId = await SaveOrUpdateStore(request.Shop, tokenResponse.AccessToken, apiKey, apiSecret, shopifyAppId, tokenResponse.Scope);
-
-                // Webhook登録
-                await RegisterWebhooks(request.Shop, tokenResponse.AccessToken);
-
-                // ✅ 案1: インストール直後はトライアル（trialing）を自動付与して全機能を解放
-                await EnsureTrialSubscriptionAsync(storeId);
-
-                _logger.LogInformation("OAuth認証完了（ハイブリッド方式）. Shop: {Shop}, StoreId: {StoreId}", request.Shop, storeId);
+                // OAuth認証成功後の共通処理（ストア保存、Webhook登録、トライアル付与）
+                var storeId = await ProcessOAuthSuccessAsync(
+                    request.Shop,
+                    tokenResponse.AccessToken,
+                    apiKey,
+                    apiSecret,
+                    shopifyAppId,
+                    tokenResponse.Scope);
 
                 return Ok(new
                 {
@@ -1367,6 +1340,32 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <summary>
         /// ショップドメインの形式を検証する
         /// </summary>
+        /// <summary>
+        /// Shopifyのhostパラメータをデコードする
+        /// </summary>
+        /// <param name="encodedHost">Base64エンコードされたhostパラメータ</param>
+        /// <returns>デコードされたhost（例: example.myshopify.com/admin）</returns>
+        private string? DecodeHost(string? encodedHost)
+        {
+            if (string.IsNullOrWhiteSpace(encodedHost))
+            {
+                return null;
+            }
+
+            try
+            {
+                var bytes = Convert.FromBase64String(encodedHost);
+                var decoded = System.Text.Encoding.UTF8.GetString(bytes);
+                _logger.LogInformation("hostパラメータをデコード: {EncodedHost} -> {DecodedHost}", encodedHost, decoded);
+                return decoded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "hostパラメータのデコードに失敗: {EncodedHost}", encodedHost);
+                return null;
+            }
+        }
+
         private bool IsValidShopDomain(string shop)
         {
             if (string.IsNullOrWhiteSpace(shop))
@@ -1731,6 +1730,163 @@ namespace ShopifyAnalyticsApi.Controllers
                 var defaultApiSecret = GetShopifySetting("ApiSecret");
                 return (defaultApiKey, defaultApiSecret);
             }
+        }
+
+        /// <summary>
+        /// OAuth認証成功後の共通処理（ストア保存、Webhook登録、トライアル付与）
+        /// </summary>
+        /// <param name="shop">ショップドメイン</param>
+        /// <param name="accessToken">アクセストークン</param>
+        /// <param name="apiKey">API Key</param>
+        /// <param name="apiSecret">API Secret</param>
+        /// <param name="shopifyAppId">ShopifyAppId（オプション）</param>
+        /// <param name="scopes">承認されたスコープ</param>
+        /// <returns>保存されたストアID</returns>
+        private async Task<int> ProcessOAuthSuccessAsync(
+            string shop,
+            string accessToken,
+            string apiKey,
+            string? apiSecret,
+            int? shopifyAppId,
+            string? scopes)
+        {
+            // パラメータのnullチェック
+            if (string.IsNullOrWhiteSpace(apiSecret))
+            {
+                _logger.LogWarning("apiSecretがnullまたは空です。Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                // フォールバック: データベースから取得を試みる
+                var (fallbackApiKey, fallbackApiSecret) = await GetShopifyCredentialsAsync(shop);
+                apiSecret = fallbackApiSecret ?? throw new InvalidOperationException($"API Secret not found for shop: {shop}");
+            }
+
+            if (string.IsNullOrWhiteSpace(scopes))
+            {
+                _logger.LogWarning("scopesがnullまたは空です。Shop: {Shop}", shop);
+                scopes = string.Empty; // 空文字列をデフォルト値として使用
+            }
+
+            // ストア情報を保存・更新（ShopifyAppIdも保存、承認されたスコープも保存）
+            var storeId = await SaveOrUpdateStore(
+                shop,
+                accessToken,
+                apiKey,
+                apiSecret,
+                shopifyAppId,
+                scopes);
+
+            // Webhook登録
+            await RegisterWebhooks(shop, accessToken);
+
+            // インストール直後はトライアル（trialing）を自動付与して全機能を解放
+            await EnsureTrialSubscriptionAsync(storeId);
+
+            _logger.LogInformation("OAuth認証成功後の処理完了. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}",
+                shop, storeId, shopifyAppId);
+
+            return storeId;
+        }
+
+        /// <summary>
+        /// OAuth認証成功後のリダイレクトURLを構築する
+        /// </summary>
+        /// <param name="shop">ショップドメイン</param>
+        /// <param name="storeId">ストアID</param>
+        /// <param name="apiKey">API Key</param>
+        /// <param name="hostParam">hostパラメータ（Base64エンコード）</param>
+        /// <param name="embeddedParam">embeddedパラメータ</param>
+        /// <returns>リダイレクトURL</returns>
+        private async Task<string> BuildRedirectUrlAsync(
+            string shop,
+            int storeId,
+            string apiKey,
+            string? hostParam,
+            string? embeddedParam)
+        {
+            // 埋め込みアプリの場合
+            if (!string.IsNullOrWhiteSpace(hostParam))
+            {
+                // hostパラメータをデコード
+                var decodedHost = DecodeHost(hostParam);
+                if (!string.IsNullOrWhiteSpace(decodedHost))
+                {
+                    // 埋め込みアプリURLを構築: https://{decodedHost}/apps/{api_key}/
+                    var redirectUrl = $"https://{decodedHost}/apps/{apiKey}/";
+                    _logger.LogInformation("埋め込みアプリURLを構築: {RedirectUrl}", redirectUrl);
+                    return redirectUrl;
+                }
+                else
+                {
+                    // デコードに失敗した場合はフォールバック
+                    var appUrl = await GetShopifyAppUrlAsync(apiKey);
+                    var redirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
+                    _logger.LogWarning("hostパラメータのデコードに失敗したため、フォールバックURLを使用: {RedirectUrl}", redirectUrl);
+                    return redirectUrl;
+                }
+            }
+            else
+            {
+                // 非埋め込みアプリの場合
+                var appUrl = await GetShopifyAppUrlAsync(apiKey);
+                var redirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true";
+                if (!string.IsNullOrWhiteSpace(embeddedParam))
+                {
+                    redirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
+                }
+                _logger.LogInformation("非埋め込みアプリURLを構築: {RedirectUrl}", redirectUrl);
+                return redirectUrl;
+            }
+        }
+
+        /// <summary>
+        /// OAuth認証成功後のセッションCookieを設定する
+        /// </summary>
+        /// <param name="storeId">ストアID</param>
+        /// <param name="shop">ショップドメイン</param>
+        private void SetOAuthSessionCookie(int storeId, string shop)
+        {
+            // OAuth認証成功後、セッションCookieを設定（埋め込みアプリでない場合の認証に使用）
+            // Cookie名: oauth_session
+            // 値: storeIdとshopドメインを含むJSON（暗号化推奨だが、開発環境では簡易実装）
+            var sessionData = new
+            {
+                storeId = storeId,
+                shop = shop,
+                authenticatedAt = DateTime.UtcNow
+            };
+            var sessionJson = System.Text.Json.JsonSerializer.Serialize(sessionData);
+
+            // 開発環境判定
+            var isDevelopment = HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment();
+
+            // Cookie 設定
+            // - ngrok(フロント) → localhost(バック) のようなクロスサイト fetch では SameSite=Lax だと Cookie が送信されず 401 になる
+            // - そのため「フロントBaseUrlのHost」と「このリクエストHost」が異なる場合は SameSite=None にする
+            var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
+            var isCrossSite = false;
+            if (!string.IsNullOrWhiteSpace(frontendBaseUrl) && Uri.TryCreate(frontendBaseUrl, UriKind.Absolute, out var feUri))
+            {
+                isCrossSite = !string.Equals(feUri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var sessionCookieOptions = new CookieOptions
+            {
+                HttpOnly = true, // JavaScriptからアクセス不可（XSS対策）
+                SameSite = isCrossSite ? SameSiteMode.None : SameSiteMode.Lax,
+                // SameSite=None の場合は Secure 必須。Lax の場合は環境/スキームに追従
+                Secure = isCrossSite ? true : (!isDevelopment || Request.IsHttps),
+                Expires = DateTimeOffset.UtcNow.AddDays(30), // 30日間有効
+                Path = "/"
+            };
+
+            // SameSite=Noneの場合はSecure=trueが必須
+            if (sessionCookieOptions.SameSite == SameSiteMode.None)
+            {
+                sessionCookieOptions.Secure = true;
+            }
+
+            Response.Cookies.Append("oauth_session", sessionJson, sessionCookieOptions);
+            _logger.LogInformation("OAuth認証セッションCookieを設定しました. StoreId: {StoreId}, Shop: {Shop}, Secure: {Secure}, SameSite: {SameSite}, IsDevelopment: {IsDevelopment}",
+                storeId, shop, sessionCookieOptions.Secure, sessionCookieOptions.SameSite, isDevelopment);
         }
 
         /// <summary>

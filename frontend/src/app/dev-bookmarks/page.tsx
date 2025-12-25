@@ -264,8 +264,8 @@ const bookmarkItems: BookmarkItem[] = [
   },
   {
     title: "コールバックAPI",
-    description: "OAuthコールバック受信API",
-    href: "/api/shopify/callback",
+    description: "OAuthコールバック受信API（バックエンド）",
+    href: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/shopify/callback`,
     icon: <Zap className="h-5 w-5" />,
     status: 'in-progress',
     category: 'dev'

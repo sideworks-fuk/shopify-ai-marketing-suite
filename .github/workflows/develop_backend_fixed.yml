@@ -1,32 +1,40 @@
-name: Backend Deploy (Fixed)
+name: Backend Deploy
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'デプロイ環境を選択'
-        required: true
-        type: choice
-        options:
-          - development
-          - staging
-          - production
-        default: 'development'
       deploy_message:
         description: 'デプロイメッセージ（任意）'
         required: false
         type: string
+      confirm_deployment:
+        description: 'デプロイを確認'
+        required: true
+        type: choice
+        options:
+          - 'YES - デプロイを実行します'
+          - 'NO - キャンセルします'
+        default: 'NO - キャンセルします'
 
 env:
   DOTNET_VERSION: '8.x'
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  APP_NAME: 'ShopifyTestApi20250720173320'  # 開発環境用の App Service
+  APP_URL: 'https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/'
 
 jobs:
-  build-and-deploy:
+  backend-deploy:
     runs-on: windows-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: development
     
     steps:
+    - name: 🛡️ Deployment confirmation
+      if: github.event.inputs.confirm_deployment != 'YES - デプロイを実行します'
+      run: |
+        echo "❌ Deployment cancelled by user"
+        exit 1
+      shell: bash
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
@@ -45,31 +53,19 @@ jobs:
 
     - name: 🔧 Configure NuGet
       run: |
-        dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org --configfile NuGet.Config || echo "Source already exists"
+        # NuGet source is already configured in NuGet.Config file
         dotnet nuget list source
       shell: pwsh
 
-    - name: 🔧 Set deployment target
-      id: deploy_target
-      run: |
-        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-          echo "app_name=shopifyapp-backend-develop" >> $GITHUB_OUTPUT
-          echo "app_url=https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
-          echo "publish_profile=AZURE_WEBAPP_PUBLISH_PROFILE_develop" >> $GITHUB_OUTPUT
-        else
-          echo "app_name=ShopifyTestApi20250720173320" >> $GITHUB_OUTPUT
-          echo "app_url=https://shopifytestapi20250720173320-aed5bhc0cferg2hm.japanwest-01.azurewebsites.net/" >> $GITHUB_OUTPUT
-          echo "publish_profile=AZUREAPPSERVICE_PUBLISHPROFILE_ShopifyTestApi" >> $GITHUB_OUTPUT
-        fi
-      shell: bash
-
     - name: 📝 Display deployment info
       run: |
-        echo "🚀 Manual Backend Deployment Started"
-        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "🚀 Backend Deployment Started"
+        echo "Environment: DEVELOPMENT"
         echo "Triggered by: ${{ github.actor }}"
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
         echo "Timestamp: $(date)"
+        echo "Target App: ${{ env.APP_NAME }}"
+        echo "App URL: ${{ env.APP_URL }}"
 
     - name: 🔍 Restore dependencies (with retry)
       run: |
@@ -118,37 +114,28 @@ jobs:
         cd backend/ShopifyAnalyticsApi
         dotnet publish -c Release -o ./published --no-restore --no-build
 
-    - name: 🚀 Deploy to Azure App Service (Production)
-      if: github.event.inputs.environment == 'production'
+    - name: 🚀 Deploy to Azure App Service
       uses: azure/webapps-deploy@v3
       with:
-        app-name: shopifyapp-backend-develop
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_develop }}
-        package: backend/ShopifyAnalyticsApi/published
-
-    - name: 🚀 Deploy to Azure App Service (Dev/Staging)
-      if: github.event.inputs.environment != 'production'
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: ShopifyTestApi20250720173320
+        app-name: ${{ env.APP_NAME }}
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_ShopifyTestApi }}
         package: backend/ShopifyAnalyticsApi/published
         app-settings: |
-          ASPNETCORE_ENVIRONMENT=${{ github.event.inputs.environment }}
+          ASPNETCORE_ENVIRONMENT=Development
 
     - name: ✅ Deployment complete
       run: |
         echo "✅ Backend deployment completed successfully!"
-        echo "🌐 App URL: ${{ steps.deploy_target.outputs.app_url }}"
+        echo "🌐 App URL: ${{ env.APP_URL }}"
         echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
       run: |
-        echo "Waiting 30 seconds for deployment to stabilize..."
-        Start-Sleep -Seconds 30
+        echo "Waiting 45 seconds for deployment to stabilize..."
+        Start-Sleep -Seconds 45
         echo "Performing health check..."
         try {
-          $response = Invoke-WebRequest -Uri "${{ steps.deploy_target.outputs.app_url }}api/health" -UseBasicParsing -TimeoutSec 30
+          $response = Invoke-WebRequest -Uri "${{ env.APP_URL }}api/health" -UseBasicParsing -TimeoutSec 30
           if ($response.StatusCode -eq 200) {
             echo "✅ Health check passed!"
           } else {
@@ -156,7 +143,19 @@ jobs:
           }
         } catch {
           echo "❌ Health check failed: $_"
-          # Don't fail the workflow on health check failure
-          echo "⚠️ Note: Health check failure doesn't block deployment"
+          echo "⚠️ Note: Please check the application manually"
         }
       shell: pwsh
+
+    - name: 📋 Deployment summary
+      if: always()
+      run: |
+        echo "================================================"
+        echo "Backend Deployment Summary"
+        echo "================================================"
+        echo "Environment: DEVELOPMENT"
+        echo "App Service: ${{ env.APP_NAME }}"
+        echo "URL: ${{ env.APP_URL }}"
+        echo "Deployed by: ${{ github.actor }}"
+        echo "Deployment time: $(date)"
+        echo "================================================"

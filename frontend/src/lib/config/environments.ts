@@ -40,7 +40,7 @@ export const getApiBaseUrl = (): string => {
   // デフォルト値
   if (process.env.NODE_ENV === 'development') {
     if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using default for development');
-    return 'https://localhost:7089';
+    return 'https://localhost:7088';
   }
   
   // 本番環境では必須
@@ -240,7 +240,16 @@ export const getEnvironmentDebugInfo = () => {
 //           すべての認証・認可判定はサーバー側で実施する
 export const getAuthModeConfig = (): EnvironmentAuthConfig => {
   const environment = (process.env.NEXT_PUBLIC_ENVIRONMENT || 'development') as Environment
-  const authMode = (process.env.NEXT_PUBLIC_AUTH_MODE || 'all_allowed') as AuthMode
+  
+  // 環境に応じたデフォルト認証モード（NEXT_PUBLIC_AUTH_MODEが未設定の場合）
+  const defaultAuthModes: Record<Environment, AuthMode> = {
+    production: 'oauth_required',
+    staging: 'demo_allowed',
+    development: 'all_allowed'
+  }
+  
+  // NEXT_PUBLIC_AUTH_MODEが設定されている場合はそれを使用、なければ環境に応じたデフォルトを使用
+  const authMode = (process.env.NEXT_PUBLIC_AUTH_MODE || defaultAuthModes[environment]) as AuthMode
   const enableDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === 'true'
   const debugMode = process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
 

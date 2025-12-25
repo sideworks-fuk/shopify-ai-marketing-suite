@@ -354,48 +354,109 @@ export default function InstallPolarisPage() {
       
       // embedded=1かつApp Bridgeが利用可能な場合
       if (isEmbeddedMode && app) {
-        console.log('🖼️ 埋め込みアプリモード: App Bridgeを使用してiframeから脱出');
+        console.log('🖼️ 埋め込みアプリモード: ExitIframeページにリダイレクト');
         console.log('📍 リダイレクト先:', installUrl);
+        console.log('🔍 App Bridge状態:', { app: !!app, isEmbedded, embeddedParam });
         
         try {
           // Shopify公式ドキュメントに基づく実装:
-          // App BridgeのRedirect.toApp()を使用して同じURLにリダイレクト（embedded=0を追加）
-          // これによりiframeから脱出できる
-          const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('embedded', '0');
-          const escapedUrl = currentUrl.toString();
+          // ExitIframeページにリダイレクトし、そこでApp BridgeのRedirect.toApp()を使用してiframeから脱出
+          // その後、バックエンドの/api/shopify/installにリダイレクト
+          const exitIframeUrl = `/auth/exit-iframe?redirectUri=${encodeURIComponent(installUrl)}`;
           
-          console.log('🔄 iframe脱出用URL:', escapedUrl);
-          app.dispatch(Redirect.toApp({ path: escapedUrl }));
-          console.log('✅ App Bridgeリダイレクトを実行しました（iframe脱出）');
+          console.log('🔄 ExitIframeページURL:', exitIframeUrl);
+          console.log('🔄 App Bridge Redirect.toApp()を実行します...');
           
-          // iframe脱出後、embedded=0の状態で再度この関数が呼ばれる
-          // その時はelseブロックで直接リダイレクトされる
+          app.dispatch(Redirect.toApp({ path: exitIframeUrl }));
+          
+          console.log('✅ ExitIframeページへのリダイレクトを実行しました');
+          console.log('ℹ️ App Bridgeのリダイレクトは非同期で処理されます');
+          
+          // App Bridgeのリダイレクトは非同期で処理されるため、
+          // エラーチェックは行わない（リダイレクトが失敗した場合はExitIframeページでエラーが表示される）
         } catch (error) {
           console.error('❌ App Bridgeリダイレクトに失敗:', error);
+          console.error('❌ エラー詳細:', {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : 'N/A',
+            error
+          });
+          
           // フォールバック: 通常のリダイレクトを試行
-          window.location.href = installUrl;
+          console.warn('⚠️ フォールバック: 通常のリダイレクトを試行します');
+          try {
+            window.location.href = installUrl;
+          } catch (fallbackError) {
+            console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
+            setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
+            setLoading(false);
+            isInstallingRef.current = false;
+          }
         }
       } else {
         // embedded=0または非埋め込みの場合、直接バックエンドにリダイレクト
         console.log('🚀 通常モード: 直接リダイレクトでOAuth認証を開始:', installUrl);
         console.log('📝 バックエンドがHTTP 302リダイレクトでOAuth URLに遷移します');
+        console.log('🔍 モード情報:', { isEmbeddedMode, isEmbedded, embeddedParam, hasApp: !!app });
+        
+        // バックエンドURLの接続確認（オプション）
+        try {
+          const testResponse = await fetch(`${config.apiBaseUrl}/api/shopify/test-config`, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+          }).catch((err) => {
+            console.warn('⚠️ バックエンド接続確認に失敗（リダイレクトは続行）:', err.message);
+            return null;
+          });
+          
+          if (testResponse && testResponse.ok) {
+            console.log('✅ バックエンドへの接続確認成功');
+          } else if (testResponse) {
+            console.warn('⚠️ バックエンド接続確認: ステータス', testResponse.status);
+          }
+        } catch (testError) {
+          console.warn('⚠️ バックエンド接続確認中にエラー（リダイレクトは続行）:', testError);
+        }
         
         // 現在のURLを保存（リダイレクト確認用）
         const beforeRedirect = window.location.href;
         
-        // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
-        window.location.href = installUrl;
+        console.log('🔄 リダイレクト実行前のURL:', beforeRedirect);
+        console.log('🔄 リダイレクト先URL:', installUrl);
         
-        // リダイレクトが実行されたかどうかを確認（1秒後）
-        setTimeout(() => {
-          if (window.location.href === beforeRedirect) {
-            console.error('❌ リダイレクトが実行されませんでした');
-            setError('リダイレクトに失敗しました。もう一度お試しください。');
-            setLoading(false);
-            isInstallingRef.current = false;
-          }
-        }, 1000);
+        // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
+        try {
+          window.location.href = installUrl;
+          
+          // リダイレクトが実行されたかどうかを確認（2秒後、より長いタイムアウト）
+          // 注意: バックエンドがリダイレクトを返すまでに時間がかかる場合があるため
+          setTimeout(() => {
+            // まだ同じページにいる場合（リダイレクトが実行されなかった）
+            if (window.location.href === beforeRedirect) {
+              console.error('❌ リダイレクトが実行されませんでした');
+              console.error('❌ 現在のURL:', window.location.href);
+              console.error('❌ リダイレクト先URL:', installUrl);
+              console.error('❌ 考えられる原因:');
+              console.error('   1. バックエンドが起動していない');
+              console.error('   2. CORSエラーが発生している');
+              console.error('   3. バックエンドURLが正しく設定されていない');
+              console.error('   4. ネットワークエラーが発生している');
+              
+              setError('リダイレクトに失敗しました。バックエンドが起動しているか、ブラウザのコンソールを確認してください。');
+              setLoading(false);
+              isInstallingRef.current = false;
+            } else {
+              console.log('✅ リダイレクトが実行されました');
+              console.log('✅ 新しいURL:', window.location.href);
+            }
+          }, 2000); // タイムアウトを2秒に延長
+        } catch (redirectError) {
+          console.error('❌ リダイレクト実行中にエラー:', redirectError);
+          setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
+          setLoading(false);
+          isInstallingRef.current = false;
+        }
       }
     } catch (error) {
       console.error('❌ ===== 接続エラー発生 =====');

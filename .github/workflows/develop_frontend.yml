@@ -3,65 +3,110 @@ name: Frontend Deploy
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'デプロイ環境を選択'
-        required: true
-        type: choice
-        options:
-          - development
-          - staging
-          - production
-        default: 'development'
       deploy_message:
         description: 'デプロイメッセージ（任意）'
         required: false
         type: string
+      target_environment:
+        description: 'デプロイ対象（1=develop / 2=staging / 3=production）'
+        required: true
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+        default: '1'
+      confirm_deployment:
+        description: 'デプロイを確認'
+        required: true
+        type: choice
+        options:
+          - 'YES - デプロイを実行します'
+          - 'NO - キャンセルします'
+        default: 'NO - キャンセルします'
 
 env:
   NODE_VERSION: '20.x'
   APP_LOCATION: '/frontend'
-  OUTPUT_LOCATION: ''
+  # Next.js のビルド成果物は .next 配下（Static Web Apps が next export と誤判定しないよう明示）
+  OUTPUT_LOCATION: '.next'
+  # Static Web Apps API トークン（開発環境用）
   AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
 
+  # デプロイ先URL（ログ/ヘルスチェック用）
+  # 注意: 実際のURLは環境別に異なるため、ステップ内で動的に生成
+  # - 1(develop): brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net
+  # - 2(staging): brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net
+  # - 3(production): brave-sea-038f17a00.1.azurestaticapps.net
+
 jobs:
-  build-and-deploy:
+  frontend-deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    # 環境別のGitHub Environment Variablesを使用
+    environment: ${{ github.event.inputs.target_environment == '1' && 'development' || github.event.inputs.target_environment == '2' && 'staging' || 'production' }}
     
     steps:
+    - name: 🛡️ Deployment confirmation
+      if: github.event.inputs.confirm_deployment != 'YES - デプロイを実行します'
+      run: |
+        echo "❌ Deployment cancelled by user"
+        exit 1
+
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
     - name: 📝 Display deployment info
       run: |
-        echo "🚀 Manual Frontend Deployment Started"
-        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "🚀 Frontend Deployment Started"
+        TARGET="${{ github.event.inputs.target_environment }}"
+        if [ "$TARGET" = "1" ]; then
+          ENV_NAME="develop"
+        elif [ "$TARGET" = "2" ]; then
+          ENV_NAME="staging"
+        else
+          ENV_NAME="production"
+        fi
+        echo "Environment: $ENV_NAME"
         echo "Triggered by: ${{ github.actor }}"
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
+        echo "Target: $TARGET"
         echo "Timestamp: $(date)"
 
-    - name: 🔧 Set deployment environment
+    - name: 🔧 Set deployment environment variables
       id: env
       run: |
-        # productionの場合はdeployment_environmentを空にして本番環境にデプロイ
-        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-          echo "deployment_environment=" >> $GITHUB_OUTPUT
-          echo "environment_name=production" >> $GITHUB_OUTPUT
-          echo "next_public_environment=production" >> $GITHUB_OUTPUT
-        # stagingの場合はstaging環境にデプロイ
-        elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+        TARGET="${{ github.event.inputs.target_environment }}"
+        if [ "$TARGET" = "1" ]; then
+          echo "deployment_environment=development" >> $GITHUB_OUTPUT
+          echo "environment_name=develop" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
+          echo "frontend_url=https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net" >> $GITHUB_OUTPUT
+        elif [ "$TARGET" = "2" ]; then
           echo "deployment_environment=staging" >> $GITHUB_OUTPUT
           echo "environment_name=staging" >> $GITHUB_OUTPUT
           echo "next_public_environment=staging" >> $GITHUB_OUTPUT
-        # developmentの場合はdevelopment環境にデプロイ
-        else
-          echo "deployment_environment=development" >> $GITHUB_OUTPUT
-          echo "environment_name=development" >> $GITHUB_OUTPUT
-          echo "next_public_environment=development" >> $GITHUB_OUTPUT
+          echo "frontend_url=https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net" >> $GITHUB_OUTPUT
+        elif [ "$TARGET" = "3" ]; then
+          echo "deployment_environment=" >> $GITHUB_OUTPUT
+          echo "environment_name=production" >> $GITHUB_OUTPUT
+          echo "next_public_environment=production" >> $GITHUB_OUTPUT
+          echo "frontend_url=https://brave-sea-038f17a00.1.azurestaticapps.net" >> $GITHUB_OUTPUT
         fi
         echo "🔍 Environment Configuration:"
-        echo "  - Environment: ${{ github.event.inputs.environment }}"
-        echo "  - Deployment Target: $([ "${{ github.event.inputs.environment }}" = "production" ] && echo "Production" || echo "${{ github.event.inputs.environment }}")"
+        echo "  - Target: $TARGET"
+        if [ "$TARGET" = "1" ]; then
+          echo "  - Environment Name: develop"
+          echo "  - Deployment Environment: development"
+          echo "  - Frontend URL: https://brave-sea-038f17a00-development.eastasia.1.azurestaticapps.net"
+        elif [ "$TARGET" = "2" ]; then
+          echo "  - Environment Name: staging"
+          echo "  - Deployment Environment: staging"
+          echo "  - Frontend URL: https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net"
+        elif [ "$TARGET" = "3" ]; then
+          echo "  - Environment Name: production"
+          echo "  - Deployment Environment: (empty - production)"
+          echo "  - Frontend URL: https://brave-sea-038f17a00.1.azurestaticapps.net"
+        fi
 
     - name: 🚀 Deploy to Azure Static Web Apps
       uses: Azure/static-web-apps-deploy@v1
@@ -74,11 +119,12 @@ jobs:
         app_build_command: 'npm run build'
         deployment_environment: ${{ steps.env.outputs.deployment_environment }}
       env:
+        # 環境変数（GitHub Environment Variablesから取得）
         NEXT_PUBLIC_ENVIRONMENT: ${{ steps.env.outputs.next_public_environment }}
         NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
         NEXT_PUBLIC_SHOPIFY_API_KEY: ${{ vars.NEXT_PUBLIC_SHOPIFY_API_KEY }}
         NEXT_PUBLIC_SHOPIFY_APP_URL: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_URL }}  # 認証モード制御機能で必須（2025-10-27追加）
-        NEXT_PUBLIC_USE_HTTPS: ${{ vars.NEXT_PUBLIC_USE_HTTPS }}  # HTTPS使用設定（開発環境用）
+        NEXT_PUBLIC_USE_HTTPS: ${{ vars.NEXT_PUBLIC_USE_HTTPS }}  # HTTPS使用設定
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: ${{ vars.NEXT_PUBLIC_DISABLE_FEATURE_GATES }}
         NEXT_PUBLIC_DEV_PASSWORD: ${{ secrets.NEXT_PUBLIC_DEV_PASSWORD }}  # 環境別に設定可能
         NODE_VERSION: 20
@@ -86,27 +132,35 @@ jobs:
     - name: ✅ Deployment complete
       run: |
         echo "✅ Frontend deployment completed successfully!"
-        if [ "${{ steps.env.outputs.deployment_environment }}" = "" ]; then
-          echo "🌐 App URL: https://brave-sea-038f17a00.1.azurestaticapps.net (Production)"
-        else
-          echo "🌐 App URL: https://${{ steps.env.outputs.deployment_environment }}--brave-sea-038f17a00.1.azurestaticapps.net (Preview)"
-        fi
-        echo "📊 Environment: ${{ steps.env.outputs.environment_name }}"
+        echo "Target: ${{ github.event.inputs.target_environment }}"
+        echo "Environment: ${{ steps.env.outputs.environment_name }}"
+        echo "🌐 Frontend URL: ${{ steps.env.outputs.frontend_url }}"
         echo "📊 Check Azure Portal for detailed logs"
 
     - name: 🏥 Health check
       run: |
-        echo "Waiting 30 seconds for deployment to stabilize..."
-        sleep 30
+        echo "Waiting 45 seconds for deployment to stabilize..."
+        sleep 45
         echo "Performing health check..."
-        if [ "${{ steps.env.outputs.deployment_environment }}" = "" ]; then
-          url="https://brave-sea-038f17a00.1.azurestaticapps.net"
-        else
-          url="https://${{ steps.env.outputs.deployment_environment }}--brave-sea-038f17a00.1.azurestaticapps.net"
-        fi
+        url="${{ steps.env.outputs.frontend_url }}"
         response=$(curl -s -o /dev/null -w "%{http_code}" $url)
-        if [ "$response" = "200" ]; then
-          echo "✅ Health check passed!"
+        if [ "$response" = "200" ] || [ "$response" = "401" ]; then
+          echo "✅ Health check passed! (Status: $response)"
         else
           echo "⚠️ Health check returned status: $response"
+          echo "Note: Please verify the application manually"
         fi
+
+    - name: 📋 Deployment summary
+      if: always()
+      run: |
+        echo "================================================"
+        echo "Frontend Deployment Summary"
+        echo "================================================"
+        echo "Target: ${{ github.event.inputs.target_environment }}"
+        echo "Environment: ${{ steps.env.outputs.environment_name }}"
+        echo "Frontend URL: ${{ steps.env.outputs.frontend_url }}"
+        echo "Backend API: ${{ vars.NEXT_PUBLIC_API_URL }}"
+        echo "Deployed by: ${{ github.actor }}"
+        echo "Deployment time: $(date)"
+        echo "================================================"
