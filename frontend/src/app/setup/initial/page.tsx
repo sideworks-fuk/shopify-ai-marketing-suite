@@ -31,6 +31,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api-config'
+import { useAuth } from '@/components/providers/AuthProvider'
 
 type SyncPeriod = '3months' | '6months' | '1year' | 'all'
 
@@ -54,6 +55,7 @@ interface SyncStats {
 
 export default function InitialSetupPage() {
   const router = useRouter()
+  const { getApiClient, isApiClientReady } = useAuth()
   const [syncPeriod, setSyncPeriod] = useState<SyncPeriod>('3months')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,46 +77,33 @@ export default function InitialSetupPage() {
 
   // バックエンドAPIから実際の統計情報を取得
   useEffect(() => {
+    // APIクライアントが準備完了するまで待機
+    if (!isApiClientReady) {
+      return
+    }
+
     const fetchSyncStats = async () => {
       try {
         setIsLoadingHistory(true)
-        const apiUrl = getApiUrl()
+        const apiClient = getApiClient()
         
-        // データベース統計を取得
-        const statsResponse = await fetch(`${apiUrl}/api/database/stats`, {
+        // データベース統計を取得（ApiClientを使用してShopify App Bridgeセッショントークンを自動送信）
+        const statsData = await apiClient.request<{ success: boolean; data?: { customers: number; orders: number; products: number; lastUpdated?: string } }>('/api/database/stats', {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // JWTトークンを送信
         })
 
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json()
-          if (statsData.success && statsData.data) {
-            // バックエンドから取得した実際のデータを設定
-            setSyncStats({
-              totalCustomers: statsData.data.customers || 0,
-              totalOrders: statsData.data.orders || 0,
-              totalProducts: statsData.data.products || 0,
-              lastSyncTime: statsData.data.lastUpdated || undefined,
-              nextScheduledSync: undefined // スケジュール情報は別途取得が必要
-            })
-            console.log('✅ 同期統計を取得:', statsData.data)
-          } else {
-            // データが取得できない場合は0件を表示
-            setSyncStats({
-              totalCustomers: 0,
-              totalOrders: 0,
-              totalProducts: 0,
-              lastSyncTime: undefined,
-              nextScheduledSync: undefined
-            })
-            console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
-          }
+        if (statsData.success && statsData.data) {
+          // バックエンドから取得した実際のデータを設定
+          setSyncStats({
+            totalCustomers: statsData.data.customers || 0,
+            totalOrders: statsData.data.orders || 0,
+            totalProducts: statsData.data.products || 0,
+            lastSyncTime: statsData.data.lastUpdated || undefined,
+            nextScheduledSync: undefined // スケジュール情報は別途取得が必要
+          })
+          console.log('✅ 同期統計を取得:', statsData.data)
         } else {
-          // APIエラーの場合も0件を表示
-          console.warn('⚠️ 同期統計の取得に失敗:', statsResponse.status, statsResponse.statusText)
+          // データが取得できない場合は0件を表示
           setSyncStats({
             totalCustomers: 0,
             totalOrders: 0,
@@ -122,6 +111,7 @@ export default function InitialSetupPage() {
             lastSyncTime: undefined,
             nextScheduledSync: undefined
           })
+          console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
         }
 
         // 同期履歴を取得（オプション）
@@ -144,26 +134,18 @@ export default function InitialSetupPage() {
     }
 
     void fetchSyncStats()
-  }, [])
+  }, [isApiClientReady, getApiClient])
 
   const handleStartSync = async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/sync/initial`, {
+      const apiClient = getApiClient()
+      const data = await apiClient.request<{ syncId: string }>('/api/sync/initial', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ syncPeriod }),
       })
-
-      if (!response.ok) {
-        throw new Error('同期の開始に失敗しました')
-      }
-
-      const data = await response.json()
       
       // 同期画面へ遷移（syncIdをクエリパラメータとして渡す）
       router.push(`/setup/syncing?syncId=${data.syncId}`)
@@ -180,7 +162,8 @@ export default function InitialSetupPage() {
   const confirmSkip = async () => {
     try {
       // 初期設定を完了としてマーク
-      await fetch(`${getApiUrl()}/api/setup/complete`, {
+      const apiClient = getApiClient()
+      await apiClient.request('/api/setup/complete', {
         method: 'POST',
       })
       
