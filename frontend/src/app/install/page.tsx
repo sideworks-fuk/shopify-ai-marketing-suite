@@ -284,78 +284,43 @@ export default function InstallPolarisPage() {
           || sessionStorage.getItem('shopify_host')
         : null;
       
-      // バックエンドからOAuth URLを取得（JSON形式）
-      // apiKeyパラメータを追加（バックエンドでShopifyAppsテーブルから対応するアプリを検索するため）
-      const installUrlParams = new URLSearchParams({
+      // ==========================================================
+      // 重要: HTTPリダイレクト方式を使用（iframeセキュリティ対応）
+      // ==========================================================
+      // 埋め込みアプリ（iframe内）からwindow.top.locationにアクセスすると
+      // クロスオリジンポリシーでブロックされるため、
+      // バックエンドの/api/shopify/installエンドポイントに直接リダイレクトし、
+      // HTTPレベルの302リダイレクトでOAuth URLに遷移させる
+      // ==========================================================
+      
+      const installParams = new URLSearchParams({
         shop: fullDomain,
       });
       
       // API Keyが設定されている場合は追加
       if (apiKey) {
-        installUrlParams.append('apiKey', apiKey);
+        installParams.append('apiKey', apiKey);
       }
       
-      const installUrlApi = `${config.apiBaseUrl}/api/shopify/install-url?${installUrlParams.toString()}`;
+      // バックエンドのinstallエンドポイントURL（HTTP 302リダイレクトを返す）
+      const installUrl = `${config.apiBaseUrl}/api/shopify/install?${installParams.toString()}`;
       
-      console.log('🔍 OAuth URL取得開始:', installUrlApi);
-      
-      // バックエンドからOAuth URLを取得（タイムアウト付き）
-      const fetchPromise = fetch(installUrlApi, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const timeoutPromise = new Promise<Response>((_, reject) => {
-        setTimeout(() => reject(new Error('OAuth URL取得がタイムアウトしました（10秒）')), 10000);
-      });
-      
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // JSON解析に失敗した場合は、デフォルトのエラーメッセージを使用
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const data = await response.json();
-      const authUrl = data?.authUrl;
-      
-      if (!authUrl || typeof authUrl !== 'string') {
-        console.error('❌ OAuth URL取得失敗: レスポンスデータ:', data);
-        throw new Error('OAuth URLが取得できませんでした。レスポンスにauthUrlが含まれていません。');
-      }
-      
-      console.log('✅ OAuth URL取得成功:', authUrl.substring(0, 100) + '...');
-      
-      // デバッグ情報をログ出力（APIレスポンスも含める）
+      // デバッグ情報をログ出力
       const debugInfo = {
         apiKey: apiKey || '未設定',
         apiKeyPreview: apiKey ? `${apiKey.substring(0, 8)}...` : '未設定',
         origin: window.location.origin,
-        authUrl,
-        callbackUrl: `${window.location.origin}/api/shopify/callback`,
+        installUrl,
+        callbackUrl: `${config.apiBaseUrl}/api/shopify/callback`,
         environment: config.name,
         isEmbedded,
-        apiResponse: {
-          status: response.status,
-          statusText: response.statusText,
-          url: installUrlApi,
-        },
         timestamp: new Date().toISOString(),
       };
       
       console.log('🔍 ===== OAuth開始デバッグ情報 =====');
-      console.log('🔑 API Key (完全):', debugInfo.apiKey);
       console.log('🔑 API Key (プレビュー):', debugInfo.apiKeyPreview);
       console.log('🌐 現在のオリジン:', debugInfo.origin);
-      console.log('📍 Shopify OAuth URL:', debugInfo.authUrl);
+      console.log('📍 バックエンド Install URL:', debugInfo.installUrl);
       console.log('🔄 コールバックURL:', debugInfo.callbackUrl);
       console.log('🌍 現在の環境:', debugInfo.environment);
       console.log('🖼️ 埋め込みモード:', debugInfo.isEmbedded);
@@ -366,191 +331,35 @@ export default function InstallPolarisPage() {
         localStorage.setItem('oauth_debug_info', JSON.stringify(debugInfo));
         localStorage.setItem('oauth_debug_timestamp', new Date().toISOString());
         console.log('💾 デバッグ情報をlocalStorageに保存しました');
-        console.log('💾 確認方法: localStorage.getItem("oauth_debug_info")');
       } catch (e) {
         console.warn('⚠️ localStorageへの保存に失敗:', e);
       }
       
-      // 埋め込みアプリ内かどうかを判定
-      const isInIframe = typeof window !== 'undefined' && window.top !== window.self;
+      // ==========================================================
+      // HTTPリダイレクト方式でOAuth認証を開始
+      // ==========================================================
+      // window.location.hrefを使用してバックエンドにリダイレクト
+      // → バックエンドがHTTP 302リダイレクトを返す
+      // → ブラウザがトップレベルウィンドウでShopify OAuth URLに遷移
+      // ==========================================================
+      console.log('🚀 HTTPリダイレクト方式でOAuth認証を開始:', installUrl);
+      console.log('📝 この方式はiframe内のクロスオリジン制限を回避できます');
       
-      // 開発環境では確認用に短い遅延（本番では即座にリダイレクト）
-      const isDev = process.env.NODE_ENV === 'development';
-      const redirectDelay = isDev ? 300 : 0; // 開発環境: 300ms、本番環境: 即座
+      // 現在のURLを保存（リダイレクト確認用）
+      const beforeRedirect = window.location.href;
       
-      if (isDev) {
-        console.log(`⏸️ 開発環境: ${redirectDelay}ms後にリダイレクトします（Consoleログを確認してください）`);
-      }
+      // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
+      window.location.href = installUrl;
       
-      // リダイレクト処理（開発環境では短い遅延、本番環境では即座）
-      const performRedirect = () => {
-        // リダイレクト前にインストール処理中フラグを確認
-        if (!isInstallingRef.current) {
-          console.warn('⚠️ インストール処理中フラグがfalseです。リダイレクトをスキップします。');
-          setError('インストール処理が中断されました。もう一度お試しください。');
+      // リダイレクトが実行されたかどうかを確認（1秒後）
+      setTimeout(() => {
+        if (window.location.href === beforeRedirect) {
+          console.error('❌ リダイレクトが実行されませんでした');
+          setError('リダイレクトに失敗しました。もう一度お試しください。');
           setLoading(false);
-          return;
+          isInstallingRef.current = false;
         }
-        
-        try {
-          // デバッグ用: リダイレクト前の状態を詳細にログ出力
-          console.log('🔄 ===== リダイレクト実行開始 =====');
-          console.log('📍 現在のURL:', window.location.href);
-          console.log('📍 現在のパス:', window.location.pathname);
-          console.log('🔗 OAuth URL:', authUrl);
-          console.log('🖼️ 埋め込みモード:', { isEmbedded, isInIframe, canAccessTopWindow: window.top !== null });
-          console.log('⏰ リダイレクト時刻:', new Date().toISOString());
-          console.log('🔄 ================================');
-          
-          // リダイレクト前にローディング状態を維持（画面が切り替わらないようにする）
-          // 注意: setLoading(false)を呼ばないことで、ローディング画面を表示し続ける
-          
-          if (isEmbedded || isInIframe) {
-            // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
-            // OAuth認証はトップレベルで実行する必要があるため
-            console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
-            if (window.top && window.top !== window.self) {
-              console.log('✅ 埋め込みアプリ内: window.top.location.replace()を実行');
-              console.log('🔗 リダイレクト先:', authUrl);
-              try {
-                // リダイレクト実行前に現在のURLを保存（確認用）
-                const beforeRedirect = window.top.location.href;
-                window.top.location.replace(authUrl); // replaceを使用して履歴に残さない
-                console.log('✅ window.top.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
-                
-                // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
-                setTimeout(() => {
-                  if (window.top && window.top.location.href === beforeRedirect) {
-                    console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
-                    window.top.location.href = authUrl;
-                  }
-                }, 500);
-              } catch (topError) {
-                console.error('❌ window.top.location.replace()実行エラー:', topError);
-                // フォールバック: 通常のリダイレクト
-                console.warn('⚠️ フォールバック: window.location.replace()を使用');
-                try {
-                  window.location.replace(authUrl);
-                } catch (fallbackError) {
-                  console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
-                  setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
-                  setLoading(false);
-                  isInstallingRef.current = false;
-                }
-              }
-            } else {
-              // フォールバック: 通常のリダイレクト
-              console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
-              console.log('✅ window.location.replace()に設定:', authUrl);
-              try {
-                const beforeRedirect = window.location.href;
-                window.location.replace(authUrl);
-                console.log('✅ window.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
-                
-                // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
-                setTimeout(() => {
-                  if (window.location.href === beforeRedirect) {
-                    console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
-                    window.location.href = authUrl;
-                  }
-                }, 500);
-              } catch (redirectError) {
-                console.error('❌ window.location.replace()実行エラー:', redirectError);
-                // 最後の手段: hrefを使用
-                console.warn('⚠️ フォールバック: window.location.hrefを使用');
-                try {
-                  window.location.href = authUrl;
-                } catch (hrefError) {
-                  console.error('❌ window.location.hrefも失敗:', hrefError);
-                  setError(`リダイレクトに失敗しました: ${hrefError instanceof Error ? hrefError.message : 'Unknown error'}`);
-                  setLoading(false);
-                  isInstallingRef.current = false;
-                }
-              }
-            }
-          } else {
-            // 通常のリダイレクト（埋め込みアプリ外）
-            console.log('🌐 通常モードでリダイレクト');
-            console.log('✅ window.location.replace()に設定:', authUrl);
-            try {
-              const beforeRedirect = window.location.href;
-              window.location.replace(authUrl); // replaceを使用して履歴に残さない
-              console.log('✅ window.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
-              
-              // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
-              setTimeout(() => {
-                if (window.location.href === beforeRedirect) {
-                  console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
-                  window.location.href = authUrl;
-                }
-              }, 500);
-            } catch (redirectError) {
-              console.error('❌ window.location.replace()実行エラー:', redirectError);
-              // 最後の手段: hrefを使用
-              console.warn('⚠️ フォールバック: window.location.hrefを使用');
-              try {
-                window.location.href = authUrl;
-              } catch (hrefError) {
-                console.error('❌ window.location.hrefも失敗:', hrefError);
-                setError(`リダイレクトに失敗しました: ${hrefError instanceof Error ? hrefError.message : 'Unknown error'}`);
-                setLoading(false);
-                isInstallingRef.current = false;
-              }
-            }
-          }
-          
-          // リダイレクトが実行されなかった場合のフォールバック（1秒後）
-          setTimeout(() => {
-            const currentUrl = window.location.href;
-            const currentPath = window.location.pathname;
-            const authUrlBase = authUrl.split('?')[0];
-            const shouldRedirect = !currentUrl.includes(authUrlBase) && 
-                                   currentPath !== '/auth/success' && 
-                                   currentPath !== '/setup/initial' &&
-                                   currentPath !== '/customers/dormant';
-            
-            if (shouldRedirect) {
-              console.error('❌ ===== リダイレクトが実行されませんでした =====');
-              console.error('📍 現在のURL:', currentUrl);
-              console.error('📍 現在のパス:', currentPath);
-              console.error('🔗 期待されるOAuth URL:', authUrl);
-              console.error('⏰ チェック時刻:', new Date().toISOString());
-              console.error('🔄 強制的にリダイレクトします');
-              console.error('❌ ===========================================');
-              try {
-                window.location.replace(authUrl);
-              } catch (forceError) {
-                console.error('❌ 強制リダイレクトも失敗:', forceError);
-                setError(`リダイレクトに失敗しました: ${forceError instanceof Error ? forceError.message : 'Unknown error'}`);
-                setLoading(false);
-                isInstallingRef.current = false; // インストール処理終了をマーク
-              }
-            } else {
-              console.log('✅ リダイレクト確認: 正常に遷移しています', { currentPath });
-            }
-          }, 1000);
-        } catch (redirectError) {
-          console.error('❌ リダイレクト実行中にエラーが発生:', redirectError);
-          // エラーが発生した場合でも、強制的にリダイレクトを試みる
-          try {
-            window.location.replace(authUrl);
-          } catch (fallbackError) {
-            console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
-            setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
-            setLoading(false);
-            isInstallingRef.current = false; // インストール処理終了をマーク
-          }
-        }
-      };
-      
-      if (redirectDelay > 0) {
-        console.log(`⏳ ${redirectDelay}ms後にリダイレクトを実行します`);
-        setTimeout(performRedirect, redirectDelay);
-      } else {
-        // 本番環境では即座にリダイレクト（ダッシュボードが一瞬表示されるのを防ぐ）
-        console.log('🚀 即座にリダイレクトを実行します');
-        performRedirect();
-      }
+      }, 1000);
     } catch (error) {
       console.error('❌ ===== 接続エラー発生 =====');
       console.error('エラーオブジェクト:', error);
