@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Page,
   Card,
@@ -39,7 +39,8 @@ export default function InstallPolarisPage() {
   const [shopDomainLocked, setShopDomainLocked] = useState(false);
   const [autoRedirecting, setAutoRedirecting] = useState(false);
   const [isDirectAccess, setIsDirectAccess] = useState(false); // ブラウザで直接アクセスした場合
-  const [isInstalling, setIsInstalling] = useState(false); // インストール処理中フラグ（useRefの代わりにstateを使用）
+  const isInstallingRef = useRef(false); // インストール処理中フラグ（useRefで確実に保持）
+  const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
   const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
 
@@ -87,10 +88,16 @@ export default function InstallPolarisPage() {
     // 登録済みか判定して通常画面へ
     // 重要: 認証状態を確認し、未認証の場合は登録済みストアチェックをスキップ
     const checkAndRedirect = async () => {
-      // インストール処理中（loading状態またはisInstallingフラグ）の場合は、自動リダイレクトをスキップ
+      // 既にチェック済みの場合はスキップ（重複実行を防ぐ）
+      if (hasCheckedStoreRef.current) {
+        console.log('⏸️ 既にストアチェック済みのため、スキップします');
+        return;
+      }
+      
+      // インストール処理中（loading状態またはisInstallingRefフラグ）の場合は、自動リダイレクトをスキップ
       // OAuth認証フロー中にダッシュボードが一瞬表示されるのを防ぐため
-      if (loading || isInstalling) {
-        console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。', { loading, isInstalling });
+      if (loading || isInstallingRef.current) {
+        console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。', { loading, isInstalling: isInstallingRef.current });
         return;
       }
 
@@ -104,6 +111,7 @@ export default function InstallPolarisPage() {
       // アンインストール後でもデータベースにストア情報が残っている可能性があるため
       if (!isAuthenticated) {
         console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。');
+        hasCheckedStoreRef.current = true; // チェック済みフラグを設定
         return;
       }
 
@@ -139,10 +147,14 @@ export default function InstallPolarisPage() {
 
         if (!matched?.id) {
           console.log('ℹ️ 登録済みストアが見つかりませんでした。インストール画面を表示します。');
+          hasCheckedStoreRef.current = true; // チェック済みフラグを設定
           return;
         }
 
         console.log('✅ 登録済みストアを検出:', { storeId: matched.id, shop: normalizedShop });
+        
+        // チェック済みフラグを設定（リダイレクト前に設定することで、リダイレクト中の再実行を防ぐ）
+        hasCheckedStoreRef.current = true;
 
         // StoreId を保存（既存ロジックは currentStoreId を参照）
         localStorage.setItem('currentStoreId', String(matched.id));
@@ -162,7 +174,7 @@ export default function InstallPolarisPage() {
     };
 
     void checkAndRedirect();
-  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading, isInstalling]);
+  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading]);
 
   // URLパラメータからエラー情報を取得
   useEffect(() => {
@@ -223,21 +235,33 @@ export default function InstallPolarisPage() {
   };
 
   const handleInstall = useCallback(async () => {
+    console.log('🚀 ===== インストール処理開始 =====');
+    console.log('📍 現在のURL:', window.location.href);
+    console.log('📍 現在のパス:', window.location.pathname);
+    console.log('🏪 入力されたshopDomain:', shopDomain);
+    console.log('⏰ 開始時刻:', new Date().toISOString());
+    console.log('====================================');
+    
     setError('');
 
     // 入力検証
     if (!shopDomain.trim()) {
+      console.warn('⚠️ ストアドメインが入力されていません');
       setError('ストアドメインを入力してください');
       return;
     }
 
     if (!validateShopDomain(shopDomain)) {
+      console.warn('⚠️ ストアドメインの形式が不正:', shopDomain);
       setError('有効なストアドメインを入力してください（例: my-store）');
       return;
     }
+    
+    console.log('✅ 入力検証完了');
 
     setLoading(true);
-    setIsInstalling(true); // インストール処理開始をマーク
+    isInstallingRef.current = true; // インストール処理開始をマーク（useRefで確実に保持）
+    hasCheckedStoreRef.current = false; // ストアチェックフラグをリセット（再インストール時に対応）
     simulateProgress();
 
     try {
@@ -360,6 +384,14 @@ export default function InstallPolarisPage() {
       
       // リダイレクト処理（開発環境では短い遅延、本番環境では即座）
       const performRedirect = () => {
+        // リダイレクト前にインストール処理中フラグを確認
+        if (!isInstallingRef.current) {
+          console.warn('⚠️ インストール処理中フラグがfalseです。リダイレクトをスキップします。');
+          setError('インストール処理が中断されました。もう一度お試しください。');
+          setLoading(false);
+          return;
+        }
+        
         try {
           // デバッグ用: リダイレクト前の状態を詳細にログ出力
           console.log('🔄 ===== リダイレクト実行開始 =====');
@@ -381,32 +413,89 @@ export default function InstallPolarisPage() {
               console.log('✅ 埋め込みアプリ内: window.top.location.replace()を実行');
               console.log('🔗 リダイレクト先:', authUrl);
               try {
+                // リダイレクト実行前に現在のURLを保存（確認用）
+                const beforeRedirect = window.top.location.href;
                 window.top.location.replace(authUrl); // replaceを使用して履歴に残さない
-                console.log('✅ window.top.location.replace()実行完了');
+                console.log('✅ window.top.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
+                
+                // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
+                setTimeout(() => {
+                  if (window.top && window.top.location.href === beforeRedirect) {
+                    console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
+                    window.top.location.href = authUrl;
+                  }
+                }, 500);
               } catch (topError) {
                 console.error('❌ window.top.location.replace()実行エラー:', topError);
                 // フォールバック: 通常のリダイレクト
                 console.warn('⚠️ フォールバック: window.location.replace()を使用');
-                window.location.replace(authUrl);
+                try {
+                  window.location.replace(authUrl);
+                } catch (fallbackError) {
+                  console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
+                  setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+                  setLoading(false);
+                  isInstallingRef.current = false;
+                }
               }
             } else {
               // フォールバック: 通常のリダイレクト
               console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
               console.log('✅ window.location.replace()に設定:', authUrl);
-              window.location.replace(authUrl);
+              try {
+                const beforeRedirect = window.location.href;
+                window.location.replace(authUrl);
+                console.log('✅ window.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
+                
+                // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
+                setTimeout(() => {
+                  if (window.location.href === beforeRedirect) {
+                    console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
+                    window.location.href = authUrl;
+                  }
+                }, 500);
+              } catch (redirectError) {
+                console.error('❌ window.location.replace()実行エラー:', redirectError);
+                // 最後の手段: hrefを使用
+                console.warn('⚠️ フォールバック: window.location.hrefを使用');
+                try {
+                  window.location.href = authUrl;
+                } catch (hrefError) {
+                  console.error('❌ window.location.hrefも失敗:', hrefError);
+                  setError(`リダイレクトに失敗しました: ${hrefError instanceof Error ? hrefError.message : 'Unknown error'}`);
+                  setLoading(false);
+                  isInstallingRef.current = false;
+                }
+              }
             }
           } else {
             // 通常のリダイレクト（埋め込みアプリ外）
             console.log('🌐 通常モードでリダイレクト');
             console.log('✅ window.location.replace()に設定:', authUrl);
             try {
+              const beforeRedirect = window.location.href;
               window.location.replace(authUrl); // replaceを使用して履歴に残さない
-              console.log('✅ window.location.replace()実行完了');
+              console.log('✅ window.location.replace()実行完了', { beforeRedirect, targetUrl: authUrl });
+              
+              // リダイレクトが即座に実行されない場合のフォールバック（0.5秒後）
+              setTimeout(() => {
+                if (window.location.href === beforeRedirect) {
+                  console.warn('⚠️ リダイレクトが実行されていないようです。強制的にリダイレクトします。');
+                  window.location.href = authUrl;
+                }
+              }, 500);
             } catch (redirectError) {
               console.error('❌ window.location.replace()実行エラー:', redirectError);
               // 最後の手段: hrefを使用
               console.warn('⚠️ フォールバック: window.location.hrefを使用');
-              window.location.href = authUrl;
+              try {
+                window.location.href = authUrl;
+              } catch (hrefError) {
+                console.error('❌ window.location.hrefも失敗:', hrefError);
+                setError(`リダイレクトに失敗しました: ${hrefError instanceof Error ? hrefError.message : 'Unknown error'}`);
+                setLoading(false);
+                isInstallingRef.current = false;
+              }
             }
           }
           
@@ -434,7 +523,7 @@ export default function InstallPolarisPage() {
                 console.error('❌ 強制リダイレクトも失敗:', forceError);
                 setError(`リダイレクトに失敗しました: ${forceError instanceof Error ? forceError.message : 'Unknown error'}`);
                 setLoading(false);
-                setIsInstalling(false);
+                isInstallingRef.current = false; // インストール処理終了をマーク
               }
             } else {
               console.log('✅ リダイレクト確認: 正常に遷移しています', { currentPath });
@@ -449,7 +538,7 @@ export default function InstallPolarisPage() {
             console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
             setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
             setLoading(false);
-            setIsInstalling(false);
+            isInstallingRef.current = false; // インストール処理終了をマーク
           }
         }
       };
@@ -463,12 +552,25 @@ export default function InstallPolarisPage() {
         performRedirect();
       }
     } catch (error) {
-      console.error('❌ 接続エラー:', error);
+      console.error('❌ ===== 接続エラー発生 =====');
+      console.error('エラーオブジェクト:', error);
+      console.error('エラーメッセージ:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('エラースタック:', error instanceof Error ? error.stack : 'N/A');
+      console.error('発生時刻:', new Date().toISOString());
+      console.error('現在の状態:', {
+        loading,
+        isInstalling: isInstallingRef.current,
+        shopDomain,
+        isEmbedded
+      });
+      console.error('============================');
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setError(`接続処理中にエラーが発生しました: ${errorMessage}`);
       setLoading(false);
-      setIsInstalling(false); // インストール処理終了をマーク
+      isInstallingRef.current = false; // インストール処理終了をマーク
       setInstallProgress(0);
+      console.log('✅ エラー処理完了: ローディング状態を解除');
     }
   }, [shopDomain, isEmbedded]);
 

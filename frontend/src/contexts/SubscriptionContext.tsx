@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import type { BillingPlan, Subscription, BillingInfo } from '@/types/billing';
 
@@ -150,12 +150,16 @@ interface SubscriptionProviderProps {
 
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { getApiClient, isApiClientReady } = useAuth(); // ApiClientを取得（認証ヘッダーを自動設定）
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>(MOCK_PLANS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeature | null>(null);
+  
+  // インストールページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+  const isInstallPage = pathname === '/install';
 
   // Fetch selected feature for free plan users
   const fetchSelectedFeature = useCallback(async () => {
@@ -225,6 +229,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   }, [getApiClient]);
 
   useEffect(() => {
+    // インストールページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+    if (isInstallPage) {
+      console.log('⏸️ インストールページのため、サブスクリプションデータの取得をスキップします');
+      setLoading(false);
+      return;
+    }
+    
     // ApiClientが初期化されるまで待機
     if (!isApiClientReady) {
       console.log('⏳ ApiClientの初期化を待機中...');
@@ -234,7 +245,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     console.log('✅ ApiClientが準備完了、サブスクリプションデータを取得します');
     fetchSubscriptionData();
     fetchSelectedFeature();
-  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature]);
+  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature, isInstallPage]);
 
   // Calculate derived values
   const currentPlan = plans.find(p => p.id === subscription?.planId) || null;
