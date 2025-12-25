@@ -956,7 +956,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <summary>
         /// 認証コードをアクセストークンに交換する（リトライ機能付き）
         /// </summary>
-        private async Task<string?> ExchangeCodeForAccessTokenWithRetry(
+        private async Task<ShopifyTokenResponse?> ExchangeCodeForAccessTokenWithRetry(
             string code, 
             string shop, 
             string apiKey, 
