@@ -133,6 +133,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
             console.error('❌ Shopifyトークン取得エラー:', error)
             setIsAuthenticated(false)
           }
+        } else if (authMode === 'shopify' && !isEmbedded) {
+          // OAuth認証済み（スタンドアロンアプリ）の場合、oauth_authenticatedフラグを確認
+          const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
+          if (oauthAuthenticated === 'true') {
+            console.log('✅ OAuth認証済みフラグを確認しました')
+            setIsAuthenticated(true)
+          } else {
+            console.log('⚠️ OAuth認証フラグが見つかりませんでした')
+            setIsAuthenticated(false)
+          }
         } else if (authMode === 'demo') {
           // デモモードの場合、ローカルストレージからデモトークンを確認
           const demoToken = localStorage.getItem('demoToken')
@@ -141,6 +151,18 @@ function AuthProviderInner({ children }: AuthProviderProps) {
             setIsAuthenticated(true)
           } else {
             console.log('⚠️ デモトークンが見つかりませんでした')
+            setIsAuthenticated(false)
+          }
+        } else if (authMode === null) {
+          // authModeがnullの場合でも、oauth_authenticatedフラグを確認（初期化タイミングの問題を回避）
+          const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
+          if (oauthAuthenticated === 'true') {
+            console.log('✅ OAuth認証済みフラグを確認しました（authMode=null）')
+            setIsAuthenticated(true)
+            // authModeも設定（次回の初期化で正しく動作するように）
+            setAuthMode('shopify')
+          } else {
+            console.log('⚠️ 認証情報が見つかりません（authMode=null）')
             setIsAuthenticated(false)
           }
         }

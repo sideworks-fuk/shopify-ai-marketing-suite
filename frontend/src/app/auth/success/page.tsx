@@ -174,14 +174,17 @@ export default function AuthSuccessPage() {
                 }
               }
 
-              // それ以外は認証済みページ（/customers/dormant）にリダイレクト
-              // / は認証が必要なため、認証状態が反映される前にリダイレクトするとinstall画面に戻ってしまう
+              // OAuth認証成功後のリダイレクト先を決定
+              // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
+              // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
+              // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
+              console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
               if (host && resolvedShop) {
-                router.push(`/customers/dormant?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
+                router.push(`/setup/initial?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
               } else if (resolvedShop) {
-                router.push(`/customers/dormant?shop=${encodeURIComponent(resolvedShop)}`);
+                router.push(`/setup/initial?shop=${encodeURIComponent(resolvedShop)}`);
               } else {
-                router.push('/customers/dormant');
+                router.push('/setup/initial');
               }
             }
           }, 1000);
