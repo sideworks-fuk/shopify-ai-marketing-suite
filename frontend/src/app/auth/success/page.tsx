@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '@/contexts/StoreContext';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -21,10 +21,21 @@ export default function AuthSuccessPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('認証情報を確認しています...');
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
 
   useEffect(() => {
+    // 既に処理済みの場合はスキップ（重複実行を防ぐ）
+    if (hasProcessedRef.current) {
+      console.log('⏸️ 既に処理済みのため、重複実行をスキップします');
+      return;
+    }
+
+    // 処理開始をマーク
+    hasProcessedRef.current = true;
+
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
+    let redirectTimeoutId: NodeJS.Timeout | null = null;
 
     const handleAuthCallback = async () => {
       const shop = searchParams?.get('shop');
@@ -175,33 +186,41 @@ export default function AuthSuccessPage() {
           setMessage('認証が完了しました！ダッシュボードへ移動します...');
           
           // 1秒後にダッシュボードへリダイレクト（2秒から短縮）
-          setTimeout(() => {
-            if (isMounted) {
-              // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
-              // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
-              const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
-              if (typeof window !== 'undefined' && host && resolvedShop && apiKey) {
-                const isTopWindow = window.top === window.self;
-                if (isTopWindow) {
-                  const adminAppUrl = `https://${resolvedShop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
-                  window.location.href = adminAppUrl;
-                  return;
-                }
-              }
-
-              // OAuth認証成功後のリダイレクト先を決定
-              // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
-              // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
-              // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
-              console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
-              if (host && resolvedShop) {
-                router.push(`/setup/initial?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`);
-              } else if (resolvedShop) {
-                router.push(`/setup/initial?shop=${encodeURIComponent(resolvedShop)}`);
-              } else {
-                router.push('/setup/initial');
+          redirectTimeoutId = setTimeout(() => {
+            if (!isMounted) return;
+            
+            // リダイレクト処理を一度だけ実行するためのチェック
+            const currentPath = window.location.pathname;
+            if (currentPath !== '/auth/success') {
+              console.log('⏸️ 既に別のページに遷移しているため、リダイレクトをスキップ:', currentPath);
+              return;
+            }
+            
+            // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
+            // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
+            const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+            if (typeof window !== 'undefined' && host && resolvedShop && apiKey) {
+              const isTopWindow = window.top === window.self;
+              if (isTopWindow) {
+                const adminAppUrl = `https://${resolvedShop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
+                console.log('🔄 Shopify管理画面にリダイレクト:', adminAppUrl);
+                window.location.href = adminAppUrl;
+                return;
               }
             }
+
+            // OAuth認証成功後のリダイレクト先を決定
+            // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
+            // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
+            // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
+            console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
+            const redirectPath = host && resolvedShop
+              ? `/setup/initial?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`
+              : resolvedShop
+              ? `/setup/initial?shop=${encodeURIComponent(resolvedShop)}`
+              : '/setup/initial';
+            console.log('🔄 リダイレクト先:', redirectPath);
+            router.replace(redirectPath); // pushではなくreplaceを使用（ブラウザ履歴に残さない）
           }, 1000);
         }
         
@@ -210,10 +229,14 @@ export default function AuthSuccessPage() {
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
+        if (redirectTimeoutId) {
+          clearTimeout(redirectTimeoutId);
+        }
         if (isMounted) {
           setStatus('error');
           const errorMessage = error?.message || '予期しないエラーが発生しました。もう一度お試しください。';
           setMessage(errorMessage);
+          hasProcessedRef.current = false; // エラー時は処理フラグをリセット（再試行可能にする）
         }
       }
     };
@@ -226,8 +249,12 @@ export default function AuthSuccessPage() {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      if (redirectTimeoutId) {
+        clearTimeout(redirectTimeoutId);
+      }
+      // 注意: hasProcessedRefはリセットしない（処理完了まで保持）
     };
-  }, [searchParams, router]); // refreshStores と setCurrentStore を依存配列から削除
+  }, [searchParams, router, refreshStores, setCurrentStore, markAuthenticated]); // 必要な依存関係を追加
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">

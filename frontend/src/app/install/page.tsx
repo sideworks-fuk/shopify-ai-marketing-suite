@@ -86,6 +86,13 @@ export default function InstallPolarisPage() {
     // 登録済みか判定して通常画面へ
     // 重要: 認証状態を確認し、未認証の場合は登録済みストアチェックをスキップ
     const checkAndRedirect = async () => {
+      // インストール処理中（loading状態）の場合は、自動リダイレクトをスキップ
+      // OAuth認証フロー中にダッシュボードが一瞬表示されるのを防ぐため
+      if (loading) {
+        console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。');
+        return;
+      }
+
       // 認証状態の初期化を待つ
       if (isInitializing) {
         console.log('⏳ 認証状態の初期化を待機中...');
@@ -154,7 +161,7 @@ export default function InstallPolarisPage() {
     };
 
     void checkAndRedirect();
-  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing]);
+  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading]);
 
   // URLパラメータからエラー情報を取得
   useEffect(() => {
@@ -326,31 +333,67 @@ export default function InstallPolarisPage() {
       // 埋め込みアプリ内かどうかを判定
       const isInIframe = typeof window !== 'undefined' && window.top !== window.self;
       
-      // 開発環境では確認用に一時停止（本番では無効化）
+      // 開発環境では確認用に短い遅延（本番では即座にリダイレクト）
       const isDev = process.env.NODE_ENV === 'development';
+      const redirectDelay = isDev ? 300 : 0; // 開発環境: 300ms、本番環境: 即座
+      
       if (isDev) {
-        console.log('⏸️ 開発環境: 3秒後にリダイレクトします（Consoleログを確認してください）');
+        console.log(`⏸️ 開発環境: ${redirectDelay}ms後にリダイレクトします（Consoleログを確認してください）`);
       }
       
-      // リダイレクト前に少し待つ（Consoleログが表示される時間を確保）
-      setTimeout(() => {
-        if (isEmbedded || isInIframe) {
-          // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
-          // OAuth認証はトップレベルで実行する必要があるため
-          console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
-          if (window.top) {
-            window.top.location.href = authUrl;
+      // リダイレクト処理（開発環境では短い遅延、本番環境では即座）
+      const performRedirect = () => {
+        try {
+          console.log('🔄 リダイレクト実行開始:', { authUrl, isEmbedded, isInIframe });
+          
+          if (isEmbedded || isInIframe) {
+            // 埋め込みアプリ内の場合、トップレベルウィンドウでリダイレクト
+            // OAuth認証はトップレベルで実行する必要があるため
+            console.log('🖼️ 埋め込みアプリ内でリダイレクト: トップレベルウィンドウを使用');
+            if (window.top && window.top !== window.self) {
+              console.log('✅ window.top.location.hrefに設定:', authUrl);
+              window.top.location.href = authUrl;
+            } else {
+              // フォールバック: 通常のリダイレクト
+              console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
+              console.log('✅ window.location.hrefに設定:', authUrl);
+              window.location.href = authUrl;
+            }
           } else {
-            // フォールバック: 通常のリダイレクト
-            console.warn('⚠️ window.topが利用できないため、通常のリダイレクトを使用');
+            // 通常のリダイレクト（埋め込みアプリ外）
+            console.log('🌐 通常モードでリダイレクト');
+            console.log('✅ window.location.hrefに設定:', authUrl);
             window.location.href = authUrl;
           }
-        } else {
-          // 通常のリダイレクト（埋め込みアプリ外）
-          console.log('🌐 通常モードでリダイレクト');
-          window.location.href = authUrl;
+          
+          // リダイレクトが実行されなかった場合のフォールバック（3秒後）
+          setTimeout(() => {
+            if (window.location.href !== authUrl && window.location.pathname !== '/auth/success') {
+              console.error('❌ リダイレクトが実行されませんでした。強制的にリダイレクトします。');
+              window.location.replace(authUrl);
+            }
+          }, 3000);
+        } catch (redirectError) {
+          console.error('❌ リダイレクト実行中にエラーが発生:', redirectError);
+          // エラーが発生した場合でも、強制的にリダイレクトを試みる
+          try {
+            window.location.replace(authUrl);
+          } catch (fallbackError) {
+            console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
+            setError(`リダイレクトに失敗しました: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
+            setLoading(false);
+          }
         }
-      }, 500); // 500ms待ってからリダイレクト
+      };
+      
+      if (redirectDelay > 0) {
+        console.log(`⏳ ${redirectDelay}ms後にリダイレクトを実行します`);
+        setTimeout(performRedirect, redirectDelay);
+      } else {
+        // 本番環境では即座にリダイレクト（ダッシュボードが一瞬表示されるのを防ぐ）
+        console.log('🚀 即座にリダイレクトを実行します');
+        performRedirect();
+      }
     } catch (error) {
       console.error('❌ 接続エラー:', error);
       setError('接続処理中にエラーが発生しました。もう一度お試しください。');
