@@ -114,6 +114,31 @@ jobs:
         cd backend/ShopifyAnalyticsApi
         dotnet publish -c Release -o ./published --no-restore --no-build
 
+    - name: 🔍 Verify appsettings.json files
+      run: |
+        cd backend/ShopifyAnalyticsApi/published
+        echo "Verifying appsettings.json files..."
+        if (Test-Path "appsettings.json") {
+          $content = Get-Content appsettings.json -Raw | ConvertFrom-Json
+          $authMode = $content.Authentication.Mode
+          Write-Host "appsettings.json Authentication.Mode: $authMode"
+          if ($authMode -eq "AllAllowed") {
+            Write-Error "❌ appsettings.json still contains AllAllowed mode!"
+            exit 1
+          }
+        }
+        if (Test-Path "appsettings.Development.json") {
+          $devContent = Get-Content appsettings.Development.json -Raw | ConvertFrom-Json
+          $devAuthMode = $devContent.Authentication.Mode
+          Write-Host "appsettings.Development.json Authentication.Mode: $devAuthMode"
+          if ($devAuthMode -eq "AllAllowed") {
+            Write-Error "❌ appsettings.Development.json still contains AllAllowed mode!"
+            exit 1
+          }
+        }
+        echo "✅ appsettings.json files verified"
+      shell: pwsh
+
     - name: 🚀 Deploy to Azure App Service
       uses: azure/webapps-deploy@v3
       with:
