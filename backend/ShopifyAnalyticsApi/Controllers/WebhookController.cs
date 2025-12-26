@@ -66,7 +66,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
-                    _logger.LogWarning("HMAC検証失敗: app/uninstalled");
+                    _logger.LogWarning("HMAC verification failed: app/uninstalled");
                     return Forbid();
                 }
 
@@ -76,13 +76,13 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (webhook?.Domain == null)
                 {
-                    _logger.LogWarning("無効なWebhookペイロード: app/uninstalled");
+                    _logger.LogWarning("Invalid webhook payload: app/uninstalled");
                     return BadRequest();
                 }
 
                 var correlationId = LoggingHelper.GetOrCreateCorrelationId(HttpContext);
                 var requestId = LoggingHelper.GetOrCreateRequestId(HttpContext);
-                _logger.LogInformation("アプリアンインストール通知受信 Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, topic, webhookId, correlationId, requestId);
+                _logger.LogInformation("App uninstall notification received Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, topic, webhookId, correlationId, requestId);
 
                 // 非同期で処理を実行
                 _ = Task.Run(async () =>
@@ -97,18 +97,18 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "アンインストール処理中にエラー. Shop: {Shop}", webhook.Domain);
+                        _logger.LogError(ex, "Error occurred during uninstall processing. Shop: {Shop}", webhook.Domain);
                     }
                 });
 
                 // 即座に200 OKを返す（5秒ルール）
                 started.Stop();
-                _logger.LogInformation("app/uninstalled 処理完了 Shop={Shop} WebhookId={WebhookId} Result={Result} LatencyMs={Latency} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, webhookId, "accepted", started.ElapsedMilliseconds, correlationId, requestId);
+                _logger.LogInformation("app/uninstalled processing completed Shop={Shop} WebhookId={WebhookId} Result={Result} LatencyMs={Latency} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, webhookId, "accepted", started.ElapsedMilliseconds, correlationId, requestId);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "app/uninstalled Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing app/uninstalled webhook");
                 // エラーでも200を返す
                 return Ok();
             }
@@ -165,17 +165,17 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "顧客データ削除処理中にエラー. Shop: {Shop}", webhook.ShopDomain);
+                        _logger.LogError(ex, "Error occurred during customer data deletion processing. Shop: {Shop}", webhook.ShopDomain);
                     }
                 });
 
                 started.Stop();
-                _logger.LogInformation("customers/redact 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
+                _logger.LogInformation("customers/redact accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "customers/redact Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing customers/redact webhook");
                 return Ok();
             }
         }
@@ -230,17 +230,17 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "ショップデータ削除処理中にエラー. Shop: {Shop}", webhook.Domain);
+                        _logger.LogError(ex, "Error occurred during shop data deletion processing. Shop: {Shop}", webhook.Domain);
                     }
                 });
 
                 started.Stop();
-                _logger.LogInformation("shop/redact 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.Domain, webhookId, started.ElapsedMilliseconds);
+                _logger.LogInformation("shop/redact accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.Domain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "shop/redact Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing shop/redact webhook");
                 return Ok();
             }
         }
@@ -296,17 +296,17 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "顧客データエクスポート処理中にエラー. Shop: {Shop}", webhook.ShopDomain);
+                        _logger.LogError(ex, "Error occurred during customer data export processing. Shop: {Shop}", webhook.ShopDomain);
                     }
                 });
 
                 started.Stop();
-                _logger.LogInformation("customers/data_request 受付完了 Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
+                _logger.LogInformation("customers/data_request accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "customers/data_request Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing customers/data_request webhook");
                 return Ok();
             }
         }
@@ -352,17 +352,17 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "サブスクリプション更新処理中にエラー");
+                        _logger.LogError(ex, "Error occurred during subscription update processing");
                     }
                 });
 
                 started.Stop();
-                _logger.LogInformation("subscriptions-update 受付完了 WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
+                _logger.LogInformation("subscriptions-update accepted WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "app_subscriptions/update Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing app_subscriptions/update webhook");
                 return Ok();
             }
         }
@@ -408,17 +408,17 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "サブスクリプションキャンセル処理中にエラー");
+                        _logger.LogError(ex, "Error occurred during subscription cancellation processing");
                     }
                 });
 
                 started.Stop();
-                _logger.LogInformation("subscriptions-cancel 受付完了 WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
+                _logger.LogInformation("subscriptions-cancel accepted WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "app_subscriptions/cancel Webhook処理中にエラー");
+                _logger.LogError(ex, "Error occurred while processing app_subscriptions/cancel webhook");
                 return Ok();
             }
         }
@@ -433,7 +433,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // Shopify-Hmac-SHA256ヘッダーを取得
                 if (!Request.Headers.TryGetValue("X-Shopify-Hmac-SHA256", out var receivedHmac))
                 {
-                    _logger.LogWarning("HMAC署名ヘッダーが見つかりません");
+                    _logger.LogWarning("HMAC signature header not found");
                     return false;
                 }
 
@@ -492,7 +492,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
                 catch
                 {
-                    _logger.LogWarning("HMAC署名の形式が不正です");
+                    _logger.LogWarning("HMAC signature format is invalid");
                     return false;
                 }
 
@@ -787,12 +787,12 @@ namespace ShopifyAnalyticsApi.Controllers
                 // Webhookイベントを記録
                 await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/update", webhook);
 
-                _logger.LogInformation("サブスクリプション更新完了. StoreId: {StoreId}, Status: {Status}, Plan: {Plan}", 
+                _logger.LogInformation("Subscription update completed. StoreId: {StoreId}, Status: {Status}, Plan: {Plan}", 
                     subscription.StoreId, subscription.Status, subscription.PlanName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "サブスクリプション更新処理中にエラー");
+                _logger.LogError(ex, "Error occurred during subscription update processing");
             }
         }
 
@@ -864,11 +864,11 @@ namespace ShopifyAnalyticsApi.Controllers
                 // Webhookイベントを記録
                 await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/cancel", webhook);
 
-                _logger.LogInformation("サブスクリプションキャンセル完了. StoreId: {StoreId}", subscription.StoreId);
+                _logger.LogInformation("Subscription cancellation completed. StoreId: {StoreId}", subscription.StoreId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "サブスクリプションキャンセル処理中にエラー");
+                _logger.LogError(ex, "Error occurred during subscription cancellation processing");
             }
         }
 

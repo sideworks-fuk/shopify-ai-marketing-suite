@@ -34,7 +34,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
-                _logger.LogInformation("アクティブなストア一覧取得開始. RequestId: {RequestId}", 
+                _logger.LogInformation("Starting to retrieve active stores. RequestId: {RequestId}", 
                     logProperties["RequestId"]);
 
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetActiveStores", logProperties);
@@ -47,26 +47,26 @@ namespace ShopifyAnalyticsApi.Controllers
                     TotalCount = stores.Count
                 };
 
-                _logger.LogInformation("アクティブなストア一覧取得完了. Count: {Count}, RequestId: {RequestId}",
+                _logger.LogInformation("Completed retrieving active stores. Count: {Count}, RequestId: {RequestId}",
                     stores.Count, logProperties["RequestId"]);
 
                 return Ok(new ApiResponse<StoreListResponse>
                 {
                     Success = true,
                     Data = response,
-                    Message = "ストア一覧を正常に取得しました。"
+                    Message = "Stores retrieved successfully."
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ストア一覧取得でエラーが発生. RequestId: {RequestId}", 
+                _logger.LogError(ex, "Error occurred while retrieving stores. RequestId: {RequestId}", 
                     logProperties["RequestId"]);
                 
                 return StatusCode(500, new ApiResponse<StoreListResponse>
                 {
                     Success = false,
                     Data = null,
-                    Message = "ストア一覧の取得中にエラーが発生しました。"
+                    Message = "An error occurred while retrieving stores."
                 });
             }
         }
@@ -83,45 +83,45 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
-                _logger.LogInformation("ストア詳細取得開始. StoreId: {StoreId}, RequestId: {RequestId}", 
+                _logger.LogInformation("Starting to retrieve store details. StoreId: {StoreId}, RequestId: {RequestId}", 
                     id, logProperties["RequestId"]);
 
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetStore", logProperties);
 
                 var response = await _storeService.GetStoreDetailAsync(id);
 
-                _logger.LogInformation("ストア詳細取得完了. StoreId: {StoreId}, RequestId: {RequestId}",
+                _logger.LogInformation("Completed retrieving store details. StoreId: {StoreId}, RequestId: {RequestId}",
                     id, logProperties["RequestId"]);
 
                 return Ok(new ApiResponse<StoreDetailResponse>
                 {
                     Success = true,
                     Data = response,
-                    Message = "ストア情報を正常に取得しました。"
+                    Message = "Store information retrieved successfully."
                 });
             }
             catch (KeyNotFoundException)
             {
-                _logger.LogWarning("ストアが見つかりません. StoreId: {StoreId}, RequestId: {RequestId}", 
+                _logger.LogWarning("Store not found. StoreId: {StoreId}, RequestId: {RequestId}", 
                     id, logProperties["RequestId"]);
                 
                 return NotFound(new ApiResponse<StoreDetailResponse>
                 {
                     Success = false,
                     Data = null,
-                    Message = $"指定されたID {id} のストアが見つかりません。"
+                    Message = $"Store with ID {id} not found."
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ストア詳細取得でエラーが発生. StoreId: {StoreId}, RequestId: {RequestId}", 
+                _logger.LogError(ex, "Error occurred while retrieving store details. StoreId: {StoreId}, RequestId: {RequestId}", 
                     id, logProperties["RequestId"]);
                 
                 return StatusCode(500, new ApiResponse<StoreDetailResponse>
                 {
                     Success = false,
                     Data = null,
-                    Message = "ストア情報の取得中にエラーが発生しました。"
+                    Message = "An error occurred while retrieving store information."
                 });
             }
         }
@@ -140,18 +140,18 @@ namespace ShopifyAnalyticsApi.Controllers
                 Success = true,
                 Data = new
                 {
-                    message = "Store API接続テスト成功！",
+                    message = "Store API connection test successful!",
                     serverTime = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss UTC"),
                     version = "1.0.0",
                     service = "StoreService",
                     availableEndpoints = new[]
                     {
-                        "GET /api/store - アクティブなストア一覧",
-                        "GET /api/store/{id} - ストア詳細情報",
-                        "GET /api/store/test - 接続テスト"
+                        "GET /api/store - Get active stores",
+                        "GET /api/store/{id} - Get store details",
+                        "GET /api/store/test - Connection test"
                     }
                 },
-                Message = "Store API は正常に動作しています。"
+                Message = "Store API is working correctly."
             });
         }
     }

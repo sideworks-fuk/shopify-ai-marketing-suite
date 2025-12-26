@@ -94,25 +94,25 @@ namespace ShopifyAnalyticsApi.Middleware
             return exception switch
             {
                 ArgumentException or ArgumentNullException => 
-                    (LogLevel.Warning, "無効なパラメータが指定されました。", HttpStatusCode.BadRequest),
+                    (LogLevel.Warning, "Invalid parameters specified.", HttpStatusCode.BadRequest),
                 
                 UnauthorizedAccessException => 
-                    (LogLevel.Warning, "アクセス権限がありません。", HttpStatusCode.Unauthorized),
+                    (LogLevel.Warning, "Access denied.", HttpStatusCode.Unauthorized),
                 
                 InvalidOperationException => 
-                    (LogLevel.Error, "操作を実行できませんでした。", HttpStatusCode.BadRequest),
+                    (LogLevel.Error, "Operation could not be executed.", HttpStatusCode.BadRequest),
                 
                 TimeoutException => 
-                    (LogLevel.Error, "リクエストがタイムアウトしました。", HttpStatusCode.RequestTimeout),
+                    (LogLevel.Error, "Request timed out.", HttpStatusCode.RequestTimeout),
                 
                 HttpRequestException => 
-                    (LogLevel.Error, "外部サービスとの通信でエラーが発生しました。", HttpStatusCode.ServiceUnavailable),
+                    (LogLevel.Error, "Error occurred while communicating with external service.", HttpStatusCode.ServiceUnavailable),
                 
                 DbUpdateException => 
-                    (LogLevel.Error, "データベースの更新でエラーが発生しました。", HttpStatusCode.InternalServerError),
+                    (LogLevel.Error, "Error occurred while updating database.", HttpStatusCode.InternalServerError),
                 
                 _ => 
-                    (LogLevel.Error, "予期しないエラーが発生しました。", HttpStatusCode.InternalServerError)
+                    (LogLevel.Error, "An unexpected error occurred.", HttpStatusCode.InternalServerError)
             };
         }
     }

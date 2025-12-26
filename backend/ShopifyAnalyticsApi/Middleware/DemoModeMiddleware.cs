@@ -39,17 +39,17 @@ public class DemoModeMiddleware
             ? "Authorization=***MASKED***" 
             : "Authorization=not-present";
         
-        _logger.LogInformation("🔍 [DemoMode] リクエストヘッダー: {Headers}", 
+        _logger.LogInformation("🔍 [DemoMode] Request headers: {Headers}", 
             string.Join(", ", safeHeaders.Concat(new[] { authHeader })));
 
         // X-Demo-Mode ヘッダーをチェック（開発環境のみ）
         if (context.Request.Headers.TryGetValue("X-Demo-Mode", out var demoModeValue))
         {
-            _logger.LogInformation("🔍 [DemoMode] X-Demo-Mode ヘッダー検出: {Value}", demoModeValue);
+            _logger.LogInformation("🔍 [DemoMode] X-Demo-Mode header detected: {Value}", demoModeValue);
 
             if (demoModeValue == "true")
             {
-                _logger.LogInformation("🎯 デモモード: 認証をスキップします");
+                _logger.LogInformation("🎯 Demo mode: Skipping authentication");
 
                 // デモ用のClaimsPrincipalを作成
                 var claims = new List<Claim>
@@ -70,7 +70,7 @@ public class DemoModeMiddleware
                 context.Items["AuthMode"] = "demo";
                 context.Items["IsReadOnly"] = true;
 
-                _logger.LogInformation("✅ デモモード認証完了");
+                _logger.LogInformation("✅ Demo mode authentication completed");
             }
         }
 

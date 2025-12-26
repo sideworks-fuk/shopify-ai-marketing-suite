@@ -73,7 +73,7 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 // 設定がない場合は現在のリクエストからバックエンドURLを取得
                 backendUrl = GetBaseUrl();
-                _logger.LogInformation("Backend:BaseUrl設定がないため、現在のリクエストからURLを取得: {BackendUrl}", backendUrl);
+                _logger.LogInformation("Backend:BaseUrl not configured, getting URL from current request: {BackendUrl}", backendUrl);
             }
             
             var redirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
@@ -114,7 +114,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ OAuth URL取得中にエラーが発生. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey ?? "未指定");
+                _logger.LogError(ex, "Error occurred while getting OAuth URL. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey ?? "not specified");
                 return StatusCode(500, new { error = "Failed to get OAuth URL", details = ex.Message });
             }
         }
@@ -156,7 +156,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     
                     if (string.IsNullOrEmpty(finalApiSecret))
                     {
-                        _logger.LogError("❌ API Keyに対応するSecretが見つかりません. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                        _logger.LogError("API Secret not found for API Key. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                         return null;
                     }
                 }
@@ -228,7 +228,7 @@ namespace ShopifyAnalyticsApi.Controllers
             try
             {
                 // デバッグ: リクエストパラメータをログ出力
-                _logger.LogInformation("===== OAuth Install 開始 ===== Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                _logger.LogInformation("===== OAuth Install Started ===== Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
                 
                 var authUrl = await BuildOAuthUrlAsync(shop, apiKey);
                 if (string.IsNullOrEmpty(authUrl))
@@ -261,7 +261,7 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
-                _logger.LogInformation("OAuthコールバック受信. Shop: {Shop}, State: {State}", shop, state);
+                _logger.LogInformation("OAuth callback received. Shop: {Shop}, State: {State}", shop, state);
 
                 // パラメータ検証
                 if (string.IsNullOrWhiteSpace(code) || 
@@ -315,7 +315,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         if (isDevelopment)
                         {
                             // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
-                            _logger.LogWarning("開発環境のためHMAC検証失敗を許可しますが、本番環境ではエラーになります");
+                            _logger.LogWarning("Development environment: HMAC verification failure is allowed, but will cause error in production");
                         }
                         else
                         {
@@ -333,7 +333,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     stateData.apiSecret);
                 if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
                 {
-                    _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", shop);
+                    _logger.LogError("Failed to obtain access token. Shop: {Shop}", shop);
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
@@ -358,7 +358,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "OAuthコールバック処理中にエラーが発生. Shop: {Shop}", shop);
+                _logger.LogError(ex, "Error occurred during OAuth callback processing. Shop: {Shop}", shop);
                 return StatusCode(500, new { error = "OAuth callback processing failed" });
             }
         }
@@ -436,7 +436,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         if (isDevelopment)
                         {
                             // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
-                            _logger.LogWarning("開発環境のためHMAC検証失敗を許可しますが、本番環境ではエラーになります");
+                            _logger.LogWarning("Development environment: HMAC verification failure is allowed, but will cause error in production");
                         }
                         else
                         {
@@ -459,7 +459,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     apiSecret);
                 if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
                 {
-                    _logger.LogError("アクセストークン取得失敗. Shop: {Shop}", request.Shop);
+                    _logger.LogError("Failed to obtain access token. Shop: {Shop}", request.Shop);
                     return StatusCode(500, new { error = "Failed to obtain access token" });
                 }
 
@@ -539,7 +539,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "設定確認中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during configuration check");
                 return StatusCode(500, new { error = "Configuration test failed" });
             }
         }
@@ -601,7 +601,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ハイブリッド方式テスト中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during hybrid mode test");
                 return StatusCode(500, new { error = "Hybrid mode test failed" });
             }
         }
@@ -648,7 +648,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "OAuth URL生成テスト中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during OAuth URL generation test");
                 return StatusCode(500, new { error = "OAuth URL generation test failed" });
             }
         }
@@ -687,7 +687,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ShopifyAppsテーブル確認中にエラーが発生");
+                _logger.LogError(ex, "Error occurred while checking ShopifyApps table");
                 return StatusCode(500, new { error = "Failed to query ShopifyApps table", details = ex.Message });
             }
         }
@@ -760,7 +760,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "承認済みスコープ確認中にエラーが発生");
+                _logger.LogError(ex, "Error occurred while checking approved scopes");
                 return StatusCode(500, new { error = "Failed to query approved scopes", details = ex.Message });
             }
         }
@@ -870,7 +870,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Storeテーブル確認中にエラーが発生");
+                _logger.LogError(ex, "Error occurred while checking Store table");
                 return StatusCode(500, new { error = "Failed to query Store table", details = ex.Message });
             }
         }
@@ -909,7 +909,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "設定値確認テスト中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during settings test");
                 return StatusCode(500, new { error = "Settings test failed", details = ex.Message });
             }
         }
@@ -941,7 +941,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "暗号化テスト中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during encryption test");
                 return StatusCode(500, new { error = "Encryption test failed" });
             }
         }
@@ -991,7 +991,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 var tokenUrl = $"https://{shop}/admin/oauth/access_token";
                 
-                _logger.LogInformation("トークン交換開始. Shop: {Shop}, URL: {URL}, ClientId: {ClientId}", 
+                _logger.LogInformation("Starting token exchange. Shop: {Shop}, URL: {URL}, ClientId: {ClientId}", 
                     shop, tokenUrl, apiKey);
                 
                 var requestData = new
@@ -1018,15 +1018,15 @@ namespace ShopifyAnalyticsApi.Controllers
                     // Shopify API エラーの詳細をログ出力
                     if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
                     {
-                        _logger.LogError("Shopify APIエラー (400 Bad Request): 無効なリクエストパラメータ");
+                        _logger.LogError("Shopify API error (400 Bad Request): Invalid request parameters");
                     }
                     else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) 
                     {
-                        _logger.LogError("Shopify APIエラー (401 Unauthorized): API Key/Secretが無効か、認証コードが無効");
+                        _logger.LogError("Shopify API error (401 Unauthorized): Invalid API Key/Secret or authorization code");
                     }
                     else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        _logger.LogError("Shopify APIエラー (404 Not Found): ショップドメインが無効");
+                        _logger.LogError("Shopify API error (404 Not Found): Invalid shop domain");
                     }
                     
                     return null;
@@ -1079,8 +1079,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         tokenResponse.Scope = requestedScopes;
                     }
                     
-                    _logger.LogInformation("アクセストークン取得成功. Shop: {Shop}, 承認されたスコープ: {Scope}", 
-                        shop, tokenResponse.Scope ?? "未設定");
+                    _logger.LogInformation("Access token obtained successfully. Shop: {Shop}, Approved scopes: {Scope}", 
+                        shop, tokenResponse.Scope ?? "not set");
                 }
                 else
                 {
@@ -1134,18 +1134,18 @@ namespace ShopifyAnalyticsApi.Controllers
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.Stores.Add(store);
-                    _logger.LogInformation("新規ストアを作成. Shop: {Shop}", shopDomain);
+                    _logger.LogInformation("Created new store. Shop: {Shop}", shopDomain);
                 }
                 else
                 {
                     // 既存レコードを更新（IsActiveがfalseの場合はtrueに戻す）
                     if (!store.IsActive)
                     {
-                        _logger.LogInformation("ストアを再アクティブ化. Shop: {Shop}, StoreId: {StoreId}", 
+                        _logger.LogInformation("Re-activating store. Shop: {Shop}, StoreId: {StoreId}", 
                             shopDomain, store.Id);
                         store.IsActive = true;
                     }
-                    _logger.LogInformation("既存ストアを更新. Shop: {Shop}, StoreId: {StoreId}", 
+                    _logger.LogInformation("Updating existing store. Shop: {Shop}, StoreId: {StoreId}", 
                         shopDomain, store.Id);
                 }
 
@@ -1153,7 +1153,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 if (shopifyAppId.HasValue)
                 {
                     store.ShopifyAppId = shopifyAppId.Value;
-                    _logger.LogInformation("ストアにShopifyAppIdを設定しました. Shop: {Shop}, ShopifyAppId: {ShopifyAppId}", 
+                    _logger.LogInformation("Set ShopifyAppId to store. Shop: {Shop}, ShopifyAppId: {ShopifyAppId}", 
                         shopDomain, shopifyAppId.Value);
                 }
                 // 後方互換性: ApiKey/ApiSecretが提供され、かつShopifyAppIdが設定されていない場合のみ保存
@@ -1166,7 +1166,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 if (!string.IsNullOrEmpty(apiSecret) && string.IsNullOrEmpty(store.ApiSecret))
                 {
                     store.ApiSecret = apiSecret;
-                    _logger.LogInformation("ストア固有のAPI Secretを保存しました（後方互換性）. Shop: {Shop}", shopDomain);
+                    _logger.LogInformation("Saved store-specific API Secret (backward compatibility). Shop: {Shop}", shopDomain);
                 }
 
                 // アクセストークンを保存
@@ -1189,14 +1189,14 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 await _context.SaveChangesAsync();
                 
-                _logger.LogInformation("ストア情報を保存しました. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}, HasApiKey: {HasApiKey}", 
+                _logger.LogInformation("Store information saved. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}, HasApiKey: {HasApiKey}", 
                     shopDomain, store.Id, store.ShopifyAppId, !string.IsNullOrEmpty(store.ApiKey));
                 
                 return store.Id;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ストア情報の保存中にエラーが発生. Shop: {Shop}", shopDomain);
+                _logger.LogError(ex, "Error occurred while saving store information. Shop: {Shop}", shopDomain);
                 throw;
             }
         }
@@ -1326,7 +1326,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Webhook登録中にエラーが発生. Topic: {Topic}", webhook.topic);
+                        _logger.LogError(ex, "Error occurred while registering webhook. Topic: {Topic}", webhook.topic);
                     }
                 }
             }
@@ -1404,7 +1404,7 @@ namespace ShopifyAnalyticsApi.Controllers
             
             if (string.IsNullOrWhiteSpace(apiSecret))
             {
-                _logger.LogError("HMAC検証エラー: ApiSecretが設定されていません. Shop: {Shop}", shop);
+                _logger.LogError("HMAC verification error: ApiSecret is not configured. Shop: {Shop}", shop);
                 return false;
             }
             
@@ -1424,8 +1424,8 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (isDevelopment)
                 {
-                    _logger.LogInformation("=== HMAC検証開始（ShopifySharp使用） ===");
-                    _logger.LogInformation("受信したパラメータ:");
+                    _logger.LogInformation("=== Starting HMAC verification (using ShopifySharp) ===");
+                    _logger.LogInformation("Received parameters:");
                     foreach (var p in queryParams.OrderBy(x => x.Key))
                     {
                         _logger.LogInformation("  {Key}: {Value}", p.Key, string.Join(",", p.Value));
@@ -1491,7 +1491,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "HMAC検証中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during HMAC verification");
                 return false;
             }
         }
@@ -1531,7 +1531,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "トークン暗号化中にエラーが発生。Base64エンコードを使用します");
+                _logger.LogError(ex, "Error occurred during token encryption. Using Base64 encoding");
                 return Convert.ToBase64String(Encoding.UTF8.GetBytes(token));
             }
         }
@@ -1573,7 +1573,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "トークン復号化中にエラーが発生。Base64デコードを使用します");
+                _logger.LogError(ex, "Error occurred during token decryption. Using Base64 decoding");
                 var bytes = Convert.FromBase64String(encryptedToken);
                 return Encoding.UTF8.GetString(bytes);
             }
@@ -1624,7 +1624,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 if (shopifyApp != null)
                 {
-                    _logger.LogInformation("ShopifyAppテーブルからAPI Secretを取得. ApiKey: {ApiKey}, App: {AppName}", 
+                    _logger.LogInformation("Retrieved API Secret from ShopifyApp table. ApiKey: {ApiKey}, App: {AppName}", 
                         apiKey, shopifyApp.Name);
                     return shopifyApp.ApiSecret;
                 }
@@ -1633,16 +1633,16 @@ namespace ShopifyAnalyticsApi.Controllers
                 var defaultApiSecret = GetShopifySetting("ApiSecret");
                 if (!string.IsNullOrEmpty(defaultApiSecret))
                 {
-                    _logger.LogInformation("環境変数からAPI Secretを取得. ApiKey: {ApiKey}", apiKey);
+                    _logger.LogInformation("Retrieved API Secret from environment variables. ApiKey: {ApiKey}", apiKey);
                     return defaultApiSecret;
                 }
                 
-                _logger.LogWarning("API Secretが見つかりません. ApiKey: {ApiKey}", apiKey);
+                _logger.LogWarning("API Secret not found. ApiKey: {ApiKey}", apiKey);
                 return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "API Secret取得中にエラーが発生. ApiKey: {ApiKey}", apiKey);
+                _logger.LogError(ex, "Error occurred while retrieving API Secret. ApiKey: {ApiKey}", apiKey);
                 return null;
             }
         }
@@ -1665,16 +1665,37 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <returns>App URL</returns>
         private async Task<string> GetShopifyAppUrlAsync(string apiKey)
         {
+            _logger.LogInformation("GetShopifyAppUrlAsync: apiKey={ApiKey}", 
+                apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
+            
             var shopifyApp = await _context.ShopifyApps
                 .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
             
-            if (shopifyApp != null && !string.IsNullOrEmpty(shopifyApp.AppUrl))
+            if (shopifyApp != null)
             {
-                return shopifyApp.AppUrl;
+                _logger.LogInformation("GetShopifyAppUrlAsync: ShopifyApp found. Id={Id}, Name={Name}, AppUrl={AppUrl}, IsActive={IsActive}", 
+                    shopifyApp.Id, shopifyApp.Name, shopifyApp.AppUrl, shopifyApp.IsActive);
+                
+                if (!string.IsNullOrEmpty(shopifyApp.AppUrl))
+                {
+                    return shopifyApp.AppUrl;
+                }
+                else
+                {
+                    _logger.LogWarning("GetShopifyAppUrlAsync: ShopifyApp found but AppUrl is empty. Id={Id}, Name={Name}", 
+                        shopifyApp.Id, shopifyApp.Name);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("GetShopifyAppUrlAsync: ShopifyApp not found for apiKey={ApiKey}", 
+                    apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
             }
             
             // フォールバック: 環境変数から取得
-            return GetShopifySetting("AppUrl") ?? "https://localhost:3000";
+            var fallbackUrl = GetShopifySetting("AppUrl") ?? "https://localhost:3000";
+            _logger.LogInformation("GetShopifyAppUrlAsync: Using fallback URL from environment variable: {FallbackUrl}", fallbackUrl);
+            return fallbackUrl;
         }
 
         /// <summary>
@@ -1695,7 +1716,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // 2. ShopifyAppテーブルから取得（優先）
                 if (store?.ShopifyApp != null && store.ShopifyApp.IsActive)
                 {
-                    _logger.LogInformation("ShopifyAppテーブルからCredentialsを取得. Shop: {Shop}, App: {AppName}", 
+                    _logger.LogInformation("Retrieved credentials from ShopifyApp table. Shop: {Shop}, App: {AppName}", 
                         shopDomain, store.ShopifyApp.Name);
                     return (store.ShopifyApp.ApiKey, store.ShopifyApp.ApiSecret);
                 }
@@ -1705,7 +1726,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     !string.IsNullOrEmpty(store.ApiKey) && 
                     !string.IsNullOrEmpty(store.ApiSecret))
                 {
-                    _logger.LogInformation("ストア固有のCredentialsを使用（後方互換性）. Shop: {Shop}", shopDomain);
+                    _logger.LogInformation("Using store-specific credentials (backward compatibility). Shop: {Shop}", shopDomain);
                     return (store.ApiKey, store.ApiSecret);
                 }
                 
@@ -1715,16 +1736,16 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 if (string.IsNullOrEmpty(defaultApiKey))
                 {
-                    _logger.LogError("API Keyが見つかりません. Shop: {Shop}", shopDomain);
+                    _logger.LogError("API Key not found. Shop: {Shop}", shopDomain);
                     throw new InvalidOperationException($"API Key not configured for shop: {shopDomain}");
                 }
                 
-                _logger.LogInformation("デフォルトCredentialsを使用（設定ファイル/環境変数）. Shop: {Shop}", shopDomain);
+                _logger.LogInformation("Using default credentials (from config/environment variables). Shop: {Shop}", shopDomain);
                 return (defaultApiKey, defaultApiSecret);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Credentials取得中にエラーが発生. Shop: {Shop}, フォールバックを使用", shopDomain);
+                _logger.LogError(ex, "Error occurred while retrieving credentials. Shop: {Shop}, using fallback", shopDomain);
                 // エラー時は環境変数のデフォルト値を使用
                 var defaultApiKey = GetShopifySetting("ApiKey");
                 var defaultApiSecret = GetShopifySetting("ApiSecret");
@@ -1780,7 +1801,7 @@ namespace ShopifyAnalyticsApi.Controllers
             // インストール直後はトライアル（trialing）を自動付与して全機能を解放
             await EnsureTrialSubscriptionAsync(storeId);
 
-            _logger.LogInformation("OAuth認証成功後の処理完了. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}",
+            _logger.LogInformation("OAuth authentication success processing completed. Shop: {Shop}, StoreId: {StoreId}, ShopifyAppId: {ShopifyAppId}",
                 shop, storeId, shopifyAppId);
 
             return storeId;
@@ -1807,28 +1828,49 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 // hostパラメータをデコード
                 var decodedHost = DecodeHost(hostParam);
+                _logger.LogInformation("BuildRedirectUrlAsync: hostParam={HostParam}, decodedHost={DecodedHost}", hostParam, decodedHost);
+                
                 if (!string.IsNullOrWhiteSpace(decodedHost))
                 {
                     // 埋め込みアプリの場合、ExitIframePageを経由してリダイレクト
                     // 最終的なリダイレクト先（/auth/success）をredirectUriパラメータとして渡す
                     var appUrl = await GetShopifyAppUrlAsync(apiKey);
-                    var finalRedirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
+                    _logger.LogInformation("BuildRedirectUrlAsync: apiKey={ApiKey}, appUrl={AppUrl}", 
+                        apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...", appUrl);
+                    
+                    if (string.IsNullOrWhiteSpace(appUrl))
+                    {
+                        _logger.LogError("BuildRedirectUrlAsync: Failed to get AppUrl. apiKey={ApiKey}", 
+                            apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
+                        throw new InvalidOperationException("AppUrl is not configured. Please check ShopifyApps table or environment variables.");
+                    }
+                    
+                    var finalRedirectUrl = $"{appUrl.TrimEnd('/')}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
                     if (!string.IsNullOrWhiteSpace(embeddedParam))
                     {
                         finalRedirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
                     }
                     
                     // ExitIframePageへのリダイレクトURLを構築
-                    var exitIframeUrl = $"{appUrl}/auth/exit-iframe?redirectUri={Uri.EscapeDataString(finalRedirectUrl)}";
-                    _logger.LogInformation("埋め込みアプリURLを構築（ExitIframe経由）: {ExitIframeUrl}, 最終リダイレクト先: {FinalRedirectUrl}", exitIframeUrl, finalRedirectUrl);
+                    var exitIframeUrl = $"{appUrl.TrimEnd('/')}/auth/exit-iframe?redirectUri={Uri.EscapeDataString(finalRedirectUrl)}";
+                    _logger.LogInformation("Built embedded app URL (via ExitIframe): ExitIframeUrl={ExitIframeUrl}, FinalRedirectUrl={FinalRedirectUrl}", exitIframeUrl, finalRedirectUrl);
                     return exitIframeUrl;
                 }
                 else
                 {
                     // デコードに失敗した場合はフォールバック
                     var appUrl = await GetShopifyAppUrlAsync(apiKey);
-                    var redirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
-                    _logger.LogWarning("hostパラメータのデコードに失敗したため、フォールバックURLを使用: {RedirectUrl}", redirectUrl);
+                    _logger.LogWarning("BuildRedirectUrlAsync: Failed to decode host parameter. appUrl={AppUrl}", appUrl);
+                    
+                    if (string.IsNullOrWhiteSpace(appUrl))
+                    {
+                        _logger.LogError("BuildRedirectUrlAsync: Failed to get AppUrl (fallback). apiKey={ApiKey}", 
+                            apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
+                        throw new InvalidOperationException("AppUrl is not configured. Please check ShopifyApps table or environment variables.");
+                    }
+                    
+                    var redirectUrl = $"{appUrl.TrimEnd('/')}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
+                    _logger.LogWarning("Using fallback URL due to host parameter decode failure: {RedirectUrl}", redirectUrl);
                     return redirectUrl;
                 }
             }
@@ -1836,12 +1878,22 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 // 非埋め込みアプリの場合
                 var appUrl = await GetShopifyAppUrlAsync(apiKey);
-                var redirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true";
+                _logger.LogInformation("BuildRedirectUrlAsync: Non-embedded app. apiKey={ApiKey}, appUrl={AppUrl}", 
+                    apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...", appUrl);
+                
+                if (string.IsNullOrWhiteSpace(appUrl))
+                {
+                    _logger.LogError("BuildRedirectUrlAsync: Failed to get AppUrl (non-embedded). apiKey={ApiKey}", 
+                        apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
+                    throw new InvalidOperationException("AppUrl is not configured. Please check ShopifyApps table or environment variables.");
+                }
+                
+                var redirectUrl = $"{appUrl.TrimEnd('/')}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true";
                 if (!string.IsNullOrWhiteSpace(embeddedParam))
                 {
                     redirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
                 }
-                _logger.LogInformation("非埋め込みアプリURLを構築: {RedirectUrl}", redirectUrl);
+                _logger.LogInformation("Built non-embedded app URL: {RedirectUrl}", redirectUrl);
                 return redirectUrl;
             }
         }
@@ -1894,7 +1946,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
 
             Response.Cookies.Append("oauth_session", sessionJson, sessionCookieOptions);
-            _logger.LogInformation("OAuth認証セッションCookieを設定しました. StoreId: {StoreId}, Shop: {Shop}, Secure: {Secure}, SameSite: {SameSite}, IsDevelopment: {IsDevelopment}",
+            _logger.LogInformation("OAuth session cookie set. StoreId: {StoreId}, Shop: {Shop}, Secure: {Secure}, SameSite: {SameSite}, IsDevelopment: {IsDevelopment}",
                 storeId, shop, sessionCookieOptions.Secure, sessionCookieOptions.SameSite, isDevelopment);
         }
 
@@ -1903,7 +1955,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private IActionResult HandleOAuthError(Exception ex, string shop, string operation)
         {
-            _logger.LogError(ex, "OAuth {Operation}でエラーが発生. Shop: {Shop}", operation, shop);
+            _logger.LogError(ex, "OAuth {Operation} error occurred. Shop: {Shop}", operation, shop);
 
             if (ex is HttpRequestException httpEx)
             {

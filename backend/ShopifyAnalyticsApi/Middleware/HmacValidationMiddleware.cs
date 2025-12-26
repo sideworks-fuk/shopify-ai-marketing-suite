@@ -43,7 +43,7 @@ namespace ShopifyAnalyticsApi.Middleware
                 // HMAC署名の検証
                 if (!await ValidateHmacSignature(context))
                 {
-                    _logger.LogWarning("HMAC署名検証失敗. Path: {Path}, IP: {IP}", 
+                    _logger.LogWarning("HMAC signature verification failed. Path: {Path}, IP: {IP}", 
                         context.Request.Path, context.Connection.RemoteIpAddress);
                     
                     context.Response.StatusCode = 401;
@@ -51,12 +51,12 @@ namespace ShopifyAnalyticsApi.Middleware
                     return;
                 }
 
-                _logger.LogDebug("HMAC署名検証成功. Path: {Path}", context.Request.Path);
+                _logger.LogDebug("HMAC signature verification succeeded. Path: {Path}", context.Request.Path);
                 await _next(context);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "HMAC検証中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during HMAC verification");
                 
                 // Webhookは常に200を返す（5秒ルール）
                 context.Response.StatusCode = 200;
@@ -71,7 +71,7 @@ namespace ShopifyAnalyticsApi.Middleware
                 // X-Shopify-Hmac-SHA256ヘッダーを取得
                 if (!context.Request.Headers.TryGetValue("X-Shopify-Hmac-SHA256", out var receivedHmac))
                 {
-                    _logger.LogWarning("HMAC署名ヘッダーが見つかりません");
+                    _logger.LogWarning("HMAC signature header not found");
                     return false;
                 }
 
@@ -91,7 +91,7 @@ namespace ShopifyAnalyticsApi.Middleware
                 var secret = _configuration["Shopify:WebhookSecret"];
                 if (string.IsNullOrWhiteSpace(secret))
                 {
-                    _logger.LogError("Webhook秘密鍵が設定されていません");
+                    _logger.LogError("Webhook secret key is not configured");
                     return false;
                 }
 
@@ -105,7 +105,7 @@ namespace ShopifyAnalyticsApi.Middleware
 
                 if (!isValid)
                 {
-                    _logger.LogWarning("HMAC署名が一致しません. Received: {Received}, Computed: {Computed}", 
+                    _logger.LogWarning("HMAC signature mismatch. Received: {Received}, Computed: {Computed}", 
                         receivedHmac.ToString(), computedHash);
                 }
 
@@ -113,7 +113,7 @@ namespace ShopifyAnalyticsApi.Middleware
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "HMAC署名検証中にエラーが発生");
+                _logger.LogError(ex, "Error occurred during HMAC signature verification");
                 return false;
             }
         }
