@@ -141,27 +141,24 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         
         if (authMode === 'shopify' && isEmbedded) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
+          // インストールできない条件の場合は、Shopify側で適切なエラーページにリダイレクトされるため、
+          // getSessionToken()が完了するまで待機する
           try {
-            // タイムアウト処理を追加（5秒でタイムアウト）
-            const tokenPromise = getToken()
-            const timeoutPromise = new Promise<null>((resolve) => {
-              setTimeout(() => {
-                console.warn('⏰ [AuthProvider] getToken()が5秒以内に完了しませんでした。タイムアウトします。')
-                resolve(null)
-              }, 5000)
-            })
-            
-            const token = await Promise.race([tokenPromise, timeoutPromise])
+            console.log('🔍 [AuthProvider] Shopifyセッショントークンの取得を開始...')
+            const token = await getToken()
             
             if (token) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
             } else {
-              console.log('⚠️ Shopifyセッショントークンが取得できませんでした（タイムアウトまたはnull）')
+              console.log('⚠️ Shopifyセッショントークンが取得できませんでした')
+              // セッショントークンが取得できない場合、Shopify側が適切に処理する
+              // （エラーページへのリダイレクトなど）
               setIsAuthenticated(false)
             }
           } catch (error) {
             console.error('❌ Shopifyトークン取得エラー:', error)
+            // エラーが発生した場合、Shopify側が適切に処理する
             setIsAuthenticated(false)
           }
         } else if (authMode === 'shopify' && !isEmbedded) {

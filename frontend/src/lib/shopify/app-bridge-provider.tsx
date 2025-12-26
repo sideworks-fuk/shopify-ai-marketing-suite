@@ -139,13 +139,14 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
 
     try {
       console.log('🔍 [AppBridge] getSessionToken()を呼び出します...')
+      // Shopify側の処理を待機（インストールできない条件の場合は、Shopify側で適切なエラーページにリダイレクトされる）
       const token = await getSessionToken(app)
       console.log('✅ Session token retrieved successfully', { tokenLength: token?.length || 0 })
       return token
     } catch (error) {
       console.error('❌ Failed to get session token:', error)
-      // カスタムアプリがインストールされていない場合、セッショントークンが取得できない
-      // これは正常な動作なので、エラーをスローせずにnullを返す
+      // エラーが発生した場合、Shopify側が適切に処理する（エラーページへのリダイレクトなど）
+      // エラーをスローせずにnullを返す
       return null
     }
   }
