@@ -22,9 +22,24 @@ using Hangfire;
 using Hangfire.SqlServer;
 using ShopifyAnalyticsApi.Jobs;
 
+// コンソールのエンコーディングをUTF-8に設定（日本語ログの文字化けを防ぐ）
+// Azure App Serviceのログ出力でも正しく表示されるようにする
+try
+{
+    Console.OutputEncoding = Encoding.UTF8;
+    Console.InputEncoding = Encoding.UTF8;
+}
+catch (Exception)
+{
+    // コンソールが利用できない環境（一部のホスティング環境）では無視
+    // この場合、Serilogの設定でエンコーディングを指定する
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Serilogの設定
+// 日本語ログの文字化けを防ぐため、Console.OutputEncodingをUTF-8に設定済み
+// Serilogのコンソールシンクは、Console.OutputEncodingを使用するため、追加設定は不要
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.With(new LogEnricher())

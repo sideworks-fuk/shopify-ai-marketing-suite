@@ -49,6 +49,13 @@ export default function HomePage() {
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
+    console.log('🔄 [ルートページ] useEffect実行:', { 
+      isInitializing, 
+      isApiClientReady, 
+      isAuthenticated,
+      hasProcessed: hasProcessedRef.current 
+    })
+    
     // 既に処理済みの場合はスキップ
     if (hasProcessedRef.current) {
       console.log('⏸️ [ルートページ] 既に処理済み、スキップ')
@@ -63,6 +70,7 @@ export default function HomePage() {
     }
 
     // 処理開始をマーク
+    console.log('🚀 [ルートページ] リダイレクト処理を開始します')
     hasProcessedRef.current = true
 
     const processRedirect = async () => {
@@ -89,13 +97,33 @@ export default function HomePage() {
         try {
           console.log('🔍 [ルートページ] ストアの存在を確認中...')
           const config = getCurrentEnvironmentConfig()
+          console.log('🔍 [ルートページ] API URL:', `${config.apiBaseUrl}/api/store`)
+          
           const response = await fetch(`${config.apiBaseUrl}/api/store`, {
             credentials: 'include',
           })
           
+          console.log('🔍 [ルートページ] レスポンスステータス:', response.status, response.statusText)
+          
           if (response.ok) {
             const result: unknown = await response.json()
-            const stores = (result as { data?: { stores?: unknown[] } })?.data?.stores
+            console.log('🔍 [ルートページ] レスポンスデータ:', result)
+            
+            // レスポンス構造の確認: { success: true, data: { stores: [...], totalCount: 0 } }
+            const responseData = result as { 
+              success?: boolean
+              data?: { 
+                stores?: unknown[]
+                Stores?: unknown[]  // C#のプロパティ名（大文字）も考慮
+                totalCount?: number
+              } 
+            }
+            
+            // stores または Stores のどちらかを使用
+            const stores = responseData.data?.stores || responseData.data?.Stores
+            
+            console.log('🔍 [ルートページ] 取得したストア:', stores)
+            console.log('🔍 [ルートページ] ストア数:', stores?.length || 0)
 
             if (Array.isArray(stores) && stores.length > 0) {
               // ストアが存在する場合、メインダッシュボードにリダイレクト
@@ -105,6 +133,11 @@ export default function HomePage() {
               router.replace(redirectUrl)
               return
             }
+            
+            // ストアが0件の場合
+            console.log('⚠️ [ルートページ] ストアが0件です。インストールページへリダイレクト')
+          } else {
+            console.warn('⚠️ [ルートページ] ストア取得APIがエラーを返しました:', response.status)
           }
           
           // ストアが存在しない、またはエラーの場合はインストールページへ
