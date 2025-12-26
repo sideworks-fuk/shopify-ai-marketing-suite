@@ -150,19 +150,43 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         
         if (authMode === 'shopify' && isEmbedded) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
-          // カスタムアプリがインストールされていない場合、getSessionToken()が完了しない可能性があるため、
-          // app-bridge-provider.tsxでタイムアウト処理（0.5秒）を実装している
+          // 重要: カスタムアプリがインストールされていない場合、Shopify側が自動的にOAuthフローにリダイレクトする
+          // そのため、getSessionToken()を呼び出すと、Shopify側のリダイレクトを妨げる可能性がある
+          // 成功時（26日21時ごろ）は、Shopify側が以下のように自動的にリダイレクトしていた：
+          // 1. /oauth/install_custom_app
+          // 2. /oauth/install
+          // 3. /app/grant
+          // そのため、getSessionToken()を呼び出さず、Shopify側のリダイレクトに任せる
+          // ただし、カスタムアプリがインストールされている場合は、getSessionToken()を呼び出して認証状態を確認する
           try {
             console.log('🔍 [AuthProvider] Shopifyセッショントークンの取得を開始...')
-            const token = await getToken()
+            console.log('⏳ [AuthProvider] カスタムアプリがインストールされていない場合、Shopify側が自動的にOAuthフローにリダイレクトします')
+            
+            // タイムアウト処理を追加（0.5秒）: カスタムアプリがインストールされていない場合のフォールバック
+            const tokenPromise = getToken().catch((error) => {
+              console.warn('⚠️ [AuthProvider] getToken()がエラーを返しました:', error)
+              return null
+            })
+            
+            const timeoutPromise = new Promise<null>((resolve) => {
+              setTimeout(() => {
+                console.warn('⏰ [AuthProvider] getToken()が0.5秒以内に完了しませんでした')
+                console.warn('⏰ [AuthProvider] カスタムアプリがインストールされていない可能性があります')
+                console.warn('⏰ [AuthProvider] Shopify側のOAuthフローにリダイレクトされることを期待します')
+                resolve(null)
+              }, 500) // 0.5秒タイムアウト
+            })
+            
+            const token = await Promise.race([tokenPromise, timeoutPromise])
             
             if (token) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
             } else {
               console.log('⚠️ Shopifyセッショントークンが取得できませんでした（カスタムアプリがインストールされていない可能性があります）')
+              console.log('⚠️ Shopify側が自動的にOAuthフローにリダイレクトすることを期待します')
               // セッショントークンが取得できない場合、Shopify側が適切に処理する
-              // （エラーページへのリダイレクトなど）
+              // （OAuthフローへのリダイレクトなど）
               setIsAuthenticated(false)
             }
           } catch (error) {

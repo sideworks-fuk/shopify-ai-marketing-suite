@@ -223,7 +223,24 @@ export default function HomePage() {
           }
         }
       } else {
-        // 未認証の場合、環境に応じてリダイレクト先を決定
+        // 未認証の場合
+        // 重要: Shopify Adminからアクセスされている場合（shop/hostパラメータがある場合）、
+        // Shopify側が自動的にOAuthフローにリダイレクトするため、フロントエンド側でリダイレクトしない
+        // 成功時（26日21時ごろ）は、Shopify側が以下のように自動的にリダイレクトしていた：
+        // 1. /oauth/install_custom_app
+        // 2. /oauth/install
+        // 3. /app/grant
+        
+        if (shop || host) {
+          // Shopify Adminからアクセスされている場合、Shopify側のOAuthフローに任せる
+          console.log('⏳ [ルートページ] Shopify Adminからアクセスされています。Shopify側のOAuthフローを待機中...', { shop, host })
+          console.log('⏳ [ルートページ] Shopify側が自動的にOAuthフローにリダイレクトすることを期待します')
+          setStatusMessage('Shopify認証を待機中...')
+          // リダイレクトしない（Shopify側の処理を待つ）
+          return
+        }
+        
+        // Shopify Adminからアクセスされていない場合（ブラウザで直接アクセス）のみ、リダイレクト処理を実行
         const authConfig = getAuthModeConfig()
         const isDevelopment = authConfig.environment === 'development'
         const allowsDemo = authConfig.authMode === 'all_allowed' || authConfig.authMode === 'demo_allowed'
@@ -240,8 +257,7 @@ export default function HomePage() {
         })
         
         // 開発環境でデモモードが許可されている場合、認証選択画面にリダイレクト
-        if (isDevelopment && allowsDemo && !shop) {
-          // shopパラメータがない場合（ブラウザで直接アクセス）は認証選択画面へ
+        if (isDevelopment && allowsDemo) {
           console.log('🔍 [ルートページ] 開発環境 & デモモード許可: 認証選択画面へリダイレクト')
           setStatusMessage('認証方法を選択中...')
           router.replace('/auth/select')
