@@ -69,11 +69,16 @@ export default function HomePage() {
       return
     }
 
-    // 処理開始をマーク
-    console.log('🚀 [ルートページ] リダイレクト処理を開始します')
-    hasProcessedRef.current = true
-
     const processRedirect = async () => {
+      // 処理開始をマーク（重複実行を防ぐ）
+      if (hasProcessedRef.current) {
+        console.log('⏸️ [ルートページ] processRedirect: 既に処理済み、スキップ')
+        return
+      }
+      hasProcessedRef.current = true
+      
+      console.log('🚀 [ルートページ] リダイレクト処理を開始します')
+      
       const shop = searchParams?.get('shop')
       const host = searchParams?.get('host')
       const embedded = searchParams?.get('embedded')
