@@ -33,11 +33,15 @@ export default function HomePage() {
         const shop = searchParams?.get('shop')
         const host = searchParams?.get('host')
         const embedded = searchParams?.get('embedded')
+        const hmac = searchParams?.get('hmac')
+        const timestamp = searchParams?.get('timestamp')
         
         const params = new URLSearchParams()
         if (shop) params.set('shop', shop)
         if (host) params.set('host', host)
         if (embedded) params.set('embedded', embedded)
+        if (hmac) params.set('hmac', hmac)
+        if (timestamp) params.set('timestamp', timestamp)
         const queryString = params.toString()
         
         hasProcessedRef.current = true
@@ -84,15 +88,20 @@ export default function HomePage() {
       const shop = searchParams?.get('shop')
       const host = searchParams?.get('host')
       const embedded = searchParams?.get('embedded')
+      const hmac = searchParams?.get('hmac')
+      const timestamp = searchParams?.get('timestamp')
 
-      console.log('🔍 [ルートページ] 認証状態をチェック:', { isAuthenticated, shop, host, embedded })
+      console.log('🔍 [ルートページ] 認証状態をチェック:', { isAuthenticated, shop, host, embedded, hmac: !!hmac, timestamp: !!timestamp })
 
       // クエリパラメータを保持するためのヘルパー関数
+      // Shopify Adminからのアクセス時に必要なパラメータ（hmac, timestamp）も保持
       const buildRedirectUrl = (basePath: string) => {
         const params = new URLSearchParams()
         if (shop) params.set('shop', shop)
         if (host) params.set('host', host)
         if (embedded) params.set('embedded', embedded)
+        if (hmac) params.set('hmac', hmac)
+        if (timestamp) params.set('timestamp', timestamp)
         const queryString = params.toString()
         return `${basePath}${queryString ? `?${queryString}` : ''}`
       }

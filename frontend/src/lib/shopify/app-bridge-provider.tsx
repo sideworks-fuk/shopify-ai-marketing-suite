@@ -105,9 +105,13 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           console.log('✅ Shopify App Bridge initialized', { shop: resolvedShop, host: resolvedHost })
           
           // トップレベルリダイレクトの処理（条件付き）
-          if (window.top !== window.self) {
-            // iframeの中にいる場合のみリダイレクト
-            appBridge.dispatch(Redirect.toApp({ path: window.location.pathname }))
+          // 注意: Shopify Adminからの初回アクセス時は、pathnameがルート（/）の場合のみリダイレクト
+          // それ以外のパス（/install, /customers/dormant など）は既に正しいパスなのでリダイレクトしない
+          if (window.top !== window.self && window.location.pathname === '/') {
+            // iframeの中にいて、かつルートパスの場合のみリダイレクト
+            // ルートパスはリダイレクト専用ページなので、App Bridgeでリダイレクトする必要はない
+            // （ルートページ内で適切なページにリダイレクトされる）
+            console.log('ℹ️ App Bridge initialized in iframe at root path. Root page will handle redirect.')
           }
         } else {
           console.log('ℹ️ Not running in Shopify embedded context or missing host/apiKey', {
