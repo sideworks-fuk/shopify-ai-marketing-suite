@@ -1809,10 +1809,19 @@ namespace ShopifyAnalyticsApi.Controllers
                 var decodedHost = DecodeHost(hostParam);
                 if (!string.IsNullOrWhiteSpace(decodedHost))
                 {
-                    // 埋め込みアプリURLを構築: https://{decodedHost}/apps/{api_key}/
-                    var redirectUrl = $"https://{decodedHost}/apps/{apiKey}/";
-                    _logger.LogInformation("埋め込みアプリURLを構築: {RedirectUrl}", redirectUrl);
-                    return redirectUrl;
+                    // 埋め込みアプリの場合、ExitIframePageを経由してリダイレクト
+                    // 最終的なリダイレクト先（/auth/success）をredirectUriパラメータとして渡す
+                    var appUrl = await GetShopifyAppUrlAsync(apiKey);
+                    var finalRedirectUrl = $"{appUrl}/auth/success?shop={Uri.EscapeDataString(shop)}&storeId={storeId}&success=true&host={Uri.EscapeDataString(hostParam)}";
+                    if (!string.IsNullOrWhiteSpace(embeddedParam))
+                    {
+                        finalRedirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
+                    }
+                    
+                    // ExitIframePageへのリダイレクトURLを構築
+                    var exitIframeUrl = $"{appUrl}/auth/exit-iframe?redirectUri={Uri.EscapeDataString(finalRedirectUrl)}";
+                    _logger.LogInformation("埋め込みアプリURLを構築（ExitIframe経由）: {ExitIframeUrl}, 最終リダイレクト先: {FinalRedirectUrl}", exitIframeUrl, finalRedirectUrl);
+                    return exitIframeUrl;
                 }
                 else
                 {
