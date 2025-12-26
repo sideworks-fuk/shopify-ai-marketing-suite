@@ -140,7 +140,9 @@ export function getCurrentStoreId(): number {
   if (typeof window !== 'undefined') {
     // Phase 2: currentStoreIdのみを使用
     const currentStoreId = localStorage.getItem('currentStoreId')
-    return currentStoreId ? parseInt(currentStoreId) : 1
+    if (!currentStoreId) return 1
+    const parsed = parseInt(currentStoreId, 10)
+    return !isNaN(parsed) && parsed > 0 ? parsed : 1
   }
   return 1
 }

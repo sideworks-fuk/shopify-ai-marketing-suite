@@ -252,7 +252,14 @@ namespace ShopifyAnalyticsApi.Controllers
                 if (confirmed)
                 {
                     // フロントエンドの成功ページにリダイレクト
-                    var frontendUrl = _configuration["Frontend:BaseUrl"] ?? "https://localhost:3000";
+                    // データベースから最初のアクティブなAppUrlを取得
+                    var defaultApp = await _context.ShopifyApps
+                        .Where(a => a.IsActive && !string.IsNullOrEmpty(a.AppUrl))
+                        .OrderBy(a => a.Id)
+                        .Select(a => a.AppUrl)
+                        .FirstOrDefaultAsync();
+                    
+                    var frontendUrl = defaultApp ?? "https://localhost:3000";
                     return Redirect($"{frontendUrl}/subscription/success");
                 }
 

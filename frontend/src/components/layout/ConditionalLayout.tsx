@@ -15,15 +15,24 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   
   // MainLayout/EmbeddedAppLayoutを使わないページのパスを定義
   const noLayoutPaths = [
+    '/', // ルートページはリダイレクト専用のため、レイアウトを適用しない
     '/install',
     '/auth/success',
     '/auth/callback',
+    '/auth/select',
+    '/demo/login',
     '/terms',
     '/privacy'
   ]
   
   // 現在のパスがnoLayoutPathsに含まれているかチェック
-  const shouldUseLayout = pathname ? !noLayoutPaths.some(path => pathname.startsWith(path)) : false
+  // ルートページ（'/'）の場合は完全一致、それ以外はstartsWithでチェック
+  const shouldUseLayout = pathname ? !noLayoutPaths.some(path => {
+    if (path === '/') {
+      return pathname === '/'
+    }
+    return pathname.startsWith(path)
+  }) : false
   
   // レイアウトを使わないページの場合は、childrenをそのまま返す
   if (!shouldUseLayout) {

@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using ShopifyAnalyticsApi.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace ShopifyAnalyticsApi.Middleware;
 
@@ -51,13 +53,35 @@ public class DemoModeMiddleware
             {
                 _logger.LogInformation("🎯 Demo mode: Skipping authentication");
 
-                // デモ用のClaimsPrincipalを作成
+                // データベースから最初のアクティブなストアを取得
+                var dbContext = context.RequestServices.GetRequiredService<ShopifyDbContext>();
+                var firstActiveStore = await dbContext.Stores
+                    .Where(s => s.IsActive)
+                    .OrderBy(s => s.Id)
+                    .Select(s => new { s.Id, s.Domain, s.TenantId })
+                    .FirstOrDefaultAsync();
+
+                if (firstActiveStore == null)
+                {
+                    _logger.LogError("No active store found for demo mode. Cannot proceed with demo authentication.");
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = "Configuration Error",
+                        message = "No active store available for demo mode"
+                    });
+                    return;
+                }
+
+                // デモ用のClaimsPrincipalを作成（実際のストアIDを使用）
                 var claims = new List<Claim>
                 {
                     new Claim(ClaimTypes.Name, "demo-user"),
                     new Claim(ClaimTypes.Role, "demo"),
                     new Claim("auth_mode", "demo"),
-                    new Claim("store_id", "1"),
+                    new Claim("store_id", firstActiveStore.Id.ToString()),
+                    new Claim("tenant_id", firstActiveStore.TenantId ?? "default-tenant"),
+                    new Claim("shop_domain", firstActiveStore.Domain ?? "demo-shop.myshopify.com"),
                     new Claim("is_read_only", "true")
                 };
 
@@ -70,7 +94,7 @@ public class DemoModeMiddleware
                 context.Items["AuthMode"] = "demo";
                 context.Items["IsReadOnly"] = true;
 
-                _logger.LogInformation("✅ Demo mode authentication completed");
+                _logger.LogInformation("✅ Demo mode authentication completed. StoreId: {StoreId}", firstActiveStore.Id);
             }
         }
 

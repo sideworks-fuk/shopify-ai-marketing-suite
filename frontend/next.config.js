@@ -66,6 +66,19 @@ const nextConfig = {
     
     return config
   },
+  // エイリアス設定: /installページへの別名を追加
+  async rewrites() {
+    return [
+      {
+        source: '/connect',
+        destination: '/install',
+      },
+      {
+        source: '/auth/connect',
+        destination: '/install',
+      },
+    ]
+  },
   // 実験的機能の設定
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

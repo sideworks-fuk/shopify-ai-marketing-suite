@@ -59,8 +59,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   // ログアウト処理
   const handleLogout = () => {
+    const isDemoMode = authMode === 'demo'
     logout()
-    router.push('/login')
+    
+    // デモモードの場合は認証選択画面へ、OAuth認証の場合はログインページへ
+    if (isDemoMode) {
+      router.push('/auth/select')
+    } else {
+      router.push('/login')
+    }
   }
 
   const periodOptions = [

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { getCurrentEnvironmentConfig } from '@/lib/config/environments'
+import { getCurrentEnvironmentConfig, getAuthModeConfig } from '@/lib/config/environments'
 
 /**
  * ルートページ - リダイレクト専用
@@ -12,13 +12,15 @@ import { getCurrentEnvironmentConfig } from '@/lib/config/environments'
  * 適切なページにリダイレクトするためだけに使用されます。
  * 
  * - 認証済み → /customers/dormant（メインダッシュボード）
- * - 未認証 → /install（インストールページ）
+ * - 未認証（開発環境） → /auth/select（認証方法選択画面）
+ * - 未認証（本番環境） → /install（インストールページ）
  */
 export default function HomePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isInitializing, isApiClientReady } = useAuth()
-  const [statusMessage, setStatusMessage] = useState('認証状態を確認中...')
+  // 初期メッセージをZustandProviderと同じに統一（Hydrationエラーを防ぐ）
+  const [statusMessage, setStatusMessage] = useState('アプリケーションを初期化中...')
   const hasProcessedRef = useRef(false)
 
   // タイムアウト処理: 5秒以上待機してもリダイレクトされない場合はインストールページへ
@@ -65,7 +67,7 @@ export default function HomePage() {
     // 初期化中またはAPIクライアントが準備完了していない場合は待機
     if (isInitializing || !isApiClientReady) {
       console.log('⏳ [ルートページ] 認証状態の初期化中...', { isInitializing, isApiClientReady })
-      setStatusMessage('認証状態を確認中...')
+      setStatusMessage('アプリケーションを初期化中...')
       return
     }
 
@@ -96,6 +98,19 @@ export default function HomePage() {
       }
 
       if (isAuthenticated) {
+        // デモトークンが存在する場合は、デモモード専用のリダイレクトロジックを適用
+        const demoToken = typeof window !== 'undefined' ? localStorage.getItem('demoToken') || localStorage.getItem('demo_token') : null
+        const authMode = typeof window !== 'undefined' ? localStorage.getItem('authMode') : null
+        
+        if (demoToken && authMode === 'demo') {
+          // デモモードの場合、ストア確認をスキップしてデモモード専用のダッシュボードにリダイレクト
+          console.log('🎭 [ルートページ] デモモード検出: デモモード専用ダッシュボードへリダイレクト')
+          setStatusMessage('デモモードダッシュボードを読み込み中...')
+          const redirectUrl = buildRedirectUrl('/customers/dormant')
+          router.replace(redirectUrl)
+          return
+        }
+        
         // 認証済みの場合、ストアの存在を確認
         setStatusMessage('ストア情報を確認中...')
         
@@ -145,26 +160,90 @@ export default function HomePage() {
             console.warn('⚠️ [ルートページ] ストア取得APIがエラーを返しました:', response.status)
           }
           
-          // ストアが存在しない、またはエラーの場合はインストールページへ
-          console.log('⚠️ [ルートページ] ストアが存在しない: インストールページへリダイレクト')
+          // ストアが存在しない、またはエラーの場合
+          // 認証情報をクリアして未認証として扱う
+          console.log('⚠️ [ルートページ] ストアが存在しない: 認証情報をクリアして未認証として扱う')
           localStorage.removeItem('oauth_authenticated')
           localStorage.removeItem('currentStoreId')
+          localStorage.removeItem('demo_token') // デモトークンもクリア
+          localStorage.removeItem('demoToken') // デモトークンもクリア（両方のキー名に対応）
           
-          const redirectUrl = buildRedirectUrl('/install')
-          setStatusMessage('インストールページへ移動中...')
-          router.replace(redirectUrl)
+          // 未認証時のリダイレクトロジックを適用
+          const authConfig = getAuthModeConfig()
+          const isDevelopment = authConfig.environment === 'development'
+          const allowsDemo = authConfig.authMode === 'all_allowed' || authConfig.authMode === 'demo_allowed'
+          
+          if (isDevelopment && allowsDemo && !shop) {
+            // 開発環境でデモモードが許可されている場合、認証選択画面へ
+            console.log('🔍 [ルートページ] 開発環境 & デモモード許可: 認証選択画面へリダイレクト')
+            setStatusMessage('認証方法を選択中...')
+            router.replace('/auth/select')
+          } else {
+            // それ以外の場合はインストールページへ
+            const redirectUrl = buildRedirectUrl('/install')
+            console.log('⚠️ [ルートページ] インストールページへリダイレクト:', redirectUrl)
+            setStatusMessage('インストールページへ移動中...')
+            router.replace(redirectUrl)
+          }
         } catch (error) {
           console.error('❌ [ルートページ] ストア確認エラー:', error)
+          
+          // エラー時も認証情報をクリアして未認証として扱う
+          localStorage.removeItem('oauth_authenticated')
+          localStorage.removeItem('currentStoreId')
+          localStorage.removeItem('demo_token') // デモトークンもクリア
+          localStorage.removeItem('demoToken') // デモトークンもクリア（両方のキー名に対応）
+          
+          // 未認証時のリダイレクトロジックを適用
+          const authConfig = getAuthModeConfig()
+          const isDevelopment = authConfig.environment === 'development'
+          const allowsDemo = authConfig.authMode === 'all_allowed' || authConfig.authMode === 'demo_allowed'
+          
+          if (isDevelopment && allowsDemo && !shop) {
+            // 開発環境でデモモードが許可されている場合、認証選択画面へ
+            console.log('🔍 [ルートページ] 開発環境 & デモモード許可: 認証選択画面へリダイレクト')
+            setStatusMessage('認証方法を選択中...')
+            router.replace('/auth/select')
+          } else {
+            // それ以外の場合はインストールページへ
+            const redirectUrl = buildRedirectUrl('/install')
+            console.log('⚠️ [ルートページ] インストールページへリダイレクト:', redirectUrl)
+            setStatusMessage('インストールページへ移動中...')
+            router.replace(redirectUrl)
+          }
+        }
+      } else {
+        // 未認証の場合、環境に応じてリダイレクト先を決定
+        const authConfig = getAuthModeConfig()
+        const isDevelopment = authConfig.environment === 'development'
+        const allowsDemo = authConfig.authMode === 'all_allowed' || authConfig.authMode === 'demo_allowed'
+        
+        // デバッグログを追加
+        console.log('🔍 [ルートページ] 認証設定確認:', {
+          environment: authConfig.environment,
+          authMode: authConfig.authMode,
+          isDevelopment,
+          allowsDemo,
+          shop,
+          NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
+          NEXT_PUBLIC_AUTH_MODE: process.env.NEXT_PUBLIC_AUTH_MODE,
+        })
+        
+        // 開発環境でデモモードが許可されている場合、認証選択画面にリダイレクト
+        if (isDevelopment && allowsDemo && !shop) {
+          // shopパラメータがない場合（ブラウザで直接アクセス）は認証選択画面へ
+          console.log('🔍 [ルートページ] 開発環境 & デモモード許可: 認証選択画面へリダイレクト')
+          setStatusMessage('認証方法を選択中...')
+          router.replace('/auth/select')
+        } else {
+          // それ以外の場合はインストールページへ
           const redirectUrl = buildRedirectUrl('/install')
+          console.log('⚠️ [ルートページ] 未認証: リダイレクト:', redirectUrl, {
+            reason: !isDevelopment ? 'not-development' : !allowsDemo ? 'demo-not-allowed' : 'shop-param-exists'
+          })
           setStatusMessage('インストールページへ移動中...')
           router.replace(redirectUrl)
         }
-      } else {
-        // 未認証の場合、インストールページにリダイレクト
-        const redirectUrl = buildRedirectUrl('/install')
-        console.log('⚠️ [ルートページ] 未認証: リダイレクト:', redirectUrl)
-        setStatusMessage('インストールページへ移動中...')
-        router.replace(redirectUrl)
       }
     }
 
@@ -175,12 +254,12 @@ export default function HomePage() {
   }, [isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
 
   // 常にローディング画面を表示（ダッシュボードUIは表示しない）
+  // suppressHydrationWarning: ZustandProviderのローディング画面と一致させるため
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-medium">{statusMessage}</p>
-        <p className="text-gray-400 text-sm mt-2">EC Ranger</p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center" suppressHydrationWarning>
+      <div className="text-center" suppressHydrationWarning>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" suppressHydrationWarning></div>
+        <p className="mt-2 text-gray-600" suppressHydrationWarning>{statusMessage}</p>
       </div>
     </div>
   )

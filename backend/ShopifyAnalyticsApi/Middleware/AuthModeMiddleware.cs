@@ -263,52 +263,42 @@ namespace ShopifyAnalyticsApi.Middleware
                     break;
 
                 case "DemoAllowed":
+                    // 開発環境では開発者認証も許可
                     if (!isOAuthValid && !isDemoValid)
                     {
-                        _logger.LogWarning(
-                            "OAuth or demo authentication required but not provided. Path: {Path}",
-                            context.Request.Path);
-
-                        context.Response.StatusCode = 401;
-                        await context.Response.WriteAsJsonAsync(new
+                        // 開発環境では開発者認証を許可
+                        if (_env.EnvironmentName == "Development" && isDeveloperValid)
                         {
-                            error = "Unauthorized",
-                            message = "OAuth or demo authentication required"
-                        });
+                            _logger.LogInformation("Developer authentication allowed in DemoAllowed mode (Development environment)");
+                            // 開発者認証を許可して続行
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "OAuth, demo, or developer authentication required but not provided. Path: {Path}",
+                                context.Request.Path);
 
-                        // 認証ログ記録
-                        await authService.LogAuthenticationAttemptAsync(
-                            null,
-                            "oauth_or_demo",
-                            false,
-                            "No valid authentication token provided",
-                            context.Connection.RemoteIpAddress?.ToString(),
-                            context.Request.Headers["User-Agent"].FirstOrDefault());
+                            context.Response.StatusCode = 401;
+                            await context.Response.WriteAsJsonAsync(new
+                            {
+                                error = "Unauthorized",
+                                message = "OAuth, demo, or developer authentication required"
+                            });
 
-                        return;
+                            // 認証ログ記録
+                            await authService.LogAuthenticationAttemptAsync(
+                                null,
+                                "oauth_or_demo_or_developer",
+                                false,
+                                "No valid authentication token provided",
+                                context.Connection.RemoteIpAddress?.ToString(),
+                                context.Request.Headers["User-Agent"].FirstOrDefault());
+
+                            return;
+                        }
                     }
                     break;
 
-                case "AllAllowed":
-                    // すべての認証方式を許可（開発環境のみ）
-                    _logger.LogInformation(
-                        "AllAllowed mode enabled. Path: {Path}",
-                        context.Request.Path);
-                    
-                    // AllAllowedモードの場合、認証が失敗しても匿名ユーザーとしてContext.Userを設定
-                    // これにより、[Authorize]属性が付いているコントローラーでもアクセス可能になる
-                    if (context.User?.Identity?.IsAuthenticated != true)
-                    {
-                        var anonymousClaims = new List<Claim>
-                        {
-                            new Claim("auth_mode", "anonymous"),
-                            new Claim("read_only", "false"),
-                            new Claim(ClaimTypes.Name, "anonymous-user"),
-                            new Claim(ClaimTypes.NameIdentifier, "anonymous-user")
-                        };
-                        context.User = new ClaimsPrincipal(new ClaimsIdentity(anonymousClaims, "Anonymous"));
-                    }
-                    break;
 
                 default:
                     _logger.LogError(

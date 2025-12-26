@@ -242,10 +242,11 @@ export const getAuthModeConfig = (): EnvironmentAuthConfig => {
   const environment = (process.env.NEXT_PUBLIC_ENVIRONMENT || 'development') as Environment
   
   // 環境に応じたデフォルト認証モード（NEXT_PUBLIC_AUTH_MODEが未設定の場合）
+  // 注意: AllAllowedモードは削除されたため、development環境ではdemo_allowedを使用
   const defaultAuthModes: Record<Environment, AuthMode> = {
     production: 'oauth_required',
     staging: 'demo_allowed',
-    development: 'all_allowed'
+    development: 'demo_allowed' // all_allowedからdemo_allowedに変更（AllAllowedモード削除のため）
   }
   
   // NEXT_PUBLIC_AUTH_MODEが設定されている場合はそれを使用、なければ環境に応じたデフォルトを使用

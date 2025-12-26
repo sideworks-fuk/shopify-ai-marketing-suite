@@ -124,92 +124,92 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private async Task<string?> BuildOAuthUrlAsync(string shop, string? apiKey = null)
         {
-            // ショップドメインの検証
-            if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
-            {
-                _logger.LogWarning("無効なショップドメイン: {Shop}", shop);
-                return null;
-            }
-
-            // API Key/Secretの取得ロジック
-            string finalApiKey;
-            string? finalApiSecret;
-            int? shopifyAppId = null;
-            string? shopifyAppUrl = null;
-            
-            if (!string.IsNullOrEmpty(apiKey))
-            {
-                var shopifyApp = await _context.ShopifyApps
-                    .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
-                
-                if (shopifyApp != null)
+                // ショップドメインの検証
+                if (string.IsNullOrWhiteSpace(shop) || !IsValidShopDomain(shop))
                 {
-                    finalApiKey = shopifyApp.ApiKey;
-                    finalApiSecret = shopifyApp.ApiSecret;
-                    shopifyAppId = shopifyApp.Id;
-                    shopifyAppUrl = shopifyApp.AppUrl;
+                    _logger.LogWarning("無効なショップドメイン: {Shop}", shop);
+                return null;
+                }
+
+                // API Key/Secretの取得ロジック
+                string finalApiKey;
+                string? finalApiSecret;
+                int? shopifyAppId = null;
+                string? shopifyAppUrl = null;
+                
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    var shopifyApp = await _context.ShopifyApps
+                        .FirstOrDefaultAsync(a => a.ApiKey == apiKey && a.IsActive);
+                    
+                    if (shopifyApp != null)
+                    {
+                        finalApiKey = shopifyApp.ApiKey;
+                        finalApiSecret = shopifyApp.ApiSecret;
+                        shopifyAppId = shopifyApp.Id;
+                        shopifyAppUrl = shopifyApp.AppUrl;
+                    }
+                    else
+                    {
+                        finalApiKey = apiKey;
+                        finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
+                        
+                        if (string.IsNullOrEmpty(finalApiSecret))
+                        {
+                        _logger.LogError("API Secret not found for API Key. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
+                        return null;
+                        }
+                    }
                 }
                 else
                 {
-                    finalApiKey = apiKey;
-                    finalApiSecret = await GetApiSecretByApiKeyAsync(apiKey);
-                    
-                    if (string.IsNullOrEmpty(finalApiSecret))
-                    {
-                        _logger.LogError("API Secret not found for API Key. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
-                        return null;
-                    }
+                    var (dbApiKey, dbApiSecret) = await GetShopifyCredentialsAsync(shop);
+                    finalApiKey = dbApiKey;
+                    finalApiSecret = dbApiSecret;
                 }
-            }
-            else
-            {
-                var (dbApiKey, dbApiSecret) = await GetShopifyCredentialsAsync(shop);
-                finalApiKey = dbApiKey;
-                finalApiSecret = dbApiSecret;
-            }
-            
-            if (string.IsNullOrEmpty(finalApiKey))
-            {
-                _logger.LogError("API Keyが見つかりません. Shop: {Shop}", shop);
+                
+                if (string.IsNullOrEmpty(finalApiKey))
+                {
+                    _logger.LogError("API Keyが見つかりません. Shop: {Shop}", shop);
                 return null;
-            }
+                }
 
-            // CSRF対策用のstateを生成
-            var state = GenerateRandomString(32);
-            var cacheKey = $"{StateCacheKeyPrefix}{state}";
-            
-            // stateとAPI Key/Secret/ShopifyAppIdをキャッシュに保存（10分間有効）
-            var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
-            _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
-            
+                // CSRF対策用のstateを生成
+                var state = GenerateRandomString(32);
+                var cacheKey = $"{StateCacheKeyPrefix}{state}";
+                
+                // stateとAPI Key/Secret/ShopifyAppIdをキャッシュに保存（10分間有効）
+                var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
+                _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
+                
             _logger.LogInformation("OAuth authentication started. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
 
-            // Shopify OAuth URLを構築
-            var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                // Shopify OAuth URLを構築
+                var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
             _logger.LogInformation("OAuth scopes: {Scopes}", scopes);
-            
+                
             // マルチアプリ対応: AppUrlを取得（フロントエンドへのリダイレクト用）
-            if (string.IsNullOrWhiteSpace(shopifyAppUrl))
-            {
-                shopifyAppUrl = await _context.ShopifyApps
-                    .Where(a => a.ApiKey == finalApiKey && a.IsActive)
-                    .Select(a => a.AppUrl)
-                    .FirstOrDefaultAsync();
-            }
+                if (string.IsNullOrWhiteSpace(shopifyAppUrl))
+                {
+                    shopifyAppUrl = await _context.ShopifyApps
+                        .Where(a => a.ApiKey == finalApiKey && a.IsActive)
+                        .Select(a => a.AppUrl)
+                        .FirstOrDefaultAsync();
+                }
 
             // redirect_uriの決定:
             // Shopify公式ドキュメントに基づき、OAuthコールバックはバックエンドで直接処理するため、
             // 常にバックエンドURLを使用する
             // 修正前: フロントエンドURLを使用していたが、プロキシが複雑性を増すため削除
             var redirectUri = GetRedirectUri();
-            
-            _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
+                
+                _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
 
-            var authUrl = $"https://{shop}/admin/oauth/authorize" +
-                $"?client_id={finalApiKey}" +
-                $"&scope={scopes}" +
-                $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                $"&state={state}";
+                var authUrl = $"https://{shop}/admin/oauth/authorize" +
+                    $"?client_id={finalApiKey}" +
+                    $"&scope={scopes}" +
+                    $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                    $"&state={state}";
 
             _logger.LogInformation("Generated OAuth authorization URL: {AuthUrl}", authUrl);
             
@@ -241,7 +241,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                return HandleOAuthError(ex, shop, "Install");
+                return await HandleOAuthError(ex, shop, "Install");
             }
         }
 
@@ -311,9 +311,9 @@ namespace ShopifyAnalyticsApi.Controllers
                     if (!isValidHmac)
                     {
                         _logger.LogError("HMAC検証失敗. Shop: {Shop}, IsDevelopment: {IsDevelopment}", shop, isDevelopment);
-                        
+                    
                         if (isDevelopment)
-                        {
+                    {
                             // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
                             _logger.LogWarning("Development environment: HMAC verification failure is allowed, but will cause error in production");
                         }
@@ -339,15 +339,15 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // OAuth認証成功後の共通処理（ストア保存、Webhook登録、トライアル付与）
                 var storeId = await ProcessOAuthSuccessAsync(
-                    shop,
+                    shop, 
                     tokenResponse.AccessToken,
-                    stateData.apiKey,
+                    stateData.apiKey, 
                     stateData.apiSecret,
                     stateData.shopifyAppId,
                     tokenResponse.Scope);
 
                 // セッションCookieを設定
-                SetOAuthSessionCookie(storeId, shop);
+                await SetOAuthSessionCookie(storeId, shop);
 
                 // リダイレクトURLを構築
                 var hostParam = HttpContext.Request.Query["host"].ToString();
@@ -432,12 +432,12 @@ namespace ShopifyAnalyticsApi.Controllers
                     if (!isValidHmac)
                     {
                         _logger.LogError("HMAC検証失敗. Shop: {Shop}, IsDevelopment: {IsDevelopment}", request.Shop, isDevelopment);
-
-                        if (isDevelopment)
-                        {
+                    
+                    if (isDevelopment)
+                    {
                             // 開発環境でもエラーログを出力（本番環境ではエラーになることを警告）
                             _logger.LogWarning("Development environment: HMAC verification failure is allowed, but will cause error in production");
-                        }
+                    }
                         else
                         {
                             // 本番環境ではエラーを返す
@@ -492,13 +492,13 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-config")]
         [RequireDeveloperAuth]
-        public IActionResult TestConfig()
+        public async Task<IActionResult> TestConfig()
         {
             try
             {
                 var baseUrl = GetBaseUrl();
                 var redirectUri = $"{baseUrl}/api/shopify/callback";
-                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+                var frontendUrl = await GetDefaultFrontendUrlAsync();
                 var processCallbackUrl = $"{baseUrl}/api/shopify/process-callback";
                 
                 var config = new
@@ -549,7 +549,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-hybrid-mode")]
         [RequireDeveloperAuth]
-        public IActionResult TestHybridMode([FromQuery] string shop = "fuk-dev1.myshopify.com")
+        public async Task<IActionResult> TestHybridMode([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
             {
@@ -560,7 +560,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var apiKey = GetShopifySetting("ApiKey");
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+                var frontendUrl = await GetDefaultFrontendUrlAsync();
                 var redirectUri = $"{frontendUrl}/api/shopify/callback";
                 var state = GenerateRandomString(32);
 
@@ -611,7 +611,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-oauth-url")]
         [RequireDeveloperAuth]
-        public IActionResult TestOAuthUrl([FromQuery] string shop = "fuk-dev1.myshopify.com")
+        public async Task<IActionResult> TestOAuthUrl([FromQuery] string shop = "fuk-dev1.myshopify.com")
         {
             try
             {
@@ -880,7 +880,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         [HttpGet("test-settings")]
         [RequireDeveloperAuth]
-        public IActionResult TestSettings()
+        public async Task<IActionResult> TestSettings()
         {
             try
             {
@@ -889,12 +889,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     // 環境変数
                     EnvironmentVariable = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL"),
                     
-                    // 設定ファイルの値
-                    ShopifyFrontendBaseUrl = _configuration["Shopify:Frontend:BaseUrl"],
-                    FrontendBaseUrl = _configuration["Frontend:BaseUrl"],
-                    
-                    // GetShopifySettingメソッドの結果
-                    GetShopifySettingResult = GetShopifySetting("Frontend:BaseUrl"),
+                    // データベースから取得した値
+                    DefaultFrontendUrl = await GetDefaultFrontendUrlAsync(),
                     
                     // 実際に使用される値
                     ActualRedirectUri = GetRedirectUri(),
@@ -1677,8 +1673,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     shopifyApp.Id, shopifyApp.Name, shopifyApp.AppUrl, shopifyApp.IsActive);
                 
                 if (!string.IsNullOrEmpty(shopifyApp.AppUrl))
-                {
-                    return shopifyApp.AppUrl;
+            {
+                return shopifyApp.AppUrl;
                 }
                 else
                 {
@@ -1692,10 +1688,45 @@ namespace ShopifyAnalyticsApi.Controllers
                     apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
             }
             
-            // フォールバック: 環境変数から取得
+            // フォールバック: データベースから最初のアクティブなAppUrlを取得
+            var defaultApp = await _context.ShopifyApps
+                .Where(a => a.IsActive && !string.IsNullOrEmpty(a.AppUrl))
+                .OrderBy(a => a.Id)
+                .Select(a => a.AppUrl)
+                .FirstOrDefaultAsync();
+            
+            if (!string.IsNullOrEmpty(defaultApp))
+            {
+                _logger.LogInformation("GetShopifyAppUrlAsync: Using default AppUrl from database: {AppUrl}", defaultApp);
+                return defaultApp;
+            }
+            
+            // 最終フォールバック: 環境変数から取得
             var fallbackUrl = GetShopifySetting("AppUrl") ?? "https://localhost:3000";
-            _logger.LogInformation("GetShopifyAppUrlAsync: Using fallback URL from environment variable: {FallbackUrl}", fallbackUrl);
+            _logger.LogWarning("GetShopifyAppUrlAsync: Using fallback URL from environment variable: {FallbackUrl}", fallbackUrl);
             return fallbackUrl;
+        }
+
+        /// <summary>
+        /// デフォルトのフロントエンドURLを取得（データベースから）
+        /// </summary>
+        /// <returns>フロントエンドURL</returns>
+        private async Task<string> GetDefaultFrontendUrlAsync()
+        {
+            // データベースから最初のアクティブなAppUrlを取得
+            var defaultApp = await _context.ShopifyApps
+                .Where(a => a.IsActive && !string.IsNullOrEmpty(a.AppUrl))
+                .OrderBy(a => a.Id)
+                .Select(a => a.AppUrl)
+                .FirstOrDefaultAsync();
+            
+            if (!string.IsNullOrEmpty(defaultApp))
+            {
+                return defaultApp;
+            }
+            
+            // フォールバック: 環境変数から取得
+            return GetShopifySetting("AppUrl") ?? "https://localhost:3000";
         }
 
         /// <summary>
@@ -1903,7 +1934,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         /// <param name="storeId">ストアID</param>
         /// <param name="shop">ショップドメイン</param>
-        private void SetOAuthSessionCookie(int storeId, string shop)
+        private async Task SetOAuthSessionCookie(int storeId, string shop)
         {
             // OAuth認証成功後、セッションCookieを設定（埋め込みアプリでない場合の認証に使用）
             // Cookie名: oauth_session
@@ -1922,7 +1953,7 @@ namespace ShopifyAnalyticsApi.Controllers
             // Cookie 設定
             // - ngrok(フロント) → localhost(バック) のようなクロスサイト fetch では SameSite=Lax だと Cookie が送信されず 401 になる
             // - そのため「フロントBaseUrlのHost」と「このリクエストHost」が異なる場合は SameSite=None にする
-            var frontendBaseUrl = _configuration["Frontend:BaseUrl"];
+            var frontendBaseUrl = await GetDefaultFrontendUrlAsync();
             var isCrossSite = false;
             if (!string.IsNullOrWhiteSpace(frontendBaseUrl) && Uri.TryCreate(frontendBaseUrl, UriKind.Absolute, out var feUri))
             {
@@ -1953,7 +1984,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// <summary>
         /// OAuthエラーを処理する
         /// </summary>
-        private IActionResult HandleOAuthError(Exception ex, string shop, string operation)
+        private async Task<IActionResult> HandleOAuthError(Exception ex, string shop, string operation)
         {
             _logger.LogError(ex, "OAuth {Operation} error occurred. Shop: {Shop}", operation, shop);
 
@@ -1972,7 +2003,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
 
             // フロントエンドのエラーページにリダイレクト
-            var frontendUrl = GetShopifySetting("Frontend:BaseUrl", "http://localhost:3000");
+            var frontendUrl = await GetDefaultFrontendUrlAsync();
             return Redirect($"{frontendUrl}/shopify/error?message=Authentication%20failed");
         }
 

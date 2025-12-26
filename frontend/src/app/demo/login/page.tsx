@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shield, Eye, EyeOff, Presentation } from 'lucide-react'
 import { getApiBaseUrl } from '@/lib/config/environments'
 import { useRouter } from 'next/navigation'
+import { jwtDecode } from 'jwt-decode'
 
 export default function DemoLoginPage() {
   const [password, setPassword] = useState('')
@@ -35,12 +36,28 @@ export default function DemoLoginPage() {
       if (response.ok) {
         const data = await response.json()
         
+        // JWTトークンからstore_idを取得
+        let storeId: number | null = null
+        try {
+          const decoded = jwtDecode<{ store_id?: string }>(data.token)
+          if (decoded.store_id) {
+            storeId = parseInt(decoded.store_id, 10)
+          }
+        } catch (err) {
+          console.error('Failed to decode JWT token:', err)
+        }
+        
+        if (!storeId) {
+          setError('ストアIDの取得に失敗しました')
+          return
+        }
+        
         // デモトークンを保存
         if (typeof window !== 'undefined') {
           localStorage.setItem('demoToken', data.token)
           localStorage.setItem('authMode', 'demo')
           localStorage.setItem('readOnly', 'true')
-          localStorage.setItem('currentStoreId', '1') // 🆕 デモ用ストアIDを設定
+          localStorage.setItem('currentStoreId', storeId.toString())
         }
         
         console.log('✅ デモモード: ログイン成功', {

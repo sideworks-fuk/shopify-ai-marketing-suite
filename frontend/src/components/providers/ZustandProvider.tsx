@@ -52,12 +52,13 @@ export function ZustandProvider({ children }: ZustandProviderProps) {
   }, [isHydrated])
 
   // ハイドレーション完了前は最小限のUIを表示
+  // suppressHydrationWarning: サーバーサイドとクライアントサイドで異なる可能性があるため
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">アプリケーションを初期化中...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" suppressHydrationWarning>
+        <div className="text-center" suppressHydrationWarning>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" suppressHydrationWarning></div>
+          <p className="mt-2 text-gray-600" suppressHydrationWarning>アプリケーションを初期化中...</p>
         </div>
       </div>
     )

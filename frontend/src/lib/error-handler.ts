@@ -177,7 +177,10 @@ class ErrorHandler {
     
     try {
       const storeId = localStorage.getItem('currentStoreId')
-      return storeId ? parseInt(storeId, 10) : 1
+      if (!storeId) return 1
+      const parsed = parseInt(storeId, 10)
+      // NaNまたは無効な値の場合はデフォルト値1を返す（フォールバック）
+      return !isNaN(parsed) && parsed > 0 ? parsed : 1
     } catch {
       return 1
     }

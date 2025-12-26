@@ -120,9 +120,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         migrateLocalStorageVariables()
         
         const savedStoreId = localStorage.getItem('currentStoreId')
-        const storeId = savedStoreId ? parseInt(savedStoreId, 10) : 1
-        console.log('🏪 Store ID:', storeId)
-        setCurrentStoreId(storeId)
+        // parseIntの第2引数10は基数（10進数）を明示的に指定（ベストプラクティス）
+        // NaNチェックも含めて安全に処理
+        const storeId = savedStoreId ? parseInt(savedStoreId, 10) : null
+        if (storeId && !isNaN(storeId) && storeId > 0) {
+          console.log('🏪 Store ID:', storeId)
+          setCurrentStoreId(storeId)
+        } else {
+          console.warn('⚠️ Store ID not found or invalid in localStorage:', savedStoreId)
+          setCurrentStoreId(null)
+        }
         
         if (authMode === 'shopify' && isEmbedded) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
@@ -231,10 +238,20 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   }
 
   const logout = () => {
-    console.log('🚪 ログアウト実行')
+    console.log('🚪 ログアウト実行', { authMode })
     
     if (authMode === 'demo') {
+      // デモモードの場合、すべてのデモ関連のlocalStorageアイテムを削除
       localStorage.removeItem('demoToken')
+      localStorage.removeItem('demo_token') // 別のキー名にも対応
+      localStorage.removeItem('authMode')
+      localStorage.removeItem('readOnly')
+      localStorage.removeItem('currentStoreId')
+      console.log('🗑️ デモモード関連のlocalStorageをクリアしました')
+    } else {
+      // OAuth認証の場合
+      localStorage.removeItem('oauth_authenticated')
+      localStorage.removeItem('currentStoreId')
     }
     
     setIsAuthenticated(false)
@@ -315,10 +332,14 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       const savedStoreId = localStorage.getItem('currentStoreId')
       if (savedStoreId) {
         const storeId = parseInt(savedStoreId, 10)
-        console.log('🔄 OAuth認証フラグを確認、認証状態を復元:', { storeId })
-        setIsAuthenticated(true)
-        setCurrentStoreId(storeId)
-        setAuthError(null)
+        if (!isNaN(storeId) && storeId > 0) {
+          console.log('🔄 OAuth認証フラグを確認、認証状態を復元:', { storeId })
+          setIsAuthenticated(true)
+          setCurrentStoreId(storeId)
+          setAuthError(null)
+        } else {
+          console.warn('⚠️ Invalid store ID in localStorage:', savedStoreId)
+        }
       }
     }
   }, [isAuthenticated, isInitializing])

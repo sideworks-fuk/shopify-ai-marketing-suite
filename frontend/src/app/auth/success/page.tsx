@@ -159,14 +159,33 @@ export default function AuthSuccessPage() {
           // フォールバック: クエリパラメータからstoreIdを取得
           const storeIdParam = searchParams?.get('storeId');
           if (storeIdParam) {
-            resolvedStoreId = parseInt(storeIdParam);
+            const parsed = parseInt(storeIdParam, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+              resolvedStoreId = parsed;
+            }
           }
         }
         
         if (!isMounted) return;
         
-        // 現在のストアを設定（storeIdが見つからない場合はデフォルト1を使用）
-        const finalStoreId = resolvedStoreId || parseInt(searchParams?.get('storeId') || '1');
+        // 現在のストアを設定（storeIdが見つからない場合はエラー）
+        if (!resolvedStoreId && !searchParams?.get('storeId')) {
+          console.error('❌ Store ID not found in response or query parameters')
+          setStatus('error')
+          setMessage('ストアIDの取得に失敗しました')
+          return
+        }
+        // クエリパラメータから取得を試みる（フォールバック）
+        const fallbackStoreId = searchParams?.get('storeId');
+        const parsedFallback = fallbackStoreId ? parseInt(fallbackStoreId, 10) : null;
+        const finalStoreId = resolvedStoreId || (parsedFallback && !isNaN(parsedFallback) ? parsedFallback : null);
+        
+        if (!finalStoreId || finalStoreId <= 0 || isNaN(finalStoreId)) {
+          console.error('❌ Invalid store ID:', finalStoreId)
+          setStatus('error')
+          setMessage('無効なストアIDです')
+          return
+        }
         
         // StoreContextにストアを設定
         setCurrentStore(finalStoreId);

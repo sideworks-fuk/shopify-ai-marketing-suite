@@ -13,6 +13,7 @@ const publicPaths = [
   '/auth/login',
   '/auth/callback',
   '/auth/success',
+  '/auth/select', // 認証方法選択画面
   '/auth/error',
   '/terms',
   '/privacy',

@@ -24,13 +24,23 @@ import { useAppBridge } from '@/lib/shopify/app-bridge-provider';
 import { Redirect } from '@shopify/app-bridge/actions';
 
 /**
- * Shopifyアプリ接続ページ（Polaris版）
+ * Shopifyアプリ接続・認証ページ
+ * 
+ * 役割:
+ * - 初回インストール（新規ストアの接続）
+ * - 再認証（既存ストアの再認証）
+ * - 自動リダイレクト（認証済み・登録済みストアの場合）
+ * 
+ * アクセス方法:
+ * - /install（直接アクセス）
+ * - /connect（エイリアス）
+ * - /auth/connect（エイリアス）
  * 
  * @author YUKI
  * @date 2025-07-29
- * @updated 2025-08-01
+ * @updated 2025-01-27
  * @description Shopify OAuth認証フローの開始ページ（エラーハンドリング強化版）
- * - A案: Shopify Admin(embedded) から起動された場合は shop を自動入力し、登録済みなら通常画面へ遷移
+ * - Shopify Admin(embedded) から起動された場合は shop を自動入力し、登録済みなら通常画面へ遷移
  */
 export default function InstallPolarisPage() {
   const [shopDomain, setShopDomain] = useState('');
@@ -41,7 +51,7 @@ export default function InstallPolarisPage() {
   const [errorDetails, setErrorDetails] = useState<{title: string, message: string}>({title: '', message: ''});
   const [shopDomainLocked, setShopDomainLocked] = useState(false);
   const [autoRedirecting, setAutoRedirecting] = useState(false);
-  const [isDirectAccess, setIsDirectAccess] = useState(false); // ブラウザで直接アクセスした場合
+  const [isDirectAccess, setIsDirectAccess] = useState<boolean | null>(null); // ブラウザで直接アクセスした場合（null: 未決定、true/false: 決定済み）
   const isInstallingRef = useRef(false); // インストール処理中フラグ（useRefで確実に保持）
   const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
@@ -516,7 +526,8 @@ export default function InstallPolarisPage() {
               </div>
 
               {/* ブラウザで直接アクセスした場合の説明文 */}
-              {isDirectAccess && (
+              {/* suppressHydrationWarning: isDirectAccessはuseEffectで決定されるため、サーバーサイドとクライアントサイドで異なる可能性がある */}
+              {isDirectAccess === true && (
                 <Card>
                   <Banner
                     title="推奨されるアクセス方法"

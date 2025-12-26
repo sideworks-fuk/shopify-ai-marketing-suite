@@ -177,8 +177,25 @@ namespace ShopifyAnalyticsApi.Services
                 // キャッシュ失敗は致命的ではない
             }
 
-            // トークン生成
-            var token = GenerateDemoToken(session);
+            // データベースから最初のアクティブなストアを取得
+            var firstActiveStore = await _dbContext.Stores
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.Id)
+                .Select(s => new { s.Id, s.Domain, s.TenantId })
+                .FirstOrDefaultAsync();
+
+            if (firstActiveStore == null)
+            {
+                _logger.LogError("No active store found for demo mode. Demo authentication cannot proceed.");
+                return new DemoAuthResult
+                {
+                    Success = false,
+                    Error = "No active store available for demo mode"
+                };
+            }
+
+            // トークン生成（実際のストアIDを使用）
+            var token = GenerateDemoToken(session, firstActiveStore.Id, firstActiveStore.Domain, firstActiveStore.TenantId);
 
             // 成功ログ記録
             await LogAuthenticationAttemptAsync(ipAddress, "demo", true, null, userAgent);
@@ -187,9 +204,10 @@ namespace ShopifyAnalyticsApi.Services
             await _rateLimiter.ResetAsync(rateLimitKey);
 
             _logger.LogInformation(
-                "Demo authentication successful. SessionId: {SessionId}, IP: {IpAddress}",
+                "Demo authentication successful. SessionId: {SessionId}, IP: {IpAddress}, StoreId: {StoreId}",
                 sessionId,
-                ipAddress);
+                ipAddress,
+                firstActiveStore.Id);
 
             return new DemoAuthResult
             {
@@ -328,7 +346,7 @@ namespace ShopifyAnalyticsApi.Services
         /// <summary>
         /// JWT トークンを生成
         /// </summary>
-        private string GenerateDemoToken(DemoSession session)
+        private string GenerateDemoToken(DemoSession session, int storeId, string? shopDomain, string? tenantId)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtSecret = _config["Jwt:Key"];
@@ -349,9 +367,9 @@ namespace ShopifyAnalyticsApi.Services
                     new Claim("read_only", "true"), // デモモードは読み取り専用
                     new Claim("expires_at", session.ExpiresAt.ToString("O")),
                     new Claim("created_by", session.CreatedBy ?? "unknown"),
-                    new Claim("store_id", "1"), // デモモード用のストアID
-                    new Claim("tenant_id", "demo-tenant"), // デモモード用のテナントID
-                    new Claim("shop_domain", "demo-shop.myshopify.com") // デモモード用のショップドメイン
+                    new Claim("store_id", storeId.ToString()), // データベースから取得した実際のストアID
+                    new Claim("tenant_id", tenantId ?? "default-tenant"),
+                    new Claim("shop_domain", shopDomain ?? "demo-shop.myshopify.com")
                 }),
                 Expires = session.ExpiresAt,
                 SigningCredentials = new SigningCredentials(

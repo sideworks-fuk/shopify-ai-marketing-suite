@@ -660,8 +660,8 @@ try
             ("ConnectionStrings:DefaultConnection", app.Configuration.GetConnectionString("DefaultConnection"))
         };
 
-        // JwtSecretはDemoAllowed/AllAllowedモードでのみ必須
-        if (authMode == "DemoAllowed" || authMode == "AllAllowed")
+        // JwtSecretはDemoAllowedモードでのみ必須
+        if (authMode == "DemoAllowed")
         {
             requiredSettings = requiredSettings.Concat(new[]
             {
