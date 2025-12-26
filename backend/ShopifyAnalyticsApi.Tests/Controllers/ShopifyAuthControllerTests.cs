@@ -98,10 +98,10 @@ namespace ShopifyAnalyticsApi.Tests.Controllers
         }
 
         [Fact]
-        public void TestConfig_ReturnsConfigurationStatus()
+        public async Task TestConfig_ReturnsConfigurationStatus()
         {
             // Act
-            var result = _controller.TestConfig();
+            var result = await _controller.TestConfig();
 
             // Assert
             Assert.IsType<OkObjectResult>(result);
