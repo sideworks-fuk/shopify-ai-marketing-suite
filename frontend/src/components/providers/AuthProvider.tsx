@@ -106,6 +106,14 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   // アプリ起動時の自動認証
   useEffect(() => {
+    // デバッグログを追加
+    console.log('🔍 [AuthProvider] useEffect実行:', { 
+      apiClient: !!apiClient, 
+      isApiClientReady, 
+      authMode, 
+      isEmbedded 
+    })
+    
     // APIクライアントが準備完了していない場合は実行しない
     if (!apiClient || !isApiClientReady) {
       console.log('⏳ APIクライアントの準備を待機中...', { apiClient: !!apiClient, isApiClientReady })
@@ -204,6 +212,22 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     
     initializeAuth()
   }, [apiClient, isApiClientReady, authMode, isEmbedded, getToken])
+  
+  // デバッグ用: isInitializingが長時間trueのままの場合の警告
+  useEffect(() => {
+    if (isInitializing) {
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ [AuthProvider] isInitializingが10秒以上trueのままです。初期化が完了していない可能性があります。', {
+          apiClient: !!apiClient,
+          isApiClientReady,
+          authMode,
+          isEmbedded,
+        })
+      }, 10000)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isInitializing, apiClient, isApiClientReady, authMode, isEmbedded])
 
   const login = async (storeId: number) => {
     try {

@@ -23,11 +23,12 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState('アプリケーションを初期化中...')
   const hasProcessedRef = useRef(false)
 
-  // タイムアウト処理: 5秒以上待機してもリダイレクトされない場合はインストールページへ
+  // タイムアウト処理: 10秒以上待機してもリダイレクトされない場合はインストールページへ
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (!hasProcessedRef.current) {
-        console.warn('⏰ [ルートページ] タイムアウト: 5秒経過しても認証状態が確定しませんでした')
+        console.warn('⏰ [ルートページ] タイムアウト: 10秒経過しても認証状態が確定しませんでした')
+        console.warn('⏰ [ルートページ] 状態:', { isInitializing, isApiClientReady, isAuthenticated })
         console.warn('⏰ [ルートページ] 強制的にインストールページへリダイレクトします')
         
         const shop = searchParams?.get('shop')
@@ -48,10 +49,10 @@ export default function HomePage() {
         setStatusMessage('インストールページへ移動中...')
         router.replace(`/install${queryString ? `?${queryString}` : ''}`)
       }
-    }, 5000) // 5秒タイムアウト
+    }, 10000) // 10秒タイムアウト（5秒から延長）
 
     return () => clearTimeout(timeoutId)
-  }, [router, searchParams])
+  }, [router, searchParams, isInitializing, isApiClientReady, isAuthenticated])
 
   // 認証状態に基づいてリダイレクト
   useEffect(() => {
