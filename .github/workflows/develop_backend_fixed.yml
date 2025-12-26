@@ -147,6 +147,8 @@ jobs:
         package: backend/ShopifyAnalyticsApi/published
         app-settings: |
           ASPNETCORE_ENVIRONMENT=Development
+        # 既存のファイルを削除してからデプロイ（古いappsettings.jsonが残る問題を解決）
+        clean: true
 
     - name: ✅ Deployment complete
       run: |
