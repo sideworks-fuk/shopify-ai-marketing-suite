@@ -133,16 +133,19 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
 
   const getToken = async (): Promise<string | null> => {
     if (!app || !isEmbedded) {
-      console.log('⚠️ App Bridge not available for token retrieval')
+      console.log('⚠️ App Bridge not available for token retrieval', { app: !!app, isEmbedded })
       return null
     }
 
     try {
+      console.log('🔍 [AppBridge] getSessionToken()を呼び出します...')
       const token = await getSessionToken(app)
-      console.log('✅ Session token retrieved successfully')
+      console.log('✅ Session token retrieved successfully', { tokenLength: token?.length || 0 })
       return token
     } catch (error) {
       console.error('❌ Failed to get session token:', error)
+      // カスタムアプリがインストールされていない場合、セッショントークンが取得できない
+      // これは正常な動作なので、エラーをスローせずにnullを返す
       return null
     }
   }
