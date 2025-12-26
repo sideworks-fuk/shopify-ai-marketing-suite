@@ -41,12 +41,12 @@ namespace ShopifyAnalyticsApi.Services
                     })
                     .ToListAsync();
 
-                _logger.LogInformation("アクティブなストア {Count} 件を取得しました", stores.Count);
+                _logger.LogInformation("Retrieved {Count} active stores", stores.Count);
                 return stores;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ストア一覧の取得でエラーが発生しました");
+                _logger.LogError(ex, "Error occurred while retrieving store list");
                 return GetDefaultStores();
             }
         }
@@ -71,7 +71,7 @@ namespace ShopifyAnalyticsApi.Services
 
                 if (store == null)
                 {
-                    _logger.LogWarning("ストアID {StoreId} が見つかりません", storeId);
+                    _logger.LogWarning("Store ID {StoreId} not found", storeId);
                     return GetDefaultStores().FirstOrDefault(s => s.Id == storeId);
                 }
 
@@ -79,7 +79,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ストアID {StoreId} の取得でエラーが発生しました", storeId);
+                _logger.LogError(ex, "Error occurred while retrieving store ID {StoreId}", storeId);
                 return GetDefaultStores().FirstOrDefault(s => s.Id == storeId);
             }
         }
@@ -89,7 +89,7 @@ namespace ShopifyAnalyticsApi.Services
             var store = await GetStoreByIdAsync(storeId);
             if (store == null)
             {
-                throw new KeyNotFoundException($"ストアID {storeId} が見つかりません");
+                throw new KeyNotFoundException($"Store ID {storeId} not found");
             }
 
             var response = new StoreDetailResponse
@@ -117,7 +117,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "ストアID {StoreId} の統計情報取得でエラーが発生しました", storeId);
+                _logger.LogWarning(ex, "Error occurred while retrieving statistics for store ID {StoreId}", storeId);
             }
 
             return response;

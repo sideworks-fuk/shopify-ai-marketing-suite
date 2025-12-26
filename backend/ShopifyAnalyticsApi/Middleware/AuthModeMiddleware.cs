@@ -294,6 +294,20 @@ namespace ShopifyAnalyticsApi.Middleware
                     _logger.LogInformation(
                         "AllAllowed mode enabled. Path: {Path}",
                         context.Request.Path);
+                    
+                    // AllAllowedモードの場合、認証が失敗しても匿名ユーザーとしてContext.Userを設定
+                    // これにより、[Authorize]属性が付いているコントローラーでもアクセス可能になる
+                    if (context.User?.Identity?.IsAuthenticated != true)
+                    {
+                        var anonymousClaims = new List<Claim>
+                        {
+                            new Claim("auth_mode", "anonymous"),
+                            new Claim("read_only", "false"),
+                            new Claim(ClaimTypes.Name, "anonymous-user"),
+                            new Claim(ClaimTypes.NameIdentifier, "anonymous-user")
+                        };
+                        context.User = new ClaimsPrincipal(new ClaimsIdentity(anonymousClaims, "Anonymous"));
+                    }
                     break;
 
                 default:

@@ -77,7 +77,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             
             var redirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
-            _logger.LogInformation("リダイレクトURI生成: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
+            _logger.LogInformation("Redirect URI generated: BackendUrl={BackendUrl}, RedirectUri={RedirectUri}", 
                 backendUrl, redirectUri);
             
             return redirectUri;
@@ -182,11 +182,11 @@ namespace ShopifyAnalyticsApi.Controllers
             var stateData = new { shop, apiKey = finalApiKey, apiSecret = finalApiSecret, shopifyAppId };
             _cache.Set(cacheKey, JsonSerializer.Serialize(stateData), TimeSpan.FromMinutes(StateExpirationMinutes));
             
-            _logger.LogInformation("OAuth認証開始. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
+            _logger.LogInformation("OAuth authentication started. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
 
             // Shopify OAuth URLを構築
             var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-            _logger.LogInformation("OAuth認証スコープ: {Scopes}", scopes);
+            _logger.LogInformation("OAuth scopes: {Scopes}", scopes);
             
             // マルチアプリ対応: AppUrlを取得（フロントエンドへのリダイレクト用）
             if (string.IsNullOrWhiteSpace(shopifyAppUrl))
@@ -211,7 +211,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
                 $"&state={state}";
 
-            _logger.LogInformation("生成されたOAuth認証URL: {AuthUrl}", authUrl);
+            _logger.LogInformation("Generated OAuth authorization URL: {AuthUrl}", authUrl);
             
             return authUrl;
         }
@@ -1315,12 +1315,12 @@ namespace ShopifyAnalyticsApi.Controllers
                         
                         if (response.IsSuccessStatusCode)
                         {
-                            _logger.LogInformation("Webhook登録成功. Topic: {Topic}", webhook.topic);
+                            _logger.LogInformation("Webhook registered successfully. Topic: {Topic}", webhook.topic);
                         }
                         else
                         {
                             var error = await response.Content.ReadAsStringAsync();
-                            _logger.LogWarning("Webhook登録失敗. Topic: {Topic}, Error: {Error}", 
+                            _logger.LogWarning("Webhook registration failed. Topic: {Topic}, Error: {Error}", 
                                 webhook.topic, error);
                         }
                     }
