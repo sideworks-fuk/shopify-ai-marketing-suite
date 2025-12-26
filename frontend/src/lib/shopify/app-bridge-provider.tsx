@@ -139,10 +139,36 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
 
     try {
       console.log('🔍 [AppBridge] getSessionToken()を呼び出します...')
-      // Shopify側の処理を待機（インストールできない条件の場合は、Shopify側で適切なエラーページにリダイレクトされる）
-      const token = await getSessionToken(app)
-      console.log('✅ Session token retrieved successfully', { tokenLength: token?.length || 0 })
-      return token
+      console.log('⏳ [AppBridge] Shopify側の処理を待機中...（カスタムアプリがインストールされていない場合、応答がない可能性があります）')
+      
+      // Shopify公式ドキュメントによると、getSessionToken()はPromiseを返し、
+      // セッショントークンがundefinedの場合はAPP::ERROR::FAILED_AUTHENTICATIONエラーを投げる
+      // しかし、実際にはカスタムアプリがインストールされていない場合、Promiseが完了しない場合がある
+      // そのため、フォールバックとしてタイムアウト処理を追加
+      const tokenPromise = getSessionToken(app).catch((error) => {
+        console.warn('⚠️ [AppBridge] getSessionToken()がエラーを返しました:', error)
+        return null
+      })
+      
+      // タイムアウト処理（0.5秒）: カスタムアプリがインストールされていない場合のフォールバック
+      // 元々動いていた既存のコードは0.5秒ほどでShopifyのインストールページに遷移していたため、同じタイムアウト時間に設定
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn('⏰ [AppBridge] getSessionToken()が0.5秒以内に完了しませんでした')
+          console.warn('⏰ [AppBridge] カスタムアプリがインストールされていない可能性があります')
+          resolve(null)
+        }, 500) // 0.5秒タイムアウト（元の実装と同じ）
+      })
+      
+      const token = await Promise.race([tokenPromise, timeoutPromise])
+      
+      if (token) {
+        console.log('✅ Session token retrieved successfully', { tokenLength: token.length })
+        return token
+      } else {
+        console.log('⚠️ Session tokenが取得できませんでした（タイムアウトまたはnull）')
+        return null
+      }
     } catch (error) {
       console.error('❌ Failed to get session token:', error)
       // エラーが発生した場合、Shopify側が適切に処理する（エラーページへのリダイレクトなど）

@@ -122,9 +122,18 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
     const initializeAuth = async () => {
       console.log('🚀 認証の初期化を開始...', { authMode, isEmbedded })
+      setIsInitializing(true)
+      setAuthError(null)
+      
+      // initializeAuth全体にタイムアウト処理を追加（確実にfinallyブロックに到達させる）
+      const timeoutId = setTimeout(() => {
+        console.warn('⏰ [AuthProvider] initializeAuthが1秒以内に完了しませんでした')
+        console.warn('⏰ [AuthProvider] 強制的に初期化を完了します')
+        setIsInitializing(false)
+        setIsAuthenticated(false)
+      }, 1000) // 1秒タイムアウト
+      
       try {
-        setIsInitializing(true)
-        setAuthError(null)
         migrateLocalStorageVariables()
         
         const savedStoreId = localStorage.getItem('currentStoreId')
@@ -141,8 +150,8 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         
         if (authMode === 'shopify' && isEmbedded) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
-          // インストールできない条件の場合は、Shopify側で適切なエラーページにリダイレクトされるため、
-          // getSessionToken()が完了するまで待機する
+          // カスタムアプリがインストールされていない場合、getSessionToken()が完了しない可能性があるため、
+          // app-bridge-provider.tsxでタイムアウト処理（0.5秒）を実装している
           try {
             console.log('🔍 [AuthProvider] Shopifyセッショントークンの取得を開始...')
             const token = await getToken()
@@ -151,7 +160,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
             } else {
-              console.log('⚠️ Shopifyセッショントークンが取得できませんでした')
+              console.log('⚠️ Shopifyセッショントークンが取得できませんでした（カスタムアプリがインストールされていない可能性があります）')
               // セッショントークンが取得できない場合、Shopify側が適切に処理する
               // （エラーページへのリダイレクトなど）
               setIsAuthenticated(false)
@@ -204,6 +213,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         setIsAuthenticated(false)
         console.log('⚠️ 認証なしでアプリケーションを継続します')
       } finally {
+        // タイムアウト処理をクリア
+        clearTimeout(timeoutId)
+        
         // 認証状態をログ出力（finallyブロック内なので、この時点での状態を確認）
         const finalAuthState = localStorage.getItem('oauth_authenticated') === 'true' || 
                                localStorage.getItem('demoToken') !== null
