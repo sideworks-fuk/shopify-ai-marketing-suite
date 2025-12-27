@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef, ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { createApp } from '@shopify/app-bridge'
 import { Redirect } from '@shopify/app-bridge/actions'
@@ -43,6 +43,9 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
   const [host, setHost] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  
+  // 無限ループ防止: Redirect.toApp()の呼び出しを1回のみに制限
+  const redirectCalledRef = useRef<Set<string>>(new Set())
 
   const apiKey = useMemo(() => process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '', [])
   const storageKeys = useMemo(() => ({ host: 'shopify_host', shop: 'shopify_shop' }), [])
@@ -104,10 +107,35 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           setApp(appBridge)
           console.log('✅ Shopify App Bridge initialized', { shop: resolvedShop, host: resolvedHost })
           
-          // トップレベルリダイレクトの処理（条件付き）
-          if (window.top !== window.self) {
-            // iframeの中にいる場合のみリダイレクト
-            appBridge.dispatch(Redirect.toApp({ path: window.location.pathname }))
+          // 埋め込みアプリの場合、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
+          // 動作していたバージョン（90b0997）と同じ実装に戻す
+          // 無限ループ防止: 同じパスへのRedirect.toApp()は1回のみ呼び出す
+          // 注意: window.top !== window.selfはforceRedirect: trueの影響でfalseになる可能性があるため、
+          // 計算済みのembedded変数を使用する（embeddedはhostパラメータの存在で判断される）
+          if (embedded) {
+            // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出す
+            // window.top !== window.selfはforceRedirectの影響でfalseになる可能性があるため
+            const currentPath = window.location.pathname
+            const redirectKey = `${resolvedHost}:${currentPath}`
+            
+            // 既に同じパスに対してRedirect.toApp()を呼び出していない場合のみ実行
+            if (!redirectCalledRef.current.has(redirectKey)) {
+              // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
+              console.log('🔄 [AppBridge] Redirect.toApp()を呼び出します:', {
+                path: currentPath,
+                embedded,
+                inIframe: window.top !== window.self,
+                hostParam: !!hostParam,
+                resolvedHost: !!resolvedHost
+              })
+              redirectCalledRef.current.add(redirectKey)
+              appBridge.dispatch(Redirect.toApp({ path: currentPath }))
+            } else {
+              console.log('⏸️ [AppBridge] Redirect.toApp()は既に呼び出されています。スキップします:', {
+                path: currentPath,
+                redirectKey
+              })
+            }
           }
         } else {
           console.log('ℹ️ Not running in Shopify embedded context or missing host/apiKey', {
@@ -129,16 +157,21 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
 
   const getToken = async (): Promise<string | null> => {
     if (!app || !isEmbedded) {
-      console.log('⚠️ App Bridge not available for token retrieval')
+      console.log('⚠️ App Bridge not available for token retrieval', { app: !!app, isEmbedded })
       return null
     }
 
     try {
+      // Shopify公式ドキュメントによると、getSessionToken()はPromiseを返し、
+      // セッショントークンがundefinedの場合はAPP::ERROR::FAILED_AUTHENTICATIONエラーを投げる
+      // タイムアウト処理は不要（Shopify側が適切に処理する）
       const token = await getSessionToken(app)
-      console.log('✅ Session token retrieved successfully')
+      console.log('✅ Session token retrieved successfully', { tokenLength: token.length })
       return token
     } catch (error) {
       console.error('❌ Failed to get session token:', error)
+      // エラーが発生した場合、Shopify側が適切に処理する（エラーページへのリダイレクトなど）
+      // エラーをスローせずにnullを返す
       return null
     }
   }
