@@ -122,23 +122,12 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
     const initializeAuth = async () => {
       console.log('🚀 認証の初期化を開始...', { authMode, isEmbedded })
-      setIsInitializing(true)
-      setAuthError(null)
-      
-      // initializeAuth全体にタイムアウト処理を追加（確実にfinallyブロックに到達させる）
-      const timeoutId = setTimeout(() => {
-        console.warn('⏰ [AuthProvider] initializeAuthが1秒以内に完了しませんでした')
-        console.warn('⏰ [AuthProvider] 強制的に初期化を完了します')
-        setIsInitializing(false)
-        setIsAuthenticated(false)
-      }, 1000) // 1秒タイムアウト
-      
       try {
+        setIsInitializing(true)
+        setAuthError(null)
         migrateLocalStorageVariables()
         
         const savedStoreId = localStorage.getItem('currentStoreId')
-        // parseIntの第2引数10は基数（10進数）を明示的に指定（ベストプラクティス）
-        // NaNチェックも含めて安全に処理
         const storeId = savedStoreId ? parseInt(savedStoreId, 10) : null
         if (storeId && !isNaN(storeId) && storeId > 0) {
           console.log('🏪 Store ID:', storeId)
@@ -150,48 +139,20 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         
         if (authMode === 'shopify' && isEmbedded) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
-          // 重要: カスタムアプリがインストールされていない場合、Shopify側が自動的にOAuthフローにリダイレクトする
-          // そのため、getSessionToken()を呼び出すと、Shopify側のリダイレクトを妨げる可能性がある
-          // 成功時（26日21時ごろ）は、Shopify側が以下のように自動的にリダイレクトしていた：
-          // 1. /oauth/install_custom_app
-          // 2. /oauth/install
-          // 3. /app/grant
-          // そのため、getSessionToken()を呼び出さず、Shopify側のリダイレクトに任せる
-          // ただし、カスタムアプリがインストールされている場合は、getSessionToken()を呼び出して認証状態を確認する
+          // Shopify公式ドキュメントによると、getSessionToken()はPromiseを返し、
+          // セッショントークンがundefinedの場合はAPP::ERROR::FAILED_AUTHENTICATIONエラーを投げる
+          // タイムアウト処理は不要（Shopify側が適切に処理する）
           try {
-            console.log('🔍 [AuthProvider] Shopifyセッショントークンの取得を開始...')
-            console.log('⏳ [AuthProvider] カスタムアプリがインストールされていない場合、Shopify側が自動的にOAuthフローにリダイレクトします')
-            
-            // タイムアウト処理を追加（0.5秒）: カスタムアプリがインストールされていない場合のフォールバック
-            const tokenPromise = getToken().catch((error) => {
-              console.warn('⚠️ [AuthProvider] getToken()がエラーを返しました:', error)
-              return null
-            })
-            
-            const timeoutPromise = new Promise<null>((resolve) => {
-              setTimeout(() => {
-                console.warn('⏰ [AuthProvider] getToken()が0.5秒以内に完了しませんでした')
-                console.warn('⏰ [AuthProvider] カスタムアプリがインストールされていない可能性があります')
-                console.warn('⏰ [AuthProvider] Shopify側のOAuthフローにリダイレクトされることを期待します')
-                resolve(null)
-              }, 500) // 0.5秒タイムアウト
-            })
-            
-            const token = await Promise.race([tokenPromise, timeoutPromise])
-            
+            const token = await getToken()
             if (token) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
             } else {
-              console.log('⚠️ Shopifyセッショントークンが取得できませんでした（カスタムアプリがインストールされていない可能性があります）')
-              console.log('⚠️ Shopify側が自動的にOAuthフローにリダイレクトすることを期待します')
-              // セッショントークンが取得できない場合、Shopify側が適切に処理する
-              // （OAuthフローへのリダイレクトなど）
+              console.log('⚠️ Shopifyセッショントークンが取得できませんでした')
               setIsAuthenticated(false)
             }
           } catch (error) {
             console.error('❌ Shopifyトークン取得エラー:', error)
-            // エラーが発生した場合、Shopify側が適切に処理する
             setIsAuthenticated(false)
           }
         } else if (authMode === 'shopify' && !isEmbedded) {
@@ -237,9 +198,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         setIsAuthenticated(false)
         console.log('⚠️ 認証なしでアプリケーションを継続します')
       } finally {
-        // タイムアウト処理をクリア
-        clearTimeout(timeoutId)
-        
         // 認証状態をログ出力（finallyブロック内なので、この時点での状態を確認）
         const finalAuthState = localStorage.getItem('oauth_authenticated') === 'true' || 
                                localStorage.getItem('demoToken') !== null
