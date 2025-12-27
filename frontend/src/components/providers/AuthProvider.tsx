@@ -142,8 +142,10 @@ function AuthProviderInner({ children }: AuthProviderProps) {
           // Shopify公式ドキュメントによると、getSessionToken()はPromiseを返し、
           // セッショントークンがundefinedの場合はAPP::ERROR::FAILED_AUTHENTICATIONエラーを投げる
           // タイムアウト処理は不要（Shopify側が適切に処理する）
+          console.log('🔍 [AuthProvider] getToken()を呼び出します...', { authMode, isEmbedded })
           try {
             const token = await getToken()
+            console.log('🔍 [AuthProvider] getToken()の結果:', { token: token ? `取得済み(${token.length}文字)` : 'null' })
             if (token) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
