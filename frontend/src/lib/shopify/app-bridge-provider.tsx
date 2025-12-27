@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useRef, ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { createApp } from '@shopify/app-bridge'
 import { Redirect } from '@shopify/app-bridge/actions'
@@ -43,6 +43,9 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
   const [host, setHost] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  
+  // 無限ループ防止: Redirect.toApp()の呼び出しを1回のみに制限
+  const redirectCalledRef = useRef<Set<string>>(new Set())
 
   const apiKey = useMemo(() => process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '', [])
   const storageKeys = useMemo(() => ({ host: 'shopify_host', shop: 'shopify_shop' }), [])
@@ -104,14 +107,22 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           setApp(appBridge)
           console.log('✅ Shopify App Bridge initialized', { shop: resolvedShop, host: resolvedHost })
           
-          // トップレベルリダイレクトの処理（条件付き）
-          // 注意: Shopify Adminからの初回アクセス時は、pathnameがルート（/）の場合のみリダイレクト
-          // それ以外のパス（/install, /customers/dormant など）は既に正しいパスなのでリダイレクトしない
-          if (window.top !== window.self && window.location.pathname === '/') {
-            // iframeの中にいて、かつルートパスの場合のみリダイレクト
-            // ルートパスはリダイレクト専用ページなので、App Bridgeでリダイレクトする必要はない
-            // （ルートページ内で適切なページにリダイレクトされる）
-            console.log('ℹ️ App Bridge initialized in iframe at root path. Root page will handle redirect.')
+          // 埋め込みアプリの場合、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
+          // 動作していたバージョン（90b0997）と同じ実装に戻す
+          // 無限ループ防止: 同じパスへのRedirect.toApp()は1回のみ呼び出す
+          if (window.top !== window.self) {
+            const currentPath = window.location.pathname
+            const redirectKey = `${resolvedHost}:${currentPath}`
+            
+            // 既に同じパスに対してRedirect.toApp()を呼び出していない場合のみ実行
+            if (!redirectCalledRef.current.has(redirectKey)) {
+              // iframeの中にいる場合、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
+              console.log('🔄 [AppBridge] Redirect.toApp()を呼び出します:', currentPath)
+              redirectCalledRef.current.add(redirectKey)
+              appBridge.dispatch(Redirect.toApp({ path: currentPath }))
+            } else {
+              console.log('⏸️ [AppBridge] Redirect.toApp()は既に呼び出されています。スキップします:', currentPath)
+            }
           }
         } else {
           console.log('ℹ️ Not running in Shopify embedded context or missing host/apiKey', {
