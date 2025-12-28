@@ -118,36 +118,6 @@ export default function AuthSuccessPage() {
           }
           
           console.log('✅ ストア一覧の更新に成功');
-          
-          // クエリパラメータからstoreIdを取得（優先）
-          const storeIdParam = searchParams?.get('storeId');
-          if (storeIdParam) {
-            resolvedStoreId = parseInt(storeIdParam);
-            console.log('📋 クエリパラメータからStoreIdを取得:', resolvedStoreId);
-          } else if (resolvedShop) {
-            // storeIdがクエリパラメータにない場合、shopドメインからストアを検索
-            // 注意: refreshStores()が完了した後、StoreContextからストア一覧を取得する必要がある
-            // ここでは、APIから直接ストア一覧を取得して検索する
-            try {
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7088';
-              const storesResponse = await fetch(`${apiUrl}/api/store`);
-              if (storesResponse.ok) {
-                const storesData = await storesResponse.json();
-                const stores = storesData.stores || storesData || [];
-                const matchedStore = stores.find((s: any) => 
-                  s.domain === resolvedShop || s.shopDomain === resolvedShop || s.shopifyShopId === resolvedShop
-                );
-                if (matchedStore) {
-                  resolvedStoreId = matchedStore.id;
-                  console.log('🔍 shopドメインからStoreIdを検索:', { shop, storeId: resolvedStoreId });
-                } else {
-                  console.warn('⚠️ shopドメインに一致するストアが見つかりませんでした:', resolvedShop);
-                }
-              }
-            } catch (searchError) {
-              console.warn('⚠️ ストア検索に失敗しました:', searchError);
-            }
-          }
         } catch (refreshError: any) {
           console.warn('⚠️ ストア一覧の更新に失敗しましたが、続行します:', refreshError);
           // ストア一覧の更新に失敗しても続行（認証は完了しているため）
@@ -155,14 +125,36 @@ export default function AuthSuccessPage() {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
-          
-          // フォールバック: クエリパラメータからstoreIdを取得
-          const storeIdParam = searchParams?.get('storeId');
-          if (storeIdParam) {
-            const parsed = parseInt(storeIdParam, 10);
-            if (!isNaN(parsed) && parsed > 0) {
-              resolvedStoreId = parsed;
+        }
+        
+        // storeIdを取得（refreshStores()の成功/失敗に関わらず実行）
+        // クエリパラメータからstoreIdを取得（優先）
+        const storeIdParam = searchParams?.get('storeId');
+        if (storeIdParam) {
+          resolvedStoreId = parseInt(storeIdParam);
+          console.log('📋 クエリパラメータからStoreIdを取得:', resolvedStoreId);
+        } else if (resolvedShop) {
+          // storeIdがクエリパラメータにない場合、shopドメインからストアを検索
+          // 注意: refreshStores()が完了した後、StoreContextからストア一覧を取得する必要がある
+          // ここでは、APIから直接ストア一覧を取得して検索する
+          try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7088';
+            const storesResponse = await fetch(`${apiUrl}/api/store`);
+            if (storesResponse.ok) {
+              const storesData = await storesResponse.json();
+              const stores = storesData.stores || storesData || [];
+              const matchedStore = stores.find((s: any) => 
+                s.domain === resolvedShop || s.shopDomain === resolvedShop || s.shopifyShopId === resolvedShop
+              );
+              if (matchedStore) {
+                resolvedStoreId = matchedStore.id;
+                console.log('🔍 shopドメインからStoreIdを検索:', { shop, storeId: resolvedStoreId });
+              } else {
+                console.warn('⚠️ shopドメインに一致するストアが見つかりませんでした:', resolvedShop);
+              }
             }
+          } catch (searchError) {
+            console.warn('⚠️ ストア検索に失敗しました:', searchError);
           }
         }
         
@@ -188,9 +180,13 @@ export default function AuthSuccessPage() {
         }
         
         // StoreContextにストアを設定
+        // 注意: setCurrentStore()はavailableStoresにストアが見つからない場合、何も実行されない
+        // そのため、localStorageにstoreIdを保存してからsetCurrentStore()を呼び出す
+        console.log('🔍 [AuthSuccess] setCurrentStoreを呼び出します:', finalStoreId);
         setCurrentStore(finalStoreId);
         
         // AuthProviderに認証状態を明示的に設定
+        console.log('🔍 [AuthSuccess] markAuthenticatedを呼び出します:', finalStoreId);
         markAuthenticated(finalStoreId);
         
         // shopドメインも保存（後でストアを検索する際に使用）
