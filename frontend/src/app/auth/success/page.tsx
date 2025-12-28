@@ -26,18 +26,49 @@ export default function AuthSuccessPage() {
   useEffect(() => {
     // 既に処理済みの場合はスキップ（マウント時の重複実行を防ぐ）
     if (hasProcessedRef.current) {
-      console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ');
+      console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ（useRef）');
       return;
     }
     
-    // 処理開始をマーク（最初に設定）
-    hasProcessedRef.current = true;
+    // sessionStorageからも確認（コンポーネント再マウント対策）
+    const processedKey = 'auth_success_processed';
+    const processed = typeof window !== 'undefined' 
+      ? sessionStorage.getItem(processedKey) 
+      : null;
     
+    if (processed === 'true') {
+      console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ（sessionStorage）');
+      hasProcessedRef.current = true; // useRefも更新
+      return;
+    }
+    
+    // URLパラメータを取得
     const shop = searchParams?.get('shop');
     const storeId = searchParams?.get('storeId');
     const success = searchParams?.get('success');
     
+    // 処理開始をマーク（useRefとsessionStorageの両方）
+    // 注意: エラーが発生した場合は後でリセットされる
+    hasProcessedRef.current = true;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(processedKey, 'true');
+    }
+    
     console.log('🚀 [AuthSuccess] 処理開始:', { shop, storeId, success });
+    
+    // shopがない場合はエラー（必須パラメータ）
+    // storeIdやsuccessがない場合は処理を続行し、APIから取得を試みる
+    if (!shop) {
+      console.error('❌ [AuthSuccess] shopパラメータがありません');
+      setStatus('error');
+      setMessage('ストア情報が見つかりません');
+      // エラー時は処理フラグをリセット（再試行可能にする）
+      hasProcessedRef.current = false;
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(processedKey);
+      }
+      return;
+    }
 
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
@@ -95,6 +126,7 @@ export default function AuthSuccessPage() {
         return;
       }
 
+      // shopは既にuseEffectでチェック済みだが、念のため再チェック
       if (!resolvedShop) {
         if (isMounted) {
           setStatus('error');
@@ -258,6 +290,10 @@ export default function AuthSuccessPage() {
           const errorMessage = error?.message || '予期しないエラーが発生しました。もう一度お試しください。';
           setMessage(errorMessage);
           hasProcessedRef.current = false; // エラー時は処理フラグをリセット（再試行可能にする）
+          // sessionStorageもクリア（再試行可能にする）
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('auth_success_processed');
+          }
           console.log('🔄 [AuthSuccess] エラー発生のため、処理フラグをリセットしました');
         }
       }
