@@ -1863,8 +1863,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 if (!string.IsNullOrWhiteSpace(decodedHost))
                 {
-                    // 埋め込みアプリの場合、ExitIframePageを経由してリダイレクト
-                    // 最終的なリダイレクト先（/auth/success）をredirectUriパラメータとして渡す
+                    // 埋め込みアプリの場合、OAuthコールバック後は既にiframeから脱出しているため、
+                    // ExitIframePageを経由せず、直接/auth/successにリダイレクト
                     var appUrl = await GetShopifyAppUrlAsync(apiKey);
                     _logger.LogInformation("BuildRedirectUrlAsync: apiKey={ApiKey}, appUrl={AppUrl}", 
                         apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...", appUrl);
@@ -1882,10 +1882,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         finalRedirectUrl += $"&embedded={Uri.EscapeDataString(embeddedParam)}";
                     }
                     
-                    // ExitIframePageへのリダイレクトURLを構築
-                    var exitIframeUrl = $"{appUrl.TrimEnd('/')}/auth/exit-iframe?redirectUri={Uri.EscapeDataString(finalRedirectUrl)}";
-                    _logger.LogInformation("Built embedded app URL (via ExitIframe): ExitIframeUrl={ExitIframeUrl}, FinalRedirectUrl={FinalRedirectUrl}", exitIframeUrl, finalRedirectUrl);
-                    return exitIframeUrl;
+                    _logger.LogInformation("Built embedded app URL (direct to /auth/success): {RedirectUrl}", finalRedirectUrl);
+                    return finalRedirectUrl;
                 }
                 else
                 {
