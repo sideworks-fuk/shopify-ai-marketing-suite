@@ -22,51 +22,22 @@ export default function AuthSuccessPage() {
   const [message, setMessage] = useState('認証情報を確認しています...');
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
-  const processedParamsRef = useRef<string | null>(null); // 処理済みパラメータを保持（パラメータが変わったらリセット）
 
   useEffect(() => {
-    const currentUrl = window.location.href;
-    const currentSearchParams = searchParams?.toString() || '';
+    // 既に処理済みの場合はスキップ（マウント時の重複実行を防ぐ）
+    if (hasProcessedRef.current) {
+      console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ');
+      return;
+    }
+    
+    // 処理開始をマーク（最初に設定）
+    hasProcessedRef.current = true;
+    
     const shop = searchParams?.get('shop');
     const storeId = searchParams?.get('storeId');
     const success = searchParams?.get('success');
     
-    console.log('🚀 [AuthSuccess] useEffect実行開始');
-    console.log('🔍 [AuthSuccess] hasProcessedRef.current:', hasProcessedRef.current);
-    console.log('🔍 [AuthSuccess] processedParamsRef.current:', processedParamsRef.current);
-    console.log('🔍 [AuthSuccess] currentSearchParams:', currentSearchParams);
-    console.log('🔍 [AuthSuccess] shop:', shop, 'storeId:', storeId, 'success:', success);
-    
-    // 重要なパラメータ（shop, storeId, success）が変わった場合はリセット
-    const keyParams = `${shop}-${storeId}-${success}`;
-    const paramsChanged = processedParamsRef.current !== keyParams;
-    
-    // パラメータが変わった場合のみリセット（無限ループを防ぐ）
-    if (paramsChanged || !processedParamsRef.current) {
-      console.log('🔄 [AuthSuccess] パラメータが変更されたため、処理フラグをリセットします', {
-        paramsChanged,
-        hasProcessedParams: !!processedParamsRef.current,
-        oldParams: processedParamsRef.current,
-        newParams: keyParams
-      });
-      hasProcessedRef.current = false;
-      processedParamsRef.current = keyParams;
-    }
-    
-    // 既に処理済みの場合はスキップ（重複実行を防ぐ）
-    // 注意: storeIdがnullでも、パラメータが変わっていない場合は処理をスキップ（無限ループを防ぐ）
-    if (hasProcessedRef.current) {
-      console.log('⏸️ [AuthSuccess] 既に処理済みのため、重複実行をスキップします', {
-        processedParams: processedParamsRef.current,
-        currentParams: keyParams
-      });
-      return;
-    }
-
-    // 処理開始をマーク
-    hasProcessedRef.current = true;
-    processedParamsRef.current = keyParams;
-    console.log('✅ [AuthSuccess] 処理開始をマークしました', { keyParams });
+    console.log('🚀 [AuthSuccess] 処理開始:', { shop, storeId, success });
 
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
@@ -74,10 +45,9 @@ export default function AuthSuccessPage() {
 
     const handleAuthCallback = async () => {
       console.log('🔄 [AuthSuccess] handleAuthCallback開始');
-      const shop = searchParams?.get('shop');
+      // shop, storeId, successは既にuseEffectの最初で取得済み
       const hostFromQuery = searchParams?.get('host');
       const embeddedFromQuery = searchParams?.get('embedded');
-      const success = searchParams?.get('success');
       const error = searchParams?.get('error');
 
       // host/shop は埋め込み復帰の要。クエリに無い場合は sessionStorage から復元する（AppBridgeProvider と同じキー）
@@ -87,7 +57,7 @@ export default function AuthSuccessPage() {
         typeof window !== 'undefined' ? sessionStorage.getItem('shopify_shop') : null;
 
       const host = hostFromQuery || persistedHost;
-      const resolvedShop = shop || persistedShop;
+      const resolvedShop = shop || persistedShop; // useEffectのスコープで取得したshopを使用
 
       if (typeof window !== 'undefined') {
         if (hostFromQuery) sessionStorage.setItem('shopify_host', hostFromQuery);
@@ -288,7 +258,6 @@ export default function AuthSuccessPage() {
           const errorMessage = error?.message || '予期しないエラーが発生しました。もう一度お試しください。';
           setMessage(errorMessage);
           hasProcessedRef.current = false; // エラー時は処理フラグをリセット（再試行可能にする）
-          processedParamsRef.current = null; // パラメータもリセット
           console.log('🔄 [AuthSuccess] エラー発生のため、処理フラグをリセットしました');
         }
       }
@@ -309,7 +278,8 @@ export default function AuthSuccessPage() {
       }
       // 注意: hasProcessedRefはリセットしない（処理完了まで保持）
     };
-  }, [searchParams, router, refreshStores, setCurrentStore, markAuthenticated]); // 必要な依存関係を追加
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 依存配列を空にして、マウント時のみ実行（無限ループを防ぐ）
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
