@@ -41,6 +41,7 @@ export default function AuthSuccessPage() {
     const keyParams = `${shop}-${storeId}-${success}`;
     const paramsChanged = processedParamsRef.current !== keyParams;
     
+    // パラメータが変わった場合のみリセット（無限ループを防ぐ）
     if (paramsChanged || !processedParamsRef.current) {
       console.log('🔄 [AuthSuccess] パラメータが変更されたため、処理フラグをリセットします', {
         paramsChanged,
@@ -53,9 +54,12 @@ export default function AuthSuccessPage() {
     }
     
     // 既に処理済みの場合はスキップ（重複実行を防ぐ）
-    // ただし、パラメータが変わった場合は処理を再実行
-    if (hasProcessedRef.current && !paramsChanged) {
-      console.log('⏸️ [AuthSuccess] 既に処理済みのため、重複実行をスキップします');
+    // 注意: storeIdがnullでも、パラメータが変わっていない場合は処理をスキップ（無限ループを防ぐ）
+    if (hasProcessedRef.current) {
+      console.log('⏸️ [AuthSuccess] 既に処理済みのため、重複実行をスキップします', {
+        processedParams: processedParamsRef.current,
+        currentParams: keyParams
+      });
       return;
     }
 
