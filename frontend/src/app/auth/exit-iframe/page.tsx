@@ -23,12 +23,6 @@ export default function ExitIframePage() {
   const redirectUri = searchParams?.get('redirectUri');
 
   useEffect(() => {
-    if (!app) {
-      console.error('❌ [ExitIframe] App Bridgeが利用できません');
-      setError('App Bridgeが利用できません。埋め込みアプリとして実行されていることを確認してください。');
-      return;
-    }
-
     if (!redirectUri) {
       console.error('❌ [ExitIframe] redirectUriパラメータがありません');
       setError('リダイレクト先が指定されていません。');
@@ -42,19 +36,27 @@ export default function ExitIframePage() {
     try {
       // redirectUriが外部URL（http:// または https://）の場合
       // App BridgeのRedirect.toApp()はアプリ内のパス（相対パス）を想定しているため、
-      // 外部URLの場合は直接window.location.hrefでリダイレクトする
+      // 外部URLの場合はwindow.top.location.hrefでトップフレーム全体をリダイレクトする
+      // 注意: window.location.hrefではiframe内でしか動作しないため、Shopify OAuthが失敗する
       if (redirectUri && (redirectUri.startsWith('http://') || redirectUri.startsWith('https://'))) {
-        console.log('🌐 [ExitIframe] 外部URLを検出: 直接リダイレクトを実行');
-        console.log('🔄 [ExitIframe] window.location.hrefに設定:', redirectUri);
+        console.log('🌐 [ExitIframe] 外部URLを検出: トップフレームにリダイレクト');
+        console.log('🔄 [ExitIframe] window.top.location.hrefに設定:', redirectUri);
         
-        // 外部URLの場合は直接リダイレクト
-        window.location.href = redirectUri;
-        console.log('✅ [ExitIframe] 外部URLへのリダイレクトを実行しました');
+        // 外部URLの場合はトップフレーム全体をリダイレクト（iframeから脱出）
+        // App Bridgeが利用できない場合でも、外部URLへのリダイレクトは可能
+        window.top!.location.href = redirectUri;
+        console.log('✅ [ExitIframe] トップフレームへのリダイレクトを実行しました');
       } else {
         // 相対パスの場合、App Bridgeを使用してiframeから脱出
         // Shopify公式ドキュメントに基づく実装:
         // App BridgeのRedirect.toApp()を使用してリダイレクト
         // これによりiframeから脱出できる
+        if (!app) {
+          console.error('❌ [ExitIframe] App Bridgeが利用できません（相対パスのリダイレクトには必要）');
+          setError('App Bridgeが利用できません。埋め込みアプリとして実行されていることを確認してください。');
+          return;
+        }
+        
         console.log('🔄 [ExitIframe] 相対パスを検出: App Bridgeを使用してリダイレクト');
         console.log('🔄 [ExitIframe] App Bridge Redirect.toApp()を実行...');
         
@@ -70,11 +72,11 @@ export default function ExitIframePage() {
         isExternalUrl: redirectUri?.startsWith('http'),
       });
       
-      // フォールバック: 外部URLの場合は直接リダイレクトを試行
+      // フォールバック: 外部URLの場合はトップフレームにリダイレクトを試行
       if (redirectUri && (redirectUri.startsWith('http://') || redirectUri.startsWith('https://'))) {
-        console.warn('⚠️ [ExitIframe] フォールバック: 直接リダイレクトを試行');
+        console.warn('⚠️ [ExitIframe] フォールバック: トップフレームにリダイレクトを試行');
         try {
-          window.location.href = redirectUri;
+          window.top!.location.href = redirectUri;
         } catch (fallbackError) {
           console.error('❌ [ExitIframe] フォールバックリダイレクトも失敗:', fallbackError);
           setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
