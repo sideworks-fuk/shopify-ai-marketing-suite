@@ -22,33 +22,47 @@ export default function AuthSuccessPage() {
   const [message, setMessage] = useState('認証情報を確認しています...');
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
-  const processedUrlRef = useRef<string | null>(null); // 処理済みURLを保持（URLが変わったらリセット）
+  const processedParamsRef = useRef<string | null>(null); // 処理済みパラメータを保持（パラメータが変わったらリセット）
 
   useEffect(() => {
     const currentUrl = window.location.href;
+    const currentSearchParams = searchParams?.toString() || '';
+    const shop = searchParams?.get('shop');
+    const storeId = searchParams?.get('storeId');
+    const success = searchParams?.get('success');
+    
     console.log('🚀 [AuthSuccess] useEffect実行開始');
     console.log('🔍 [AuthSuccess] hasProcessedRef.current:', hasProcessedRef.current);
-    console.log('🔍 [AuthSuccess] processedUrlRef.current:', processedUrlRef.current);
-    console.log('🔍 [AuthSuccess] currentUrl:', currentUrl);
-    console.log('🔍 [AuthSuccess] searchParams:', searchParams?.toString());
+    console.log('🔍 [AuthSuccess] processedParamsRef.current:', processedParamsRef.current);
+    console.log('🔍 [AuthSuccess] currentSearchParams:', currentSearchParams);
+    console.log('🔍 [AuthSuccess] shop:', shop, 'storeId:', storeId, 'success:', success);
     
-    // URLが変わった場合はリセット（ページ再読み込みやパラメータ変更）
-    if (processedUrlRef.current !== currentUrl) {
-      console.log('🔄 [AuthSuccess] URLが変更されたため、処理フラグをリセットします');
+    // 重要なパラメータ（shop, storeId, success）が変わった場合はリセット
+    const keyParams = `${shop}-${storeId}-${success}`;
+    const paramsChanged = processedParamsRef.current !== keyParams;
+    
+    if (paramsChanged || !processedParamsRef.current) {
+      console.log('🔄 [AuthSuccess] パラメータが変更されたため、処理フラグをリセットします', {
+        paramsChanged,
+        hasProcessedParams: !!processedParamsRef.current,
+        oldParams: processedParamsRef.current,
+        newParams: keyParams
+      });
       hasProcessedRef.current = false;
-      processedUrlRef.current = currentUrl;
+      processedParamsRef.current = keyParams;
     }
     
     // 既に処理済みの場合はスキップ（重複実行を防ぐ）
-    if (hasProcessedRef.current) {
+    // ただし、パラメータが変わった場合は処理を再実行
+    if (hasProcessedRef.current && !paramsChanged) {
       console.log('⏸️ [AuthSuccess] 既に処理済みのため、重複実行をスキップします');
       return;
     }
 
     // 処理開始をマーク
     hasProcessedRef.current = true;
-    processedUrlRef.current = currentUrl;
-    console.log('✅ [AuthSuccess] 処理開始をマークしました');
+    processedParamsRef.current = keyParams;
+    console.log('✅ [AuthSuccess] 処理開始をマークしました', { keyParams });
 
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
@@ -258,7 +272,7 @@ export default function AuthSuccessPage() {
         }
         
       } catch (error: any) {
-        console.error('❌ 予期しないエラー:', error);
+        console.error('❌ [AuthSuccess] 予期しないエラー:', error);
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -270,6 +284,8 @@ export default function AuthSuccessPage() {
           const errorMessage = error?.message || '予期しないエラーが発生しました。もう一度お試しください。';
           setMessage(errorMessage);
           hasProcessedRef.current = false; // エラー時は処理フラグをリセット（再試行可能にする）
+          processedParamsRef.current = null; // パラメータもリセット
+          console.log('🔄 [AuthSuccess] エラー発生のため、処理フラグをリセットしました');
         }
       }
     };
