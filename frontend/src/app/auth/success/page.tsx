@@ -22,22 +22,40 @@ export default function AuthSuccessPage() {
   const [message, setMessage] = useState('認証情報を確認しています...');
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
+  const processedUrlRef = useRef<string | null>(null); // 処理済みURLを保持（URLが変わったらリセット）
 
   useEffect(() => {
+    const currentUrl = window.location.href;
+    console.log('🚀 [AuthSuccess] useEffect実行開始');
+    console.log('🔍 [AuthSuccess] hasProcessedRef.current:', hasProcessedRef.current);
+    console.log('🔍 [AuthSuccess] processedUrlRef.current:', processedUrlRef.current);
+    console.log('🔍 [AuthSuccess] currentUrl:', currentUrl);
+    console.log('🔍 [AuthSuccess] searchParams:', searchParams?.toString());
+    
+    // URLが変わった場合はリセット（ページ再読み込みやパラメータ変更）
+    if (processedUrlRef.current !== currentUrl) {
+      console.log('🔄 [AuthSuccess] URLが変更されたため、処理フラグをリセットします');
+      hasProcessedRef.current = false;
+      processedUrlRef.current = currentUrl;
+    }
+    
     // 既に処理済みの場合はスキップ（重複実行を防ぐ）
     if (hasProcessedRef.current) {
-      console.log('⏸️ 既に処理済みのため、重複実行をスキップします');
+      console.log('⏸️ [AuthSuccess] 既に処理済みのため、重複実行をスキップします');
       return;
     }
 
     // 処理開始をマーク
     hasProcessedRef.current = true;
+    processedUrlRef.current = currentUrl;
+    console.log('✅ [AuthSuccess] 処理開始をマークしました');
 
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
     let redirectTimeoutId: NodeJS.Timeout | null = null;
 
     const handleAuthCallback = async () => {
+      console.log('🔄 [AuthSuccess] handleAuthCallback開始');
       const shop = searchParams?.get('shop');
       const hostFromQuery = searchParams?.get('host');
       const embeddedFromQuery = searchParams?.get('embedded');
@@ -256,10 +274,12 @@ export default function AuthSuccessPage() {
       }
     };
 
+    console.log('📞 [AuthSuccess] handleAuthCallbackを呼び出します');
     handleAuthCallback();
 
     // クリーンアップ
     return () => {
+      console.log('🧹 [AuthSuccess] useEffectクリーンアップ');
       isMounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
