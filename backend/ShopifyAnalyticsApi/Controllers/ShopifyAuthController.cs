@@ -64,7 +64,7 @@ namespace ShopifyAnalyticsApi.Controllers
         /// 直接バックエンドを使用する場合（デフォルト）:
         /// - 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
         /// </remarks>
-        private string GetRedirectUri()
+        private async Task<string> GetRedirectUriAsync(string? apiKey = null)
         {
             // フロントエンドプロキシを使用するかどうかを確認
             var useFrontendProxy = Environment.GetEnvironmentVariable("SHOPIFY_USE_FRONTEND_PROXY") == "true" ||
@@ -72,9 +72,52 @@ namespace ShopifyAnalyticsApi.Controllers
             
             if (useFrontendProxy)
             {
-                // フロントエンドのコールバックプロキシURLを使用
-                var frontendUrl = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL") ?? 
+                // データベースからフロントエンドURL（AppUrl）を取得
+                string? frontendUrl = null;
+                
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    // apiKeyが指定されている場合、そのapiKeyでShopifyAppsテーブルからAppUrlを取得
+                    var shopifyApp = await _context.ShopifyApps
+                        .Where(a => a.ApiKey == apiKey && a.IsActive)
+                        .Select(a => a.AppUrl)
+                        .FirstOrDefaultAsync();
+                    
+                    if (!string.IsNullOrWhiteSpace(shopifyApp))
+                    {
+                        frontendUrl = shopifyApp;
+                        _logger.LogInformation("GetRedirectUriAsync: AppUrl found from database for apiKey={ApiKey}, AppUrl={AppUrl}", 
+                            apiKey?.Substring(0, Math.Min(8, apiKey.Length)) + "...", frontendUrl);
+                    }
+                }
+                
+                // apiKeyが指定されていない、またはデータベースから取得できなかった場合
+                if (string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    // 最初のアクティブなアプリのAppUrlを取得
+                    frontendUrl = await _context.ShopifyApps
+                        .Where(a => a.IsActive && !string.IsNullOrEmpty(a.AppUrl))
+                        .OrderBy(a => a.Id)
+                        .Select(a => a.AppUrl)
+                        .FirstOrDefaultAsync();
+                    
+                    if (!string.IsNullOrWhiteSpace(frontendUrl))
+                    {
+                        _logger.LogInformation("GetRedirectUriAsync: Using default AppUrl from database: {AppUrl}", frontendUrl);
+                    }
+                }
+                
+                // 環境変数からのフォールバック（後方互換性のため）
+                if (string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    frontendUrl = Environment.GetEnvironmentVariable("SHOPIFY_FRONTEND_BASEURL") ?? 
                                   _configuration["Frontend:BaseUrl"];
+                    
+                    if (!string.IsNullOrWhiteSpace(frontendUrl))
+                    {
+                        _logger.LogWarning("GetRedirectUriAsync: Using fallback URL from environment variable: {FrontendUrl}", frontendUrl);
+                    }
+                }
                 
                 if (!string.IsNullOrWhiteSpace(frontendUrl))
                 {
@@ -85,7 +128,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
                 else
                 {
-                    _logger.LogWarning("SHOPIFY_USE_FRONTEND_PROXY is true but SHOPIFY_FRONTEND_BASEURL is not configured. Falling back to backend URL.");
+                    _logger.LogWarning("SHOPIFY_USE_FRONTEND_PROXY is true but AppUrl not found in database and SHOPIFY_FRONTEND_BASEURL is not configured. Falling back to backend URL.");
                 }
             }
             
@@ -223,10 +266,9 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
             // redirect_uriの決定:
-            // Shopify公式ドキュメントに基づき、OAuthコールバックはバックエンドで直接処理するため、
-            // 常にバックエンドURLを使用する
-            // 修正前: フロントエンドURLを使用していたが、プロキシが複雑性を増すため削除
-            var redirectUri = GetRedirectUri();
+            // フロントエンドプロキシを使用する場合はデータベースからAppUrlを取得して使用
+            // それ以外の場合はバックエンドURLを使用
+            var redirectUri = await GetRedirectUriAsync(finalApiKey);
                 
                 _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
 
@@ -647,7 +689,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var apiKey = GetShopifySetting("ApiKey");
                 var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
-                var redirectUri = GetRedirectUri(); // ハイブリッド方式用のリダイレクトURI
+                var redirectUri = await GetRedirectUriAsync(apiKey); // ハイブリッド方式用のリダイレクトURI
                 var state = GenerateRandomString(32);
 
                 var authUrl = $"https://{shop}/admin/oauth/authorize" +
@@ -918,7 +960,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     DefaultFrontendUrl = await GetDefaultFrontendUrlAsync(),
                     
                     // 実際に使用される値
-                    ActualRedirectUri = GetRedirectUri(),
+                    ActualRedirectUri = await GetRedirectUriAsync(null),
                     
                     // その他の設定
                     ApiKey = GetShopifySetting("ApiKey"),
