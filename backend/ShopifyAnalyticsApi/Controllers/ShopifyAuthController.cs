@@ -67,9 +67,44 @@ namespace ShopifyAnalyticsApi.Controllers
         private async Task<string> GetRedirectUriAsync(string? apiKey = null)
         {
             // フロントエンドプロキシを使用するかどうかを確認
-            var useFrontendProxy = Environment.GetEnvironmentVariable("SHOPIFY_USE_FRONTEND_PROXY") == "true" ||
-                                   Convert.ToBoolean(_configuration["Shopify:UseFrontendProxy"]);
+            // 優先順位: 環境変数 SHOPIFY_USE_FRONTEND_PROXY → 設定ファイル Shopify:UseFrontendProxy
+            var envUseFrontendProxy = Environment.GetEnvironmentVariable("SHOPIFY_USE_FRONTEND_PROXY");
+            var configUseFrontendProxy = _configuration["Shopify:UseFrontendProxy"];
+            
+            // 環境変数が明示的に設定されている場合はそれを使用
+            bool useFrontendProxy = false;
+            if (!string.IsNullOrWhiteSpace(envUseFrontendProxy))
+            {
+                useFrontendProxy = envUseFrontendProxy.Equals("true", StringComparison.OrdinalIgnoreCase);
+                _logger.LogInformation("GetRedirectUriAsync: Using environment variable SHOPIFY_USE_FRONTEND_PROXY={Value}, useFrontendProxy={Result}", 
+                    envUseFrontendProxy, useFrontendProxy);
+            }
+            else if (!string.IsNullOrWhiteSpace(configUseFrontendProxy))
+            {
+                // 設定ファイルの値を解析（"true"/"false"文字列またはブール値に対応）
+                // JSON設定ファイルでは、ブール値は文字列として読み込まれる可能性がある
+                if (bool.TryParse(configUseFrontendProxy, out bool configValue))
+                {
+                    useFrontendProxy = configValue;
+                }
+                else
+                {
+                    // 文字列として"true"かどうかをチェック（大文字小文字を区別しない）
+                    useFrontendProxy = configUseFrontendProxy.Equals("true", StringComparison.OrdinalIgnoreCase);
+                }
+                _logger.LogInformation("GetRedirectUriAsync: Using config Shopify:UseFrontendProxy={Value} (type: {Type}), useFrontendProxy={Result}", 
+                    configUseFrontendProxy, configUseFrontendProxy.GetType().Name, useFrontendProxy);
+            }
+            else
+            {
+                _logger.LogInformation("GetRedirectUriAsync: No UseFrontendProxy setting found, defaulting to false (backend direct)");
+            }
 
+            // 🆕 デバッグログ: 最終的な判定結果を明示的に記録
+            _logger.LogInformation("GetRedirectUriAsync: Final decision - useFrontendProxy={UseFrontendProxy}, apiKey={ApiKey}", 
+                useFrontendProxy, apiKey?.Substring(0, Math.Min(8, apiKey?.Length ?? 0)) + "...");
+
+            // 🆕 重要: UseFrontendProxy=falseの場合、データベースのAppUrlは無視してバックエンドURLを使用
             if (useFrontendProxy)
             {
                 // データベースからフロントエンドURL（AppUrl）を取得
@@ -133,6 +168,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
 
             // デフォルト: バックエンドのコールバックURLを使用
+            // 🆕 重要: UseFrontendProxy=falseの場合、データベースのAppUrlは無視してバックエンドURLを使用
             // 優先順位: 環境変数 SHOPIFY_BACKEND_BASEURL → Backend:BaseUrl設定 → 現在のリクエストURLから取得
             var backendUrl = Environment.GetEnvironmentVariable("SHOPIFY_BACKEND_BASEURL") ??
                              _configuration["Backend:BaseUrl"];
@@ -141,12 +177,26 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 // 設定がない場合は現在のリクエストからバックエンドURLを取得
                 backendUrl = GetBaseUrl();
-                _logger.LogInformation("Backend:BaseUrl not configured, getting URL from current request: {BackendUrl}", backendUrl);
+                _logger.LogInformation("GetRedirectUriAsync: Backend:BaseUrl not configured, getting URL from current request: {BackendUrl}", backendUrl);
             }
 
             var backendRedirectUri = $"{backendUrl.TrimEnd('/')}/api/shopify/callback";
-            _logger.LogInformation("Redirect URI generated (backend direct): BackendUrl={BackendUrl}, RedirectUri={RedirectUri}",
+            _logger.LogInformation("GetRedirectUriAsync: Redirect URI generated (backend direct): BackendUrl={BackendUrl}, RedirectUri={RedirectUri}",
                 backendUrl, backendRedirectUri);
+
+            // 🆕 デバッグログ: データベースのAppUrlが設定されていても無視することを明示
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                var dbAppUrl = await _context.ShopifyApps
+                    .Where(a => a.ApiKey == apiKey && a.IsActive)
+                    .Select(a => a.AppUrl)
+                    .FirstOrDefaultAsync();
+                
+                if (!string.IsNullOrWhiteSpace(dbAppUrl))
+                {
+                    _logger.LogInformation("GetRedirectUriAsync: Database AppUrl found but ignored (UseFrontendProxy=false): AppUrl={AppUrl}", dbAppUrl);
+                }
+            }
 
             return backendRedirectUri;
         }
