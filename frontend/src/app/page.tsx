@@ -21,7 +21,13 @@ export default function HomePage() {
   const { isAuthenticated, isInitializing, isApiClientReady } = useAuth()
   // 初期メッセージをZustandProviderと同じに統一（Hydrationエラーを防ぐ）
   const [statusMessage, setStatusMessage] = useState('アプリケーションを初期化中...')
+  const [isMounted, setIsMounted] = useState(false) // クライアントサイドマウント状態（Hydrationエラー対策）
   const hasProcessedRef = useRef(false)
+
+  // クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // タイムアウト処理: 10秒以上待機してもリダイレクトされない場合はインストールページへ
   useEffect(() => {
@@ -111,6 +117,7 @@ export default function HomePage() {
         // デモトークンが存在する場合は、デモモード専用のリダイレクトロジックを適用
         const demoToken = typeof window !== 'undefined' ? localStorage.getItem('demoToken') || localStorage.getItem('demo_token') : null
         const authMode = typeof window !== 'undefined' ? localStorage.getItem('authMode') : null
+        const oauthAuthenticated = typeof window !== 'undefined' ? localStorage.getItem('oauth_authenticated') : null
         
         if (demoToken && authMode === 'demo') {
           // デモモードの場合、ストア確認をスキップしてデモモード専用のダッシュボードにリダイレクト
@@ -121,7 +128,20 @@ export default function HomePage() {
           return
         }
         
-        // 認証済みの場合、ストアの存在を確認
+        // 🆕 Shopify埋め込みモードでOAuth未完了の場合は、ストアAPIを呼び出さずにインストールページへ
+        if (shop && oauthAuthenticated !== 'true') {
+          console.log('⚠️ [ルートページ] Shopify埋め込みモードでOAuth未完了: インストールページへリダイレクト', {
+            shop,
+            oauthAuthenticated,
+            isAuthenticated
+          })
+          const redirectUrl = buildRedirectUrl('/install')
+          setStatusMessage('インストールページへ移動中...')
+          router.replace(redirectUrl)
+          return
+        }
+        
+        // OAuth認証済みの場合のみ、ストアの存在を確認
         setStatusMessage('ストア情報を確認中...')
         
         try {
@@ -279,13 +299,24 @@ export default function HomePage() {
     return () => clearTimeout(timeoutId)
   }, [isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
 
+  // クライアントサイドでのみレンダリング（Hydrationエラー対策）
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-2 text-gray-600">アプリケーションを初期化中...</p>
+        </div>
+      </div>
+    )
+  }
+
   // 常にローディング画面を表示（ダッシュボードUIは表示しない）
-  // suppressHydrationWarning: ZustandProviderのローディング画面と一致させるため
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center" suppressHydrationWarning>
-      <div className="text-center" suppressHydrationWarning>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" suppressHydrationWarning></div>
-        <p className="mt-2 text-gray-600" suppressHydrationWarning>{statusMessage}</p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-2 text-gray-600">{statusMessage}</p>
       </div>
     </div>
   )

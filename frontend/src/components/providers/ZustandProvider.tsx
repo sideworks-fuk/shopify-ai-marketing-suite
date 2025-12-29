@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAppStore } from '@/stores/appStore'
 import { useAnalysisFiltersStore } from '@/stores/analysisFiltersStore'
 
@@ -9,11 +10,34 @@ interface ZustandProviderProps {
 }
 
 export function ZustandProvider({ children }: ZustandProviderProps) {
+  const pathname = usePathname()
+  
+  // ローディング画面をスキップするページのパスを定義
+  const skipLoadingPaths = [
+    '/',
+    '/install',
+    '/auth/success',
+    '/auth/callback',
+    '/auth/select',
+    '/demo/login',
+    '/terms',
+    '/privacy'
+  ]
+  
+  // 現在のパスがskipLoadingPathsに含まれているかチェック
+  const shouldSkipLoading = pathname ? skipLoadingPaths.some(path => {
+    if (path === '/') {
+      return pathname === '/'
+    }
+    return pathname.startsWith(path)
+  }) : false
+  
   // セッション内でハイドレーション完了状態を保持（ページ遷移後も再表示しない）
   const [isHydrated, setIsHydrated] = useState(() => {
     if (typeof window === 'undefined') return false
     // セッション内で既にハイドレーション完了している場合は即座にtrue
-    return sessionStorage.getItem('zustand_hydrated') === 'true'
+    // または、ローディングをスキップするページの場合は即座にtrue
+    return sessionStorage.getItem('zustand_hydrated') === 'true' || shouldSkipLoading
   })
 
   // Zustand stores
@@ -52,8 +76,9 @@ export function ZustandProvider({ children }: ZustandProviderProps) {
   }, [isHydrated])
 
   // ハイドレーション完了前は最小限のUIを表示
+  // ただし、ローディングをスキップするページの場合はスキップ
   // suppressHydrationWarning: サーバーサイドとクライアントサイドで異なる可能性があるため
-  if (!isHydrated) {
+  if (!isHydrated && !shouldSkipLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center" suppressHydrationWarning>
         <div className="text-center" suppressHydrationWarning>

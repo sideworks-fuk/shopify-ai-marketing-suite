@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname, useSearchParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import MainLayout from "./MainLayout"
 import { EmbeddedAppLayout } from "./EmbeddedAppLayout"
 import { useIsEmbedded } from "@/hooks/useIsEmbedded"
@@ -12,6 +13,12 @@ interface ConditionalLayoutProps {
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
   const isEmbedded = useIsEmbedded()
+  const [isMounted, setIsMounted] = useState(false) // クライアントサイドマウント状態（Hydrationエラー対策）
+  
+  // クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   
   // MainLayout/EmbeddedAppLayoutを使わないページのパスを定義
   const noLayoutPaths = [
@@ -36,6 +43,11 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   
   // レイアウトを使わないページの場合は、childrenをそのまま返す
   if (!shouldUseLayout) {
+    return <>{children}</>
+  }
+  
+  // クライアントサイドマウント前は、レイアウトなしでchildrenを返す（Hydrationエラー対策）
+  if (!isMounted) {
     return <>{children}</>
   }
   

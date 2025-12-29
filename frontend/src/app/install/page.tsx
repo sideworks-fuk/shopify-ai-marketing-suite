@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Page,
@@ -42,7 +42,7 @@ import { Redirect } from '@shopify/app-bridge/actions';
  * @description Shopify OAuth認証フローの開始ページ（エラーハンドリング強化版）
  * - Shopify Admin(embedded) から起動された場合は shop を自動入力し、登録済みなら通常画面へ遷移
  */
-export default function InstallPolarisPage() {
+function InstallPolarisPageContent() {
   const [shopDomain, setShopDomain] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,13 +51,19 @@ export default function InstallPolarisPage() {
   const [errorDetails, setErrorDetails] = useState<{title: string, message: string}>({title: '', message: ''});
   const [shopDomainLocked, setShopDomainLocked] = useState(false);
   const [autoRedirecting, setAutoRedirecting] = useState(false);
-  const [isDirectAccess, setIsDirectAccess] = useState<boolean | null>(null); // ブラウザで直接アクセスした場合（null: 未決定、true/false: 決定済み）
+  const [isDirectAccess, setIsDirectAccess] = useState<boolean>(false); // ブラウザで直接アクセスした場合（false: 未決定/Shopify経由、true: 直接アクセス）
+  const [isMounted, setIsMounted] = useState(false); // クライアントサイドマウント状態（Hydrationエラー対策）
   const isInstallingRef = useRef(false); // インストール処理中フラグ（useRefで確実に保持）
   const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
   const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
   const { app } = useAppBridge(); // App Bridgeインスタンスを取得
   const searchParams = useSearchParams(); // URLパラメータを取得
+
+  // クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const normalizeShopDomain = useCallback((value: string): string => {
     const v = value.trim().toLowerCase();
@@ -103,22 +109,27 @@ export default function InstallPolarisPage() {
     // 登録済みか判定して通常画面へ
     // 重要: 認証状態を確認し、未認証の場合は登録済みストアチェックをスキップ
     const checkAndRedirect = async () => {
-      // 既にチェック済みの場合はスキップ（重複実行を防ぐ）
+      // 🆕 最初にフラグをチェックして即座にreturn（重複実行を防ぐ）
       if (hasCheckedStoreRef.current) {
         console.log('⏸️ 既にストアチェック済みのため、スキップします');
         return;
       }
       
+      // 🆕 チェック開始時にフラグを設定（非同期処理の前に設定）
+      hasCheckedStoreRef.current = true;
+      
       // インストール処理中（loading状態またはisInstallingRefフラグ）の場合は、自動リダイレクトをスキップ
       // OAuth認証フロー中にダッシュボードが一瞬表示されるのを防ぐため
       if (loading || isInstallingRef.current) {
         console.log('⏳ インストール処理中のため、自動リダイレクトをスキップします。', { loading, isInstalling: isInstallingRef.current });
+        hasCheckedStoreRef.current = false; // リセットして再チェック可能に
         return;
       }
 
       // 認証状態の初期化を待つ
       if (isInitializing) {
         console.log('⏳ 認証状態の初期化を待機中...');
+        hasCheckedStoreRef.current = false; // リセットして再チェック可能に
         return;
       }
 
@@ -126,7 +137,7 @@ export default function InstallPolarisPage() {
       // アンインストール後でもデータベースにストア情報が残っている可能性があるため
       if (!isAuthenticated) {
         console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。');
-        hasCheckedStoreRef.current = true; // チェック済みフラグを設定
+        // hasCheckedStoreRef.current = true; ← 既に設定済みなので不要
         return;
       }
 
@@ -140,6 +151,7 @@ export default function InstallPolarisPage() {
         
         if (!response.ok) {
           console.warn('⚠️ ストア一覧の取得に失敗:', response.status, response.statusText);
+          // エラー時もフラグはtrueのままにする（無限ループ防止）
           return;
         }
 
@@ -148,6 +160,7 @@ export default function InstallPolarisPage() {
         
         if (!Array.isArray(stores)) {
           console.warn('⚠️ ストア一覧の形式が不正:', result);
+          // エラー時もフラグはtrueのままにする（無限ループ防止）
           return;
         }
 
@@ -162,14 +175,13 @@ export default function InstallPolarisPage() {
 
         if (!matched?.id) {
           console.log('ℹ️ 登録済みストアが見つかりませんでした。インストール画面を表示します。');
-          hasCheckedStoreRef.current = true; // チェック済みフラグを設定
+          // hasCheckedStoreRef.current = true; ← 既に設定済みなので不要
           return;
         }
 
         console.log('✅ 登録済みストアを検出:', { storeId: matched.id, shop: normalizedShop });
         
-        // チェック済みフラグを設定（リダイレクト前に設定することで、リダイレクト中の再実行を防ぐ）
-        hasCheckedStoreRef.current = true;
+        // hasCheckedStoreRef.current = true; ← 既に設定済みなので不要
 
         // StoreId を保存（既存ロジックは currentStoreId を参照）
         localStorage.setItem('currentStoreId', String(matched.id));
@@ -185,6 +197,7 @@ export default function InstallPolarisPage() {
       } catch (error) {
         // 失敗時は接続画面を表示（ユーザーが手動で進められるように）
         console.error('❌ 登録済みストアのチェック中にエラーが発生:', error);
+        // エラー時もフラグはtrueのままにする（無限ループ防止）
       }
     };
 
@@ -491,6 +504,19 @@ export default function InstallPolarisPage() {
     }
   }, [shopDomain, isEmbedded]);
 
+  // クライアントサイドでのみレンダリング（Hydrationエラー対策）
+  // サーバーサイドとクライアントサイドで同じ構造を返すため、最小限のHTML構造を使用
+  if (!isMounted) {
+    return (
+      <div style={{ backgroundColor: '#F6F6F7', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ backgroundColor: '#F6F6F7', minHeight: '100vh' }}>
       <Box padding="800">
@@ -526,8 +552,8 @@ export default function InstallPolarisPage() {
               </div>
 
               {/* ブラウザで直接アクセスした場合の説明文 */}
-              {/* suppressHydrationWarning: isDirectAccessはuseEffectで決定されるため、サーバーサイドとクライアントサイドで異なる可能性がある */}
-              {isDirectAccess === true && (
+              {/* isMountedがtrueの場合のみ表示（Hydrationエラー対策） */}
+              {isMounted && isDirectAccess && (
                 <Card>
                   <Banner
                     title="推奨されるアクセス方法"
@@ -644,7 +670,8 @@ export default function InstallPolarisPage() {
               </div>
 
               {/* 開発環境でのデバッグ情報 */}
-              {process.env.NODE_ENV === 'development' && (
+              {/* isMountedがtrueの場合のみ表示（Hydrationエラー対策：getCurrentEnvironmentConfig()がサーバー/クライアントで異なる値を返す可能性があるため） */}
+              {isMounted && process.env.NODE_ENV === 'development' && (
                 <Card>
                   <BlockStack gap="400">
                     <Text as="h3" variant="headingMd">
@@ -699,5 +726,20 @@ export default function InstallPolarisPage() {
         </Modal.Section>
       </Modal>
     </div>
+  );
+}
+
+export default function InstallPolarisPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ backgroundColor: '#F6F6F7', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <InstallPolarisPageContent />
+    </Suspense>
   );
 }

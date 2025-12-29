@@ -1,3 +1,5 @@
+'use client';
+
 import { PolarisProvider } from '@/components/providers/PolarisProvider';
 
 export default function InstallLayout({

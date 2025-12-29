@@ -29,32 +29,44 @@ const getShopFromUrl = (): string | null => {
 }
 
 // デフォルトストア（API取得失敗時のフォールバック）
-// 注意: shopDomainはURLパラメータから動的に取得されます
-const DEFAULT_STORES: StoreInfo[] = [
+// 注意: shopDomainはuseEffect内で動的に設定されます（Hydrationエラーを防ぐため）
+const getDefaultStores = (): StoreInfo[] => [
   {
     id: 1,
     name: "本番ストア",
     description: "実際のデータ",
     dataType: "production",
-    shopDomain: getShopFromUrl() || undefined  // 🆕 URLパラメータから取得
+    shopDomain: undefined  // useEffect内で設定
   },
   {
     id: 2,
     name: "テストストア",
     description: "2020-2025年テストデータ",
     dataType: "test",
-    shopDomain: getShopFromUrl() || undefined  // 🆕 URLパラメータから取得
+    shopDomain: undefined  // useEffect内で設定
   }
 ]
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [currentStore, setCurrentStore] = useState<StoreInfo>(DEFAULT_STORES[0])
-  const [availableStores, setAvailableStores] = useState<StoreInfo[]>(DEFAULT_STORES)
+  const defaultStores = getDefaultStores()
+  const [currentStore, setCurrentStore] = useState<StoreInfo>(defaultStores[0])
+  const [availableStores, setAvailableStores] = useState<StoreInfo[]>(defaultStores)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDeveloperMode, setIsDeveloperMode] = useState(false)
+
+  // URLパラメータからshopドメインを取得してデフォルトストアに設定（Hydrationエラーを防ぐため）
+  useEffect(() => {
+    const shopFromUrl = getShopFromUrl()
+    if (shopFromUrl) {
+      setAvailableStores(prev => prev.map(store => ({
+        ...store,
+        shopDomain: shopFromUrl
+      })))
+    }
+  }, [])
 
   // デモモード状態を監視
   useEffect(() => {
@@ -86,6 +98,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [availableStores])
 
   const fetchStores = useCallback(async () => {
+    // インストールページまたはルートページでは API 呼び出しをスキップ
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname
+      if (pathname === '/install' || pathname === '/') {
+        console.log('📋 インストールページまたはルートページのため、ストア取得をスキップ', { pathname })
+        return
+      }
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -118,7 +139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.error('ストア一覧取得エラー:', error)
       setError('ストア情報の取得に失敗しました。デフォルト設定を使用します。')
       // エラー時はデフォルトストアを使用
-      setAvailableStores(DEFAULT_STORES)
+      setAvailableStores(getDefaultStores())
     } finally {
       setIsLoading(false)
     }
