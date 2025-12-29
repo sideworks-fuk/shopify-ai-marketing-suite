@@ -18,6 +18,7 @@ export function ZustandProvider({ children }: ZustandProviderProps) {
     '/install',
     '/auth/success',
     '/auth/callback',
+    '/auth/exit-iframe', // OAuth認証フローでiframeから脱出するページ
     '/auth/select',
     '/demo/login',
     '/terms',
@@ -36,9 +37,19 @@ export function ZustandProvider({ children }: ZustandProviderProps) {
   const [isHydrated, setIsHydrated] = useState(() => {
     if (typeof window === 'undefined') return false
     // セッション内で既にハイドレーション完了している場合は即座にtrue
-    // または、ローディングをスキップするページの場合は即座にtrue
-    return sessionStorage.getItem('zustand_hydrated') === 'true' || shouldSkipLoading
+    return sessionStorage.getItem('zustand_hydrated') === 'true'
   })
+  
+  // pathnameが変更されたときにshouldSkipLoadingを再評価
+  useEffect(() => {
+    // ローディングをスキップするページの場合は即座にハイドレーション完了とする
+    if (shouldSkipLoading && !isHydrated) {
+      setIsHydrated(true)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('zustand_hydrated', 'true')
+      }
+    }
+  }, [pathname, shouldSkipLoading, isHydrated])
 
   // Zustand stores
   const appStore = useAppStore()

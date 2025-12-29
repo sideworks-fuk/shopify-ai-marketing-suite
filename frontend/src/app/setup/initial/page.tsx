@@ -75,6 +75,17 @@ export default function InitialSetupPage() {
     if (typeof window !== 'undefined') {
       const demoToken = localStorage.getItem('demoToken')
       setIsDemoMode(!!demoToken)
+      
+      // 🆕 OAuth認証成功後のリダイレクトフラグをクリア（リダイレクトが成功したことを確認）
+      const redirectKey = 'auth_success_redirect_executed'
+      if (sessionStorage.getItem(redirectKey) === 'true') {
+        console.log('✅ [InitialSetup] OAuth認証成功後のリダイレクトが完了しました。フラグをクリアします。')
+        sessionStorage.removeItem(redirectKey)
+      }
+      
+      // 🆕 OAuth処理中フラグをクリア（フォールバック - localStorageに変更）
+      localStorage.removeItem('oauth_in_progress');
+      localStorage.removeItem('oauth_started_at');
     }
   }, [])
 

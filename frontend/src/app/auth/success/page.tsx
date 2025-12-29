@@ -24,6 +24,13 @@ export default function AuthSuccessPage() {
   const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
 
   useEffect(() => {
+    // 🆕 OAuth処理中フラグをクリア（localStorageに変更 - iframe再読み込み後もフラグが保持される）
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('oauth_in_progress');
+      localStorage.removeItem('oauth_started_at');
+      console.log('✅ [AuthSuccess] OAuth処理中フラグをクリアしました（localStorage）');
+    }
+    
     // 既に処理済みの場合はスキップ（マウント時の重複実行を防ぐ）
     if (hasProcessedRef.current) {
       console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ（useRef）');
@@ -55,6 +62,7 @@ export default function AuthSuccessPage() {
     }
     
     console.log('🚀 [AuthSuccess] 処理開始:', { shop, storeId, success });
+    console.log('📍 [AuthSuccess] 現在のURL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
     
     // shopがない場合はエラー（必須パラメータ）
     // storeIdやsuccessがない場合は処理を続行し、APIから取得を試みる
@@ -73,6 +81,73 @@ export default function AuthSuccessPage() {
     let isMounted = true;
     let timeoutId: NodeJS.Timeout | null = null;
     let redirectTimeoutId: NodeJS.Timeout | null = null;
+
+    /**
+     * リダイレクト処理を実行する共通関数
+     * @param shop - ストアドメイン
+     * @param host - Shopify hostパラメータ
+     * @param embedded - 埋め込みフラグ
+     * @param useRouterNavigation - routerオブジェクトを使用するか（isMountedの場合のみtrue）
+     */
+    const performRedirect = (
+      shop: string | null,
+      host: string | null,
+      embedded: string | null,
+      useRouterNavigation: boolean
+    ) => {
+      // リダイレクト処理を一度だけ実行するためのチェック
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/auth/success') {
+          console.log('⏸️ 既に別のページに遷移しているため、リダイレクトをスキップ:', currentPath);
+          return;
+        }
+        
+        // 🆕 リダイレクト実行フラグを設定（重複実行を防ぐ）
+        const redirectKey = 'auth_success_redirect_executed';
+        if (sessionStorage.getItem(redirectKey) === 'true') {
+          console.log('⏸️ 既にリダイレクト処理を実行済みのため、スキップします');
+          return;
+        }
+        sessionStorage.setItem(redirectKey, 'true');
+      }
+
+      // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
+      // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
+      const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
+      if (typeof window !== 'undefined' && host && shop && apiKey) {
+        const isTopWindow = window.top === window.self;
+        if (isTopWindow) {
+          const adminAppUrl = `https://${shop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
+          console.log('🔄 Shopify管理画面にリダイレクト:', adminAppUrl);
+          window.location.href = adminAppUrl;
+          return;
+        }
+      }
+
+      // OAuth認証成功後のリダイレクト先を決定
+      // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
+      // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
+      // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
+      console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
+      const redirectPath = host && shop
+        ? `/setup/initial?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embedded || '1')}`
+        : shop
+        ? `/setup/initial?shop=${encodeURIComponent(shop)}`
+        : '/setup/initial';
+      console.log('🔄 リダイレクト先:', redirectPath);
+
+      // アンマウント後はrouter.replace()が効果がない可能性があるため、window.location.hrefを使用
+      if (useRouterNavigation) {
+        router.replace(redirectPath); // pushではなくreplaceを使用（ブラウザ履歴に残さない）
+      } else {
+        // 相対パスの場合は絶対URLに変換
+        const absoluteUrl = redirectPath.startsWith('http')
+          ? redirectPath
+          : new URL(redirectPath, window.location.origin).href;
+        window.location.href = absoluteUrl;
+      }
+    };
 
     const handleAuthCallback = async () => {
       console.log('🔄 [AuthSuccess] handleAuthCallback開始');
@@ -140,8 +215,16 @@ export default function AuthSuccessPage() {
           setMessage('ストア情報を更新しています...');
         }
         
-        // ストア一覧を更新（タイムアウト付き、失敗しても続行）
+        // storeIdを取得（クエリパラメータから優先）
         let resolvedStoreId: number | null = null;
+        const storeIdParam = searchParams?.get('storeId');
+        if (storeIdParam) {
+          resolvedStoreId = parseInt(storeIdParam);
+          console.log('📋 クエリパラメータからStoreIdを取得:', resolvedStoreId);
+        }
+        
+        // ストア一覧を更新（タイムアウト付き、失敗しても続行）
+        // 注意: refreshStores()はavailableStoresを更新するため、setCurrentStore()を呼び出す前に完了させる必要がある
         try {
           const refreshPromise = refreshStores();
           const timeoutPromise = new Promise((_, reject) => {
@@ -165,44 +248,49 @@ export default function AuthSuccessPage() {
           }
         }
         
-        // storeIdを取得（refreshStores()の成功/失敗に関わらず実行）
-        // クエリパラメータからstoreIdを取得（優先）
-        const storeIdParam = searchParams?.get('storeId');
-        if (storeIdParam) {
-          resolvedStoreId = parseInt(storeIdParam);
-          console.log('📋 クエリパラメータからStoreIdを取得:', resolvedStoreId);
-        } else if (resolvedShop) {
-          // storeIdがクエリパラメータにない場合、shopドメインからストアを検索
-          // 注意: refreshStores()が完了した後、StoreContextからストア一覧を取得する必要がある
-          // ここでは、APIから直接ストア一覧を取得して検索する
+        // storeIdがクエリパラメータにない場合、shopドメインからストアを検索
+        if (!resolvedStoreId && resolvedShop) {
           try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7088';
-            const storesResponse = await fetch(`${apiUrl}/api/store`);
+            const storesResponse = await fetch(`${apiUrl}/api/store`, {
+              credentials: 'include', // JWTトークンを送信
+            });
             if (storesResponse.ok) {
               const storesData = await storesResponse.json();
-              const stores = storesData.stores || storesData || [];
-              const matchedStore = stores.find((s: any) => 
-                s.domain === resolvedShop || s.shopDomain === resolvedShop || s.shopifyShopId === resolvedShop
-              );
+              const stores = storesData?.data?.stores || storesData?.stores || storesData || [];
+              const matchedStore = stores.find((s: any) => {
+                const candidate = (s?.shopDomain || s?.domain || s?.ShopDomain || s?.Domain || '').toString().toLowerCase();
+                if (!candidate) return false;
+                const shopLower = resolvedShop.toLowerCase();
+                return candidate === shopLower || candidate.includes(shopLower) || shopLower.includes(candidate);
+              });
               if (matchedStore) {
-                resolvedStoreId = matchedStore.id;
-                console.log('🔍 shopドメインからStoreIdを検索:', { shop, storeId: resolvedStoreId });
+                resolvedStoreId = matchedStore.id || matchedStore.Id;
+                console.log('🔍 shopドメインからStoreIdを検索:', { shop: resolvedShop, storeId: resolvedStoreId });
               } else {
                 console.warn('⚠️ shopドメインに一致するストアが見つかりませんでした:', resolvedShop);
               }
+            } else {
+              console.warn('⚠️ ストア検索API呼び出しに失敗:', storesResponse.status, storesResponse.statusText);
             }
           } catch (searchError) {
             console.warn('⚠️ ストア検索に失敗しました:', searchError);
           }
         }
         
-        if (!isMounted) return;
+        // 🆕 デバッグログを追加
+        console.log('🔍 [AuthSuccess] isMounted確認:', isMounted);
         
         // 現在のストアを設定（storeIdが見つからない場合はエラー）
+        // 注意: 認証状態の設定は、コンポーネントがアンマウントされても実行する必要がある
+        // （localStorage/sessionStorageへの保存は副作用として必要）
         if (!resolvedStoreId && !searchParams?.get('storeId')) {
           console.error('❌ Store ID not found in response or query parameters')
-          setStatus('error')
-          setMessage('ストアIDの取得に失敗しました')
+          // エラー時のみisMountedチェック後にUIを更新
+          if (isMounted) {
+            setStatus('error')
+            setMessage('ストアIDの取得に失敗しました')
+          }
           return
         }
         // クエリパラメータから取得を試みる（フォールバック）
@@ -212,28 +300,41 @@ export default function AuthSuccessPage() {
         
         if (!finalStoreId || finalStoreId <= 0 || isNaN(finalStoreId)) {
           console.error('❌ Invalid store ID:', finalStoreId)
-          setStatus('error')
-          setMessage('無効なストアIDです')
+          // エラー時のみisMountedチェック後にUIを更新
+          if (isMounted) {
+            setStatus('error')
+            setMessage('無効なストアIDです')
+          }
           return
         }
         
-        // StoreContextにストアを設定
-        // 注意: setCurrentStore()はavailableStoresにストアが見つからない場合、何も実行されない
-        // そのため、localStorageにstoreIdを保存してからsetCurrentStore()を呼び出す
-        console.log('🔍 [AuthSuccess] setCurrentStoreを呼び出します:', finalStoreId);
-        setCurrentStore(finalStoreId);
-        
-        // AuthProviderに認証状態を明示的に設定
-        console.log('🔍 [AuthSuccess] markAuthenticatedを呼び出します:', finalStoreId);
-        markAuthenticated(finalStoreId);
+        // 🆕 最優先: localStorageにstoreIdを保存（setCurrentStore()の前に実行）
+        // 理由: setCurrentStore()はavailableStoresにストアが見つからない場合、何も実行されないため
+        // /installページでcurrentStoreIdを参照できるようにするため
+        console.log('💾 [AuthSuccess] localStorageにstoreIdを保存:', finalStoreId);
+        localStorage.setItem('currentStoreId', finalStoreId.toString());
+        localStorage.setItem('oauth_authenticated', 'true');
         
         // shopドメインも保存（後でストアを検索する際に使用）
         if (resolvedShop) {
           localStorage.setItem('shopDomain', resolvedShop);
         }
         
+        // StoreContextにストアを設定
+        // 注意: setCurrentStore()はavailableStoresにストアが見つからない場合、何も実行されない
+        // そのため、localStorageにstoreIdを保存してからsetCurrentStore()を呼び出す
+        // 🆕 isMountedチェックの前で実行（認証状態の設定は必要）
+        console.log('🔍 [AuthSuccess] setCurrentStoreを呼び出します:', finalStoreId);
+        setCurrentStore(finalStoreId);
+        
+        // AuthProviderに認証状態を明示的に設定
+        // 🆕 isMountedチェックの前で実行（認証状態の設定は必要）
+        console.log('🔍 [AuthSuccess] markAuthenticatedを呼び出します:', finalStoreId);
+        markAuthenticated(finalStoreId);
+        
         console.log('✅ 認証状態を設定しました:', { storeId: finalStoreId, shop: resolvedShop, host });
         
+        // 🆕 UIの更新はisMountedチェック後に行う
         if (isMounted) {
           setStatus('success');
           setMessage('認証が完了しました！ダッシュボードへ移動します...');
@@ -241,40 +342,15 @@ export default function AuthSuccessPage() {
           // 1秒後にダッシュボードへリダイレクト（2秒から短縮）
           redirectTimeoutId = setTimeout(() => {
             if (!isMounted) return;
-            
-            // リダイレクト処理を一度だけ実行するためのチェック
-            const currentPath = window.location.pathname;
-            if (currentPath !== '/auth/success') {
-              console.log('⏸️ 既に別のページに遷移しているため、リダイレクトをスキップ:', currentPath);
-              return;
-            }
-            
-            // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
-            // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
-            const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
-            if (typeof window !== 'undefined' && host && resolvedShop && apiKey) {
-              const isTopWindow = window.top === window.self;
-              if (isTopWindow) {
-                const adminAppUrl = `https://${resolvedShop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
-                console.log('🔄 Shopify管理画面にリダイレクト:', adminAppUrl);
-                window.location.href = adminAppUrl;
-                return;
-              }
-            }
-
-            // OAuth認証成功後のリダイレクト先を決定
-            // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
-            // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
-            // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
-            console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
-            const redirectPath = host && resolvedShop
-              ? `/setup/initial?shop=${encodeURIComponent(resolvedShop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embeddedFromQuery || '1')}`
-              : resolvedShop
-              ? `/setup/initial?shop=${encodeURIComponent(resolvedShop)}`
-              : '/setup/initial';
-            console.log('🔄 リダイレクト先:', redirectPath);
-            router.replace(redirectPath); // pushではなくreplaceを使用（ブラウザ履歴に残さない）
+            performRedirect(resolvedShop, host, embeddedFromQuery, true); // routerを使用
           }, 1000);
+        } else {
+          // 🆕 コンポーネントがアンマウントされている場合でも、リダイレクトを実行
+          // 認証状態は既に設定されているため、次回のマウント時に正しい状態で開始できる
+          console.warn('⚠️ [AuthSuccess] コンポーネントがアンマウントされていますが、認証状態は設定済みです。リダイレクトを実行します。');
+          
+          // アンマウント後はwindow.location.hrefを使用（router.replace()は効果がない可能性があるため）
+          performRedirect(resolvedShop, host, embeddedFromQuery, false); // window.locationを使用
         }
         
       } catch (error: any) {
@@ -293,8 +369,10 @@ export default function AuthSuccessPage() {
           // sessionStorageもクリア（再試行可能にする）
           if (typeof window !== 'undefined') {
             sessionStorage.removeItem('auth_success_processed');
+            // 🆕 エラー時はリダイレクトフラグもクリア（再試行可能にする）
+            sessionStorage.removeItem('auth_success_redirect_executed');
           }
-          console.log('🔄 [AuthSuccess] エラー発生のため、処理フラグをリセットしました');
+          console.log('🔄 [AuthSuccess] エラー発生のため、処理フラグとリダイレクトフラグをリセットしました');
         }
       }
     };

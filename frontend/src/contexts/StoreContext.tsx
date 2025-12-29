@@ -98,11 +98,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [availableStores])
 
   const fetchStores = useCallback(async () => {
-    // インストールページまたはルートページでは API 呼び出しをスキップ
+    // インストールページ、ルートページ、または認証成功ページでは API 呼び出しをスキップ
     if (typeof window !== 'undefined') {
       const pathname = window.location.pathname
-      if (pathname === '/install' || pathname === '/') {
-        console.log('📋 インストールページまたはルートページのため、ストア取得をスキップ', { pathname })
+      if (pathname === '/install' || pathname === '/' || pathname === '/auth/success') {
+        console.log('📋 インストールページ、ルートページ、または認証成功ページのため、ストア取得をスキップ', { pathname })
         return
       }
     }
@@ -115,6 +115,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const response = await fetch(`${getApiUrl()}/api/store`)
       if (!response.ok) {
+        // 🆕 401エラーの場合は、認証が完了していない可能性があるため、エラーをスキップ
+        if (response.status === 401) {
+          console.warn('⚠️ [StoreContext] 401エラー: 認証が完了していない可能性があります。デフォルトストアを使用します。')
+          setAvailableStores(getDefaultStores())
+          setIsLoading(false)
+          return
+        }
         throw new Error('ストア一覧の取得に失敗しました')
       }
 
@@ -167,7 +174,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshStores = async () => {
-    await fetchStores()
+    // refreshStores()は明示的に呼び出された場合、ページチェックをスキップしてAPIを呼び出す
+    // /auth/successページなど、認証処理中でもストア一覧を取得する必要があるため
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      console.log('🔄 ストア一覧を明示的に更新中... デモモード:', isDeveloperMode)
+
+      const response = await fetch(`${getApiUrl()}/api/store`, {
+        credentials: 'include', // JWTトークンを送信
+      })
+      if (!response.ok) {
+        throw new Error('ストア一覧の取得に失敗しました')
+      }
+
+      const result = await response.json()
+      if (result.success && result.data?.stores) {
+        let stores = result.data.stores
+
+        // デモモード時は DataType = 'demo' のストアのみフィルタ
+        if (isDeveloperMode) {
+          stores = stores.filter((store: StoreInfo) => store.dataType === 'demo')
+          console.log('🎯 デモモード: デモ用ストアのみ表示', stores)
+        } else {
+          console.log('📋 通常モード: 全ストアを表示', stores)
+        }
+
+        setAvailableStores(stores)
+        console.log('✅ APIからストア一覧を取得しました:', stores)
+      } else {
+        console.warn('APIレスポンスが不正です。デフォルトストアを使用します。')
+      }
+    } catch (error) {
+      console.error('ストア一覧取得エラー:', error)
+      setError('ストア情報の取得に失敗しました。デフォルト設定を使用します。')
+      // エラー時はデフォルトストアを使用
+      setAvailableStores(getDefaultStores())
+      throw error // 呼び出し元でエラーハンドリングできるようにthrow
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const setCurrentStoreById = (storeId: number) => {

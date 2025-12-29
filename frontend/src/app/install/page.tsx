@@ -53,6 +53,8 @@ function InstallPolarisPageContent() {
   const [autoRedirecting, setAutoRedirecting] = useState(false);
   const [isDirectAccess, setIsDirectAccess] = useState<boolean>(false); // ブラウザで直接アクセスした場合（false: 未決定/Shopify経由、true: 直接アクセス）
   const [isMounted, setIsMounted] = useState(false); // クライアントサイドマウント状態（Hydrationエラー対策）
+  const [isOAuthCallbackProcessing, setIsOAuthCallbackProcessing] = useState(false); // OAuthコールバック処理中フラグ
+  const [isOAuthInProgress, setIsOAuthInProgress] = useState(false); // OAuth処理中フラグ（sessionStorageベース）
   const isInstallingRef = useRef(false); // インストール処理中フラグ（useRefで確実に保持）
   const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
@@ -63,6 +65,107 @@ function InstallPolarisPageContent() {
   // クライアントサイドマウント状態を設定（Hydrationエラー対策）
   useEffect(() => {
     setIsMounted(true)
+    
+    if (typeof window === 'undefined') return;
+    
+    // 🆕 最優先: auth_success=true パラメータを検出
+    const params = new URLSearchParams(window.location.search);
+    const authSuccess = params.get('auth_success');
+    const storeIdFromUrl = params.get('storeId');
+    const shopFromUrl = params.get('shop');
+    const hostFromUrl = params.get('host');
+    
+    if (authSuccess === 'true' && storeIdFromUrl) {
+      console.log('✅ [Install] OAuth成功を検出（最優先）:', { 
+        storeId: storeIdFromUrl, 
+        shop: shopFromUrl,
+        host: hostFromUrl,
+        url: window.location.href
+      });
+      
+      // localStorageに認証情報を保存
+      localStorage.setItem('oauth_authenticated', 'true');
+      localStorage.setItem('currentStoreId', storeIdFromUrl);
+      if (shopFromUrl) {
+        localStorage.setItem('shopDomain', shopFromUrl);
+      }
+      
+      // OAuth処理中フラグをクリア
+      localStorage.removeItem('oauth_in_progress');
+      localStorage.removeItem('oauth_started_at');
+      setIsOAuthInProgress(false);
+      setLoading(false);
+      
+      // /setup/initialにリダイレクト
+      const redirectParams = new URLSearchParams();
+      if (shopFromUrl) redirectParams.set('shop', shopFromUrl);
+      if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+      redirectParams.set('embedded', '1');
+      
+      const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+      console.log('🔄 [Install] OAuth成功: /setup/initialにリダイレクト:', redirectUrl);
+      window.location.replace(redirectUrl);
+      return; // 🆕 早期リターン（以降の処理をスキップ）
+    }
+    
+    // 🆕 認証成功だがstoreIdがない場合、APIでストア情報を取得
+    // 理由: Shopify管理画面がiframeでアプリを読み込む際、カスタムパラメータ（auth_success, storeId）を破棄するため
+    // /auth/successページで認証状態は設定されるが、iframe再読み込み時にstoreIdが失われる可能性がある
+    if (isAuthenticated && !isInitializing) {
+      const currentStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId')
+        : null;
+      
+      if (!currentStoreId && shopFromUrl) {
+        console.log('🔍 [Install] 認証成功ですが、storeIdがありません。APIでストア情報を取得します...', {
+          isAuthenticated,
+          isInitializing,
+          shop: shopFromUrl
+        });
+        
+        // APIでストア情報を取得（非同期処理のため、別のuseEffectで処理）
+        // このuseEffectでは早期リターンせず、次のuseEffectで処理する
+      }
+    }
+    
+    // 🆕 auth_success がない場合のみ、OAuth処理中フラグを確認
+    const oauthInProgress = localStorage.getItem('oauth_in_progress') === 'true';
+    const oauthStartedAt = localStorage.getItem('oauth_started_at');
+    
+    if (oauthInProgress && oauthStartedAt) {
+      const startedAt = parseInt(oauthStartedAt, 10);
+      const elapsed = Date.now() - startedAt;
+      
+      // 5分以内の場合はOAuth処理中と判断
+      if (elapsed < 5 * 60 * 1000) {
+        console.log('⏳ [Install] OAuth処理中を検出。ローディング画面を表示します。', {
+          elapsed: `${Math.round(elapsed / 1000)}秒`
+        });
+        setIsOAuthInProgress(true);
+        setLoading(true);
+        
+        // 🆕 タイムアウト処理を追加（30秒経過後にフラグをクリアして通常処理に進む）
+        const timeoutId = setTimeout(() => {
+          console.log('⏰ [Install] OAuth処理が30秒経過しました。フラグをクリアして通常処理に進みます。');
+          localStorage.removeItem('oauth_in_progress');
+          localStorage.removeItem('oauth_started_at');
+          setIsOAuthInProgress(false);
+          setLoading(false);
+        }, 30 * 1000); // 30秒でタイムアウト
+        
+        // クリーンアップ（useEffectのクリーンアップ関数として返す）
+        // 注意: このuseEffectは依存配列が空なので、マウント時のみ実行される
+        // タイムアウト処理は、コンポーネントがアンマウントされた時にクリーンアップされる
+        return () => {
+          clearTimeout(timeoutId);
+        };
+      } else {
+        // タイムアウト: フラグをクリア
+        console.log('⏰ [Install] OAuth処理がタイムアウトしました。フラグをクリアします。');
+        localStorage.removeItem('oauth_in_progress');
+        localStorage.removeItem('oauth_started_at');
+      }
+    }
   }, [])
 
   const normalizeShopDomain = useCallback((value: string): string => {
@@ -81,10 +184,68 @@ function InstallPolarisPageContent() {
   // Shopify Admin からの起動時、shop を自動入力し、登録済みなら通常画面へ遷移
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // 🆕 OAuth処理中フラグがある場合は、インストール処理中と判断してスキップ
+    // 理由: handleInstallでOAuth処理中フラグを設定した直後にuseEffectが再実行されるが、
+    // リダイレクトが実行される前にフラグをクリアしてしまうのを防ぐ
+    // isInstallingRef.currentの代わりに、oauth_in_progressフラグをチェック
+    const oauthInProgressCheck = localStorage.getItem('oauth_in_progress') === 'true';
+    if (oauthInProgressCheck && isInstallingRef.current) {
+      console.log('⏳ [Install] OAuth処理中フラグがあるため、URLパラメータ確認をスキップします。', {
+        isInstalling: isInstallingRef.current,
+        oauthInProgress: oauthInProgressCheck
+      });
+      return;
+    }
 
     const params = new URLSearchParams(window.location.search);
     const shopFromUrl = params.get('shop');
     const hostFromUrl = params.get('host');
+    const codeParam = params.get('code');
+    const stateParam = params.get('state');
+    const authSuccess = params.get('auth_success'); // 🆕 OAuth成功パラメータ
+    const storeIdFromUrl = params.get('storeId'); // 🆕 ストアID
+    
+    // 🆕 デバッグ: URLパラメータをログ出力
+    console.log('🔍 [Install] URLパラメータ確認（2回目のuseEffect）:', {
+      url: window.location.href,
+      search: window.location.search,
+      authSuccess,
+      storeIdFromUrl,
+      shop: shopFromUrl,
+      host: hostFromUrl,
+      code: codeParam ? 'present' : 'missing',
+      state: stateParam ? 'present' : 'missing',
+      allParams: Object.fromEntries(params.entries())
+    });
+    
+    // 🆕 注意: auth_success=trueの検出は、最初のuseEffectで最優先で実行されるため、
+    // ここに到達した場合は、auth_success=trueが含まれていないか、既に処理済み
+    // 念のため、再度チェック（ただし、通常はここには到達しない）
+    if (authSuccess === 'true' && storeIdFromUrl) {
+      console.warn('⚠️ [Install] auth_success=trueが検出されましたが、最初のuseEffectで処理済みのはずです。念のため処理をスキップします。');
+      return; // 早期リターン（以降の処理をスキップ）
+    }
+    
+    // 🆕 OAuthコールバック処理中かどうかをチェック
+    const isOAuthCallback = !!(codeParam || stateParam);
+    setIsOAuthCallbackProcessing(isOAuthCallback);
+    
+    if (isOAuthCallback) {
+      console.log('🔄 [Install] OAuthコールバック処理中を検出しました。バックエンドの処理完了を待機します...', {
+        hasCode: !!codeParam,
+        hasState: !!stateParam
+      });
+      // OAuthコールバック処理中は、ローディング状態を維持
+      setLoading(true);
+    }
+    
+    // 🆕 次回のOAuthフロー開始時に、前回のリダイレクトフラグをクリア
+    const redirectKey = 'auth_success_redirect_executed'
+    if (sessionStorage.getItem(redirectKey) === 'true') {
+      console.log('🔄 [Install] 次回のOAuthフロー開始時に、前回のリダイレクトフラグをクリアします。')
+      sessionStorage.removeItem(redirectKey)
+    }
     
     // hostパラメータをsessionStorageに保存（OAuth認証フローで引き継ぐため）
     if (hostFromUrl) {
@@ -115,6 +276,23 @@ function InstallPolarisPageContent() {
         return;
       }
       
+      // 🆕 OAuthコールバック処理中かどうかをチェック
+      // URLパラメータにcodeやstateがある場合、OAuthコールバック処理中と判断
+      const codeParam = params.get('code');
+      const stateParam = params.get('state');
+      const isOAuthCallbackProcessing = !!(codeParam || stateParam);
+      
+      if (isOAuthCallbackProcessing) {
+        console.log('⏳ OAuthコールバック処理中です。バックエンドの処理完了を待機します...', {
+          hasCode: !!codeParam,
+          hasState: !!stateParam
+        });
+        // OAuthコールバック処理中は、checkAndRedirectをスキップ
+        // バックエンドの処理が完了し、/auth/successにリダイレクトされるまで待機
+        hasCheckedStoreRef.current = false; // リセットして再チェック可能に
+        return;
+      }
+      
       // 🆕 チェック開始時にフラグを設定（非同期処理の前に設定）
       hasCheckedStoreRef.current = true;
       
@@ -135,9 +313,30 @@ function InstallPolarisPageContent() {
 
       // 未認証の場合は、登録済みストアチェックをスキップしてインストール画面を表示
       // アンインストール後でもデータベースにストア情報が残っている可能性があるため
-      if (!isAuthenticated) {
-        console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。');
+      // 🆕 OAuth認証成功フラグもチェック（markAuthenticated()が呼ばれた直後でも検出可能）
+      const oauthAuthenticated = typeof window !== 'undefined' 
+        ? localStorage.getItem('oauth_authenticated') === 'true'
+        : false;
+      
+      if (!isAuthenticated && !oauthAuthenticated) {
+        console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。', {
+          isAuthenticated,
+          oauthAuthenticated
+        });
         // hasCheckedStoreRef.current = true; ← 既に設定済みなので不要
+        return;
+      }
+      
+      // 🆕 OAuth認証成功フラグがあるが、isAuthenticatedがfalseの場合
+      // （markAuthenticated()が呼ばれた直後で、React stateがまだ更新されていない場合）
+      if (oauthAuthenticated && !isAuthenticated) {
+        console.log('🔄 OAuth認証成功フラグを検出しましたが、isAuthenticatedがfalseです。認証状態を再確認します...');
+        // 少し待ってから再チェック（React stateの更新を待つ）
+        setTimeout(() => {
+          // 再チェック（フラグをリセットして再実行可能にする）
+          hasCheckedStoreRef.current = false;
+          checkAndRedirect();
+        }, 500);
         return;
       }
 
@@ -150,6 +349,12 @@ function InstallPolarisPageContent() {
         });
         
         if (!response.ok) {
+          // 🆕 401エラーの場合は、認証が完了していない可能性があるため、エラーをスキップ
+          if (response.status === 401) {
+            console.warn('⚠️ [Install] 401エラー: 認証が完了していない可能性があります。インストール画面を表示します。');
+            // エラー時もフラグはtrueのままにする（無限ループ防止）
+            return;
+          }
           console.warn('⚠️ ストア一覧の取得に失敗:', response.status, response.statusText);
           // エラー時もフラグはtrueのままにする（無限ループ防止）
           return;
@@ -189,10 +394,28 @@ function InstallPolarisPageContent() {
 
         setAutoRedirecting(true);
 
-        // host / embedded / shop 等のクエリを維持して通常画面へ
-        const targetPath = '/customers/dormant';
+        // 🆕 OAuth認証直後の場合は、/setup/initialにリダイレクト
+        // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
+        // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
+        const isOAuthJustCompleted = typeof window !== 'undefined' 
+          ? localStorage.getItem('oauth_authenticated') === 'true' && 
+            sessionStorage.getItem('auth_success_processed') === 'true'
+          : false;
+        
+        let targetPath: string;
+        if (isOAuthJustCompleted) {
+          // OAuth認証直後の場合は、/setup/initialにリダイレクト
+          targetPath = '/setup/initial';
+          console.log('🆕 OAuth認証直後を検出: データ同期設定画面にリダイレクト');
+        } else {
+          // 通常の場合は、/customers/dormantにリダイレクト
+          targetPath = '/customers/dormant';
+          console.log('↪️ 登録済みストアを検出したため、通常画面にリダイレクト');
+        }
+        
+        // host / embedded / shop 等のクエリを維持してリダイレクト
         const redirectUrl = `${targetPath}?${params.toString()}`;
-        console.log('↪️ 登録済みストアを検出したため、通常画面にリダイレクト:', redirectUrl);
+        console.log('🔄 リダイレクト先:', redirectUrl);
         window.location.replace(redirectUrl);
       } catch (error) {
         // 失敗時は接続画面を表示（ユーザーが手動で進められるように）
@@ -201,8 +424,210 @@ function InstallPolarisPageContent() {
       }
     };
 
+    // 🆕 OAuth処理中フラグがある場合でも、認証が成功している場合は通常処理に進む
+    // 理由: OAuth処理が完了しているが、/auth/successページに到達していない可能性がある
+    const oauthInProgress = typeof window !== 'undefined' 
+      ? localStorage.getItem('oauth_in_progress') === 'true'
+      : false;
+    
+    if (isOAuthCallbackProcessing) {
+      // OAuthコールバック処理中（code/stateパラメータがある）場合は、checkAndRedirectをスキップ
+      console.log('⏳ OAuthコールバック処理中です。バックエンドの処理完了を待機します...');
+      return;
+    }
+    
+    // 🆕 OAuth処理中フラグがある場合は、認証成功の判定をスキップ
+    // 理由: handleInstallでフラグを設定した直後にuseEffectが再実行されるが、
+    // リダイレクトが実行される前にフラグをクリアしてしまうのを防ぐ
+    // OAuth認証フローは通常30秒〜1分かかるため、タイムアウトを60秒に延長
+    if (oauthInProgress) {
+      const oauthStartedAt = localStorage.getItem('oauth_started_at');
+      if (oauthStartedAt) {
+        const elapsed = Date.now() - parseInt(oauthStartedAt, 10);
+        if (elapsed < 60000) { // 60秒以内
+          console.log('⏳ [Install] OAuth処理中（60秒以内）のため、認証成功の判定をスキップします。', {
+            elapsed: `${Math.round(elapsed / 1000)}秒`,
+            isInstalling: isInstallingRef.current,
+            isAuthenticated,
+            isInitializing
+          });
+          return; // 早期リターン（リダイレクトが実行されるまで待機）
+        } else {
+          // 60秒以上経過している場合は、タイムアウトとしてフラグをクリア
+          console.log('⏰ [Install] OAuth処理が60秒経過しました。タイムアウトとしてフラグをクリアします。', {
+            elapsed: `${Math.round(elapsed / 1000)}秒`
+          });
+          localStorage.removeItem('oauth_in_progress');
+          localStorage.removeItem('oauth_started_at');
+          setIsOAuthInProgress(false);
+          setLoading(false);
+          // タイムアウト後は通常処理に進む
+        }
+      } else {
+        // oauth_started_atがない場合は、フラグをクリア
+        console.log('⚠️ [Install] OAuth処理中フラグがありますが、oauth_started_atがありません。フラグをクリアします。');
+        localStorage.removeItem('oauth_in_progress');
+        localStorage.removeItem('oauth_started_at');
+        setIsOAuthInProgress(false);
+        setLoading(false);
+      }
+      return; // OAuth処理中フラグがある場合は、認証成功の判定をスキップ
+    }
+    
+    // 🆕 OAuth処理中フラグがない場合のみ、認証成功の判定を実行
+    if (isAuthenticated && !isInitializing) {
+      // OAuth処理が完了している場合
+      // → /auth/successページに到達した可能性がある
+      const currentUrlParams = typeof window !== 'undefined' 
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+      const currentShop = currentUrlParams.get('shop');
+      const currentHost = currentUrlParams.get('host');
+      
+      const currentStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId')
+        : null;
+      
+      if (currentStoreId) {
+        console.log('✅ [Install] 認証成功を検出（フラグベース）:', { 
+          storeId: currentStoreId,
+          shop: currentShop,
+          host: currentHost
+        });
+        
+        // localStorageに認証情報を保存（既に保存されている可能性があるが、念のため）
+        localStorage.setItem('oauth_authenticated', 'true');
+        
+        // /setup/initialにリダイレクト
+        const redirectParams = new URLSearchParams();
+        if (currentShop) redirectParams.set('shop', currentShop);
+        if (currentHost) redirectParams.set('host', currentHost);
+        redirectParams.set('embedded', '1');
+        
+        const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+        console.log('🔄 [Install] OAuth成功（フラグベース）: /setup/initialにリダイレクト:', redirectUrl);
+        window.location.replace(redirectUrl);
+        return; // 早期リターン（以降の処理をスキップ）
+      }
+    }
+    
+    // OAuthコールバック処理中でない場合、checkAndRedirectを実行
     void checkAndRedirect();
-  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, loading]);
+  }, [normalizeShopDomain, toSubdomainInput, isAuthenticated, isInitializing, isOAuthCallbackProcessing]); // 🆕 loadingを削除（無限ループ防止）
+
+  // 🆕 認証成功だがstoreIdがない場合、APIでストア情報を取得
+  // 理由: Shopify管理画面がiframeでアプリを読み込む際、カスタムパラメータ（auth_success, storeId）を破棄するため
+  // /auth/successページで認証状態は設定されるが、iframe再読み込み時にstoreIdが失われる可能性がある
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isInitializing) return; // 認証初期化中はスキップ
+    
+    const params = new URLSearchParams(window.location.search);
+    const shopFromUrl = params.get('shop');
+    const hostFromUrl = params.get('host');
+    
+    // 🆕 修正: oauth_authenticatedフラグも確認
+    // 理由: isAuthenticatedがtrueでも、OAuth認証が完了していない可能性がある
+    const oauthAuthenticated = localStorage.getItem('oauth_authenticated') === 'true';
+    
+    if (!isAuthenticated || !oauthAuthenticated || !shopFromUrl) {
+      // 🆕 デバッグ: 条件を満たさない場合はスキップ
+      if (isAuthenticated && !oauthAuthenticated) {
+        console.log('⏸️ [Install] isAuthenticated=trueだが、oauth_authenticated=falseのため、ストア情報取得をスキップします');
+      }
+      return;
+    }
+    
+    const currentStoreId = localStorage.getItem('currentStoreId');
+    
+    // storeIdがない場合、APIでストア情報を取得
+    // 🆕 修正: oauthAuthenticatedを既に確認済みなので、ここではcurrentStoreIdのみをチェック
+    if (!currentStoreId) {
+      console.log('🔍 [Install] 認証成功ですが、storeIdがありません。APIでストア情報を取得します...', {
+        isAuthenticated,
+        shop: shopFromUrl,
+        oauthAuthenticated
+      });
+      
+      const fetchStoreInfo = async () => {
+        try {
+          const config = getCurrentEnvironmentConfig();
+          const normalizedShop = normalizeShopDomain(shopFromUrl);
+          
+          console.log('📡 [Install] ストア情報を取得中...', { apiUrl: config.apiBaseUrl, shop: normalizedShop });
+          
+          const response = await fetch(`${config.apiBaseUrl}/api/store`, {
+            credentials: 'include', // JWTトークンを送信
+          });
+          
+          if (!response.ok) {
+            // 🆕 401エラーの場合は、認証が完了していない可能性があるため、エラーをスキップ
+            if (response.status === 401) {
+              console.warn('⚠️ [Install] 401エラー: 認証が完了していない可能性があります。通常処理に進みます。');
+              return;
+            }
+            throw new Error(`API呼び出しに失敗: ${response.status} ${response.statusText}`);
+          }
+          
+          const result = await response.json();
+          const stores = result?.data?.stores || result?.stores || [];
+          
+          console.log('📋 [Install] 取得したストア一覧:', stores);
+          
+          if (Array.isArray(stores) && stores.length > 0) {
+            // shopDomainで一致するストアを検索
+            const matchedStore = stores.find((s: any) => {
+              const candidate = (s?.shopDomain || s?.domain || s?.ShopDomain || s?.Domain || '').toString().toLowerCase();
+              const candidateNormalized = normalizeShopDomain(candidate);
+              return candidateNormalized === normalizedShop || candidate === normalizedShop.toLowerCase();
+            });
+            
+            if (matchedStore?.id) {
+              console.log('✅ [Install] ストア情報を取得:', { storeId: matchedStore.id, shop: normalizedShop });
+              
+              // localStorageに保存
+              localStorage.setItem('currentStoreId', matchedStore.id.toString());
+              localStorage.setItem('oauth_authenticated', 'true');
+              localStorage.setItem('shopDomain', normalizedShop);
+              
+              // OAuth処理中フラグをクリア
+              localStorage.removeItem('oauth_in_progress');
+              localStorage.removeItem('oauth_started_at');
+              setIsOAuthInProgress(false);
+              setLoading(false);
+              
+              // /setup/initialにリダイレクト
+              const redirectParams = new URLSearchParams();
+              redirectParams.set('shop', normalizedShop);
+              if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+              redirectParams.set('embedded', '1');
+              
+              const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+              console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
+              window.location.replace(redirectUrl);
+              return;
+            } else {
+              console.warn('⚠️ [Install] shopDomainに一致するストアが見つかりませんでした:', {
+                shop: normalizedShop,
+                availableStores: stores.map((s: any) => s?.shopDomain || s?.domain)
+              });
+            }
+          } else {
+            console.warn('⚠️ [Install] ストア一覧が空です');
+          }
+        } catch (error) {
+          console.error('❌ [Install] ストア情報の取得に失敗:', error);
+          // エラー時は通常処理に進む（ユーザーが手動で進められるように）
+        }
+      };
+      
+      void fetchStoreInfo();
+    }
+  }, [isAuthenticated, isInitializing, normalizeShopDomain]);
+
+  // 🆕 削除: 4つ目のuseEffectは、2回目と3回目のuseEffectと役割が重複しており、
+  // かつ60秒のチェックがないため、以前の認証情報で即座にフラグをクリアしてしまう問題がある
+  // フラグのクリアは、2回目（60秒以上経過時）と3回目（ストア情報取得後）のuseEffectで行う
 
   // URLパラメータからエラー情報を取得
   useEffect(() => {
@@ -272,6 +697,15 @@ function InstallPolarisPageContent() {
     
     setError('');
 
+    // 🆕 既存の認証情報をクリア（新しいOAuth認証フローを開始するため）
+    // 理由: 既存の認証情報があると、useEffectが「認証成功」と誤判断して
+    // OAuth処理中フラグをクリアしてしまう
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('oauth_authenticated');
+      localStorage.removeItem('currentStoreId');
+      console.log('🧹 [Install] 既存の認証情報をクリアしました');
+    }
+
     // 入力検証
     if (!shopDomain.trim()) {
       console.warn('⚠️ ストアドメインが入力されていません');
@@ -290,6 +724,14 @@ function InstallPolarisPageContent() {
     setLoading(true);
     isInstallingRef.current = true; // インストール処理開始をマーク（useRefで確実に保持）
     hasCheckedStoreRef.current = false; // ストアチェックフラグをリセット（再インストール時に対応）
+    
+    // 🆕 OAuth処理中フラグを設定（localStorageに変更 - iframe再読み込み後もフラグが保持される）
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('oauth_in_progress', 'true');
+      localStorage.setItem('oauth_started_at', Date.now().toString());
+      console.log('🔄 [Install] OAuth処理中フラグを設定しました（localStorage）');
+    }
+    
     simulateProgress();
 
     try {
@@ -330,8 +772,21 @@ function InstallPolarisPageContent() {
         installParams.append('apiKey', apiKey);
       }
       
-      // バックエンドのinstallエンドポイントURL（HTTP 302リダイレクトを返す）
-      const installUrl = `${config.apiBaseUrl}/api/shopify/install?${installParams.toString()}`;
+      // 🆕 フロントエンドのAPI Routeを使用（バックエンドにプロキシ転送）
+      // 埋め込みアプリの場合、localhostは使用できないため、
+      // フロントエンドのngrok URL経由でバックエンドにアクセスする
+      const frontendOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      const installUrl = `${frontendOrigin}/api/shopify/install?${installParams.toString()}`;
+      
+      console.log('🔍 [Install] フロントエンドAPI Routeを使用:', {
+        frontendOrigin,
+        installUrl,
+        isEmbedded,
+        note: 'フロントエンドのAPI Routeがバックエンドにプロキシ転送します'
+      });
+      
+      // 🆕 デバッグ: installUrlの値を確認
+      console.log('🔍 [Install] installUrl生成完了:', installUrl);
       
       // デバッグ情報をログ出力
       const debugInfo = {
@@ -375,25 +830,42 @@ function InstallPolarisPageContent() {
       const embeddedParam = searchParams?.get('embedded');
       const isEmbeddedMode = embeddedParam === '1' || isEmbedded;
       
+      // 🆕 デバッグ: モード判定の値を確認
+      console.log('🔍 [Install] モード判定:', {
+        embeddedParam,
+        isEmbedded,
+        isEmbeddedMode,
+        hasApp: !!app,
+        app: app ? '存在' : '未存在',
+        searchParams: searchParams ? '存在' : '未存在'
+      });
+      
       // embedded=1かつApp Bridgeが利用可能な場合
       if (isEmbeddedMode && app) {
-        console.log('🖼️ 埋め込みアプリモード: ExitIframeページにリダイレクト');
-        console.log('📍 リダイレクト先:', installUrl);
-        console.log('🔍 App Bridge状態:', { app: !!app, isEmbedded, embeddedParam });
+        console.log('🖼️ [Install] 埋め込みアプリモード: ExitIframeページにリダイレクト');
+        console.log('📍 [Install] リダイレクト先 (installUrl):', installUrl);
+        console.log('🔍 [Install] App Bridge状態:', { app: !!app, isEmbedded, embeddedParam });
         
         try {
           // Shopify公式ドキュメントに基づく実装:
           // ExitIframeページにリダイレクトし、そこでApp BridgeのRedirect.toApp()を使用してiframeから脱出
           // その後、バックエンドの/api/shopify/installにリダイレクト
-          const exitIframeUrl = `/auth/exit-iframe?redirectUri=${encodeURIComponent(installUrl)}`;
+          console.log('🔄 [Install] ExitIframeページURLを構築開始...');
+          console.log('🔄 [Install] installUrl (エンコード前):', installUrl);
           
-          console.log('🔄 ExitIframeページURL:', exitIframeUrl);
-          console.log('🔄 App Bridge Redirect.toApp()を実行します...');
+          const encodedInstallUrl = encodeURIComponent(installUrl);
+          console.log('🔄 [Install] installUrl (エンコード後):', encodedInstallUrl);
+          
+          const exitIframeUrl = `/auth/exit-iframe?redirectUri=${encodedInstallUrl}`;
+          console.log('🔄 [Install] ExitIframeページURL:', exitIframeUrl);
+          
+          console.log('🔄 [Install] App Bridge Redirect.toApp()を実行します...');
+          console.log('🔄 [Install] Redirect.toApp()の引数:', { path: exitIframeUrl });
           
           app.dispatch(Redirect.toApp({ path: exitIframeUrl }));
           
-          console.log('✅ ExitIframeページへのリダイレクトを実行しました');
-          console.log('ℹ️ App Bridgeのリダイレクトは非同期で処理されます');
+          console.log('✅ [Install] ExitIframeページへのリダイレクトを実行しました');
+          console.log('ℹ️ [Install] App Bridgeのリダイレクトは非同期で処理されます');
           
           // App Bridgeのリダイレクトは非同期で処理されるため、
           // エラーチェックは行わない（リダイレクトが失敗した場合はExitIframeページでエラーが表示される）
@@ -418,9 +890,10 @@ function InstallPolarisPageContent() {
         }
       } else {
         // embedded=0または非埋め込みの場合、直接バックエンドにリダイレクト
-        console.log('🚀 通常モード: 直接リダイレクトでOAuth認証を開始:', installUrl);
-        console.log('📝 バックエンドがHTTP 302リダイレクトでOAuth URLに遷移します');
-        console.log('🔍 モード情報:', { isEmbeddedMode, isEmbedded, embeddedParam, hasApp: !!app });
+        console.log('🚀 [Install] 通常モード: 直接リダイレクトでOAuth認証を開始');
+        console.log('📝 [Install] バックエンドがHTTP 302リダイレクトでOAuth URLに遷移します');
+        console.log('🔍 [Install] モード情報:', { isEmbeddedMode, isEmbedded, embeddedParam, hasApp: !!app });
+        console.log('📍 [Install] リダイレクト先URL:', installUrl);
         
         // バックエンドURLの接続確認（オプション）
         try {
@@ -450,10 +923,19 @@ function InstallPolarisPageContent() {
         
         // バックエンドにリダイレクト（HTTP 302リダイレクトでOAuth URLに遷移）
         try {
+          console.log('🔄 [Install] リダイレクトを実行します:', installUrl);
+          console.log('🔄 [Install] isInstallingRef.current:', isInstallingRef.current);
+          
+          // 🆕 リダイレクト実行前にisInstallingRefを確認（デバッグ用）
+          // 注意: window.location.hrefを設定すると、このページはアンマウントされるため、
+          // setTimeout内の処理は実行されない可能性がある
+          // そのため、isInstallingRef.currentはリセットしない（リダイレクトが実行されるため）
           window.location.href = installUrl;
           
-          // リダイレクトが実行されたかどうかを確認（2秒後、より長いタイムアウト）
-          // 注意: バックエンドがリダイレクトを返すまでに時間がかかる場合があるため
+          // 🆕 リダイレクトが実行された場合、このコードは実行されない
+          // リダイレクトが失敗した場合のみ、以下のタイムアウト処理が実行される
+          // 注意: リダイレクトが成功した場合、このページはアンマウントされるため、
+          // setTimeout内の処理は実行されない
           setTimeout(() => {
             // まだ同じページにいる場合（リダイレクトが実行されなかった）
             if (window.location.href === beforeRedirect) {
@@ -468,17 +950,19 @@ function InstallPolarisPageContent() {
               
               setError('リダイレクトに失敗しました。バックエンドが起動しているか、ブラウザのコンソールを確認してください。');
               setLoading(false);
-              isInstallingRef.current = false;
+              isInstallingRef.current = false; // リダイレクトが失敗した場合のみリセット
             } else {
               console.log('✅ リダイレクトが実行されました');
               console.log('✅ 新しいURL:', window.location.href);
+              // リダイレクトが成功した場合、isInstallingRef.currentはリセットしない
+              // （このページはアンマウントされるため）
             }
           }, 2000); // タイムアウトを2秒に延長
         } catch (redirectError) {
           console.error('❌ リダイレクト実行中にエラー:', redirectError);
           setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
           setLoading(false);
-          isInstallingRef.current = false;
+          isInstallingRef.current = false; // エラー時のみリセット
         }
       }
     } catch (error) {
@@ -512,6 +996,20 @@ function InstallPolarisPageContent() {
         <div style={{ textAlign: 'center' }}>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // 🆕 OAuth処理中の場合はローディング画面を表示
+  // ただし、認証が成功している場合は通常処理に進む
+  if (isOAuthInProgress && !isAuthenticated) {
+    return (
+      <div style={{ backgroundColor: '#F6F6F7', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">認証処理中...</p>
+          <p className="text-gray-400 text-sm mt-2">しばらくお待ちください</p>
         </div>
       </div>
     )

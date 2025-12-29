@@ -195,27 +195,51 @@ export function getFrontendUrl(): string {
 
 /**
  * バックエンドAPIのURLを取得（エラー時は例外をスロー）
+ * 
+ * 優先順位:
+ * 1. NEXT_PUBLIC_BACKEND_URL (ngrok URLを含む、統一された環境変数)
+ * 2. NEXT_PUBLIC_API_URL (フォールバック)
+ * 3. API_URL (レガシー)
  */
 export function getBackendApiUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_URL || 
-              process.env.NEXT_PUBLIC_BACKEND_URL ||
-              process.env.API_URL;
-  
-  if (!url) {
-    throw new Error(
-      'Backend API URL is not configured. ' +
-      'Please set NEXT_PUBLIC_API_URL, NEXT_PUBLIC_BACKEND_URL, or API_URL environment variable.'
-    );
+  // 優先順位: NEXT_PUBLIC_BACKEND_URL（ngrok URLを含む、統一された環境変数）
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (backendUrl) {
+    try {
+      new URL(backendUrl);
+      return backendUrl;
+    } catch {
+      console.warn('⚠️ NEXT_PUBLIC_BACKEND_URL is invalid, falling back to NEXT_PUBLIC_API_URL');
+    }
   }
   
-  // URL形式の検証
-  try {
-    new URL(url);
-  } catch {
-    throw new Error(`Invalid backend API URL format: ${url}`);
+  // フォールバック: NEXT_PUBLIC_API_URL
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (apiUrl) {
+    try {
+      new URL(apiUrl);
+      return apiUrl;
+    } catch {
+      console.warn('⚠️ NEXT_PUBLIC_API_URL is invalid, falling back to API_URL');
+    }
   }
   
-  return url;
+  // レガシー: API_URL
+  const legacyUrl = process.env.API_URL;
+  if (legacyUrl) {
+    try {
+      new URL(legacyUrl);
+      return legacyUrl;
+    } catch {
+      throw new Error(`Invalid API_URL format: ${legacyUrl}`);
+    }
+  }
+  
+  // 環境変数が設定されていない場合はエラー
+  throw new Error(
+    'Backend API URL is not configured. ' +
+    'Please set NEXT_PUBLIC_BACKEND_URL, NEXT_PUBLIC_API_URL, or API_URL environment variable.'
+  );
 }
 
 /**

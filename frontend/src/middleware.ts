@@ -31,6 +31,16 @@ const DEV_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
+  // 🆕 ngrokの警告ページをスキップするためのヘッダーを追加
+  // ShopifyからのOAuthコールバックリクエストがngrokの警告ページでブロックされるのを防ぐ
+  const response = NextResponse.next()
+  
+  // ngrok経由のリクエストの場合、警告ページをスキップするヘッダーを追加
+  if (request.headers.get('host')?.includes('ngrok-free.dev') || 
+      request.headers.get('host')?.includes('ngrok.io')) {
+    response.headers.set('ngrok-skip-browser-warning', 'true')
+  }
+  
   // 本番環境で開発用ページへのアクセスをブロック
   const isProduction = process.env.NODE_ENV === 'production' || 
                        process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT === 'production' ||
@@ -55,7 +65,7 @@ export async function middleware(request: NextRequest) {
 
   // スキップパスの場合はそのまま通す
   if (SKIP_PATHS.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
+    return response
   }
 
   // storeIdがある場合のみ初期設定チェックを行う

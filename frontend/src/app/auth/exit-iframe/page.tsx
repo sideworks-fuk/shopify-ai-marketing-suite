@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAppBridge } from '@/lib/shopify/app-bridge-provider';
 import { Redirect } from '@shopify/app-bridge/actions';
@@ -21,17 +21,51 @@ export default function ExitIframePage() {
   const { app } = useAppBridge();
   const [error, setError] = useState<string | null>(null);
   const redirectUri = searchParams?.get('redirectUri');
+  
+  // 🆕 リダイレクト済みフラグ（重複実行を防ぐ）
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
+    // 🆕 既にリダイレクト済みの場合は早期リターン
+    if (hasRedirectedRef.current) {
+      console.log('⏸️ [ExitIframe] 既にリダイレクト済みのため、スキップします');
+      return;
+    }
+    // redirectUriが取得されるまで少し待機（URLパラメータの読み込みを待つ）
     if (!redirectUri) {
-      console.error('❌ [ExitIframe] redirectUriパラメータがありません');
-      setError('リダイレクト先が指定されていません。');
+      // redirectUriがない場合、/installページに自動リダイレクト（エラー画面を表示しない）
+      console.warn('⚠️ [ExitIframe] redirectUriパラメータがありません。/installページにリダイレクトします。');
+      
+      // 現在のURLパラメータ（shop, host等）を保持して/installページにリダイレクト
+      const currentParams = new URLSearchParams(window.location.search);
+      const shop = currentParams.get('shop');
+      const host = currentParams.get('host');
+      const embedded = currentParams.get('embedded');
+      
+      // /installページへのリダイレクトURLを構築
+      const installUrl = new URL('/install', window.location.origin);
+      if (shop) installUrl.searchParams.set('shop', shop);
+      if (host) installUrl.searchParams.set('host', host);
+      if (embedded) installUrl.searchParams.set('embedded', embedded);
+      
+      console.log('🔄 [ExitIframe] /installページにリダイレクト:', installUrl.toString());
+      
+      // トップフレームにリダイレクト（iframeから脱出）
+      try {
+        window.top!.location.href = installUrl.toString();
+      } catch (e) {
+        // window.topにアクセスできない場合（既にトップフレームの場合）
+        window.location.href = installUrl.toString();
+      }
       return;
     }
 
     console.log('🖼️ [ExitIframe] iframe脱出処理を開始');
     console.log('📍 [ExitIframe] リダイレクト先:', redirectUri);
     console.log('🔍 [ExitIframe] redirectUriの種類:', redirectUri?.startsWith('http') ? '外部URL' : '相対パス');
+
+    // 🆕 リダイレクト実行前にフラグを設定（重複実行を防ぐ）
+    hasRedirectedRef.current = true;
 
     try {
       // redirectUriが外部URL（http:// または https://）の場合
@@ -52,8 +86,24 @@ export default function ExitIframePage() {
         // App BridgeのRedirect.toApp()を使用してリダイレクト
         // これによりiframeから脱出できる
         if (!app) {
-          console.error('❌ [ExitIframe] App Bridgeが利用できません（相対パスのリダイレクトには必要）');
-          setError('App Bridgeが利用できません。埋め込みアプリとして実行されていることを確認してください。');
+          console.warn('⚠️ [ExitIframe] App Bridgeが利用できません。外部URLとして扱い、トップフレームにリダイレクトします。');
+          
+          // App Bridgeが利用できない場合、相対パスを絶対URLに変換してトップフレームにリダイレクト
+          const absoluteUrl = new URL(redirectUri, window.location.origin).toString();
+          console.log('🔄 [ExitIframe] 絶対URLに変換:', absoluteUrl);
+          
+          try {
+            window.top!.location.href = absoluteUrl;
+            console.log('✅ [ExitIframe] トップフレームへのリダイレクトを実行しました（App Bridgeなし）');
+          } catch (fallbackError) {
+            console.error('❌ [ExitIframe] フォールバックリダイレクトも失敗:', fallbackError);
+            // 最終的なフォールバック: /installページにリダイレクト
+            const currentParams = new URLSearchParams(window.location.search);
+            const shop = currentParams.get('shop');
+            const installUrl = new URL('/install', window.location.origin);
+            if (shop) installUrl.searchParams.set('shop', shop);
+            window.top!.location.href = installUrl.toString();
+          }
           return;
         }
         
@@ -64,6 +114,9 @@ export default function ExitIframePage() {
         console.log('✅ [ExitIframe] App Bridgeリダイレクトを実行しました（iframe脱出）');
       }
     } catch (error) {
+      // 🆕 エラー時はフラグをリセット（リトライ可能に）
+      hasRedirectedRef.current = false;
+      
       console.error('❌ [ExitIframe] リダイレクトに失敗:', error);
       console.error('❌ [ExitIframe] エラー詳細:', {
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -76,8 +129,10 @@ export default function ExitIframePage() {
       if (redirectUri && (redirectUri.startsWith('http://') || redirectUri.startsWith('https://'))) {
         console.warn('⚠️ [ExitIframe] フォールバック: トップフレームにリダイレクトを試行');
         try {
+          hasRedirectedRef.current = true; // フォールバック実行前にフラグを再設定
           window.top!.location.href = redirectUri;
         } catch (fallbackError) {
+          hasRedirectedRef.current = false; // フォールバックも失敗した場合はフラグをリセット
           console.error('❌ [ExitIframe] フォールバックリダイレクトも失敗:', fallbackError);
           setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
         }

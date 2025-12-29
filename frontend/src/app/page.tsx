@@ -155,6 +155,15 @@ export default function HomePage() {
           
           console.log('🔍 [ルートページ] レスポンスステータス:', response.status, response.statusText)
           
+          // 🆕 401エラーの場合は、認証が完了していない可能性があるため、インストールページへリダイレクト
+          if (response.status === 401) {
+            console.warn('⚠️ [ルートページ] 401エラー: 認証が完了していない可能性があります。インストールページへリダイレクトします。')
+            const redirectUrl = buildRedirectUrl('/install')
+            setStatusMessage('インストールページへ移動中...')
+            router.replace(redirectUrl)
+            return
+          }
+          
           if (response.ok) {
             const result: unknown = await response.json()
             console.log('🔍 [ルートページ] レスポンスデータ:', result)

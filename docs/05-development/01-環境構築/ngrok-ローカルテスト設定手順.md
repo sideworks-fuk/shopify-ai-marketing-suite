@@ -1,10 +1,15 @@
-# ngrok ローカルテスト設定手順
+# ローカル開発環境設定手順（Azure開発環境使用）
 
 ## 作成日
 2025-12-29
+更新日: 2025-12-29
 
 ## 目的
-ngrokを使用したローカル開発環境でのShopify OAuth認証テストを実施するための設定手順。
+バックエンドをAzure開発環境にデプロイし、フロントエンド（ローカル）から接続する設定手順。
+
+## 方針変更（2025-12-29）
+- バックエンド: Azure開発環境にデプロイ（`https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net`）
+- フロントエンド: ローカル（`localhost:3000`）またはngrok（Shopify埋め込みアプリの場合のみ）
 
 ---
 
@@ -32,17 +37,50 @@ ngrokを使ったローカルテストの場合、**GitHub Actionsの環境変�
 
 ### Step 1: ngrokトンネルの起動
 
-#### バックエンド用（ポート7088）
+#### 方法1: ngrok設定ファイルを使用（推奨）
+
+プロジェクトルートに`ngrok.yml`ファイルを作成し、以下の内容を設定：
+
+```yaml
+version: "3"
+agent:
+    authtoken: YOUR_AUTH_TOKEN
+tunnels:
+  frontend:
+    proto: http
+    addr: 3000
+  backend:
+    proto: http
+    addr: 7088
+  demo:
+    proto: http
+    addr: 5168
+```
+
+**起動方法**:
 ```powershell
-ngrok http 7088
+# すべてのトンネルを同時に起動
+ngrok start --all
+
+# または、個別に起動（警告ページをスキップするオプション付き）
+ngrok start frontend --host-header=rewrite
+ngrok start backend
 ```
 
 ngrok起動後、以下のようなURLが表示されます：
 ```
-Forwarding: https://unsavagely-repressive-terrance.ngrok-free.dev -> http://localhost:7088
+Forwarding: https://your-frontend.ngrok-free.dev -> http://localhost:3000
+Forwarding: https://your-backend.ngrok-free.dev -> http://localhost:7088
 ```
 
-#### フロントエンド用（ポート3000）
+#### 方法2: 個別に起動（従来の方法）
+
+##### バックエンド用（ポート7088）
+```powershell
+ngrok http 7088
+```
+
+##### フロントエンド用（ポート3000）
 ```powershell
 # 別のターミナルで実行
 # 警告ページをスキップするために --host-header オプションを追加
@@ -55,26 +93,24 @@ ngrok http 3000 --host-header=rewrite
 ngrok http 3000 --host-header=rewrite --request-header-add="ngrok-skip-browser-warning: true"
 ```
 
-ngrok起動後、以下のようなURLが表示されます：
-```
-Forwarding: https://your-frontend.ngrok-free.dev -> http://localhost:3000
-```
-
-**重要**: `--host-header=rewrite`オプションを使用することで、ngrokの警告ページをスキップし、チャンク読み込みエラーを防ぐことができます。
+**重要**: 
+- `--host-header=rewrite`オプションを使用することで、ngrokの警告ページをスキップし、チャンク読み込みエラーを防ぐことができます
+- フロントエンドとバックエンドの両方をngrok URLにすることで、SSL証明書エラーを回避できます
 
 ### Step 2: フロントエンド環境変数の設定
 
 **ファイル**: `frontend/.env.local`（存在しない場合は作成）
 
 ```env
-# バックエンドAPI URL
-# ローカル開発環境では localhost:7088 を使用
-# GitHub Actions環境変数では ngrok URL を使用
-NEXT_PUBLIC_API_URL=https://localhost:7088
+# バックエンドURL（Azure開発環境）
+NEXT_PUBLIC_BACKEND_URL=https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net
 
-# フロントエンドURL（ngrok経由）
-# 注意: フロントエンド用のngrok URLを設定してください
-NEXT_PUBLIC_SHOPIFY_APP_URL=https://unsavagely-repressive-terrance.ngrok-free.dev
+# フロントエンドURL（Shopify埋め込みアプリの場合のみngrok URLを設定）
+# オプション1: ngrokを使用（Shopify埋め込みアプリの場合）
+NEXT_PUBLIC_SHOPIFY_APP_URL=https://your-frontend-ngrok-url.ngrok-free.dev
+
+# オプション2: ローカルのみ（直接アクセスの場合）
+# NEXT_PUBLIC_SHOPIFY_APP_URL=http://localhost:3000
 
 # その他の設定
 NEXT_PUBLIC_ENVIRONMENT=development
@@ -83,15 +119,17 @@ NEXT_PUBLIC_USE_HTTPS=true
 NEXT_PUBLIC_DISABLE_FEATURE_GATES=true
 ```
 
-**重要**: `NEXT_PUBLIC_SHOPIFY_APP_URL`は、フロントエンド用のngrok URLを設定してください。`localhost:7088`は使用できません。
+**重要**: 
+- `NEXT_PUBLIC_BACKEND_URL`は、Azure開発環境のURLを設定してください
+- `NEXT_PUBLIC_SHOPIFY_APP_URL`は、Shopify埋め込みアプリとして動作させる場合のみngrok URLを設定してください
 
 ### Step 3: バックエンド環境変数の設定
 
-**注意**: `appsettings.Development.json`は現在使用されていません。バックエンドは`ShopifyApps`テーブルから`AppUrl`を取得します。
+**注意**: バックエンドはAzure開発環境にデプロイされているため、ローカルでのバックエンド起動は不要です。
 
-**ローカル開発環境**:
-- バックエンドは `https://localhost:7088` で動作します
-- フロントエンドからバックエンドAPIへの呼び出しは、`NEXT_PUBLIC_API_URL`で設定されたURLを使用します
+**Azure開発環境**:
+- バックエンドは `https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azurewebsites.net` で動作します
+- フロントエンドからバックエンドAPIへの呼び出しは、`NEXT_PUBLIC_BACKEND_URL`で設定されたURLを使用します
 
 **環境変数（オプション）**:
 バックエンドの環境変数として設定する場合：
@@ -231,8 +269,10 @@ ngrok http 3000
 
 ## 📝 設定確認チェックリスト
 
-- [x] フロントエンド用ngrokトンネルが起動している（ポート3000）✅
-- [x] `frontend/.env.local`に`NEXT_PUBLIC_API_URL`が設定されている ✅
+- [x] ngrok設定ファイル（`ngrok.yml`）が作成されている ✅
+- [x] `ngrok start --all`でフロントエンドとバックエンドのトンネルが起動している ✅
+- [x] `frontend/.env.local`に`NEXT_PUBLIC_BACKEND_URL`が設定されている（バックエンド用ngrok URL） ✅
+- [x] `frontend/.env.local`に`NEXT_PUBLIC_API_URL`が設定されている（フォールバック用） ✅
 - [x] `frontend/.env.local`に`NEXT_PUBLIC_SHOPIFY_APP_URL`が設定されている（フロントエンド用ngrok URL） ✅
 - [x] `ShopifyApps`テーブルの`AppUrl`が更新されている（Id: 6） ✅
 - [x] `ShopifyApps`テーブルの`RedirectUri`が更新されている（Id: 6） ✅
@@ -245,7 +285,7 @@ ngrok http 3000
 **注意**: バックエンド環境変数の設定が必要です。バックエンド起動前に以下を実行してください：
 ```powershell
 $env:SHOPIFY_USE_FRONTEND_PROXY = "true"
-$env:SHOPIFY_FRONTEND_BASEURL = "https://unsavagely-repressive-terrance.ngrok-free.dev"
+$env:SHOPIFY_FRONTEND_BASEURL = "https://your-frontend-ngrok-url.ngrok-free.dev"
 ```
 
 ---

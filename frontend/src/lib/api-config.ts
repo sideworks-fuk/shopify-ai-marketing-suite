@@ -53,7 +53,7 @@ export const getApiUrl = () => {
   console.log('  - Current Environment:', currentEnv);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT:', process.env.NEXT_PUBLIC_ENVIRONMENT);
-  console.log('  - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL); // deprecated
+  console.log('  - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
   console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
   console.log('  - NEXT_PUBLIC_USE_HTTPS:', process.env.NEXT_PUBLIC_USE_HTTPS);
   console.log('  - NEXT_PUBLIC_ENVIRONMENT (build time):', buildInfo.nextPublicEnvironment);
@@ -63,35 +63,20 @@ export const getApiUrl = () => {
   console.log('  - Environment Name:', config.name);
   console.log('  - Is Production:', config.isProduction);
   
-  // 最優先: NEXT_PUBLIC_API_URL（統一）
+  // 優先順位: NEXT_PUBLIC_BACKEND_URL（ngrok URLを含む、統一された環境変数）
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    console.log('✅ Using NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
+  
+  // フォールバック: NEXT_PUBLIC_API_URL
   if (process.env.NEXT_PUBLIC_API_URL) {
     console.log('✅ Using NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  // 次点: 互換のため NEXT_PUBLIC_BACKEND_URL（将来廃止予定）
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-    console.log('⚠️ Using legacy NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-    return process.env.NEXT_PUBLIC_BACKEND_URL;
-  }
   
-  // ローカル開発環境の特別処理
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    // 環境変数でHTTPS使用を強制する場合
-    if (process.env.NEXT_PUBLIC_USE_HTTPS === 'true') {
-      const httpsUrl = 'https://localhost:7088';
-      console.log('🔒 HTTPS使用モード（環境変数設定）:', httpsUrl);
-      console.log('⚠️ HTTPS証明書エラーが発生する場合は、以下を実行してください:');
-      console.log('   1. dotnet dev-certs https --trust (バックエンドディレクトリで実行)');
-      console.log('   2. ブラウザで https://localhost:7088 にアクセスして証明書を受け入れる');
-      return httpsUrl;
-    }
-    
-    // デフォルトはHTTP（証明書問題を回避）
-    const httpUrl = 'http://localhost:7088';
-    console.log('⚠️ ローカル開発環境検出 - HTTPを使用:', httpUrl);
-    console.log('💡 HTTPSを使用する場合は、.env.localに NEXT_PUBLIC_USE_HTTPS=true を設定してください');
-    return httpUrl;
-  }
+  // ローカル開発環境の特別処理は削除
+  // バックエンドはAzure開発環境にデプロイされているため、常にAzure URLを使用
   
   // ローカル開発環境でのデバッグモード
   if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {

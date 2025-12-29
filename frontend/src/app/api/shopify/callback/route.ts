@@ -90,6 +90,14 @@ function getFrontendUrl(request: NextRequest): string {
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
+  // 🆕 デバッグ: リクエストが到達したことを確認
+  console.log('🚀 [CallbackProxy] ===== リクエスト受信 =====');
+  console.log('📍 [CallbackProxy] リクエストURL:', request.url);
+  console.log('📍 [CallbackProxy] リクエストメソッド:', request.method);
+  console.log('📍 [CallbackProxy] リクエストヘッダー:', Object.fromEntries(request.headers.entries()));
+  console.log('📍 [CallbackProxy] リクエスト時刻:', new Date().toISOString());
+  console.log('📍 [CallbackProxy] リクエスト元:', request.headers.get('referer') || '不明');
+  
   try {
     const { searchParams } = new URL(request.url);
     
@@ -120,8 +128,22 @@ export async function GET(request: NextRequest) {
       console.error('❌ [CallbackProxy] 必須パラメータが不足:', { 
         code: !!code, 
         shop: !!shop, 
-        state: !!state 
+        state: !!state,
+        allParams: Object.keys(allParams),
+        url: request.url
       });
+      
+      // 🆕 デバッグ: パラメータがない場合でも、テスト用にレスポンスを返す
+      // これにより、API Routeが正しく動作しているか確認できる
+      if (process.env.NODE_ENV === 'development') {
+        return NextResponse.json({
+          error: 'Missing required parameters',
+          message: 'This endpoint requires code, shop, and state parameters',
+          receivedParams: Object.keys(allParams),
+          url: request.url,
+          timestamp: new Date().toISOString()
+        }, { status: 400 });
+      }
       
       const frontendUrl = getFrontendUrl(request);
       const errorUrl = new URL('/auth/error', frontendUrl);
@@ -216,30 +238,84 @@ export async function GET(request: NextRequest) {
       const location = backendResponse.headers.get('location');
       if (location) {
         console.log('↪️ [CallbackProxy] バックエンドからのリダイレクト:', location);
-        return NextResponse.redirect(location);
+        console.log('📍 [CallbackProxy] リダイレクト先の詳細:', {
+          location,
+          isAbsolute: location.startsWith('http://') || location.startsWith('https://'),
+          isRelative: location.startsWith('/'),
+          status: backendResponse.status,
+          hasAuthSuccess: location.includes('auth_success'),
+          hasStoreId: location.includes('storeId'),
+          // 🆕 URLパラメータを解析してログ出力
+          urlParams: (() => {
+            try {
+              const url = new URL(location);
+              return Object.fromEntries(url.searchParams.entries());
+            } catch {
+              return 'URL解析エラー';
+            }
+          })()
+        });
+        
+        // 🆕 Shopify管理画面のアプリURLにリダイレクトしている場合、そのURLをそのまま使用
+        // バックエンドが既にauth_success=true&storeId={storeId}を含むURLを生成しているため
+        if (location.startsWith('https://') && location.includes('/admin/apps/')) {
+          console.log('✅ [CallbackProxy] Shopify管理画面のアプリURLを検出。そのままリダイレクトします。');
+          console.log('🔄 [CallbackProxy] 最終リダイレクトURL（Shopify管理画面）:', location);
+          return NextResponse.redirect(location);
+        }
+        
+        // リダイレクトURLが絶対URLの場合はそのまま使用
+        // 相対URLの場合は、フロントエンドURLをベースに構築
+        let redirectUrl: string;
+        if (location.startsWith('http://') || location.startsWith('https://')) {
+          redirectUrl = location;
+        } else {
+          const frontendUrl = getFrontendUrl(request);
+          redirectUrl = new URL(location, frontendUrl).href;
+        }
+        
+        console.log('🔄 [CallbackProxy] 最終リダイレクトURL:', redirectUrl);
+        return NextResponse.redirect(redirectUrl);
+      } else {
+        console.warn('⚠️ [CallbackProxy] リダイレクトステータスですが、locationヘッダーがありません:', {
+          status: backendResponse.status,
+          headers: Object.fromEntries(backendResponse.headers.entries())
+        });
       }
     }
 
-    // 成功レスポンスの処理
+    // 成功レスポンスの処理（200 OKの場合）
+    // 注意: バックエンドがRedirect()を返す場合は、上記のリダイレクト処理で処理される
+    // ここは、バックエンドがJSONレスポンスを返す場合のフォールバック
     if (backendResponse.ok) {
+      console.log('ℹ️ [CallbackProxy] バックエンドが200 OKを返しました。リダイレクト処理を確認します。');
+      
+      // バックエンドからの追加情報があれば含める
+      let storeId: string | null = null;
+      try {
+        const responseData = await backendResponse.json();
+        if (responseData.success) {
+          console.log('✅ [CallbackProxy] 認証成功（JSONレスポンス）:', responseData);
+          storeId = responseData.storeId?.toString() || null;
+        }
+      } catch {
+        // JSONパースエラーは無視（レスポンスがJSONでない場合）
+        console.log('ℹ️ [CallbackProxy] レスポンスがJSONではありません。テキストレスポンスの可能性があります。');
+      }
+      
+      // バックエンドがリダイレクトを返さなかった場合、/auth/successにリダイレクト
       const frontendUrl = getFrontendUrl(request);
       const successUrl = new URL('/auth/success', frontendUrl);
       successUrl.searchParams.set('shop', shop);
       successUrl.searchParams.set('state', state);
-      
-      // バックエンドからの追加情報があれば含める
-      try {
-        const responseData = await backendResponse.json();
-        if (responseData.success) {
-          console.log('✅ [CallbackProxy] 認証成功:', {
-            shop,
-            redirectTo: successUrl.toString()
-          });
-        }
-      } catch {
-        // JSONパースエラーは無視（レスポンスがJSONでない場合）
+      if (storeId) {
+        successUrl.searchParams.set('storeId', storeId);
+      }
+      if (host) {
+        successUrl.searchParams.set('host', host);
       }
       
+      console.log('🔄 [CallbackProxy] /auth/successにリダイレクト:', successUrl.toString());
       return NextResponse.redirect(successUrl);
     }
 

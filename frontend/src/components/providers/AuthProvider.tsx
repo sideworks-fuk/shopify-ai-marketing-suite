@@ -141,16 +141,22 @@ function AuthProviderInner({ children }: AuthProviderProps) {
           // Shopify埋め込みアプリの場合、App Bridgeからトークンを取得
           // Shopify公式ドキュメントによると、getSessionToken()はPromiseを返し、
           // セッショントークンがundefinedの場合はAPP::ERROR::FAILED_AUTHENTICATIONエラーを投げる
-          // タイムアウト処理は不要（Shopify側が適切に処理する）
+          // OAuth未完了の場合はトークンが取得できないため、タイムアウト処理を追加
           console.log('🔍 [AuthProvider] getToken()を呼び出します...', { authMode, isEmbedded })
           try {
-            const token = await getToken()
+            // タイムアウト処理を追加（5秒）
+            const tokenPromise = getToken()
+            const timeoutPromise = new Promise<null>((resolve) => {
+              setTimeout(() => resolve(null), 5000)
+            })
+            
+            const token = await Promise.race([tokenPromise, timeoutPromise])
             console.log('🔍 [AuthProvider] getToken()の結果:', { token: token ? `取得済み(${token.length}文字)` : 'null' })
             if (token) {
               console.log('✅ Shopifyセッショントークンを取得しました')
               setIsAuthenticated(true)
             } else {
-              console.log('⚠️ Shopifyセッショントークンが取得できませんでした')
+              console.log('⚠️ Shopifyセッショントークンが取得できませんでした（タイムアウトまたはOAuth未完了）')
               setIsAuthenticated(false)
             }
           } catch (error) {
@@ -216,7 +222,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     initializeAuth()
   }, [apiClient, isApiClientReady, authMode, isEmbedded, getToken])
   
-  // デバッグ用: isInitializingが長時間trueのままの場合の警告
+  // デバッグ用: isInitializingが長時間trueのままの場合の警告とタイムアウト処理
   useEffect(() => {
     if (isInitializing) {
       const timeoutId = setTimeout(() => {
@@ -226,6 +232,12 @@ function AuthProviderInner({ children }: AuthProviderProps) {
           authMode,
           isEmbedded,
         })
+        
+        // タイムアウト時は強制的に初期化を完了させる（無限ループ防止）
+        // OAuth未完了の場合は認証なしで継続
+        console.warn('⚠️ [AuthProvider] タイムアウト: 強制的に初期化を完了します')
+        setIsInitializing(false)
+        setIsAuthenticated(false)
       }, 10000)
       
       return () => clearTimeout(timeoutId)

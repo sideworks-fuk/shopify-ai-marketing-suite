@@ -24,30 +24,25 @@ const isBuildTime = typeof window === 'undefined';
 // 環境変数から設定を取得する関数
 export const getApiBaseUrl = (): string => {
   // 環境変数の優先順位
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL; // legacy
+  // 1. NEXT_PUBLIC_BACKEND_URL（ngrok URLを含む、統一された環境変数）
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (backendUrl) {
+    if (!isBuildTime) console.log('✅ Using NEXT_PUBLIC_BACKEND_URL:', backendUrl);
+    return backendUrl;
+  }
   
+  // 2. NEXT_PUBLIC_API_URL（フォールバック）
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (apiUrl) {
     if (!isBuildTime) console.log('🔍 Using NEXT_PUBLIC_API_URL:', apiUrl);
     return apiUrl;
   }
   
-  if (backendUrl) {
-    if (!isBuildTime) console.log('⚠️ Using legacy NEXT_PUBLIC_BACKEND_URL:', backendUrl);
-    return backendUrl;
-  }
-  
-  // デフォルト値
-  if (process.env.NODE_ENV === 'development') {
-    if (!isBuildTime) console.warn('⚠️ No backend URL environment variable found, using default for development');
-    return 'https://localhost:7088';
-  }
-  
-  // 本番環境では必須
+  // 環境変数が設定されていない場合はエラー
   if (!isBuildTime) {
-    console.error('🚨 CRITICAL: NEXT_PUBLIC_API_URL is not set in production environment');
+    console.error('🚨 CRITICAL: NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL is not set');
   }
-  throw new Error('NEXT_PUBLIC_API_URL must be set in production environment');
+  throw new Error('NEXT_PUBLIC_BACKEND_URL or NEXT_PUBLIC_API_URL must be set in environment variables');
 };
 
 export const ENVIRONMENTS: Record<string, EnvironmentConfig> = {
