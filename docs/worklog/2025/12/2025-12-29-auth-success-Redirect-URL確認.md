@@ -1,9 +1,11 @@
 # /auth/success の Redirect URL 登録必要性の確認
 
-## 作成日
-2025-12-29
+## 作業情報
+- 開始日時: 2025-12-29
+- 完了日時: 2025-12-29
+- 担当: 福田＋AI Assistant
 
-## 目的
+## 作業概要
 Shopify Partners DashboardのRedirect URLsに`/auth/success`を登録する必要があるかを確認する。
 
 ---
@@ -176,15 +178,6 @@ Shopify → https://shopifyapp-backend-develop-a0e6fec4ath6fzaa.japanwest-01.azu
 
 ## 📚 関連ドキュメント
 
-- [ngrok-コールバックプロキシ実装](./ngrok-コールバックプロキシ実装.md)
+- [ngrok-コールバックプロキシ実装](../05-development/01-環境構築/ngrok-コールバックプロキシ実装.md)
 - [インストール機能設計書](../../03-feature-development/インストールフロー改善機能/インストール機能設計書.md)
 - [404エラー-修正アクション項目](../../05-development/08-デバッグ・トラブル/01-problem-analysis/2025-12/404エラー-修正アクション項目.md)
-
----
-
-## 📝 更新履歴
-
-- 2025-12-29: 初版作成
-  - `/auth/success`の使用状況を確認
-  - Redirect URLsへの登録必要性を検証
-  - 推奨設定を追加

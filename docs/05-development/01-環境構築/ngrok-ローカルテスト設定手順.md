@@ -222,14 +222,22 @@ ngrok http 3000
 
 ## 📝 設定確認チェックリスト
 
-- [ ] バックエンド用ngrokトンネルが起動している（ポート7088）
-- [ ] フロントエンド用ngrokトンネルが起動している（ポート3000）
-- [ ] `frontend/.env.local`に`NEXT_PUBLIC_API_URL`が設定されている
-- [ ] `frontend/.env.local`に`NEXT_PUBLIC_SHOPIFY_APP_URL`が設定されている（フロントエンド用ngrok URL）
-- [ ] `ShopifyApps`テーブルの`AppUrl`が更新されている（Id: 6）
-- [ ] `ShopifyApps`テーブルの`RedirectUri`が更新されている（Id: 6）
-- [ ] Shopify Partners DashboardのApp URLが更新されている
-- [ ] Shopify Partners DashboardのAllowed redirection URLsが更新されている
+- [x] フロントエンド用ngrokトンネルが起動している（ポート3000）✅
+- [x] `frontend/.env.local`に`NEXT_PUBLIC_API_URL`が設定されている ✅
+- [x] `frontend/.env.local`に`NEXT_PUBLIC_SHOPIFY_APP_URL`が設定されている（フロントエンド用ngrok URL） ✅
+- [x] `ShopifyApps`テーブルの`AppUrl`が更新されている（Id: 6） ✅
+- [x] `ShopifyApps`テーブルの`RedirectUri`が更新されている（Id: 6） ✅
+- [x] バックエンド設定（AllowedOrigins）にngrok URLが追加されている ✅
+- [x] Shopify Partners DashboardのApp URLが更新されている ✅
+- [x] Shopify Partners DashboardのAllowed redirection URLsが更新されている ✅
+- [ ] **バックエンド環境変数`SHOPIFY_USE_FRONTEND_PROXY`が設定されている** ⚠️
+- [ ] **バックエンド環境変数`SHOPIFY_FRONTEND_BASEURL`が設定されている** ⚠️
+
+**注意**: バックエンド環境変数の設定が必要です。バックエンド起動前に以下を実行してください：
+```powershell
+$env:SHOPIFY_USE_FRONTEND_PROXY = "true"
+$env:SHOPIFY_FRONTEND_BASEURL = "https://unsavagely-repressive-terrance.ngrok-free.dev"
+```
 
 ---
 
