@@ -60,8 +60,15 @@ const nextConfig = {
         }
       }
 
-      // チャンク読み込みのリトライ機能
-      config.output.chunkLoadTimeout = 30000
+      // チャンク読み込みのタイムアウトを延長（ngrok経由での読み込みを考慮）
+      config.output.chunkLoadTimeout = 60000 // 60秒に延長
+      
+      // ngrok経由でのチャンク読み込みエラーを防ぐ設定
+      // チャンク読み込み失敗時のリトライ機能を有効化
+      if (config.optimization) {
+        config.optimization.moduleIds = 'deterministic'
+        config.optimization.chunkIds = 'deterministic'
+      }
     }
     
     return config

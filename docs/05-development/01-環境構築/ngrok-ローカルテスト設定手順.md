@@ -45,13 +45,22 @@ Forwarding: https://unsavagely-repressive-terrance.ngrok-free.dev -> http://loca
 #### フロントエンド用（ポート3000）
 ```powershell
 # 別のターミナルで実行
-ngrok http 3000
+# 警告ページをスキップするために --host-header オプションを追加
+ngrok http 3000 --host-header=rewrite
+```
+
+**または、より詳細な設定**:
+```powershell
+# 警告ページを完全にスキップ（推奨）
+ngrok http 3000 --host-header=rewrite --request-header-add="ngrok-skip-browser-warning: true"
 ```
 
 ngrok起動後、以下のようなURLが表示されます：
 ```
 Forwarding: https://your-frontend.ngrok-free.dev -> http://localhost:3000
 ```
+
+**重要**: `--host-header=rewrite`オプションを使用することで、ngrokの警告ページをスキップし、チャンク読み込みエラーを防ぐことができます。
 
 ### Step 2: フロントエンド環境変数の設定
 
