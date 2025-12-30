@@ -71,6 +71,54 @@ const CustomerFilter = () => {
 export default CustomerFilter;
 ```
 
+### useSearchParams() 使用時のHydrationエラー対策
+
+**重要**: `useSearchParams()` を使用するコンポーネントでは、必ず `isMounted` パターンを適用する
+
+```typescript
+// ✅ Good: isMountedパターンを適用
+"use client";
+
+import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+const MyComponent = () => {
+  const searchParams = useSearchParams();
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // クライアントサイドマウント状態を設定
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // マウント前はサーバーと同じ構造のローディングを返す
+  if (!isMounted) {
+    return (
+      <div className="loading-container">
+        <p>読み込み中...</p>
+      </div>
+    );
+  }
+  
+  // 実際のコンテンツ
+  const value = searchParams.get('key');
+  return <div>Value: {value}</div>;
+};
+
+export default MyComponent;
+```
+
+**理由**:
+- `useSearchParams()` はクライアントサイドでのみ利用可能
+- サーバーサイドとクライアントサイドでレンダリング結果が異なると Hydration エラーが発生
+- `isMounted` パターンで初回レンダリングを統一することで回避
+
+**適用が必要なケース**:
+1. `useSearchParams()` を直接使用するコンポーネント
+2. `useSearchParams()` を使用するカスタムフック（例: `useIsEmbedded`）を使用するコンポーネント
+3. `usePathname()` と組み合わせて動的なコンテンツを生成するコンポーネント
+4. プロバイダーコンポーネント（全ページに影響するため特に重要）
+
 ### Server/Client境界の最適化
 
 **原則**: Client Componentsはツリーの葉（リーフ）に配置
