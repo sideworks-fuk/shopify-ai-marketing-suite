@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { menuStructure } from '@/lib/menuConfig'
 import {
   DropdownMenu,
@@ -13,7 +14,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 
-function buildHrefWithCurrentQuery(href: string, searchParams: URLSearchParams): string {
+function buildHrefWithCurrentQuery(href: string, searchParams: URLSearchParams | null): string {
+  if (!searchParams) return href
   const qs = searchParams.toString()
   if (!qs) return href
   return href.includes('?') ? `${href}&${qs}` : `${href}?${qs}`
@@ -22,6 +24,26 @@ function buildHrefWithCurrentQuery(href: string, searchParams: URLSearchParams):
 export function EmbeddedTopNav() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+  
+  // マウント前は空のナビを返す（Hydrationエラー対策）
+  // サーバーサイドとクライアントサイドの初回レンダリング結果を一致させる
+  if (!isMounted) {
+    return (
+      <div className="border-b border-gray-200 bg-white">
+        <div className="px-4 py-2">
+          <nav className="flex flex-wrap items-center gap-2">
+            {/* ローディング中のプレースホルダー */}
+          </nav>
+        </div>
+      </div>
+    )
+  }
 
   const items = menuStructure.filter((m) => m.isImplemented && m.href)
 

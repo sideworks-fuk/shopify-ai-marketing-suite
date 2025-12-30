@@ -37,6 +37,9 @@ interface AppBridgeProviderProps {
 }
 
 export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
+  // 🆕 クライアントサイドマウント状態（Hydrationエラー対策）
+  const [isMounted, setIsMounted] = useState(false)
+  
   const [app, setApp] = useState<any | null>(null)
   const [isEmbedded, setIsEmbedded] = useState(false)
   const [shop, setShop] = useState<string | null>(null)
@@ -46,6 +49,11 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
   
   // 無限ループ防止: Redirect.toApp()の呼び出しを1回のみに制限
   const redirectCalledRef = useRef<Set<string>>(new Set())
+
+  // 🆕 クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const apiKey = useMemo(() => process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '', [])
   const storageKeys = useMemo(() => ({ host: 'shopify_host', shop: 'shopify_shop' }), [])
@@ -199,6 +207,26 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
     getToken,
     shop,
     host
+  }
+
+  // 🆕 クライアントサイドでのみレンダリング（Hydrationエラー対策）
+  // 理由: useSearchParams() を使用しているため、サーバーサイドとクライアントサイドで
+  // レンダリング結果が異なる可能性がある。サーバーサイドでは初期値のみを返し、
+  // クライアントサイドでのみ実際の値を設定することで、Hydration エラーを防止する。
+  if (!isMounted) {
+    // サーバーサイド/初期レンダリング時は初期値のコンテキストを返す
+    const initialValue: AppBridgeContextType = {
+      app: null,
+      isEmbedded: false,
+      getToken: async () => null,
+      shop: null,
+      host: null
+    }
+    return (
+      <AppBridgeContext.Provider value={initialValue}>
+        {children}
+      </AppBridgeContext.Provider>
+    )
   }
 
   return (

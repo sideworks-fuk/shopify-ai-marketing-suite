@@ -42,6 +42,9 @@ export default function DormantCustomersPage() {
   const isLoadingRef = useRef(false)  // ローディング状態をrefでも管理
   const hasInitialLoadRef = useRef(false)  // 初期ロードが完了したかを追跡
   
+  // 🆕 クライアントサイドマウント状態（Hydrationエラー対策）
+  const [isMounted, setIsMounted] = useState(false)
+  
   // isLoadingListの変更を監視
   useEffect(() => {
     console.log(`🔄 isLoadingList: ${isLoadingList}, isLoadingRef: ${isLoadingRef.current}`)
@@ -84,6 +87,11 @@ export default function DormantCustomersPage() {
   
   // 最大表示件数の管理
   const [maxDisplayCount, setMaxDisplayCount] = useState(200)
+
+  // 🆕 クライアントサイドマウント状態を設定（Hydrationエラー対策）
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // 認証チェック: AuthProvider に完全に委任
   // 
@@ -548,6 +556,18 @@ export default function DormantCustomersPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxDisplayCount, selectedSegment])  // loadCustomerListは意図的に除外
+
+  // 🆕 クライアントサイドでのみレンダリング（Hydrationエラー対策）
+  // 理由: useSearchParams() を使用しているため、サーバーサイドとクライアントサイドで
+  // レンダリング結果が異なる可能性がある。isMounted チェックにより、
+  // クライアントサイドでのみコンテンツをレンダリングし、Hydration エラーを防止する。
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
 
   // アクセス権限の確認中
   if (isAccessLoading) {

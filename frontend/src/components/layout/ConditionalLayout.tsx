@@ -46,9 +46,17 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     return <>{children}</>
   }
   
-  // クライアントサイドマウント前は、レイアウトなしでchildrenを返す（Hydrationエラー対策）
+  // クライアントサイドマウント前は、最小限のローディング表示を返す（Hydrationエラー対策）
+  // 注意: サーバーサイドとクライアントサイドで同じ構造を返す必要がある
   if (!isMounted) {
-    return <>{children}</>
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">アプリケーションを初期化中...</p>
+        </div>
+      </div>
+    )
   }
   
   // Shopify埋め込みモードの場合
