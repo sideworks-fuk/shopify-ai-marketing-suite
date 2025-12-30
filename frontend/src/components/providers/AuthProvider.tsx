@@ -350,13 +350,57 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   // グローバルな認証エラーを監視
   useEffect(() => {
     const handler = (event: Event) => {
-      console.error('🔴 グローバル認証エラー発火')
+      console.error('🔴 [AuthProvider] グローバル認証エラー発火: 認証情報をクリアします')
       setAuthError('認証が必要です')
       setIsAuthenticated(false)
+      
+      // 🆕 認証情報をlocalStorageからクリア（401エラーが発生した場合、認証が無効になった可能性があるため）
+      // 注意: デモモードの場合はデモトークンもクリアする
+      if (authMode === 'demo') {
+        localStorage.removeItem('demoToken')
+        localStorage.removeItem('demo_token')
+        localStorage.removeItem('authMode')
+        console.log('🗑️ [AuthProvider] デモモード関連の認証情報をクリアしました')
+      } else {
+        // OAuth認証の場合
+        localStorage.removeItem('oauth_authenticated')
+        localStorage.removeItem('currentStoreId')
+        console.log('🗑️ [AuthProvider] OAuth認証情報をクリアしました')
+      }
+      
+      // 🆕 Shopify埋め込みアプリの場合、/install にリダイレクト
+      if (isEmbedded && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search)
+        const shop = urlParams.get('shop')
+        const host = urlParams.get('host')
+        const embedded = urlParams.get('embedded')
+        const hmac = urlParams.get('hmac')
+        const timestamp = urlParams.get('timestamp')
+        
+        // /install ページ以外にいる場合のみリダイレクト（無限ループ防止）
+        const currentPath = window.location.pathname
+        if (shop && host && !currentPath.startsWith('/install')) {
+          console.log('⚠️ [AuthProvider] OAuth未完了: /install へリダイレクト', { shop, host, currentPath })
+          
+          // クエリパラメータを保持してリダイレクト
+          const params = new URLSearchParams()
+          params.set('shop', shop)
+          params.set('host', host)
+          if (embedded) params.set('embedded', embedded)
+          if (hmac) params.set('hmac', hmac)
+          if (timestamp) params.set('timestamp', timestamp)
+          
+          window.location.href = `/install?${params.toString()}`
+        } else if (!shop || !host) {
+          console.warn('⚠️ [AuthProvider] shop または host パラメータが見つかりません。リダイレクトをスキップします。', { shop, host, currentPath })
+        } else {
+          console.log('⏸️ [AuthProvider] 既に /install ページにいます。リダイレクトをスキップします。', { currentPath })
+        }
+      }
     }
     window.addEventListener('auth:error', handler)
     return () => window.removeEventListener('auth:error', handler)
-  }, [])
+  }, [authMode, isEmbedded]) // 🆕 isEmbedded を依存配列に追加
 
   // OAuth認証成功フラグを確認（初期化完了後）
   // 重要: 初期化が完了してから実行することで、認証状態の変動を防ぐ

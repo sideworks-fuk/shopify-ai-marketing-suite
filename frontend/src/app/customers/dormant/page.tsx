@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect, useCallback, Suspense, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
@@ -22,9 +23,12 @@ import { useAuth } from "@/components/providers/AuthProvider"
 let loadCustomerListCallCount = 0
 
 export default function DormantCustomersPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
   // 機能アクセス制御
   const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
-  const { getApiClient } = useAuth()
+  const { getApiClient, isAuthenticated, isInitializing, isApiClientReady } = useAuth()
   
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   // Note: All hooks must be called before any conditional returns
@@ -80,6 +84,61 @@ export default function DormantCustomersPage() {
   
   // 最大表示件数の管理
   const [maxDisplayCount, setMaxDisplayCount] = useState(200)
+
+  // 🆕 認証チェック: 未認証または401エラーの場合はインストールページへリダイレクト
+  useEffect(() => {
+    if (isInitializing || !isApiClientReady) {
+      return // 認証状態の初期化を待つ
+    }
+
+    // 未認証の場合はインストールページへリダイレクト
+    if (!isAuthenticated) {
+      console.warn('⚠️ [休眠顧客ページ] 未認証のため、インストールページへリダイレクトします')
+      
+      const shop = searchParams?.get('shop')
+      const host = searchParams?.get('host')
+      const embedded = searchParams?.get('embedded')
+      const hmac = searchParams?.get('hmac')
+      const timestamp = searchParams?.get('timestamp')
+      
+      const params = new URLSearchParams()
+      if (shop) params.set('shop', shop)
+      if (host) params.set('host', host)
+      if (embedded) params.set('embedded', embedded)
+      if (hmac) params.set('hmac', hmac)
+      if (timestamp) params.set('timestamp', timestamp)
+      
+      const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
+      router.replace(redirectUrl)
+      return
+    }
+
+    // OAuth認証フラグの確認（Shopify埋め込みモードの場合）
+    const shop = searchParams?.get('shop')
+    const oauthAuthenticated = typeof window !== 'undefined' 
+      ? localStorage.getItem('oauth_authenticated') === 'true'
+      : false
+    
+    if (shop && !oauthAuthenticated) {
+      console.warn('⚠️ [休眠顧客ページ] Shopify埋め込みモードでOAuth未完了のため、インストールページへリダイレクトします')
+      
+      const host = searchParams?.get('host')
+      const embedded = searchParams?.get('embedded')
+      const hmac = searchParams?.get('hmac')
+      const timestamp = searchParams?.get('timestamp')
+      
+      const params = new URLSearchParams()
+      if (shop) params.set('shop', shop)
+      if (host) params.set('host', host)
+      if (embedded) params.set('embedded', embedded)
+      if (hmac) params.set('hmac', hmac)
+      if (timestamp) params.set('timestamp', timestamp)
+      
+      const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
+      router.replace(redirectUrl)
+      return
+    }
+  }, [isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
 
   // 購入履歴のある顧客のみで平均休眠日数を計算
   const calculateAdjustedAverageDormancyDays = useCallback((summaryData: any) => {
@@ -145,6 +204,11 @@ export default function DormantCustomersPage() {
 
   // Step 1: サマリーデータのみ先に取得（軽量・高速）
   useEffect(() => {
+    // 認証チェックを待つ
+    if (isInitializing || !isApiClientReady || !isAuthenticated) {
+      return
+    }
+
     const fetchSummaryData = async () => {
       try {
         setIsLoadingSummary(true)
@@ -166,8 +230,31 @@ export default function DormantCustomersPage() {
         console.log('✅ summaryDataをセット完了:', response.data)
         console.log('✅ totalDormantCustomers値:', response.data?.totalDormantCustomers)
         
-      } catch (err) {
+      } catch (err: any) {
         console.error('❌ サマリーデータの取得に失敗:', err)
+        
+        // 🆕 401エラーの場合は、認証が完了していない可能性があるため、インストールページへリダイレクト
+        if (err?.status === 401 || (err instanceof Error && err.message.includes('401'))) {
+          console.warn('⚠️ [休眠顧客ページ] 401エラー: 認証が完了していない可能性があります。インストールページへリダイレクトします。')
+          
+          const shop = searchParams?.get('shop')
+          const host = searchParams?.get('host')
+          const embedded = searchParams?.get('embedded')
+          const hmac = searchParams?.get('hmac')
+          const timestamp = searchParams?.get('timestamp')
+          
+          const params = new URLSearchParams()
+          if (shop) params.set('shop', shop)
+          if (host) params.set('host', host)
+          if (embedded) params.set('embedded', embedded)
+          if (hmac) params.set('hmac', hmac)
+          if (timestamp) params.set('timestamp', timestamp)
+          
+          const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
+          router.replace(redirectUrl)
+          return
+        }
+        
         // 重要なエラーのみユーザーに表示
         if (err instanceof Error && err.message.includes('Network')) {
           setError('ネットワークエラー: サーバーに接続できません')
@@ -180,7 +267,7 @@ export default function DormantCustomersPage() {
     }
 
     fetchSummaryData()
-  }, [getApiClient])
+  }, [getApiClient, isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
 
   // Step 1.5: 主要期間区分データを取得
   useEffect(() => {

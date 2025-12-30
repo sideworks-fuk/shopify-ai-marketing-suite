@@ -132,12 +132,19 @@ export async function GET(request: NextRequest) {
     let backendUrl: string;
     try {
       backendUrl = getBackendApiUrl();
-    } catch (error) {
+      console.log('✅ [InstallProxy] バックエンドURL取得成功:', backendUrl);
+    } catch (error: any) {
       console.error('❌ [InstallProxy] バックエンドURL取得エラー:', error);
+      console.error('❌ [InstallProxy] 環境変数確認:', {
+        NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ? '設定済み' : '未設定',
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? '設定済み' : '未設定',
+        API_URL: process.env.API_URL ? '設定済み' : '未設定'
+      });
       
       return NextResponse.json({
         error: 'Backend configuration error',
-        message: 'Failed to get backend URL',
+        message: error?.message || 'Failed to get backend URL',
+        details: 'Please set NEXT_PUBLIC_BACKEND_URL in frontend/.env.local. See docs/05-development/01-環境構築/Azure開発環境-バックエンド接続設定.md for details.',
         timestamp: new Date().toISOString()
       }, { status: 500 });
     }
