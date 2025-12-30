@@ -24,6 +24,17 @@ export default function AuthSuccessPage() {
   const hasProcessedRef = useRef(false); // 処理完了フラグ（useRefで保持）
 
   useEffect(() => {
+    // 🆕 デバッグ: useEffect の開始を確認
+    console.log('🚀 [AuthSuccess] useEffect 開始');
+    console.log('🔍 [AuthSuccess] hasProcessedRef.current:', hasProcessedRef.current);
+    console.log('🔍 [AuthSuccess] sessionStorage auth_success_processed:', 
+      typeof window !== 'undefined' ? sessionStorage.getItem('auth_success_processed') : 'N/A');
+    console.log('🔍 [AuthSuccess] sessionStorage auth_success_redirect_executed:', 
+      typeof window !== 'undefined' ? sessionStorage.getItem('auth_success_redirect_executed') : 'N/A');
+    console.log('🔍 [AuthSuccess] sessionStorage auth_success_redirect_timestamp:', 
+      typeof window !== 'undefined' ? sessionStorage.getItem('auth_success_redirect_timestamp') : 'N/A');
+    console.log('📍 [AuthSuccess] 現在のURL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
+    
     // 🆕 OAuth処理中フラグをクリア（localStorageに変更 - iframe再読み込み後もフラグが保持される）
     if (typeof window !== 'undefined') {
       localStorage.removeItem('oauth_in_progress');
@@ -32,34 +43,26 @@ export default function AuthSuccessPage() {
     }
     
     // 既に処理済みの場合はスキップ（マウント時の重複実行を防ぐ）
+    // 🆕 変更: useRefのみでチェック（sessionStorageのチェックは削除）
     if (hasProcessedRef.current) {
       console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ（useRef）');
       return;
     }
     
-    // sessionStorageからも確認（コンポーネント再マウント対策）
-    const processedKey = 'auth_success_processed';
-    const processed = typeof window !== 'undefined' 
-      ? sessionStorage.getItem(processedKey) 
-      : null;
-    
-    if (processed === 'true') {
-      console.log('⏸️ [AuthSuccess] 既に処理済みのため、スキップ（sessionStorage）');
-      hasProcessedRef.current = true; // useRefも更新
-      return;
-    }
+    // 🆕 削除: sessionStorageのチェックを削除
+    // 理由: 処理完了前にコンポーネントが再マウントされた場合、処理が実行されない問題を回避するため
+    // sessionStorageのフラグは処理完了時（リダイレクト直前）に設定する
+    const processedKey = 'auth_success_processed'; // エラー処理で使用するため定義
     
     // URLパラメータを取得
     const shop = searchParams?.get('shop');
     const storeId = searchParams?.get('storeId');
     const success = searchParams?.get('success');
     
-    // 処理開始をマーク（useRefとsessionStorageの両方）
+    // 処理開始をマーク（useRefのみ）
+    // 🆕 変更: sessionStorageへの保存は処理完了時に移動
     // 注意: エラーが発生した場合は後でリセットされる
     hasProcessedRef.current = true;
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(processedKey, 'true');
-    }
     
     console.log('🚀 [AuthSuccess] 処理開始:', { shop, storeId, success });
     console.log('📍 [AuthSuccess] 現在のURL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
@@ -99,52 +102,70 @@ export default function AuthSuccessPage() {
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
         if (currentPath !== '/auth/success') {
-          console.log('⏸️ 既に別のページに遷移しているため、リダイレクトをスキップ:', currentPath);
+          console.log('⏸️ [AuthSuccess] 既に別のページに遷移しているため、リダイレクトをスキップ:', currentPath);
           return;
         }
         
         // 🆕 リダイレクト実行フラグを設定（重複実行を防ぐ）
         const redirectKey = 'auth_success_redirect_executed';
+        const redirectTimestamp = sessionStorage.getItem('auth_success_redirect_timestamp');
+        const now = Date.now();
+        
+        // 既にリダイレクトが実行されている場合、かつ10秒以内の場合はスキップ
+        // ネットワーク遅延やShopifyサーバーの応答時間を考慮して10秒に設定
         if (sessionStorage.getItem(redirectKey) === 'true') {
-          console.log('⏸️ 既にリダイレクト処理を実行済みのため、スキップします');
-          return;
+          if (redirectTimestamp && (now - parseInt(redirectTimestamp, 10)) < 10000) {
+            console.log('⏸️ [AuthSuccess] 既にリダイレクト処理を実行済みのため、スキップします（10秒以内）');
+            return;
+          } else {
+            // 10秒以上経過している場合は、フラグをリセットして再実行を許可
+            console.log('🔄 [AuthSuccess] リダイレクトフラグが古いため、リセットして再実行します');
+            sessionStorage.removeItem(redirectKey);
+            sessionStorage.removeItem('auth_success_redirect_timestamp');
+          }
         }
+        
         sessionStorage.setItem(redirectKey, 'true');
+        sessionStorage.setItem('auth_success_redirect_timestamp', now.toString());
       }
 
-      // OAuthはトップウィンドウで完了するため、埋め込みアプリの場合は管理画面側へ戻す必要がある
-      // host があれば Shopify 管理画面の /admin/apps/{apiKey} を開くことで iframe 埋め込みに復帰できる
-      const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY;
-      if (typeof window !== 'undefined' && host && shop && apiKey) {
-        const isTopWindow = window.top === window.self;
-        if (isTopWindow) {
-          const adminAppUrl = `https://${shop}/admin/apps/${apiKey}?host=${encodeURIComponent(host)}`;
-          console.log('🔄 Shopify管理画面にリダイレクト:', adminAppUrl);
-          window.location.href = adminAppUrl;
-          return;
-        }
-      }
+      // 🆕 修正: Shopify管理画面へのリダイレクトを削除
+      // 理由: Shopify管理画面へのリダイレクトは、URLパラメータ（storeId, success）を失う原因となる
+      // 代わりに、直接/setup/initialにリダイレクトし、App Bridgeが自動的に埋め込みに復帰する
 
       // OAuth認証成功後のリダイレクト先を決定
       // 初回インストール時（OAuth認証直後）は常にデータ同期設定画面（/setup/initial）にリダイレクト
       // 理由: OAuth認証直後は InitialSetupCompleted = false がデフォルト値のため
       // 既に初期設定が完了している場合は、/setup/initial ページ内で /customers/dormant にリダイレクトされる
-      console.log('🆕 OAuth認証完了: データ同期設定画面にリダイレクト');
-      const redirectPath = host && shop
-        ? `/setup/initial?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}&embedded=${encodeURIComponent(embedded || '1')}`
-        : shop
-        ? `/setup/initial?shop=${encodeURIComponent(shop)}`
-        : '/setup/initial';
-      console.log('🔄 リダイレクト先:', redirectPath);
+      console.log('🆕 [AuthSuccess] OAuth認証完了: データ同期設定画面にリダイレクト');
+
+      // 🆕 storeId を URL パラメータに追加
+      // 理由: サードパーティストレージの制限により、localStorage の値が iframe 再読み込み後に消える可能性があるため
+      const storeIdFromStorage = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId') 
+        : null;
+
+      // URL パラメータを構築
+      const params = new URLSearchParams();
+      if (shop) params.set('shop', shop);
+      if (host) params.set('host', host);
+      params.set('embedded', embedded || '1');
+      if (storeIdFromStorage) params.set('storeId', storeIdFromStorage);
+
+      const redirectPath = `/setup/initial?${params.toString()}`;
+      console.log('🔄 [AuthSuccess] リダイレクト先:', redirectPath);
+      console.log('🔍 [AuthSuccess] storeIdFromStorage:', storeIdFromStorage);
 
       // アンマウント後はrouter.replace()が効果がない可能性があるため、window.location.hrefを使用
       if (useRouterNavigation) {
+        console.log('🔄 [AuthSuccess] router.replace()を使用してリダイレクト:', redirectPath);
         router.replace(redirectPath); // pushではなくreplaceを使用（ブラウザ履歴に残さない）
       } else {
         // 相対パスの場合は絶対URLに変換
         const absoluteUrl = redirectPath.startsWith('http')
           ? redirectPath
           : new URL(redirectPath, window.location.origin).href;
+        console.log('🔄 [AuthSuccess] window.location.hrefを使用してリダイレクト:', absoluteUrl);
         window.location.href = absoluteUrl;
       }
     };
@@ -338,6 +359,13 @@ export default function AuthSuccessPage() {
         if (isMounted) {
           setStatus('success');
           setMessage('認証が完了しました！ダッシュボードへ移動します...');
+          
+          // 🆕 処理完了時にsessionStorageにフラグを設定（リダイレクト直前）
+          // 理由: 処理完了前にコンポーネントが再マウントされた場合でも、処理が実行されるようにするため
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('auth_success_processed', 'true');
+            console.log('✅ [AuthSuccess] 処理完了フラグをsessionStorageに設定しました');
+          }
           
           // 1秒後にダッシュボードへリダイレクト（2秒から短縮）
           redirectTimeoutId = setTimeout(() => {

@@ -113,28 +113,45 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           // 注意: window.top !== window.selfはforceRedirect: trueの影響でfalseになる可能性があるため、
           // 計算済みのembedded変数を使用する（embeddedはhostパラメータの存在で判断される）
           if (embedded) {
-            // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出す
-            // window.top !== window.selfはforceRedirectの影響でfalseになる可能性があるため
             const currentPath = window.location.pathname
-            const redirectKey = `${resolvedHost}:${currentPath}`
             
-            // 既に同じパスに対してRedirect.toApp()を呼び出していない場合のみ実行
-            if (!redirectCalledRef.current.has(redirectKey)) {
-              // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
-              console.log('🔄 [AppBridge] Redirect.toApp()を呼び出します:', {
+            // 🆕 /auth/success と /setup/initial パスではRedirect.toApp()をスキップ
+            // 理由: 
+            // - /auth/success: OAuth認証コールバック後のページで、URLパラメータを保持する必要があるため
+            // - /setup/initial: OAuth認証完了後の初期設定ページで、Redirect.toApp()を呼び出すと
+            //                   Shopify側が未インストールと判断して/installにリダイレクトする可能性があるため
+            const skipRedirectPaths = ['/auth/success', '/setup/initial'];
+            
+            if (skipRedirectPaths.includes(currentPath)) {
+              console.log('⏸️ [AppBridge] スキップ対象パスのため、Redirect.toApp()をスキップします', {
                 path: currentPath,
-                embedded,
-                inIframe: window.top !== window.self,
-                hostParam: !!hostParam,
-                resolvedHost: !!resolvedHost
+                search: window.location.search,
+                embedded
               })
-              redirectCalledRef.current.add(redirectKey)
-              appBridge.dispatch(Redirect.toApp({ path: currentPath }))
+              // Redirect.toApp()をスキップしても、App Bridgeの初期化は完了しているため問題なし
             } else {
-              console.log('⏸️ [AppBridge] Redirect.toApp()は既に呼び出されています。スキップします:', {
-                path: currentPath,
-                redirectKey
-              })
+              // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出す
+              // window.top !== window.selfはforceRedirectの影響でfalseになる可能性があるため
+              const redirectKey = `${resolvedHost}:${currentPath}`
+              
+              // 既に同じパスに対してRedirect.toApp()を呼び出していない場合のみ実行
+              if (!redirectCalledRef.current.has(redirectKey)) {
+                // hostパラメータがある場合（embedded=true）、Redirect.toApp()を呼び出してShopify側のOAuthフローを開始
+                console.log('🔄 [AppBridge] Redirect.toApp()を呼び出します:', {
+                  path: currentPath,
+                  embedded,
+                  inIframe: window.top !== window.self,
+                  hostParam: !!hostParam,
+                  resolvedHost: !!resolvedHost
+                })
+                redirectCalledRef.current.add(redirectKey)
+                appBridge.dispatch(Redirect.toApp({ path: currentPath }))
+              } else {
+                console.log('⏸️ [AppBridge] Redirect.toApp()は既に呼び出されています。スキップします:', {
+                  path: currentPath,
+                  redirectKey
+                })
+              }
             }
           }
         } else {

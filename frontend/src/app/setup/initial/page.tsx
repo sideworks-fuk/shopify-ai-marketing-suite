@@ -76,12 +76,29 @@ export default function InitialSetupPage() {
       const demoToken = localStorage.getItem('demoToken')
       setIsDemoMode(!!demoToken)
       
+      // 🆕 URL パラメータから storeId を取得して localStorage に保存
+      // 理由: サードパーティストレージの制限により、/auth/success で保存した値が消える可能性があるため
+      const urlParams = new URLSearchParams(window.location.search);
+      const storeIdFromUrl = urlParams.get('storeId');
+      if (storeIdFromUrl) {
+        console.log('✅ [InitialSetup] URL パラメータから storeId を取得:', storeIdFromUrl);
+        localStorage.setItem('currentStoreId', storeIdFromUrl);
+        localStorage.setItem('oauth_authenticated', 'true');
+      } else {
+        console.log('⚠️ [InitialSetup] URL パラメータに storeId がありません。localStorage の値を使用します:', 
+          localStorage.getItem('currentStoreId'));
+      }
+      
       // 🆕 OAuth認証成功後のリダイレクトフラグをクリア（リダイレクトが成功したことを確認）
       const redirectKey = 'auth_success_redirect_executed'
+      const redirectTimestampKey = 'auth_success_redirect_timestamp'
       if (sessionStorage.getItem(redirectKey) === 'true') {
         console.log('✅ [InitialSetup] OAuth認証成功後のリダイレクトが完了しました。フラグをクリアします。')
         sessionStorage.removeItem(redirectKey)
+        sessionStorage.removeItem(redirectTimestampKey) // タイムスタンプもクリア
       }
+      // 🆕 auth_success_processed もクリア
+      sessionStorage.removeItem('auth_success_processed');
       
       // 🆕 OAuth処理中フラグをクリア（フォールバック - localStorageに変更）
       localStorage.removeItem('oauth_in_progress');

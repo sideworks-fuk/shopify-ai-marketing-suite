@@ -379,6 +379,22 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         
         // /install ページ以外にいる場合のみリダイレクト（無限ループ防止）
         const currentPath = window.location.pathname
+        
+        // 🆕 /auth/success と /setup/initial パスでは、リダイレクトをスキップ
+        // 理由: OAuth認証フロー中のページで、認証状態が確立される前にAPIエラーが発生する可能性があるため
+        // サードパーティストレージの制限により、localStorageへの書き込みが無視される場合、
+        // 認証状態が正しく設定されないため、APIエラーが発生する
+        // この場合、/installにリダイレクトするのではなく、現在のページにとどまって処理を続行する
+        const skipRedirectPaths = ['/auth/success', '/setup/initial'];
+        if (skipRedirectPaths.includes(currentPath)) {
+          console.log('⏸️ [AuthProvider] OAuth認証フロー中のパスのため、/install へのリダイレクトをスキップします:', {
+            currentPath,
+            shop,
+            host
+          });
+          return; // 早期リターン（リダイレクトしない）
+        }
+        
         if (shop && host && !currentPath.startsWith('/install')) {
           console.log('⚠️ [AuthProvider] OAuth未完了: /install へリダイレクト', { shop, host, currentPath })
           
