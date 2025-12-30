@@ -85,60 +85,16 @@ export default function DormantCustomersPage() {
   // 最大表示件数の管理
   const [maxDisplayCount, setMaxDisplayCount] = useState(200)
 
-  // 🆕 認証チェック: 未認証または401エラーの場合はインストールページへリダイレクト
-  useEffect(() => {
-    if (isInitializing || !isApiClientReady) {
-      return // 認証状態の初期化を待つ
-    }
-
-    // 未認証の場合はインストールページへリダイレクト
-    if (!isAuthenticated) {
-      console.warn('⚠️ [休眠顧客ページ] 未認証のため、インストールページへリダイレクトします')
-      
-      const shop = searchParams?.get('shop')
-      const host = searchParams?.get('host')
-      const embedded = searchParams?.get('embedded')
-      const hmac = searchParams?.get('hmac')
-      const timestamp = searchParams?.get('timestamp')
-      
-      const params = new URLSearchParams()
-      if (shop) params.set('shop', shop)
-      if (host) params.set('host', host)
-      if (embedded) params.set('embedded', embedded)
-      if (hmac) params.set('hmac', hmac)
-      if (timestamp) params.set('timestamp', timestamp)
-      
-      const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
-      router.replace(redirectUrl)
-      return
-    }
-
-    // OAuth認証フラグの確認（Shopify埋め込みモードの場合）
-    const shop = searchParams?.get('shop')
-    const oauthAuthenticated = typeof window !== 'undefined' 
-      ? localStorage.getItem('oauth_authenticated') === 'true'
-      : false
-    
-    if (shop && !oauthAuthenticated) {
-      console.warn('⚠️ [休眠顧客ページ] Shopify埋め込みモードでOAuth未完了のため、インストールページへリダイレクトします')
-      
-      const host = searchParams?.get('host')
-      const embedded = searchParams?.get('embedded')
-      const hmac = searchParams?.get('hmac')
-      const timestamp = searchParams?.get('timestamp')
-      
-      const params = new URLSearchParams()
-      if (shop) params.set('shop', shop)
-      if (host) params.set('host', host)
-      if (embedded) params.set('embedded', embedded)
-      if (hmac) params.set('hmac', hmac)
-      if (timestamp) params.set('timestamp', timestamp)
-      
-      const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
-      router.replace(redirectUrl)
-      return
-    }
-  }, [isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
+  // 認証チェック: AuthProvider に完全に委任
+  // 
+  // 注意: サードパーティストレージの制限により、Shopify iframe 内では
+  // localStorage への書き込みが無視される可能性があります。
+  // そのため、ページ固有の認証チェックロジックは削除し、
+  // AuthProvider の auth:error イベントハンドラに認証管理を委任します。
+  // 
+  // AuthProvider は以下の場合に /install へのリダイレクトをスキップします:
+  // - /install, /auth/callback 以外のアプリページ
+  // これにより、サードパーティストレージの制限下でも正常に動作します。
 
   // 購入履歴のある顧客のみで平均休眠日数を計算
   const calculateAdjustedAverageDormancyDays = useCallback((summaryData: any) => {
@@ -204,8 +160,11 @@ export default function DormantCustomersPage() {
 
   // Step 1: サマリーデータのみ先に取得（軽量・高速）
   useEffect(() => {
-    // 認証チェックを待つ
-    if (isInitializing || !isApiClientReady || !isAuthenticated) {
+    // APIクライアントの準備を待つ
+    // 注意: isAuthenticated はサードパーティストレージの制限により false になる可能性があるため、
+    // ここではチェックしない。API 呼び出し時に 401 エラーが発生した場合は、
+    // ApiClient が auth:error イベントを発火し、AuthProvider が適切に処理する。
+    if (isInitializing || !isApiClientReady) {
       return
     }
 
@@ -233,25 +192,11 @@ export default function DormantCustomersPage() {
       } catch (err: any) {
         console.error('❌ サマリーデータの取得に失敗:', err)
         
-        // 🆕 401エラーの場合は、認証が完了していない可能性があるため、インストールページへリダイレクト
+        // 401エラーの場合は、AuthProvider の auth:error イベントに処理を委任
+        // ページ固有のリダイレクトロジックは削除（サードパーティストレージの制限対策）
         if (err?.status === 401 || (err instanceof Error && err.message.includes('401'))) {
-          console.warn('⚠️ [休眠顧客ページ] 401エラー: 認証が完了していない可能性があります。インストールページへリダイレクトします。')
-          
-          const shop = searchParams?.get('shop')
-          const host = searchParams?.get('host')
-          const embedded = searchParams?.get('embedded')
-          const hmac = searchParams?.get('hmac')
-          const timestamp = searchParams?.get('timestamp')
-          
-          const params = new URLSearchParams()
-          if (shop) params.set('shop', shop)
-          if (host) params.set('host', host)
-          if (embedded) params.set('embedded', embedded)
-          if (hmac) params.set('hmac', hmac)
-          if (timestamp) params.set('timestamp', timestamp)
-          
-          const redirectUrl = `/install${params.toString() ? `?${params.toString()}` : ''}`
-          router.replace(redirectUrl)
+          console.warn('⚠️ [休眠顧客ページ] 401エラー: 認証エラーが発生しました。AuthProvider に処理を委任します。')
+          // ApiClient が auth:error イベントを発火するため、ここでのリダイレクトは不要
           return
         }
         
