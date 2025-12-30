@@ -123,12 +123,13 @@ export function AppBridgeProvider({ children }: AppBridgeProviderProps) {
           if (embedded) {
             const currentPath = window.location.pathname
             
-            // 🆕 /auth/success と /setup/initial パスではRedirect.toApp()をスキップ
-            // 理由: 
-            // - /auth/success: OAuth認証コールバック後のページで、URLパラメータを保持する必要があるため
-            // - /setup/initial: OAuth認証完了後の初期設定ページで、Redirect.toApp()を呼び出すと
-            //                   Shopify側が未インストールと判断して/installにリダイレクトする可能性があるため
-            const skipRedirectPaths = ['/auth/success', '/setup/initial'];
+            // 🆕 /auth/success パスではRedirect.toApp()をスキップ
+            // 理由: OAuth認証コールバック後のページで、URLパラメータを保持する必要があるため
+            // 
+            // 注意: /setup/initial は以前スキップ対象でしたが、以下の理由で削除しました：
+            // - スキップするとShopify AdminのURLバーが更新されず、直前のメニューURLのままになる
+            // - OAuth認証完了後の動作については別途対応が必要
+            const skipRedirectPaths = ['/auth/success'];
             
             if (skipRedirectPaths.includes(currentPath)) {
               console.log('⏸️ [AppBridge] スキップ対象パスのため、Redirect.toApp()をスキップします', {
