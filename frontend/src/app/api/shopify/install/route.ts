@@ -130,21 +130,41 @@ export async function GET(request: NextRequest) {
 
     // 環境設定からバックエンドAPIのURLを取得
     let backendUrl: string;
+    
+    // 🆕 デバッグ: 環境変数の状態を詳細にログ出力
+    console.log('🔍 [InstallProxy] 環境変数チェック開始');
+    console.log('🔍 [InstallProxy] process.env.NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL || '未設定');
+    console.log('🔍 [InstallProxy] process.env.NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL || '未設定');
+    console.log('🔍 [InstallProxy] process.env.API_URL:', process.env.API_URL || '未設定');
+    console.log('🔍 [InstallProxy] process.env.NODE_ENV:', process.env.NODE_ENV);
+    
     try {
       backendUrl = getBackendApiUrl();
       console.log('✅ [InstallProxy] バックエンドURL取得成功:', backendUrl);
     } catch (error: any) {
       console.error('❌ [InstallProxy] バックエンドURL取得エラー:', error);
+      console.error('❌ [InstallProxy] エラーの詳細:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      });
       console.error('❌ [InstallProxy] 環境変数確認:', {
-        NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ? '設定済み' : '未設定',
-        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? '設定済み' : '未設定',
-        API_URL: process.env.API_URL ? '設定済み' : '未設定'
+        NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ? `設定済み: ${process.env.NEXT_PUBLIC_BACKEND_URL.substring(0, 50)}...` : '未設定',
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? `設定済み: ${process.env.NEXT_PUBLIC_API_URL.substring(0, 50)}...` : '未設定',
+        API_URL: process.env.API_URL ? `設定済み: ${process.env.API_URL.substring(0, 50)}...` : '未設定',
+        NODE_ENV: process.env.NODE_ENV
       });
       
       return NextResponse.json({
         error: 'Backend configuration error',
         message: error?.message || 'Failed to get backend URL',
         details: 'Please set NEXT_PUBLIC_BACKEND_URL in frontend/.env.local. See docs/05-development/01-環境構築/Azure開発環境-バックエンド接続設定.md for details.',
+        envCheck: {
+          NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ? '設定済み' : '未設定',
+          NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? '設定済み' : '未設定',
+          API_URL: process.env.API_URL ? '設定済み' : '未設定',
+          NODE_ENV: process.env.NODE_ENV
+        },
         timestamp: new Date().toISOString()
       }, { status: 500 });
     }

@@ -128,6 +128,39 @@ function InstallPolarisPageContent() {
       }
     }
     
+    // 🆕 認証済みでstoreIdがある場合、/setup/initialにリダイレクト
+    // 理由: OAuth認証が成功したが、/auth/successに到達できなかった場合のフォールバック
+    if (isAuthenticated && !isInitializing) {
+      const currentStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId')
+        : null;
+      const oauthAuthenticated = typeof window !== 'undefined' 
+        ? localStorage.getItem('oauth_authenticated') === 'true'
+        : false;
+      
+      if (currentStoreId && oauthAuthenticated && shopFromUrl) {
+        console.log('✅ [Install] 認証済みでstoreIdがあります。/setup/initialにリダイレクトします。', {
+          storeId: currentStoreId,
+          shop: shopFromUrl
+        });
+        
+        // OAuth処理中フラグをクリア
+        localStorage.removeItem('oauth_in_progress');
+        localStorage.removeItem('oauth_started_at');
+        
+        // /setup/initialにリダイレクト
+        const redirectParams = new URLSearchParams();
+        redirectParams.set('shop', shopFromUrl);
+        if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+        redirectParams.set('embedded', '1');
+        
+        const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+        console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
+        window.location.replace(redirectUrl);
+        return; // 早期リターン
+      }
+    }
+    
     // 🆕 auth_success がない場合のみ、OAuth処理中フラグを確認
     const oauthInProgress = localStorage.getItem('oauth_in_progress') === 'true';
     const oauthStartedAt = localStorage.getItem('oauth_started_at');
@@ -136,22 +169,23 @@ function InstallPolarisPageContent() {
       const startedAt = parseInt(oauthStartedAt, 10);
       const elapsed = Date.now() - startedAt;
       
-      // 5分以内の場合はOAuth処理中と判断
-      if (elapsed < 5 * 60 * 1000) {
+      // 60秒以内の場合はOAuth処理中と判断（OAuth認証フローは通常30秒〜1分かかるため）
+      if (elapsed < 60 * 1000) {
         console.log('⏳ [Install] OAuth処理中を検出。ローディング画面を表示します。', {
           elapsed: `${Math.round(elapsed / 1000)}秒`
         });
         setIsOAuthInProgress(true);
         setLoading(true);
         
-        // 🆕 タイムアウト処理を追加（30秒経過後にフラグをクリアして通常処理に進む）
+        // 🆕 タイムアウト処理を追加（60秒経過後にフラグをクリアして通常処理に進む）
+        // 理由: OAuth認証フローは通常30秒〜1分かかるため、60秒に延長
         const timeoutId = setTimeout(() => {
-          console.log('⏰ [Install] OAuth処理が30秒経過しました。フラグをクリアして通常処理に進みます。');
+          console.log('⏰ [Install] OAuth処理が60秒経過しました。フラグをクリアして通常処理に進みます。');
           localStorage.removeItem('oauth_in_progress');
           localStorage.removeItem('oauth_started_at');
           setIsOAuthInProgress(false);
           setLoading(false);
-        }, 30 * 1000); // 30秒でタイムアウト
+        }, 60 * 1000); // 60秒でタイムアウト
         
         // クリーンアップ（useEffectのクリーンアップ関数として返す）
         // 注意: このuseEffectは依存配列が空なので、マウント時のみ実行される
@@ -317,6 +351,9 @@ function InstallPolarisPageContent() {
       const oauthAuthenticated = typeof window !== 'undefined' 
         ? localStorage.getItem('oauth_authenticated') === 'true'
         : false;
+      const currentStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId')
+        : null;
       
       if (!isAuthenticated && !oauthAuthenticated) {
         console.log('⚠️ 未認証のため、登録済みストアチェックをスキップしてインストール画面を表示します。', {
@@ -331,6 +368,30 @@ function InstallPolarisPageContent() {
       // （markAuthenticated()が呼ばれた直後で、React stateがまだ更新されていない場合）
       if (oauthAuthenticated && !isAuthenticated) {
         console.log('🔄 OAuth認証成功フラグを検出しましたが、isAuthenticatedがfalseです。認証状態を再確認します...');
+        
+        // 🆕 storeIdがある場合は、/setup/initialにリダイレクト（OAuth認証成功後のフォールバック）
+        if (currentStoreId && shopFromUrl) {
+          console.log('✅ [Install] OAuth認証成功フラグとstoreIdを検出。/setup/initialにリダイレクトします。', {
+            storeId: currentStoreId,
+            shop: shopFromUrl
+          });
+          
+          // OAuth処理中フラグをクリア
+          localStorage.removeItem('oauth_in_progress');
+          localStorage.removeItem('oauth_started_at');
+          
+          // /setup/initialにリダイレクト
+          const redirectParams = new URLSearchParams();
+          redirectParams.set('shop', shopFromUrl);
+          if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+          redirectParams.set('embedded', '1');
+          
+          const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+          console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
+          window.location.replace(redirectUrl);
+          return; // 早期リターン
+        }
+        
         // 少し待ってから再チェック（React stateの更新を待つ）
         setTimeout(() => {
           // 再チェック（フラグをリセットして再実行可能にする）
@@ -777,6 +838,14 @@ function InstallPolarisPageContent() {
       // フロントエンドのngrok URL経由でバックエンドにアクセスする
       const frontendOrigin = typeof window !== 'undefined' ? window.location.origin : '';
       const installUrl = `${frontendOrigin}/api/shopify/install?${installParams.toString()}`;
+      
+      // 🆕 デバッグ: 環境変数の状態を確認
+      console.log('🔍 [Install] 環境変数チェック:', {
+        NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ? '設定済み' : '未設定',
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ? '設定済み' : '未設定',
+        windowOrigin: frontendOrigin,
+        configApiBaseUrl: config.apiBaseUrl
+      });
       
       console.log('🔍 [Install] フロントエンドAPI Routeを使用:', {
         frontendOrigin,
