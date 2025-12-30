@@ -318,8 +318,10 @@ namespace ShopifyAnalyticsApi.Controllers
             // redirect_uriの決定:
             // フロントエンドプロキシを使用する場合はデータベースからAppUrlを取得して使用
             // それ以外の場合はバックエンドURLを使用
+            _logger.LogInformation("🔍 [BuildOAuthUrlAsync] GetRedirectUriAsync呼び出し前. Shop: {Shop}, ApiKey: {ApiKey}", 
+                shop, finalApiKey?.Substring(0, Math.Min(8, finalApiKey?.Length ?? 0)) + "...");
             var redirectUri = await GetRedirectUriAsync(finalApiKey);
-
+            _logger.LogInformation("✅ [BuildOAuthUrlAsync] GetRedirectUriAsync呼び出し後. RedirectUri: {RedirectUri}", redirectUri);
             _logger.LogInformation("OAuth redirect_uri決定. Shop: {Shop}, ApiKey: {ApiKey}, RedirectUri: {RedirectUri}", shop, finalApiKey, redirectUri);
 
             var authUrl = $"https://{shop}/admin/oauth/authorize" +
@@ -344,20 +346,34 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                // 🆕 デバッグ: エンドポイント到達を確認
+                _logger.LogInformation("🚀 ===== /api/shopify/install エンドポイント到達 ===== ");
+                _logger.LogInformation("📍 リクエストURL: {RequestUrl}", HttpContext.Request.GetDisplayUrl());
+                _logger.LogInformation("📍 Shop: {Shop}", shop);
+                _logger.LogInformation("📍 ApiKey: {ApiKey}", apiKey ?? "未指定");
+                _logger.LogInformation("📍 リクエスト時刻: {Timestamp}", DateTime.UtcNow);
+                _logger.LogInformation("📍 リクエストヘッダー: {Headers}", 
+                    string.Join(", ", HttpContext.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
+
                 // デバッグ: リクエストパラメータをログ出力
                 _logger.LogInformation("===== OAuth Install Started ===== Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey);
 
                 var authUrl = await BuildOAuthUrlAsync(shop, apiKey);
                 if (string.IsNullOrEmpty(authUrl))
                 {
+                    _logger.LogError("❌ OAuth URL生成失敗. Shop: {Shop}, ApiKey: {ApiKey}", shop, apiKey ?? "未指定");
                     return BadRequest(new { error = "Invalid shop domain or failed to build OAuth URL" });
                 }
+
+                _logger.LogInformation("✅ OAuth URL生成成功. AuthUrl: {AuthUrl}", authUrl);
+                _logger.LogInformation("🔄 Shopify認証ページにリダイレクトします");
 
                 // Shopifyの認証ページにリダイレクト
                 return Redirect(authUrl);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "❌ /api/shopify/install エラー発生. Shop: {Shop}", shop);
                 return await HandleOAuthError(ex, shop, "Install");
             }
         }
