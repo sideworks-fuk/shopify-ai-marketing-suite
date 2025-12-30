@@ -6,12 +6,13 @@
 
 ## ドキュメント構成
 
-| ファイル | 概要 |
-|----------|------|
-| [要件定義.md](./要件定義.md) | Shopify公開アプリのGDPR要件 |
-| [実装状況レビュー.md](./実装状況レビュー.md) | 現状のソースコードレビュー結果 |
-| [対応作業リスト.md](./対応作業リスト.md) | 残作業と優先度 |
-| [テスト計画.md](./テスト計画.md) | E2E検証計画と証跡取得方法 |
+| ファイル | 概要 | 対象読者 |
+|----------|------|---------|
+| [要件定義.md](./要件定義.md) | Shopify公開アプリのGDPR要件 | エンジニア |
+| [実装状況レビュー.md](./実装状況レビュー.md) | 現状のソースコードレビュー結果 | エンジニア |
+| [対応作業リスト.md](./対応作業リスト.md) | 残作業と優先度 | エンジニア |
+| [テスト計画.md](./テスト計画.md) | E2E検証計画と証跡取得方法 | エンジニア |
+| [ビジネス向け解説.md](./ビジネス向け解説.md) | 非エンジニア向けのGDPR解説 | **ビジネス・マネージャー** |
 
 ## クイックサマリー
 
@@ -75,13 +76,33 @@ GDPR Webhookは**アプリ設定ではなくプログラム経由で登録**し�
    - Privacy policy URL
    - Terms of service URL（任意）
 
+## 公式ドキュメント（Shopify.dev）
+
+> ⚠️ **注意**: Shopifyのドキュメント構造は頻繁に変更されます。リンク切れの場合は [shopify.dev](https://shopify.dev) で検索してください。
+
+| ドキュメント | URL |
+|-------------|-----|
+| **GDPR（ヘルプセンター）** | https://help.shopify.com/en/manual/privacy-and-security/privacy/gdpr |
+| **Webhooks overview** | https://shopify.dev/docs/apps/build/webhooks |
+| **HMAC verification** | https://shopify.dev/docs/apps/build/webhooks/verify |
+| **App submission** | https://shopify.dev/docs/apps/launch/submit |
+
+**検索キーワード**（ドキュメントが見つからない場合）:
+- `shopify.dev GDPR webhooks mandatory`
+- `shopify.dev customers/redact shop/redact`
+- `shopify.dev privacy compliance webhooks`
+
+> 💡 詳細なリンク一覧は [要件定義.md](./要件定義.md#7-公式ドキュメントリンク集) を参照
+
 ## 関連リンク
 
-- 実装ファイル:
-  - `backend/ShopifyAnalyticsApi/Controllers/WebhookController.cs`
-  - `backend/ShopifyAnalyticsApi/Services/GDPRService.cs`
-  - `backend/ShopifyAnalyticsApi/Jobs/GdprProcessingJob.cs`
-  - `backend/ShopifyAnalyticsApi/Models/GDPRModels.cs`
-- 既存ドキュメント:
-  - `docs/00-production-release/03-gdpr-compliance/`
-  - `docs/08-shopify/04-GDPR対応/`
+### 実装ファイル
+- `backend/ShopifyAnalyticsApi/Controllers/WebhookController.cs`
+- `backend/ShopifyAnalyticsApi/Services/GDPRService.cs`
+- `backend/ShopifyAnalyticsApi/Jobs/GdprProcessingJob.cs`
+- `backend/ShopifyAnalyticsApi/Models/GDPRModels.cs`
+
+### 既存ドキュメント
+- `docs/00-production-release/03-gdpr-compliance/`
+- `docs/08-shopify/04-GDPR対応/`
+- `docs/08-shopify/05-法的文書/` (プライバシーポリシー・利用規約)
