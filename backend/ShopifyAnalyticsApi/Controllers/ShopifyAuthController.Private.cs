@@ -1263,15 +1263,39 @@ namespace ShopifyAnalyticsApi.Controllers
 
             try
             {
-                var bytes = Convert.FromBase64String(encodedHost);
+                // 🆕 Step 1: URLデコードを先に実行（ShopifyがURLエンコードしている可能性がある）
+                var urlDecoded = Uri.UnescapeDataString(encodedHost);
+                
+                // 🆕 Step 2: Base64パディングを追加（Shopifyはパディング文字を削除している可能性がある）
+                var paddedBase64 = urlDecoded;
+                var mod = urlDecoded.Length % 4;
+                if (mod > 0)
+                {
+                    paddedBase64 += new string('=', 4 - mod);
+                }
+                
+                // Step 3: Base64デコードを実行
+                var bytes = Convert.FromBase64String(paddedBase64);
                 var decoded = System.Text.Encoding.UTF8.GetString(bytes);
                 _logger.LogInformation("hostパラメータをデコード: {EncodedHost} -> {DecodedHost}", encodedHost, decoded);
                 return decoded;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "hostパラメータのデコードに失敗: {EncodedHost}", encodedHost);
-                return null;
+                _logger.LogWarning(ex, "hostパラメータのデコードに失敗: {EncodedHost}, Error: {Error}", encodedHost, ex.Message);
+                
+                // 🆕 フォールバック: URLデコードのみを試行（Base64デコードが不要な場合）
+                try
+                {
+                    var urlDecoded = Uri.UnescapeDataString(encodedHost);
+                    _logger.LogInformation("hostパラメータをURLデコードのみで処理: {EncodedHost} -> {DecodedHost}", encodedHost, urlDecoded);
+                    return urlDecoded;
+                }
+                catch (Exception ex2)
+                {
+                    _logger.LogWarning(ex2, "hostパラメータのURLデコードも失敗: {EncodedHost}", encodedHost);
+                    return null;
+                }
             }
         }
 
