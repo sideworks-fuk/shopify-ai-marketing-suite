@@ -249,8 +249,14 @@ export async function GET(request: NextRequest) {
       if (location) {
         console.log('↪️ [InstallProxy] バックエンドからのリダイレクト:', location);
         
-        // バックエンドからのリダイレクトをそのまま返す
-        return NextResponse.redirect(location);
+        // 🆕 UseFrontendProxy=trueの場合、OAuth URLをJSONレスポンスとして返す
+        // 理由: フロントエンドがApp BridgeのRedirect.toRemote()を使用してトップレベルのウィンドウでOAuth認証を行うため
+        // iframe内でOAuth認証を行うと、Shopifyがブロックするため
+        console.log('🔄 [InstallProxy] UseFrontendProxy=true: OAuth URLをJSONレスポンスとして返します');
+        return NextResponse.json({
+          authUrl: location,
+          useFrontendProxy: true
+        });
       }
     }
 

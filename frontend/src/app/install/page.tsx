@@ -65,7 +65,10 @@ function InstallPolarisPageContent() {
   // クライアントサイドマウント状態を設定（Hydrationエラー対策）
   useEffect(() => {
     setIsMounted(true)
-    
+  }, [])
+
+  // 🆕 マウント時のみ実行: auth_success=true パラメータの検出とOAuth処理中フラグの確認
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     
     // 🆕 最優先: auth_success=true パラメータを検出
@@ -108,59 +111,6 @@ function InstallPolarisPageContent() {
       return; // 🆕 早期リターン（以降の処理をスキップ）
     }
     
-    // 🆕 認証成功だがstoreIdがない場合、APIでストア情報を取得
-    // 理由: Shopify管理画面がiframeでアプリを読み込む際、カスタムパラメータ（auth_success, storeId）を破棄するため
-    // /auth/successページで認証状態は設定されるが、iframe再読み込み時にstoreIdが失われる可能性がある
-    if (isAuthenticated && !isInitializing) {
-      const currentStoreId = typeof window !== 'undefined' 
-        ? localStorage.getItem('currentStoreId')
-        : null;
-      
-      if (!currentStoreId && shopFromUrl) {
-        console.log('🔍 [Install] 認証成功ですが、storeIdがありません。APIでストア情報を取得します...', {
-          isAuthenticated,
-          isInitializing,
-          shop: shopFromUrl
-        });
-        
-        // APIでストア情報を取得（非同期処理のため、別のuseEffectで処理）
-        // このuseEffectでは早期リターンせず、次のuseEffectで処理する
-      }
-    }
-    
-    // 🆕 認証済みでstoreIdがある場合、/setup/initialにリダイレクト
-    // 理由: OAuth認証が成功したが、/auth/successに到達できなかった場合のフォールバック
-    if (isAuthenticated && !isInitializing) {
-      const currentStoreId = typeof window !== 'undefined' 
-        ? localStorage.getItem('currentStoreId')
-        : null;
-      const oauthAuthenticated = typeof window !== 'undefined' 
-        ? localStorage.getItem('oauth_authenticated') === 'true'
-        : false;
-      
-      if (currentStoreId && oauthAuthenticated && shopFromUrl) {
-        console.log('✅ [Install] 認証済みでstoreIdがあります。/setup/initialにリダイレクトします。', {
-          storeId: currentStoreId,
-          shop: shopFromUrl
-        });
-        
-        // OAuth処理中フラグをクリア
-        localStorage.removeItem('oauth_in_progress');
-        localStorage.removeItem('oauth_started_at');
-        
-        // /setup/initialにリダイレクト
-        const redirectParams = new URLSearchParams();
-        redirectParams.set('shop', shopFromUrl);
-        if (hostFromUrl) redirectParams.set('host', hostFromUrl);
-        redirectParams.set('embedded', '1');
-        
-        const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
-        console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
-        window.location.replace(redirectUrl);
-        return; // 早期リターン
-      }
-    }
-    
     // 🆕 auth_success がない場合のみ、OAuth処理中フラグを確認
     const oauthInProgress = localStorage.getItem('oauth_in_progress') === 'true';
     const oauthStartedAt = localStorage.getItem('oauth_started_at');
@@ -188,8 +138,6 @@ function InstallPolarisPageContent() {
         }, 60 * 1000); // 60秒でタイムアウト
         
         // クリーンアップ（useEffectのクリーンアップ関数として返す）
-        // 注意: このuseEffectは依存配列が空なので、マウント時のみ実行される
-        // タイムアウト処理は、コンポーネントがアンマウントされた時にクリーンアップされる
         return () => {
           clearTimeout(timeoutId);
         };
@@ -200,7 +148,52 @@ function InstallPolarisPageContent() {
         localStorage.removeItem('oauth_started_at');
       }
     }
-  }, [])
+  }, []) // マウント時のみ実行
+
+  // 🆕 認証状態の変化を監視: 認証済みでstoreIdがある場合、/setup/initialにリダイレクト
+  // 理由: OAuth認証が成功したが、/auth/successに到達できなかった場合のフォールバック
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isInitializing) return; // 認証初期化中はスキップ
+    
+    const params = new URLSearchParams(window.location.search);
+    const shopFromUrl = params.get('shop');
+    const hostFromUrl = params.get('host');
+    
+    // 🆕 認証済みでstoreIdがある場合、/setup/initialにリダイレクト
+    if (isAuthenticated && !isInitializing) {
+      const currentStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId')
+        : null;
+      const oauthAuthenticated = typeof window !== 'undefined' 
+        ? localStorage.getItem('oauth_authenticated') === 'true'
+        : false;
+      
+      if (currentStoreId && oauthAuthenticated && shopFromUrl) {
+        console.log('✅ [Install] 認証済みでstoreIdがあります。/setup/initialにリダイレクトします。', {
+          storeId: currentStoreId,
+          shop: shopFromUrl,
+          isAuthenticated,
+          isInitializing
+        });
+        
+        // OAuth処理中フラグをクリア
+        localStorage.removeItem('oauth_in_progress');
+        localStorage.removeItem('oauth_started_at');
+        
+        // /setup/initialにリダイレクト
+        const redirectParams = new URLSearchParams();
+        redirectParams.set('shop', shopFromUrl);
+        if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+        redirectParams.set('embedded', '1');
+        
+        const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+        console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
+        window.location.replace(redirectUrl);
+        return; // 早期リターン
+      }
+    }
+  }, [isAuthenticated, isInitializing]) // 🆕 認証状態の変化を監視
 
   const normalizeShopDomain = useCallback((value: string): string => {
     const v = value.trim().toLowerCase();
@@ -911,51 +904,60 @@ function InstallPolarisPageContent() {
       
       // embedded=1かつApp Bridgeが利用可能な場合
       if (isEmbeddedMode && app) {
-        console.log('🖼️ [Install] 埋め込みアプリモード: ExitIframeページにリダイレクト');
-        console.log('📍 [Install] リダイレクト先 (installUrl):', installUrl);
+        console.log('🖼️ [Install] 埋め込みアプリモード: OAuth URLを取得してRedirect.toRemote()を使用');
+        console.log('📍 [Install] リクエスト先 (installUrl):', installUrl);
         console.log('🔍 [Install] App Bridge状態:', { app: !!app, isEmbedded, embeddedParam });
         
         try {
-          // Shopify公式ドキュメントに基づく実装:
-          // ExitIframeページにリダイレクトし、そこでApp BridgeのRedirect.toApp()を使用してiframeから脱出
-          // その後、バックエンドの/api/shopify/installにリダイレクト
-          console.log('🔄 [Install] ExitIframeページURLを構築開始...');
-          console.log('🔄 [Install] installUrl (エンコード前):', installUrl);
+          // 🆕 UseFrontendProxy=trueの場合、OAuth URLを取得してRedirect.toRemote()を使用
+          // 理由: iframe内でOAuth認証を行うと、Shopifyがブロックするため
+          // Redirect.toRemote()を使用してトップレベルのウィンドウでOAuth認証を行う
+          console.log('📡 [Install] OAuth URLを取得中...');
           
-          const encodedInstallUrl = encodeURIComponent(installUrl);
-          console.log('🔄 [Install] installUrl (エンコード後):', encodedInstallUrl);
+          const response = await fetch(installUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
           
-          const exitIframeUrl = `/auth/exit-iframe?redirectUri=${encodedInstallUrl}`;
-          console.log('🔄 [Install] ExitIframeページURL:', exitIframeUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to get OAuth URL: ${response.status} ${response.statusText}`);
+          }
           
-          console.log('🔄 [Install] App Bridge Redirect.toApp()を実行します...');
-          console.log('🔄 [Install] Redirect.toApp()の引数:', { path: exitIframeUrl });
+          const data = await response.json();
+          const authUrl = data.authUrl;
           
-          app.dispatch(Redirect.toApp({ path: exitIframeUrl }));
+          if (!authUrl) {
+            throw new Error('OAuth URL not found in response');
+          }
           
-          console.log('✅ [Install] ExitIframeページへのリダイレクトを実行しました');
-          console.log('ℹ️ [Install] App Bridgeのリダイレクトは非同期で処理されます');
+          console.log('✅ [Install] OAuth URL取得成功:', authUrl);
+          console.log('🔄 [Install] App Bridge Redirect.toRemote()を実行します...');
           
-          // App Bridgeのリダイレクトは非同期で処理されるため、
-          // エラーチェックは行わない（リダイレクトが失敗した場合はExitIframeページでエラーが表示される）
+          // App BridgeのRedirect.toRemote()を使用してトップレベルのウィンドウでOAuth認証を行う
+          // これにより、iframe内でのOAuth認証がブロックされる問題を回避できる
+          app.dispatch(Redirect.toRemote({ url: authUrl }));
+          
+          console.log('✅ [Install] Redirect.toRemote()を実行しました');
+          console.log('ℹ️ [Install] OAuth認証はトップレベルのウィンドウで実行されます');
+          
+          // OAuth処理中フラグを設定
+          localStorage.setItem('oauth_in_progress', 'true');
+          localStorage.setItem('oauth_started_at', Date.now().toString());
+          console.log('🔄 [Install] OAuth処理中フラグを設定しました（localStorage）');
+          
         } catch (error) {
-          console.error('❌ App Bridgeリダイレクトに失敗:', error);
+          console.error('❌ OAuth URL取得またはリダイレクトに失敗:', error);
           console.error('❌ エラー詳細:', {
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : 'N/A',
             error
           });
           
-          // フォールバック: 通常のリダイレクトを試行
-          console.warn('⚠️ フォールバック: 通常のリダイレクトを試行します');
-          try {
-            window.location.href = installUrl;
-          } catch (fallbackError) {
-            console.error('❌ フォールバックリダイレクトも失敗:', fallbackError);
-            setError('リダイレクトに失敗しました。ブラウザのコンソールを確認してください。');
-            setLoading(false);
-            isInstallingRef.current = false;
-          }
+          setError('OAuth認証の開始に失敗しました。ブラウザのコンソールを確認してください。');
+          setLoading(false);
+          isInstallingRef.current = false;
         }
       } else {
         // embedded=0または非埋め込みの場合、直接バックエンドにリダイレクト
