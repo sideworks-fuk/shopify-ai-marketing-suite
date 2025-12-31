@@ -457,11 +457,16 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // マルチアプリ対応: ストアドメインからShopifyAppを特定してWebhookSecretを取得
                 string? secret = null;
+                string secretSource = "none";
                 
                 // X-Shopify-Shop-Domainヘッダーからストアドメインを取得
                 if (Request.Headers.TryGetValue("X-Shopify-Shop-Domain", out var shopDomainHeader))
                 {
                     var shopDomain = shopDomainHeader.ToString();
+                    _logger.LogInformation("HMAC検証開始: Shop={Shop}, HmacHeader={HmacPrefix}...", 
+                        shopDomain, 
+                        receivedHmac.ToString().Length > 10 ? receivedHmac.ToString().Substring(0, 10) : receivedHmac.ToString());
+                    
                     if (!string.IsNullOrWhiteSpace(shopDomain))
                     {
                         // ストアからShopifyAppを取得
@@ -469,11 +474,27 @@ namespace ShopifyAnalyticsApi.Controllers
                             .Include(s => s.ShopifyApp)
                             .FirstOrDefaultAsync(s => s.Domain == shopDomain);
                         
-                        if (store?.ShopifyApp != null && store.ShopifyApp.IsActive)
+                        if (store == null)
+                        {
+                            _logger.LogWarning("HMAC検証: ストアがDBに存在しません Shop={Shop}", shopDomain);
+                        }
+                        else if (store.ShopifyApp == null)
+                        {
+                            _logger.LogWarning("HMAC検証: ストアにShopifyAppが紐づいていません Shop={Shop}, StoreId={StoreId}, ShopifyAppId={ShopifyAppId}", 
+                                shopDomain, store.Id, store.ShopifyAppId);
+                        }
+                        else if (!store.ShopifyApp.IsActive)
+                        {
+                            _logger.LogWarning("HMAC検証: ShopifyAppが非アクティブです Shop={Shop}, App={App}", 
+                                shopDomain, store.ShopifyApp.Name);
+                        }
+                        else
                         {
                             // ShopifyAppのApiSecretを使用（Webhook Secretは通常ApiSecretと同じ）
                             secret = store.ShopifyApp.ApiSecret;
-                            _logger.LogDebug("Webhook SecretをShopifyAppから取得. Shop: {Shop}, App: {App}", shopDomain, store.ShopifyApp.Name);
+                            secretSource = $"ShopifyApp:{store.ShopifyApp.Name}";
+                            _logger.LogInformation("HMAC検証: SecretをShopifyAppから取得 Shop={Shop}, App={App}, SecretLength={SecretLength}", 
+                                shopDomain, store.ShopifyApp.Name, secret?.Length ?? 0);
                         }
                     }
                 }
@@ -484,18 +505,20 @@ namespace ShopifyAnalyticsApi.Controllers
                     secret = _configuration["Shopify:WebhookSecret"];
                     if (!string.IsNullOrWhiteSpace(secret))
                     {
-                        _logger.LogDebug("Webhook Secretを設定ファイルから取得");
+                        secretSource = "appsettings:Shopify:WebhookSecret";
+                        _logger.LogInformation("HMAC検証: Secretをappsettingsから取得 SecretLength={SecretLength}", secret.Length);
                     }
                 }
                 
                 if (string.IsNullOrWhiteSpace(secret))
                 {
-                    _logger.LogError("Webhook秘密鍵が設定されていません");
+                    _logger.LogError("HMAC検証失敗: Webhook秘密鍵が設定されていません SecretSource={SecretSource}", secretSource);
                     return false;
                 }
 
                 using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
                 var computedHashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(body));
+                var computedHmacBase64 = Convert.ToBase64String(computedHashBytes);
 
                 // 受信値をBase64デコード
                 byte[] receivedHmacBytes;
@@ -511,11 +534,31 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (receivedHmacBytes.Length != computedHashBytes.Length)
                 {
+                    _logger.LogWarning("HMAC検証失敗: 長さ不一致 Received={ReceivedLen}, Computed={ComputedLen}", 
+                        receivedHmacBytes.Length, computedHashBytes.Length);
                     return false;
                 }
 
                 // 固定時間比較で検証
-                return CryptographicOperations.FixedTimeEquals(computedHashBytes, receivedHmacBytes);
+                var isValid = CryptographicOperations.FixedTimeEquals(computedHashBytes, receivedHmacBytes);
+                
+                if (!isValid)
+                {
+                    // デバッグ用: ボディの先頭100文字も出力
+                    var bodyPreview = body.Length > 100 ? body.Substring(0, 100) + "..." : body;
+                    _logger.LogWarning("HMAC検証失敗: 署名不一致 SecretSource={SecretSource}, ReceivedHmac={ReceivedHmac}, ComputedHmac={ComputedHmac}, BodyLength={BodyLength}, BodyPreview={BodyPreview}", 
+                        secretSource,
+                        receivedHmac.ToString(),
+                        computedHmacBase64,
+                        body.Length,
+                        bodyPreview);
+                }
+                else
+                {
+                    _logger.LogInformation("HMAC検証成功: SecretSource={SecretSource}", secretSource);
+                }
+                
+                return isValid;
             }
             catch (Exception ex)
             {

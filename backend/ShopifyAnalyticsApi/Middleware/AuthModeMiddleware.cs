@@ -46,6 +46,8 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/shopify/test-oauth-url",
                 "/api/shopify/test-hybrid-mode",
                 "/api/shopify/test-config",
+                // Webhook（Shopifyからの通知、WebhookController内で独自HMAC検証を実施）
+                "/api/webhook",
                 "/health",
                 "/swagger",
                 "/hangfire"
