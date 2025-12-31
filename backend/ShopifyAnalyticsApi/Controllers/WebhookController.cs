@@ -76,37 +76,40 @@ namespace ShopifyAnalyticsApi.Controllers
                 // リクエストボディを読み取る
                 var body = await GetRequestBodyAsync();
                 var webhook = JsonSerializer.Deserialize<ShopifyWebhook>(body);
+                var shopDomain = webhook?.GetEffectiveDomain();
 
-                if (webhook?.Domain == null)
+                if (string.IsNullOrWhiteSpace(shopDomain))
                 {
-                    _logger.LogWarning("Invalid webhook payload: app/uninstalled");
+                    _logger.LogWarning("Invalid webhook payload: app/uninstalled. Domain not found in payload. BodyPreview={BodyPreview}", 
+                        body.Length > 200 ? body.Substring(0, 200) : body);
                     return BadRequest();
                 }
 
                 var correlationId = LoggingHelper.GetOrCreateCorrelationId(HttpContext);
                 var requestId = LoggingHelper.GetOrCreateRequestId(HttpContext);
-                _logger.LogInformation("App uninstall notification received Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, topic, webhookId, correlationId, requestId);
+                _logger.LogInformation("App uninstall notification received Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", shopDomain, topic, webhookId, correlationId, requestId);
 
-                // 非同期で処理を実行
+                // 非同期で処理を実行（ローカル変数をキャプチャ）
+                var capturedShopDomain = shopDomain;
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         // 1. 課金をキャンセル（Shopify側とローカル両方を冪等に処理）
-                        await CancelStoreSubscription(webhook.Domain);
+                        await CancelStoreSubscription(capturedShopDomain);
                         
                         // 2. データ削除をスケジュール（48時間以内）
-                        await ScheduleDataDeletion(webhook.Domain, 48);
+                        await ScheduleDataDeletion(capturedShopDomain, 48);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error occurred during uninstall processing. Shop: {Shop}", webhook.Domain);
+                        _logger.LogError(ex, "Error occurred during uninstall processing. Shop: {Shop}", capturedShopDomain);
                     }
                 });
 
                 // 即座に200 OKを返す（5秒ルール）
                 started.Stop();
-                _logger.LogInformation("app/uninstalled processing completed Shop={Shop} WebhookId={WebhookId} Result={Result} LatencyMs={Latency} CorrelationId={CorrelationId} RequestId={RequestId}", webhook.Domain, webhookId, "accepted", started.ElapsedMilliseconds, correlationId, requestId);
+                _logger.LogInformation("app/uninstalled processing completed Shop={Shop} WebhookId={WebhookId} Result={Result} LatencyMs={Latency} CorrelationId={CorrelationId} RequestId={RequestId}", shopDomain, webhookId, "accepted", started.ElapsedMilliseconds, correlationId, requestId);
                 return Ok();
             }
             catch (Exception ex)
@@ -1094,8 +1097,19 @@ namespace ShopifyAnalyticsApi.Controllers
         // Webhook用のDTOクラス
         private class ShopifyWebhook
         {
+            [System.Text.Json.Serialization.JsonPropertyName("domain")]
             public string? Domain { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("myshopify_domain")]
+            public string? MyshopifyDomain { get; set; }
+            
+            [System.Text.Json.Serialization.JsonPropertyName("id")]
             public long Id { get; set; }
+            
+            /// <summary>
+            /// 有効なドメインを取得（domain または myshopify_domain）
+            /// </summary>
+            public string? GetEffectiveDomain() => Domain ?? MyshopifyDomain;
         }
 
         private class CustomerRedactWebhook
