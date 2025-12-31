@@ -644,6 +644,9 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             _logger.LogInformation("データ削除をスケジュール. Shop: {Shop}, Days: {Days}", shopDomain, daysToDelete);
 
+            // Webhook履歴を記録（Domain変更前に実行）
+            await LogWebhookEvent(shopDomain, "app/uninstalled", new { daysToDelete, scheduledDeletionDate = DateTime.UtcNow.AddDays(daysToDelete) });
+
             // ストアを非アクティブ化
             var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
             if (store != null)
