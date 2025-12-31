@@ -8,7 +8,7 @@ on:
         required: false
         type: string
       target_environment:
-        description: 'デプロイ対象（Production1=既存SWA / Production2=新SWA / Production3=新SWA）'
+        description: 'デプロイ対象: Production1=EC Ranger(公開) / Production2=EC Ranger-xn-fbkq6e5da0fpb(カスタム) / Production3=EC Ranger-demo(カスタム) / Both=Prod1+2 / All=全環境'
         required: true
         type: choice
         options:
