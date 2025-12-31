@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using ShopifyAnalyticsApi.Helpers;
 using Microsoft.Extensions.DependencyInjection;
+using Hangfire;
 
 namespace ShopifyAnalyticsApi.Controllers
 {
@@ -60,14 +61,14 @@ namespace ShopifyAnalyticsApi.Controllers
                 // 必須ヘッダ/トピック検証
                 if (!ValidateRequiredHeaders("app/uninstalled", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC verification failed: app/uninstalled");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 // リクエストボディを読み取る
@@ -126,13 +127,13 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 if (!ValidateRequiredHeaders("customers/redact", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: customers/redact");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -192,13 +193,13 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 if (!ValidateRequiredHeaders("shop/redact", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: shop/redact");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -257,13 +258,13 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 if (!ValidateRequiredHeaders("customers/data_request", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: customers/data_request");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -322,13 +323,13 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 if (!ValidateRequiredHeaders("app_subscriptions/update", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: app_subscriptions/update");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -378,13 +379,13 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 if (!ValidateRequiredHeaders("app_subscriptions/cancel", out var topic, out var shopDomainHeader, out var webhookId))
                 {
-                    return Forbid();
+                    return Unauthorized();
                 }
                 // HMAC検証
                 if (!await VerifyWebhookRequest())
                 {
                     _logger.LogWarning("HMAC検証失敗: app_subscriptions/cancel");
-                    return Forbid();
+                    return Unauthorized();
                 }
 
                 var body = await GetRequestBodyAsync();
@@ -613,7 +614,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 await _context.SaveChangesAsync();
                 
-                // 開発環境では即座に削除（本番環境ではHangfireでスケジュールすべき）
+                // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
                 if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
                 {
                     _logger.LogWarning("開発環境のため、即座にデータを削除します. Shop: {Shop}", shopDomain);
@@ -621,8 +622,15 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
                 else
                 {
-                    // TODO: 本番環境ではHangfireでスケジュール
-                    _logger.LogInformation("本番環境では{Days}日後にデータを削除します. Shop: {Shop}", daysToDelete, shopDomain);
+                    // 本番環境: Hangfireで遅延ジョブをスケジュール
+                    var scheduledTime = TimeSpan.FromHours(daysToDelete);
+                    var jobId = BackgroundJob.Schedule<IDataCleanupService>(
+                        service => service.DeleteStoreDataAsync(shopDomain),
+                        scheduledTime);
+                    
+                    _logger.LogInformation(
+                        "ストアデータ削除をスケジュール. Shop: {Shop}, JobId: {JobId}, 予定: {Hours}時間後",
+                        shopDomain, jobId, daysToDelete);
                 }
             }
         }
@@ -638,7 +646,7 @@ namespace ShopifyAnalyticsApi.Controllers
             // Webhook履歴を記録
             await LogWebhookEvent(shopDomain, "customers/redact", new { customerId, daysToDelete });
             
-            // 開発環境では即座に削除（本番環境ではHangfireでスケジュールすべき）
+            // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
             if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
             {
                 _logger.LogWarning("開発環境のため、即座に顧客データを削除します. Shop: {Shop}, CustomerId: {CustomerId}", shopDomain, customerId);
@@ -646,8 +654,15 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             else
             {
-                // TODO: 本番環境ではHangfireでスケジュール
-                _logger.LogInformation("本番環境では{Days}日後に顧客データを削除します. Shop: {Shop}, CustomerId: {CustomerId}", daysToDelete, shopDomain, customerId);
+                // 本番環境: Hangfireで遅延ジョブをスケジュール
+                var scheduledTime = TimeSpan.FromDays(daysToDelete);
+                var jobId = BackgroundJob.Schedule<IDataCleanupService>(
+                    service => service.DeleteCustomerDataAsync(shopDomain, customerId),
+                    scheduledTime);
+                
+                _logger.LogInformation(
+                    "顧客データ削除をスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, JobId: {JobId}, 予定: {Days}日後",
+                    shopDomain, customerId, jobId, daysToDelete);
             }
         }
 
@@ -656,12 +671,29 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private async Task ScheduleShopDataDeletion(string shopDomain, int daysToDelete)
         {
-            // TODO: Azure Service BusまたはHangfireでスケジュール
             _logger.LogInformation("ショップデータ削除をスケジュール. Shop: {Shop}, Days: {Days}", 
                 shopDomain, daysToDelete);
 
             // Webhook履歴を記録
             await LogWebhookEvent(shopDomain, "shop/redact", new { daysToDelete });
+
+            // 本番環境: Hangfireで遅延ジョブをスケジュール
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development")
+            {
+                var scheduledTime = TimeSpan.FromDays(daysToDelete);
+                var jobId = BackgroundJob.Schedule<IDataCleanupService>(
+                    service => service.DeleteStoreDataAsync(shopDomain),
+                    scheduledTime);
+                
+                _logger.LogInformation(
+                    "ショップデータ削除ジョブをスケジュール. Shop: {Shop}, JobId: {JobId}, 予定: {Days}日後",
+                    shopDomain, jobId, daysToDelete);
+            }
+            else
+            {
+                _logger.LogWarning("開発環境のため、即座にショップデータを削除します. Shop: {Shop}", shopDomain);
+                await _dataCleanupService.DeleteStoreDataAsync(shopDomain);
+            }
         }
 
         /// <summary>
@@ -669,12 +701,15 @@ namespace ShopifyAnalyticsApi.Controllers
         /// </summary>
         private async Task ScheduleCustomerDataExport(string shopDomain, long customerId, long requestId)
         {
-            // TODO: Azure Service BusまたはHangfireでスケジュール
             _logger.LogInformation("顧客データエクスポートをスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, RequestId: {RequestId}", 
                 shopDomain, customerId, requestId);
 
             // Webhook履歴を記録
             await LogWebhookEvent(shopDomain, "customers/data_request", new { customerId, requestId });
+
+            // 注: customers/data_request は GDPRService.ProcessCustomerDataRequestAsync() で
+            // 非同期に処理されるため、ここでのスケジューリングは不要
+            // GdprProcessingJob が5分ごとにpendingリクエストを処理する
         }
 
         /// <summary>

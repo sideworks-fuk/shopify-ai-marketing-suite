@@ -539,7 +539,8 @@ app.UseCors("AllowAll");
 app.UseGlobalExceptionHandler();
 
 // Shopify Webhook用のHMAC検証ミドルウェア
-app.UseHmacValidation();
+// ※ WebhookController.VerifyWebhookRequest() がマルチアプリ対応で検証するため無効化
+// app.UseHmacValidation();
 
 // Shopify埋め込みアプリミドルウェア（認証前に配置）
 app.UseShopifyEmbeddedApp();

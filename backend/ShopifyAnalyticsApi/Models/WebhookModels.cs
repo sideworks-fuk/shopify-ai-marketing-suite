@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace ShopifyAnalyticsApi.Models
 {
@@ -7,6 +8,7 @@ namespace ShopifyAnalyticsApi.Models
     /// Webhookイベント履歴エンティティ
     /// Shopifyから受信した全てのWebhookイベントを記録
     /// </summary>
+    [Index(nameof(IdempotencyKey), IsUnique = true, Name = "IX_WebhookEvents_IdempotencyKey")]
     public class WebhookEvent
     {
         [Key]

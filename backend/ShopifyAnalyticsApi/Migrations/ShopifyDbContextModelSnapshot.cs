@@ -180,7 +180,7 @@ namespace ShopifyAnalyticsApi.Migrations
                             Id = 1,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 11, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(457),
+                            CreatedAt = new DateTime(2025, 11, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1026),
                             CustomerSegment = "リピーター",
                             Email = "yamada@example.com",
                             FirstName = "太郎",
@@ -192,14 +192,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxExempt = false,
                             TotalOrders = 3,
                             TotalSpent = 25000m,
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(460)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1045)
                         },
                         new
                         {
                             Id = 2,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(463),
+                            CreatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1062),
                             CustomerSegment = "新規顧客",
                             Email = "sato@example.com",
                             FirstName = "花子",
@@ -211,14 +211,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxExempt = false,
                             TotalOrders = 1,
                             TotalSpent = 8500m,
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(463)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1063)
                         },
                         new
                         {
                             Id = 3,
                             AcceptsEmailMarketing = false,
                             AcceptsSMSMarketing = false,
-                            CreatedAt = new DateTime(2025, 6, 25, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(466),
+                            CreatedAt = new DateTime(2025, 7, 3, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1066),
                             CustomerSegment = "VIP顧客",
                             Email = "suzuki@example.com",
                             FirstName = "一郎",
@@ -229,7 +229,7 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxExempt = false,
                             TotalOrders = 15,
                             TotalSpent = 125000m,
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(467)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1066)
                         });
                 });
 
@@ -801,7 +801,7 @@ namespace ShopifyAnalyticsApi.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(516),
+                            CreatedAt = new DateTime(2025, 12, 16, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1221),
                             Currency = "JPY",
                             CustomerId = 1,
                             FinancialStatus = "pending",
@@ -812,12 +812,12 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxPrice = 700m,
                             TotalPrice = 7000m,
                             TotalTax = 0m,
-                            UpdatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(516)
+                            UpdatedAt = new DateTime(2025, 12, 16, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1228)
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(520),
+                            CreatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1234),
                             Currency = "JPY",
                             CustomerId = 2,
                             FinancialStatus = "pending",
@@ -828,7 +828,7 @@ namespace ShopifyAnalyticsApi.Migrations
                             TaxPrice = 800m,
                             TotalPrice = 8500m,
                             TotalTax = 0m,
-                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(520)
+                            UpdatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1234)
                         });
                 });
 
@@ -947,7 +947,7 @@ namespace ShopifyAnalyticsApi.Migrations
                         {
                             Id = 1,
                             CompareAtPrice = 4000m,
-                            CreatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(552),
+                            CreatedAt = new DateTime(2025, 12, 16, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1307),
                             Option1Name = "サイズ",
                             Option1Value = "M",
                             Option2Name = "カラー",
@@ -963,14 +963,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TSHIRT-001",
                             Taxable = true,
                             TotalPrice = 7000m,
-                            UpdatedAt = new DateTime(2025, 12, 8, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(553),
+                            UpdatedAt = new DateTime(2025, 12, 16, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1308),
                             VariantTitle = "M / ブルー"
                         },
                         new
                         {
                             Id = 2,
                             CompareAtPrice = 3200m,
-                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(557),
+                            CreatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1313),
                             Option1Name = "容量",
                             Option1Value = "500ml",
                             OrderId = 2,
@@ -984,14 +984,14 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TUMBLER-001",
                             Taxable = true,
                             TotalPrice = 2800m,
-                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(557),
+                            UpdatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1313),
                             VariantTitle = "500ml"
                         },
                         new
                         {
                             Id = 3,
                             CompareAtPrice = 4800m,
-                            CreatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(561),
+                            CreatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1323),
                             Option1Name = "容量",
                             Option1Value = "100g",
                             OrderId = 2,
@@ -1005,7 +1005,7 @@ namespace ShopifyAnalyticsApi.Migrations
                             Sku = "TEA-001",
                             Taxable = true,
                             TotalPrice = 4200m,
-                            UpdatedAt = new DateTime(2025, 12, 15, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(562),
+                            UpdatedAt = new DateTime(2025, 12, 23, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1324),
                             VariantTitle = "100g"
                         });
                 });
@@ -1072,34 +1072,34 @@ namespace ShopifyAnalyticsApi.Migrations
                         {
                             Id = 1,
                             Category = "衣類",
-                            CreatedAt = new DateTime(2025, 10, 23, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(490),
+                            CreatedAt = new DateTime(2025, 10, 31, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1145),
                             Description = "環境に優しいオーガニックコットン100%のTシャツ",
                             InventoryQuantity = 50,
                             StoreId = 1,
                             Title = "オーガニックコットンTシャツ",
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(490)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1146)
                         },
                         new
                         {
                             Id = 2,
                             Category = "雑貨",
-                            CreatedAt = new DateTime(2025, 11, 7, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(492),
+                            CreatedAt = new DateTime(2025, 11, 15, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1157),
                             Description = "保温・保冷効果抜群のステンレス製タンブラー",
                             InventoryQuantity = 25,
                             StoreId = 1,
                             Title = "ステンレス製タンブラー",
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(493)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1158)
                         },
                         new
                         {
                             Id = 3,
                             Category = "食品",
-                            CreatedAt = new DateTime(2025, 11, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(495),
+                            CreatedAt = new DateTime(2025, 11, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1160),
                             Description = "厳選されたオーガニック緑茶の詰め合わせセット",
                             InventoryQuantity = 15,
                             StoreId = 1,
                             Title = "オーガニック緑茶セット",
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(495)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(1161)
                         });
                 });
 
@@ -1342,14 +1342,14 @@ namespace ShopifyAnalyticsApi.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2024, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(276),
+                            CreatedAt = new DateTime(2024, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(51),
                             DataType = "production",
                             Domain = "fuk-dev1.myshopify.com",
                             InitialSetupCompleted = false,
                             IsActive = true,
                             Name = "テストストア",
                             ShopifyShopId = "test-store",
-                            UpdatedAt = new DateTime(2025, 12, 22, 15, 16, 33, 522, DateTimeKind.Utc).AddTicks(282)
+                            UpdatedAt = new DateTime(2025, 12, 30, 17, 46, 56, 916, DateTimeKind.Utc).AddTicks(71)
                         });
                 });
 
@@ -1968,6 +1968,10 @@ namespace ShopifyAnalyticsApi.Migrations
                     b.HasIndex("StoreId");
 
                     b.HasIndex("ShopDomain", "Topic");
+
+                    b.HasIndex(new[] { "IdempotencyKey" }, "IX_WebhookEvents_IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.ToTable("WebhookEvents");
                 });

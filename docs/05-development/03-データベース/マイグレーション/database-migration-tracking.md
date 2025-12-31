@@ -26,6 +26,7 @@ docs/05-development/03-データベース/マイグレーション/
 ├── 20251222_AddShopifyAppsTable_Development.sql
 ├── 20251222_AddShopifyAppsTable_Production.sql
 ├── 20251222_AddShopifyAppsTable.sql
+├── 2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -57,6 +58,7 @@ docs/05-development/03-データベース/マイグレーション/
 | **2025-12-25-FIX-AddMissingColumnsToFeatureLimits.sql** | 2025-12-25 | 福田+AI | **FeatureLimitsテーブルに不足カラム追加（ChangeCooldownDays, IsActive）404エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-12-25-FIX-AddEntityTypeToSyncStatuses.sql** | 2025-12-25 | 福田+AI | **SyncStatusesテーブルに不足カラム追加（EntityType）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-12-25-FIX-CreateSyncManagementTables.sql** | 2025-12-25 | 福田+AI | **同期管理関連テーブル作成（SyncCheckpoints, SyncRangeSettings, SyncProgressDetails, SyncStates, SyncHistories）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ✅ 適用済 (2025-12-25) |
+| **2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql** | 2025-12-31 | 福田+AI | **WebhookEvents.IdempotencyKeyにユニークインデックス追加（GDPR Webhook冪等性保証）** | ✅ 適用済 (2025-12-31) | ⏳ 未適用 | ✅ 適用済 (2025-12-31) |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -199,6 +201,14 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 分散環境対応（Redis + Database）
   - セキュリティ監査ログ機能
 
+### 🔧 GDPR Webhook冪等性インデックス追加（2025-12-31）
+- **2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql** - Webhook冪等性保証のためのユニークインデックス追加
+  - **対象**: WebhookEvents.IdempotencyKey
+  - **インデックス種別**: フィルター付きユニークインデックス（NULLは許可）
+  - **目的**: 同一Webhookの重複処理防止（GDPR対応で必須）
+  - **EF Migration**: `20251230174658_AddWebhookEventsIdempotencyKeyIndex`
+  - **関連**: GDPR公開アプリ申請対応
+
 ### 🆕 ShopifyAppsテーブル追加（2025-12-22）
 - **20251222_AddShopifyAppsTable_Development.sql** / **20251222_AddShopifyAppsTable_Production.sql** - マルチアプリ対応のためのテーブル追加
   - **ShopifyAppsテーブル**: Shopifyアプリ情報を一元管理（Name, ApiKey, ApiSecret, AppUrl等）
@@ -208,6 +218,6 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 環境別に分離（開発環境/本番環境）
   - EF Core Migration: `AddShopifyAppsTable`
 
-最終更新: 2025-12-22 15:30
+最終更新: 2025-12-31 03:00
 管理者: 福田
 更新者: 福田 + AI Assistant
