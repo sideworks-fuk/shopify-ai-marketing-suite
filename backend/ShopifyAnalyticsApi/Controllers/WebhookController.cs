@@ -56,11 +56,13 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> AppUninstalled()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: app/uninstalled RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 // 必須ヘッダ/トピック検証
                 if (!ValidateRequiredHeaders("app/uninstalled", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): app/uninstalled");
                     return Unauthorized();
                 }
 
@@ -123,10 +125,12 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> CustomersRedact()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: customers/redact RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 if (!ValidateRequiredHeaders("customers/redact", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): customers/redact");
                     return Unauthorized();
                 }
                 // HMAC検証
@@ -189,10 +193,12 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> ShopRedact()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: shop/redact RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 if (!ValidateRequiredHeaders("shop/redact", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): shop/redact");
                     return Unauthorized();
                 }
                 // HMAC検証
@@ -254,10 +260,12 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> CustomersDataRequest()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: customers/data_request RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 if (!ValidateRequiredHeaders("customers/data_request", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): customers/data_request");
                     return Unauthorized();
                 }
                 // HMAC検証
@@ -319,10 +327,12 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> SubscriptionsUpdate()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: app_subscriptions/update RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 if (!ValidateRequiredHeaders("app_subscriptions/update", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): app_subscriptions/update");
                     return Unauthorized();
                 }
                 // HMAC検証
@@ -375,10 +385,12 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> SubscriptionsCancel()
         {
             var started = Stopwatch.StartNew();
+            _logger.LogInformation("Webhook受信開始: app_subscriptions/cancel RemoteIp={RemoteIp}", HttpContext.Connection.RemoteIpAddress);
             try
             {
                 if (!ValidateRequiredHeaders("app_subscriptions/cancel", out var topic, out var shopDomainHeader, out var webhookId))
                 {
+                    _logger.LogWarning("Webhook拒否(ヘッダ検証失敗): app_subscriptions/cancel");
                     return Unauthorized();
                 }
                 // HMAC検証
