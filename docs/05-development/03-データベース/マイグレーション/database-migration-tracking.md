@@ -27,6 +27,7 @@ docs/05-development/03-データベース/マイグレーション/
 ├── 20251222_AddShopifyAppsTable_Production.sql
 ├── 20251222_AddShopifyAppsTable.sql
 ├── 2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql
+├── 2025-12-31-UpdateShopifyAppsProductionEnvironments.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -59,6 +60,7 @@ docs/05-development/03-データベース/マイグレーション/
 | **2025-12-25-FIX-AddEntityTypeToSyncStatuses.sql** | 2025-12-25 | 福田+AI | **SyncStatusesテーブルに不足カラム追加（EntityType）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **2025-12-25-FIX-CreateSyncManagementTables.sql** | 2025-12-25 | 福田+AI | **同期管理関連テーブル作成（SyncCheckpoints, SyncRangeSettings, SyncProgressDetails, SyncStates, SyncHistories）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ✅ 適用済 (2025-12-25) |
 | **2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql** | 2025-12-31 | 福田+AI | **WebhookEvents.IdempotencyKeyにユニークインデックス追加（GDPR Webhook冪等性保証）** | ✅ 適用済 (2025-12-31) | ⏳ 未適用 | ✅ 適用済 (2025-12-31) |
+| **2025-12-31-UpdateShopifyAppsProductionEnvironments.sql** | 2025-12-31 | 福田+AI | **ShopifyAppsテーブルに本番環境3環境のClient IDを登録・更新（Production1/2/3）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -209,6 +211,17 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - **EF Migration**: `20251230174658_AddWebhookEventsIdempotencyKeyIndex`
   - **関連**: GDPR公開アプリ申請対応
 
+### 🔄 ShopifyAppsテーブル 本番環境3環境登録（2025-12-31）
+- **2025-12-31-UpdateShopifyAppsProductionEnvironments.sql** - 本番環境フロントエンド3環境のShopify Client IDを登録・更新
+  - **対象**: ShopifyAppsテーブル
+  - **登録内容**:
+    - Production1: EC Ranger-xn-fbkq6e5da0fpb (Custom) - ApiKey: 706a757915dedce54806c0a179bee05d
+    - Production2: EC Ranger-demo (Custom) - ApiKey: 23f81e22074df1b71fb0a5a495778f49
+    - Production3: EC Ranger (Public) - ApiKey: b95377afd35e5c8f4b28d286d3ff3491
+  - **処理**: 既存レコードがあれば更新、なければ新規登録（UPSERT）
+  - **注意**: ApiSecretは手動で更新が必要（GitHub Secretsから取得）
+  - **関連**: 本番環境フロントエンド環境整理
+
 ### 🆕 ShopifyAppsテーブル追加（2025-12-22）
 - **20251222_AddShopifyAppsTable_Development.sql** / **20251222_AddShopifyAppsTable_Production.sql** - マルチアプリ対応のためのテーブル追加
   - **ShopifyAppsテーブル**: Shopifyアプリ情報を一元管理（Name, ApiKey, ApiSecret, AppUrl等）
@@ -218,6 +231,6 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 環境別に分離（開発環境/本番環境）
   - EF Core Migration: `AddShopifyAppsTable`
 
-最終更新: 2025-12-31 03:00
+最終更新: 2025-12-31 17:30
 管理者: 福田
 更新者: 福田 + AI Assistant

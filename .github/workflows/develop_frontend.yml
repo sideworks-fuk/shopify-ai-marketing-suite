@@ -31,7 +31,8 @@ env:
   # Next.js のビルド成果物は .next 配下（Static Web Apps が next export と誤判定しないよう明示）
   OUTPUT_LOCATION: '.next'
   # Static Web Apps API トークン（開発環境用）
-  AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BRAVE_SEA_038F17A00 }}
+  # 命名規則: AZURE_STATIC_WEB_APPS_API_TOKEN_DEVELOPMENT
+  AZURE_STATIC_WEB_APPS_API_TOKEN_SECRET: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEVELOPMENT }}
 
   # デプロイ先URL（ログ/ヘルスチェック用）
   # 注意: 実際のURLは環境別に異なるため、ステップ内で動的に生成
