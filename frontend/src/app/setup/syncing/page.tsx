@@ -1,99 +1,212 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle, Building2 } from 'lucide-react'
-import { getApiUrl } from '@/lib/api-config'
+import { AlertCircle, CheckCircle, Building2, Loader2 } from 'lucide-react'
+import { useAuth } from '@/components/providers/AuthProvider'
 
 interface SyncStatus {
-  syncId: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  progress: {
+  syncId: string | number
+  jobId?: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'started'
+  progress?: {
     total: number
     processed: number
     percentage: number
   }
-  currentTask: string
-  estimatedTimeRemaining: number
+  currentTask?: string
+  estimatedTimeRemaining?: number
   errorMessage?: string
+  message?: string
 }
 
 export default function SyncingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const syncId = searchParams?.get('syncId')
+  const { getApiClient, isApiClientReady } = useAuth()
   
+  const [syncId, setSyncId] = useState<string | null>(null)
+  const [syncIdLoaded, setSyncIdLoaded] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(true)
 
-  const fetchSyncStatus = async () => {
+  // ★ syncId の取得（URLパラメータ → sessionStorage フォールバック）
+  useEffect(() => {
+    const getSyncId = (): string | null => {
+      // 1. まずURLパラメータから取得
+      const urlSyncId = searchParams?.get('syncId')
+      if (urlSyncId) {
+        console.log('📌 syncId (URLから取得):', urlSyncId)
+        return urlSyncId
+      }
+      
+      // 2. URLになければ sessionStorage から取得（App Bridge対策）
+      try {
+        const storedSyncId = sessionStorage.getItem('ec-ranger-syncId')
+        if (storedSyncId) {
+          console.log('📌 syncId (sessionStorageから取得):', storedSyncId)
+          return storedSyncId
+        }
+      } catch (e) {
+        console.warn('sessionStorage からの取得に失敗:', e)
+      }
+      
+      console.error('❌ syncId が取得できません（URL にも sessionStorage にもない）')
+      return null
+    }
+
+    const id = getSyncId()
+    setSyncId(id)
+    setSyncIdLoaded(true)
+    
+    if (!id) {
+      setError('同期IDが見つかりません。初期設定画面からやり直してください。')
+      setIsInitializing(false)
+    }
+  }, [searchParams])
+
+  // デバッグ: isApiClientReady の状態変化を監視
+  useEffect(() => {
+    console.log('🔄 [SyncingPage] isApiClientReady 状態変化:', isApiClientReady)
+  }, [isApiClientReady])
+
+  // デバッグ: コンポーネントマウント時
+  useEffect(() => {
+    console.log('📦 [SyncingPage] マウント')
+    return () => {
+      console.log('📦 [SyncingPage] アンマウント')
+    }
+  }, [])
+
+  const fetchSyncStatus = useCallback(async () => {
     if (!syncId) {
-      setError('同期IDが見つかりません')
+      console.error('❌ syncId がありません')
+      return
+    }
+
+    if (!isApiClientReady) {
+      console.log('⏳ APIクライアントが準備中のため待機...')
       return
     }
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/sync/status/${syncId}`)
+      console.log('📡 GET /api/sync/status/' + syncId + ' 送信中...')
+      const apiClient = getApiClient()
+      const data = await apiClient.request<SyncStatus>(`/api/sync/status/${syncId}`, {
+        method: 'GET',
+      })
       
-      if (!response.ok) {
-        throw new Error('同期状態の取得に失敗しました')
-      }
-
-      const data: SyncStatus = await response.json()
+      console.log('📥 ステータス受信:', data)
       setSyncStatus(data)
+      setError(null)
+      setIsInitializing(false)
 
       // 完了時の処理
       if (data.status === 'completed') {
+        console.log('✅ 同期完了！ダッシュボードへリダイレクト...')
+        
+        // ★ sessionStorage をクリア
+        try {
+          sessionStorage.removeItem('ec-ranger-syncId')
+          console.log('🗑️ sessionStorage の syncId をクリア')
+        } catch (e) {
+          console.warn('sessionStorage のクリアに失敗:', e)
+        }
+        
         setTimeout(() => {
           router.push('/dashboard')
         }, 2000)
       } else if (data.status === 'failed') {
-        setError(data.errorMessage || '同期中にエラーが発生しました')
+        setError(data.errorMessage || data.message || '同期中にエラーが発生しました')
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
+    } catch (err: any) {
+      console.error('❌ 同期ステータス取得エラー:', err)
+      const errorMessage = err?.message || '予期しないエラーが発生しました'
+      
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        setError('認証エラー: 再ログインしてください')
+      } else if (errorMessage.includes('404')) {
+        setError('同期ステータスが見つかりません。同期が開始されていない可能性があります。')
+      } else {
+        setError(errorMessage)
+      }
+      setIsInitializing(false)
     }
-  }
+  }, [syncId, isApiClientReady, getApiClient, router])
 
+  // ★ 重要: syncId と isApiClientReady が両方準備できてから処理を開始
   useEffect(() => {
-    if (!syncId) return
+    // syncId のロードが完了していない場合は待機
+    if (!syncIdLoaded) {
+      console.log('⏳ syncId のロードを待機中...')
+      return
+    }
 
+    // syncId がない場合はエラー（既に useEffect で設定済み）
+    if (!syncId) {
+      console.error('❌ syncId がありません')
+      return
+    }
+
+    // APIクライアントの準備ができるまで待機
+    if (!isApiClientReady) {
+      console.log('⏳ APIクライアントの初期化を待機中...')
+      return
+    }
+
+    console.log('✅ 準備完了（syncId:', syncId, ', isApiClientReady:', isApiClientReady, '）')
+    console.log('✅ ステータス取得開始')
+    
     // 初回取得
     fetchSyncStatus()
 
     // 5秒ごとにポーリング
     const interval = setInterval(() => {
-      if (syncStatus?.status === 'running' || syncStatus?.status === 'pending') {
+      if (syncStatus?.status === 'running' || syncStatus?.status === 'pending' || syncStatus?.status === 'started') {
         fetchSyncStatus()
       }
     }, 5000)
 
-    return () => clearInterval(interval)
-  }, [syncId, syncStatus?.status])
+    return () => {
+      console.log('🛑 ポーリング停止')
+      clearInterval(interval)
+    }
+  }, [syncId, syncIdLoaded, isApiClientReady, syncStatus?.status, fetchSyncStatus])
 
   const handleRetry = async () => {
+    if (!syncId) {
+      setError('同期IDがありません')
+      return
+    }
+    
+    if (!isApiClientReady) {
+      setError('APIクライアントが準備中です。しばらくお待ちください。')
+      return
+    }
+
     setIsRetrying(true)
     setError(null)
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/sync/retry/${syncId}`, {
+      console.log('🔄 再試行: POST /api/sync/retry/' + syncId)
+      const apiClient = getApiClient()
+      await apiClient.request(`/api/sync/retry/${syncId}`, {
         method: 'POST',
       })
 
-      if (!response.ok) {
-        throw new Error('再試行の開始に失敗しました')
-      }
-
       // 状態をリセットして再度ポーリング開始
       setSyncStatus(null)
+      setIsInitializing(true)
       fetchSyncStatus()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '再試行に失敗しました')
+    } catch (err: any) {
+      console.error('❌ 再試行エラー:', err)
+      setError(err?.message || '再試行に失敗しました')
     } finally {
       setIsRetrying(false)
     }
@@ -110,13 +223,71 @@ export default function SyncingPage() {
     return `${minutes}分${remainingSeconds > 0 ? ` ${remainingSeconds}秒` : ''}`
   }
 
+  // syncId ロード中
+  if (!syncIdLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardContent className="py-8">
+            <div className="text-center space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500" />
+              <p className="text-gray-600">読み込み中...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // syncId がない場合のエラー表示
   if (!syncId) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>同期IDが見つかりません</AlertDescription>
-        </Alert>
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+              <Building2 className="h-8 w-8" />
+              <span>EC Ranger</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                同期IDが見つかりません。初期設定画面からやり直してください。
+              </AlertDescription>
+            </Alert>
+            <div className="mt-4 text-center">
+              <Button onClick={() => router.push('/setup/initial')}>
+                初期設定画面へ戻る
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // APIクライアント初期化中の表示
+  if (!isApiClientReady || isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+              <Building2 className="h-8 w-8" />
+              <span>EC Ranger</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="text-center space-y-4">
+              <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500" />
+              <h2 className="text-xl font-semibold">初期化中...</h2>
+              <p className="text-gray-600">同期ステータスを取得しています</p>
+              <p className="text-sm text-gray-400">syncId: {syncId}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -125,7 +296,7 @@ export default function SyncingPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold flex items-center gap-2">
+          <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
             <Building2 className="h-8 w-8" />
             <span>EC Ranger</span>
           </CardTitle>
@@ -143,7 +314,7 @@ export default function SyncingPage() {
                 <h2 className="text-xl font-semibold mb-2">データ同期中...</h2>
                 {syncStatus && (
                   <p className="text-gray-600">
-                    {syncStatus.currentTask}
+                    {syncStatus.currentTask || syncStatus.message || '処理中です...'}
                   </p>
                 )}
               </div>
@@ -155,7 +326,7 @@ export default function SyncingPage() {
                 </Alert>
               )}
 
-              {syncStatus && (
+              {syncStatus?.progress && (
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -164,15 +335,29 @@ export default function SyncingPage() {
                     </div>
                     <Progress value={syncStatus.progress.percentage} className="h-3" />
                     <p className="text-sm text-gray-600 mt-2">
-                      取得中: {syncStatus.currentTask} ({syncStatus.progress.processed}/{syncStatus.progress.total}件)
+                      処理中: {syncStatus.currentTask || '...'} ({syncStatus.progress.processed}/{syncStatus.progress.total}件)
                     </p>
                   </div>
 
-                  {syncStatus.estimatedTimeRemaining > 0 && (
+                  {syncStatus.estimatedTimeRemaining && syncStatus.estimatedTimeRemaining > 0 && (
                     <p className="text-sm text-gray-600">
                       予想残り時間: 約{formatTime(syncStatus.estimatedTimeRemaining)}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* 進捗情報がない場合のシンプル表示 */}
+              {!syncStatus?.progress && syncStatus && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mr-2" />
+                    <span className="text-gray-600">同期処理を実行中...</span>
+                  </div>
+                  <p className="text-sm text-gray-500 text-center">
+                    ステータス: {syncStatus.status}
+                    {syncStatus.jobId && ` (Job ID: ${syncStatus.jobId})`}
+                  </p>
                 </div>
               )}
 
@@ -183,13 +368,20 @@ export default function SyncingPage() {
                     disabled={isRetrying}
                     className="flex-1"
                   >
-                    {isRetrying ? '再試行中...' : '再試行'}
+                    {isRetrying ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        再試行中...
+                      </>
+                    ) : (
+                      '再試行'
+                    )}
                   </Button>
                 ) : (
                   <Button 
                     variant="outline" 
                     onClick={handleBackgroundContinue}
-                    disabled={!syncStatus || syncStatus.status === 'pending'}
+                    disabled={!syncStatus}
                   >
                     バックグラウンドで続行
                   </Button>

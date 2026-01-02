@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { syncApi } from '@/lib/api/sync';
 import { SyncStatusData } from '@/types/sync';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { 
   RefreshCw, 
   Database, 
@@ -26,38 +27,69 @@ export const SyncStatusWidget: React.FC<SyncStatusWidgetProps> = ({
   compact = false,
   onSyncTrigger 
 }) => {
+  const { getApiClient, isApiClientReady } = useAuth();
   const [syncStatus, setSyncStatus] = useState<SyncStatusData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
+    // APIクライアントが準備完了するまで待機
+    if (!isApiClientReady) {
+      console.log('⏳ [SyncStatusWidget] APIクライアントの初期化を待機中...');
+      return;
+    }
+
     try {
       setIsRefreshing(true);
-      const data = await syncApi.getStatus();
+      // 認証付きAPIクライアントを使用
+      const apiClient = getApiClient();
+      const data = await apiClient.request<SyncStatusData>('/api/sync/status', {
+        method: 'GET',
+      });
       setSyncStatus(data);
-    } catch (error) {
-      console.error('Failed to fetch sync status:', error);
+    } catch (error: any) {
+      console.error('❌ [SyncStatusWidget] 同期状態の取得エラー:', error);
+      // 401エラーの場合はログのみ出力（認証エラーはAuthProviderで処理される）
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.warn('⚠️ [SyncStatusWidget] 認証エラー: 認証が必要です');
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [isApiClientReady, getApiClient]);
 
   useEffect(() => {
+    if (!isApiClientReady) return; // APIクライアントが準備完了するまで待機
+
     fetchStatus();
     const interval = setInterval(fetchStatus, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [isApiClientReady, fetchStatus]);
 
   const handleQuickSync = async (type: 'all' | 'products' | 'customers' | 'orders') => {
     if (onSyncTrigger) {
       onSyncTrigger(type);
     } else {
+      if (!isApiClientReady) {
+        console.warn('⚠️ [SyncStatusWidget] APIクライアントが準備できていません');
+        return;
+      }
+
       try {
-        await syncApi.triggerSync(type);
+        // 認証付きAPIクライアントを使用
+        const apiClient = getApiClient();
+        await apiClient.request('/api/sync/trigger', {
+          method: 'POST',
+          body: JSON.stringify({ type }),
+        });
         await fetchStatus();
-      } catch (error) {
-        console.error('Failed to trigger sync:', error);
+      } catch (error: any) {
+        console.error('❌ [SyncStatusWidget] 同期開始エラー:', error);
+        // 401エラーの場合はログのみ出力
+        if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+          console.warn('⚠️ [SyncStatusWidget] 認証エラー: 認証が必要です');
+        }
       }
     }
   };

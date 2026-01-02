@@ -69,6 +69,20 @@ export default function InitialSetupPage() {
   // デモモード判定
   const [isDemoMode, setIsDemoMode] = useState(false)
 
+  // isApiClientReady の状態変化を監視
+  useEffect(() => {
+    console.log('🔄 isApiClientReady 状態変化:', isApiClientReady)
+  }, [isApiClientReady])
+
+  // コンポーネントマウント時のログ
+  useEffect(() => {
+    console.log('📦 InitialPage マウント')
+    console.log('📌 初期 isApiClientReady:', isApiClientReady)
+    return () => {
+      console.log('📦 InitialPage アンマウント')
+    }
+  }, [])
+
   // クライアントサイドマウント状態を設定（Hydrationエラー対策）
   useEffect(() => {
     setIsMounted(true)
@@ -168,19 +182,70 @@ export default function InitialSetupPage() {
   }, [isApiClientReady, getApiClient])
 
   const handleStartSync = async () => {
+    // ========== デバッグログ開始 ==========
+    console.log('========================================')
+    console.log('🚀 handleStartSync が呼ばれました')
+    console.log('📌 isApiClientReady:', isApiClientReady)
+    console.log('📌 syncPeriod:', syncPeriod)
+    console.log('========================================')
+    
+    // isApiClientReady のチェック
+    if (!isApiClientReady) {
+      console.error('❌ isApiClientReady = false のため早期リターン')
+      console.error('💡 AuthProvider の初期化が完了していません')
+      alert('APIクライアントが準備中です。数秒待ってから再度お試しください。')
+      return
+    }
+    // ========== デバッグログ終了 ==========
+    
     setIsLoading(true)
     setError(null)
 
     try {
+      console.log('📡 APIクライアントを取得中...')
       const apiClient = getApiClient()
-      const data = await apiClient.request<{ syncId: string }>('/api/sync/initial', {
+      console.log('✅ APIクライアント取得成功')
+      
+      console.log('📤 POST /api/sync/initial 送信中...')
+      console.log('📤 リクエストボディ:', JSON.stringify({ syncPeriod }))
+      
+      const data = await apiClient.request<any>('/api/sync/initial', {
         method: 'POST',
         body: JSON.stringify({ syncPeriod }),
       })
       
-      // 同期画面へ遷移（syncIdをクエリパラメータとして渡す）
-      router.push(`/setup/syncing?syncId=${data.syncId}`)
+      console.log('📥 レスポンス受信:')
+      console.log(JSON.stringify(data, null, 2))
+      
+      // PascalCase と camelCase 両方に対応
+      const syncId = data.syncId ?? data.SyncId ?? data.id ?? data.Id
+      console.log('🔑 取得したsyncId:', syncId)
+      
+      if (!syncId) {
+        console.error('❌ syncId が取得できません')
+        console.error('📋 レスポンス全体:', data)
+        setError('同期IDが取得できませんでした。管理者に連絡してください。')
+        setIsLoading(false)
+        return
+      }
+      
+      const redirectUrl = `/setup/syncing?syncId=${syncId}`
+      console.log('🔀 リダイレクト先:', redirectUrl)
+
+      // ★ App Bridge でURLパラメータが失われる問題の対策
+      // sessionStorage に syncId を保存
+      try {
+        sessionStorage.setItem('ec-ranger-syncId', String(syncId))
+        console.log('💾 sessionStorage に syncId を保存:', syncId)
+      } catch (e) {
+        console.warn('sessionStorage への保存に失敗:', e)
+      }
+
+      router.push(redirectUrl)
+      
     } catch (err) {
+      console.error('❌ エラー発生:', err)
+      console.error('❌ エラー詳細:', err instanceof Error ? err.stack : 'Unknown error')
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
       setIsLoading(false)
     }
@@ -442,12 +507,18 @@ export default function InitialSetupPage() {
 
               <div className="flex gap-3">
                 <Button 
+                  type="button"
                   onClick={handleStartSync} 
-                  disabled={isLoading || isDemoMode}
+                  disabled={isLoading || isDemoMode || !isApiClientReady}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   size="lg"
                 >
-                  {isLoading ? (
+                  {!isApiClientReady ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      クライアント初期化中...
+                    </>
+                  ) : isLoading ? (
                     <>
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                       同期を開始中...
@@ -587,12 +658,18 @@ export default function InitialSetupPage() {
                       </p>
                     </div>
                     <Button 
+                      type="button"
                       size="lg" 
                       className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
                       onClick={handleStartSync}
-                      disabled={isLoading || isDemoMode}
+                      disabled={isLoading || isDemoMode || !isApiClientReady}
                     >
-                      {isLoading ? (
+                      {!isApiClientReady ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          クライアント初期化中...
+                        </>
+                      ) : isLoading ? (
                         <>
                           <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                           同期中...
