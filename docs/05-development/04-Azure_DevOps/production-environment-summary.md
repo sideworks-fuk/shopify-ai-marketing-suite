@@ -83,22 +83,28 @@ be1fc09e2135be7cee3b9186ef8bfe80
 | NEXT_PUBLIC_SHOPIFY_API_KEY | b95377afd35e5c8f4b28d286d3ff3491 |
 | NEXT_PUBLIC_SHOPIFY_APP_URL | https://ec-ranger.access-net.co.jp |
 | NEXT_PUBLIC_ENVIRONMENT | production |
+| NEXT_PUBLIC_SHOPIFY_APP_STORE_URL | https://apps.shopify.com/ec-ranger |
+| NEXT_PUBLIC_SHOPIFY_APP_TYPE | Public |
 
-#### Production2: EC Ranger-xn-fbkq6e5da0fpb
+#### Production2: EC Ranger-xn-fbkq6e5da0fpb（カスタムアプリ）
 | 変数名 | 値 |
 |--------|-----|
 | NEXT_PUBLIC_API_URL | https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net |
 | NEXT_PUBLIC_SHOPIFY_API_KEY | 706a757915dedce54806c0a179bee05d |
 | NEXT_PUBLIC_SHOPIFY_APP_URL | https://black-flower-004e1de00.2.azurestaticapps.net |
 | NEXT_PUBLIC_ENVIRONMENT | production |
+| NEXT_PUBLIC_SHOPIFY_APP_STORE_URL | （空文字） |
+| NEXT_PUBLIC_SHOPIFY_APP_TYPE | Custom |
 
-#### Production3: EC Ranger-demo
+#### Production3: EC Ranger-demo（カスタムアプリ）
 | 変数名 | 値 |
 |--------|-----|
 | NEXT_PUBLIC_API_URL | https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net |
 | NEXT_PUBLIC_SHOPIFY_API_KEY | 23f81e22074df1b71fb0a5a495778f49 |
 | NEXT_PUBLIC_SHOPIFY_APP_URL | https://ashy-plant-01b5c4100.1.azurestaticapps.net |
 | NEXT_PUBLIC_ENVIRONMENT | production |
+| NEXT_PUBLIC_SHOPIFY_APP_STORE_URL | （空文字） |
+| NEXT_PUBLIC_SHOPIFY_APP_TYPE | Custom |
 
 ## GitHub Secrets設定（必要）
 
