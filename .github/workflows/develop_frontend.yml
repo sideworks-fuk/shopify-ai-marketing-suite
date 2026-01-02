@@ -128,6 +128,12 @@ jobs:
         NEXT_PUBLIC_USE_HTTPS: ${{ vars.NEXT_PUBLIC_USE_HTTPS }}  # HTTPS使用設定
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: ${{ vars.NEXT_PUBLIC_DISABLE_FEATURE_GATES }}
         NEXT_PUBLIC_DEV_PASSWORD: ${{ secrets.NEXT_PUBLIC_DEV_PASSWORD }}  # 環境別に設定可能
+        # /install ページ アクセス制御用（開発環境: 空文字でOK、開発環境では直接アクセスが許可されるため）
+        # 注意: GitHub Environment Variables に設定されている場合はそれを使用、未設定時は空文字/Public
+        # vars が未定義の場合は空文字を返すため、フォールバック値は不要
+        NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_STORE_URL }}
+        # vars が未定義の場合は空文字を返すため、デフォルト値として 'Public' を設定
+        NEXT_PUBLIC_SHOPIFY_APP_TYPE: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_TYPE || 'Public' }}
         NODE_VERSION: 20
 
     - name: ✅ Deployment complete

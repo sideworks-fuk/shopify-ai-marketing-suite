@@ -17,11 +17,12 @@ import {
   ProgressBar,
   Modal,
 } from '@shopify/polaris';
-import { getCurrentEnvironmentConfig } from '@/lib/config/environments';
+import { getCurrentEnvironmentConfig, getCurrentEnvironment } from '@/lib/config/environments';
 import { useIsEmbedded } from '@/hooks/useIsEmbedded';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useAppBridge } from '@/lib/shopify/app-bridge-provider';
 import { Redirect } from '@shopify/app-bridge/actions';
+import { SHOPIFY_APP_STORE_URL, SHOPIFY_APP_TYPE } from '@/constants/shopify';
 
 /**
  * Shopifyアプリ接続・認証ページ
@@ -61,6 +62,25 @@ function InstallPolarisPageContent() {
   const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
   const { app } = useAppBridge(); // App Bridgeインスタンスを取得
   const searchParams = useSearchParams(); // URLパラメータを取得
+
+  // ======================================
+  // アクセス制御: 直接アクセスのブロック
+  // ======================================
+  const hasShopParam = searchParams.get('shop') !== null;
+  const hasAuthSuccess = searchParams.get('auth_success') === 'true';
+  const hasStoreId = searchParams.get('storeId') !== null;
+  const isDevelopment = getCurrentEnvironment() === 'development';
+
+  // 正規のアクセス経路かどうか
+  const isLegitimateAccess = 
+    isEmbedded ||           // 埋め込みモード
+    hasShopParam ||         // App Store経由
+    hasAuthSuccess ||       // OAuth成功後
+    hasStoreId ||           // ストアID付き（認証済み）
+    isDevelopment;          // 開発環境
+
+  // 手動入力をブロックすべきかどうか
+  const shouldBlockManualInput = !isLegitimateAccess && SHOPIFY_APP_TYPE === 'Public';
 
   // クライアントサイドマウント状態を設定（Hydrationエラー対策）
   useEffect(() => {
@@ -149,6 +169,21 @@ function InstallPolarisPageContent() {
       }
     }
   }, []) // マウント時のみ実行
+
+  // 非正規アクセス検出時のログ記録
+  useEffect(() => {
+    if (shouldBlockManualInput) {
+      console.warn('⚠️ [Install] Non-standard access detected:', {
+        isEmbedded,
+        hasShopParam,
+        hasAuthSuccess,
+        hasStoreId,
+        environment: getCurrentEnvironment(),
+        url: typeof window !== 'undefined' ? window.location.href : '',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [shouldBlockManualInput, isEmbedded, hasShopParam, hasAuthSuccess, hasStoreId]);
 
   // 🆕 認証状態の変化を監視: 認証済みでstoreIdがある場合、/setup/initialにリダイレクト
   // 理由: OAuth認証が成功したが、/auth/successに到達できなかった場合のフォールバック
@@ -1141,6 +1176,28 @@ function InstallPolarisPageContent() {
 
               <Card>
                 <BlockStack gap="400">
+                  {/* アクセス制御: 直接アクセス時の警告バナー */}
+                  {shouldBlockManualInput && (
+                    <Box paddingBlockEnd="400">
+                      <Banner
+                        title="Shopify App Storeからインストールしてください"
+                        tone="warning"
+                      >
+                        <Text as="p">
+                          このアプリは直接アクセスからのインストールには対応していません。
+                          Shopify App Storeからインストールしてください。
+                        </Text>
+                        {SHOPIFY_APP_STORE_URL && (
+                          <Box paddingBlockStart="400">
+                            <Button url={SHOPIFY_APP_STORE_URL} external>
+                              App Storeでインストール
+                            </Button>
+                          </Box>
+                        )}
+                      </Banner>
+                    </Box>
+                  )}
+
                   <FormLayout>
                     <TextField
                       label="ストアドメイン"
@@ -1150,9 +1207,11 @@ function InstallPolarisPageContent() {
                       placeholder="your-store"
                       suffix=".myshopify.com"
                       autoComplete="off"
-                      disabled={loading || shopDomainLocked || autoRedirecting}
+                      disabled={shouldBlockManualInput || loading || shopDomainLocked || autoRedirecting}
                       error={error}
-                      helpText="例: your-store-name（.myshopify.comは自動で追加されます）"
+                      helpText={shouldBlockManualInput 
+                        ? "直接アクセスからのインストールは無効化されています" 
+                        : "例: your-store-name（.myshopify.comは自動で追加されます）"}
                     />
                   </FormLayout>
 
@@ -1162,7 +1221,7 @@ function InstallPolarisPageContent() {
                     fullWidth
                     onClick={handleInstall}
                     loading={loading}
-                    disabled={!shopDomain.trim() || autoRedirecting}
+                    disabled={!shopDomain.trim() || autoRedirecting || shouldBlockManualInput}
                   >
                     {loading ? '接続中...' : '接続を開始'}
                   </Button>

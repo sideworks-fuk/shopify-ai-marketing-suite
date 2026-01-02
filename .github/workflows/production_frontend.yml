@@ -97,6 +97,9 @@ jobs:
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD1_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
+        # /install ページ アクセス制御用（Production1: 公開アプリ）
+        NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: 'https://apps.shopify.com/ec-ranger'
+        NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Public'
         NODE_VERSION: 20
 
     - name: 🚀 Deploy to Azure Static Web Apps (Production2)
@@ -117,6 +120,9 @@ jobs:
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD2_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
+        # /install ページ アクセス制御用（Production2: カスタムアプリ）
+        NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ''
+        NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Custom'
         NODE_VERSION: 20
 
     - name: 🚀 Deploy to Azure Static Web Apps (Production3)
@@ -137,6 +143,9 @@ jobs:
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD3_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
+        # /install ページ アクセス制御用（Production3: カスタムアプリ）
+        NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ''
+        NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Custom'
         NODE_VERSION: 20
 
     - name: ✅ Deployment complete
