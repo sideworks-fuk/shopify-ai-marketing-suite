@@ -151,7 +151,7 @@ interface SubscriptionProviderProps {
 export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { getApiClient, isApiClientReady } = useAuth(); // ApiClientを取得（認証ヘッダーを自動設定）
+  const { getApiClient, isApiClientReady, currentStoreId } = useAuth(); // ApiClientを取得（認証ヘッダーを自動設定）
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>(MOCK_PLANS);
   const [loading, setLoading] = useState(true);
@@ -163,6 +163,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const isInstallPage = pathname === '/install';
   const isRootPage = pathname === '/';
   const isAuthSuccessPage = pathname === '/auth/success';
+  const isSyncingPage = pathname?.startsWith('/setup/syncing'); // 🆕 同期ページではAPIを呼び出さない（currentStoreIdが設定される前の可能性があるため）
 
   // Fetch selected feature for free plan users
   const fetchSelectedFeature = useCallback(async () => {
@@ -232,11 +233,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   }, [getApiClient]);
 
   useEffect(() => {
-    // インストールページ、ルートページ、または認証成功ページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
+    // インストールページ、ルートページ、認証成功ページ、または同期ページではAPIを呼び出さない
     // ルートページ（/）は認証状態を確認中で、認証が完了していない可能性があるため
     // 認証成功ページ（/auth/success）は認証処理中で、認証が完了していない可能性があるため
-    if (isInstallPage || isRootPage || isAuthSuccessPage) {
-      console.log('⏸️ インストールページ、ルートページ、または認証成功ページのため、サブスクリプションデータの取得をスキップします', { pathname, isInstallPage, isRootPage, isAuthSuccessPage });
+    // 同期ページ（/setup/syncing）はcurrentStoreIdが設定される前の可能性があるため
+    if (isInstallPage || isRootPage || isAuthSuccessPage || isSyncingPage) {
+      console.log('⏸️ インストールページ、ルートページ、認証成功ページ、または同期ページのため、サブスクリプションデータの取得をスキップします', { pathname, isInstallPage, isRootPage, isAuthSuccessPage, isSyncingPage });
       setLoading(false);
       return;
     }
@@ -248,9 +250,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
     
     console.log('✅ ApiClientが準備完了、サブスクリプションデータを取得します');
+    // currentStoreIdが設定されている場合のみAPIを呼び出す
+    if (currentStoreId === null || currentStoreId <= 0) {
+      console.log('⏸️ currentStoreIdが設定されていないため、サブスクリプションデータの取得をスキップします', { currentStoreId });
+      return;
+    }
+    
     fetchSubscriptionData();
     fetchSelectedFeature();
-  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature, isInstallPage, isRootPage, isAuthSuccessPage, pathname]);
+  }, [isApiClientReady, fetchSubscriptionData, fetchSelectedFeature, isInstallPage, isRootPage, isAuthSuccessPage, isSyncingPage, pathname, currentStoreId]);
 
   // Calculate derived values
   const currentPlan = plans.find(p => p.id === subscription?.planId) || null;

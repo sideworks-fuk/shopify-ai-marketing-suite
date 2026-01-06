@@ -19,6 +19,12 @@ namespace ShopifyAnalyticsApi.Services
         private readonly ILogger<ShopifyApiService> _logger;
         private readonly ShopifyDbContext _context;
         private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy;
+        
+        // Shopify APIのJSONレスポンスはsnake_caseのため、PropertyNameCaseInsensitiveを有効化
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         public ShopifyApiService(
             IHttpClientFactory httpClientFactory,
@@ -69,7 +75,7 @@ namespace ShopifyAnalyticsApi.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json);
+                    var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json, _jsonOptions);
                     
                     if (customersData?.Customers != null)
                     {
@@ -124,7 +130,7 @@ namespace ShopifyAnalyticsApi.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json);
+                    var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json, _jsonOptions);
                     
                     if (productsData?.Products != null)
                     {
@@ -175,7 +181,7 @@ namespace ShopifyAnalyticsApi.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json);
+                    var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json, _jsonOptions);
                     
                     if (ordersData?.Orders != null)
                     {
@@ -231,7 +237,7 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
                     json.Length, storeId);
                 
-                var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json);
+                var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json, _jsonOptions);
                 var customerCount = customersData?.Customers?.Count ?? 0;
                 
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: CustomerCount={CustomerCount}, StoreId={StoreId}", 
@@ -283,7 +289,7 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
                     json.Length, storeId);
                 
-                var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json);
+                var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json, _jsonOptions);
                 var orderCount = ordersData?.Orders?.Count ?? 0;
                 
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: OrderCount={OrderCount}, StoreId={StoreId}", 
@@ -335,7 +341,7 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
                     json.Length, storeId);
                 
-                var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json);
+                var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json, _jsonOptions);
                 var productCount = productsData?.Products?.Count ?? 0;
                 
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: ProductCount={ProductCount}, StoreId={StoreId}", 
@@ -606,7 +612,7 @@ namespace ShopifyAnalyticsApi.Services
                         if (existingVariant != null)
                         {
                             existingVariant.Title = variant.Title;
-                            existingVariant.Price = variant.Price;
+                            existingVariant.Price = variant.PriceDecimal;
                             existingVariant.Sku = variant.Sku;
                             existingVariant.UpdatedAt = DateTime.UtcNow;
                         }
@@ -616,7 +622,7 @@ namespace ShopifyAnalyticsApi.Services
                             {
                                 ShopifyVariantId = variant.Id.ToString(),
                                 Title = variant.Title,
-                                Price = variant.Price,
+                                Price = variant.PriceDecimal,
                                 Sku = variant.Sku,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
@@ -648,7 +654,7 @@ namespace ShopifyAnalyticsApi.Services
                         {
                             ShopifyVariantId = variant.Id.ToString(),
                             Title = variant.Title,
-                            Price = variant.Price,
+                            Price = variant.PriceDecimal,
                             Sku = variant.Sku,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
@@ -688,10 +694,10 @@ namespace ShopifyAnalyticsApi.Services
             {
                 // 更新
                 existingOrder.OrderNumber = order.OrderNumber ?? $"#{order.Id}";
-                existingOrder.TotalPrice = order.TotalPrice;
-                existingOrder.SubtotalPrice = order.SubtotalPrice;
-                existingOrder.TotalTax = order.TotalTax;
-                existingOrder.TaxPrice = order.TotalTax;  // 互換性のため
+                existingOrder.TotalPrice = order.TotalPriceDecimal;
+                existingOrder.SubtotalPrice = order.SubtotalPriceDecimal;
+                existingOrder.TotalTax = order.TotalTaxDecimal;
+                existingOrder.TaxPrice = order.TotalTaxDecimal;  // 互換性のため
                 existingOrder.Currency = order.Currency ?? "JPY";
                 existingOrder.Status = order.Status ?? "pending";
                 existingOrder.FinancialStatus = order.FinancialStatus ?? "pending";
@@ -711,7 +717,7 @@ namespace ShopifyAnalyticsApi.Services
                         if (existingItem != null)
                         {
                             existingItem.Quantity = item.Quantity;
-                            existingItem.Price = item.Price;
+                            existingItem.Price = item.PriceDecimal;
                             existingItem.UpdatedAt = DateTime.UtcNow;
                         }
                         else
@@ -724,7 +730,7 @@ namespace ShopifyAnalyticsApi.Services
                                 ProductTitle = item.Title,
                             Title = item.Title,
                                 Quantity = item.Quantity,
-                                Price = item.Price,
+                                Price = item.PriceDecimal,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
@@ -743,10 +749,10 @@ namespace ShopifyAnalyticsApi.Services
                     OrderNumber = order.OrderNumber ?? $"#{order.Id}",
                     Email = order.Email,
                     CustomerId = customerId, // CustomerIdを設定
-                    TotalPrice = order.TotalPrice,
-                    SubtotalPrice = order.SubtotalPrice,
-                    TotalTax = order.TotalTax,
-                    TaxPrice = order.TotalTax,  // 互換性のため
+                    TotalPrice = order.TotalPriceDecimal,
+                    SubtotalPrice = order.SubtotalPriceDecimal,
+                    TotalTax = order.TotalTaxDecimal,
+                    TaxPrice = order.TotalTaxDecimal,  // 互換性のため
                     Currency = order.Currency ?? "JPY",
                     Status = order.Status ?? "pending",
                     FinancialStatus = order.FinancialStatus ?? "pending",
@@ -768,7 +774,7 @@ namespace ShopifyAnalyticsApi.Services
                             ProductTitle = item.Title,
                             Title = item.Title,
                             Quantity = item.Quantity,
-                            Price = item.Price,
+                            Price = item.PriceDecimal,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
@@ -841,8 +847,12 @@ namespace ShopifyAnalyticsApi.Services
         {
             public long Id { get; set; }
             public string Title { get; set; } = string.Empty;
-            public decimal Price { get; set; }
+            // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            public string? Price { get; set; }
             public string? Sku { get; set; }
+            
+            // decimal型のPriceプロパティ（後方互換性のため）
+            public decimal PriceDecimal => decimal.TryParse(Price, out var result) ? result : 0m;
         }
 
         public class ShopifyOrdersResponse
@@ -855,9 +865,10 @@ namespace ShopifyAnalyticsApi.Services
             public long Id { get; set; }
             public string? Email { get; set; }
             public string? OrderNumber { get; set; }
-            public decimal TotalPrice { get; set; }
-            public decimal SubtotalPrice { get; set; }
-            public decimal TotalTax { get; set; }
+            // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            public string? TotalPrice { get; set; }
+            public string? SubtotalPrice { get; set; }
+            public string? TotalTax { get; set; }
             public string Currency { get; set; } = "JPY";
             public string FinancialStatus { get; set; } = "pending";
             public string? FulfillmentStatus { get; set; }
@@ -866,6 +877,11 @@ namespace ShopifyAnalyticsApi.Services
             public DateTime? UpdatedAt { get; set; }
             public ShopifyCustomer? Customer { get; set; }
             public List<ShopifyLineItem> LineItems { get; set; } = new();
+            
+            // decimal型のプロパティ（後方互換性のため）
+            public decimal TotalPriceDecimal => decimal.TryParse(TotalPrice, out var result) ? result : 0m;
+            public decimal SubtotalPriceDecimal => decimal.TryParse(SubtotalPrice, out var result) ? result : 0m;
+            public decimal TotalTaxDecimal => decimal.TryParse(TotalTax, out var result) ? result : 0m;
         }
 
         public class ShopifyLineItem
@@ -875,10 +891,14 @@ namespace ShopifyAnalyticsApi.Services
             public long? VariantId { get; set; }
             public string Title { get; set; } = string.Empty;
             public int Quantity { get; set; }
-            public decimal Price { get; set; }
+            // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            public string? Price { get; set; }
             public string? Sku { get; set; }
             public string? VariantTitle { get; set; }
             public string? Vendor { get; set; }
+            
+            // decimal型のPriceプロパティ（後方互換性のため）
+            public decimal PriceDecimal => decimal.TryParse(Price, out var result) ? result : 0m;
         }
 
         #endregion

@@ -27,7 +27,7 @@ interface SyncStatus {
 export default function SyncingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { getApiClient, isApiClientReady, setCurrentStoreId } = useAuth()
+  const { getApiClient, isApiClientReady, setCurrentStoreId, currentStoreId: authCurrentStoreId } = useAuth()
   
   const [syncId, setSyncId] = useState<string | null>(null)
   const [syncIdLoaded, setSyncIdLoaded] = useState(false)
@@ -35,6 +35,8 @@ export default function SyncingPage() {
   const [error, setError] = useState<string | null>(null)
   const [isRetrying, setIsRetrying] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0) // 連続エラーカウント
+  const [lastSuccessTime, setLastSuccessTime] = useState<number | null>(null) // 最後に成功した時刻
 
   // ★ syncId の取得（URLパラメータ → sessionStorage フォールバック）
   useEffect(() => {
@@ -106,6 +108,7 @@ export default function SyncingPage() {
           console.error('❌ [SyncingPage] currentStoreId が localStorage にも sessionStorage にも見つかりません')
           console.error('❌ [SyncingPage] 開発者モードでログインし直してください')
           setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
+          setIsInitializing(false) // 🆕 エラー時は初期化を完了させる
         }
       } else {
         console.log('✅ [SyncingPage] currentStoreId が localStorage に存在します:', currentStoreId)
@@ -114,6 +117,8 @@ export default function SyncingPage() {
         if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
           setCurrentStoreId(parsedStoreId)
           console.log('✅ [SyncingPage] currentStoreId を AuthProvider に設定しました', { storeId: parsedStoreId })
+          // 🆕 currentStoreId が取得できた場合、エラーメッセージをクリア
+          setError(null)
         }
       }
     }
@@ -134,9 +139,18 @@ export default function SyncingPage() {
       return
     }
 
-    // 🆕 currentStoreId が設定されているか確認
+    // 🆕 currentStoreId が設定されているか確認（AuthProvider → localStorage → sessionStorage の順で確認）
     if (typeof window !== 'undefined') {
-      const currentStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+      // まず AuthProvider から取得を試みる
+      let currentStoreId: string | null = null
+      if (authCurrentStoreId !== null && authCurrentStoreId > 0) {
+        currentStoreId = authCurrentStoreId.toString()
+        console.log('✅ [SyncingPage.fetchSyncStatus] AuthProvider から currentStoreId を取得:', currentStoreId)
+      } else {
+        // AuthProvider になければ localStorage/sessionStorage から取得
+        currentStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+      }
+      
       if (!currentStoreId) {
         console.warn('⚠️ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりません。待機します...')
         // currentStoreId が設定されるまで待機（最大5秒）
@@ -155,6 +169,7 @@ export default function SyncingPage() {
         if (retryCount >= maxRetries) {
           console.error('❌ [SyncingPage.fetchSyncStatus] currentStoreId が設定されませんでした')
           setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
+          setIsInitializing(false) // 🆕 エラー時は初期化を完了させる
           return
         }
       } else {
@@ -163,6 +178,8 @@ export default function SyncingPage() {
         if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
           setCurrentStoreId(parsedStoreId)
           console.log('✅ [SyncingPage.fetchSyncStatus] currentStoreId を AuthProvider に設定しました', { storeId: parsedStoreId })
+          // 🆕 currentStoreId が取得できた場合、エラーメッセージをクリア
+          setError(null)
         }
       }
     }
@@ -170,14 +187,25 @@ export default function SyncingPage() {
     try {
       console.log('📡 GET /api/sync/status/' + syncId + ' 送信中...')
       const apiClient = getApiClient()
-      const data = await apiClient.request<SyncStatus>(`/api/sync/status/${syncId}`, {
-        method: 'GET',
+      
+      // タイムアウト処理（30秒）
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('リクエストがタイムアウトしました。サーバーが応答していない可能性があります。')), 30000)
       })
+      
+      const data = await Promise.race([
+        apiClient.request<SyncStatus>(`/api/sync/status/${syncId}`, {
+          method: 'GET',
+        }),
+        timeoutPromise
+      ])
       
       console.log('📥 ステータス受信:', data)
       setSyncStatus(data)
       setError(null)
       setIsInitializing(false)
+      setConsecutiveErrors(0) // エラーカウントをリセット
+      setLastSuccessTime(Date.now()) // 成功時刻を記録
 
       // 完了時の処理
       if (data.status === 'completed') {
@@ -196,23 +224,37 @@ export default function SyncingPage() {
         }, 2000)
       } else if (data.status === 'failed') {
         setError(data.errorMessage || data.message || '同期中にエラーが発生しました')
+        setIsInitializing(false)
       }
     } catch (err: any) {
       console.error('❌ 同期ステータス取得エラー:', err)
+      const errorCount = consecutiveErrors + 1
+      setConsecutiveErrors(errorCount)
+      
       const errorMessage = err?.message || '予期しないエラーが発生しました'
+      let displayError = errorMessage
       
       if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        setError('認証エラー: 再ログインしてください')
+        displayError = '認証エラー: 再ログインしてください'
       } else if (errorMessage.includes('404')) {
-        setError('同期ステータスが見つかりません。同期が開始されていない可能性があります。')
-      } else {
-        setError(errorMessage)
+        displayError = '同期ステータスが見つかりません。同期が開始されていない可能性があります。'
+      } else if (errorMessage.includes('タイムアウト')) {
+        displayError = errorMessage
       }
-      setIsInitializing(false)
+      
+      // 連続で3回以上エラーが発生した場合、またはタイムアウトの場合
+      if (errorCount >= 3 || errorMessage.includes('タイムアウト')) {
+        setError(`${displayError} (エラー回数: ${errorCount}回)`)
+        setIsInitializing(false)
+      } else {
+        // 1-2回目のエラーは警告として表示し、ポーリングは継続
+        setError(`警告: ${displayError} (再試行中...)`)
+        // isInitializing は true のまま（ポーリング継続）
+      }
     }
   }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId])
 
-  // ★ 重要: syncId と isApiClientReady が両方準備できてから処理を開始
+  // ★ 重要: syncId、isApiClientReady、currentStoreId が全て準備できてから処理を開始
   useEffect(() => {
     // syncId のロードが完了していない場合は待機
     if (!syncIdLoaded) {
@@ -232,7 +274,36 @@ export default function SyncingPage() {
       return
     }
 
-    console.log('✅ 準備完了（syncId:', syncId, ', isApiClientReady:', isApiClientReady, '）')
+    // 🆕 currentStoreId が設定されるまで待機
+    if (!authCurrentStoreId) {
+      console.log('⏳ currentStoreId の設定を待機中...', { authCurrentStoreId })
+      // localStorage/sessionStorage からも確認
+      const storedStoreId = typeof window !== 'undefined' 
+        ? localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+        : null
+      if (storedStoreId) {
+        const parsedStoreId = parseInt(storedStoreId, 10)
+        if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+          setCurrentStoreId(parsedStoreId)
+          console.log('✅ localStorage/sessionStorage から currentStoreId を取得し、AuthProvider に設定しました', { storeId: parsedStoreId })
+        }
+      } else {
+        // 最大5秒間待機
+        const timeout = setTimeout(() => {
+          const retryStoreId = typeof window !== 'undefined' 
+            ? localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+            : null
+          if (!retryStoreId && !authCurrentStoreId) {
+            console.error('❌ 5秒経過しても currentStoreId が設定されませんでした。認証エラーの可能性があります。');
+            setError('認証エラー: ストア情報が取得できませんでした。再ログインしてください。');
+            setIsInitializing(false);
+          }
+        }, 5000);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    console.log('✅ 準備完了（syncId:', syncId, ', isApiClientReady:', isApiClientReady, ', currentStoreId:', authCurrentStoreId, '）')
     console.log('✅ ステータス取得開始')
     
     // 初回取得
@@ -240,7 +311,32 @@ export default function SyncingPage() {
 
     // 5秒ごとにポーリング
     const interval = setInterval(() => {
-      if (syncStatus?.status === 'running' || syncStatus?.status === 'pending' || syncStatus?.status === 'started') {
+      // エラーが3回以上連続で発生している場合はポーリングを停止
+      if (consecutiveErrors >= 3) {
+        console.error('🛑 連続エラーが3回以上発生したため、ポーリングを停止します')
+        clearInterval(interval)
+        setIsInitializing(false)
+        return
+      }
+      
+      // 最後の成功から60秒以上経過している場合もエラーとして扱う
+      if (lastSuccessTime && Date.now() - lastSuccessTime > 60000) {
+        console.error('🛑 最後の成功から60秒以上経過したため、タイムアウトとして扱います')
+        setError('サーバーからの応答がありません。ネットワーク接続を確認してください。')
+        setIsInitializing(false)
+        clearInterval(interval)
+        return
+      }
+      
+      // 同期が完了または失敗している場合はポーリングを停止
+      if (syncStatus?.status === 'completed' || syncStatus?.status === 'failed') {
+        console.log('✅ 同期が完了または失敗したため、ポーリングを停止します')
+        clearInterval(interval)
+        return
+      }
+      
+      // 実行中または開始済みの場合のみポーリング継続
+      if (syncStatus?.status === 'running' || syncStatus?.status === 'pending' || syncStatus?.status === 'started' || !syncStatus) {
         fetchSyncStatus()
       }
     }, 5000)
@@ -249,7 +345,7 @@ export default function SyncingPage() {
       console.log('🛑 ポーリング停止')
       clearInterval(interval)
     }
-  }, [syncId, syncIdLoaded, isApiClientReady, syncStatus?.status, fetchSyncStatus])
+  }, [syncId, syncIdLoaded, isApiClientReady, authCurrentStoreId, syncStatus?.status, fetchSyncStatus, consecutiveErrors, lastSuccessTime, setCurrentStoreId])
 
   const handleRetry = async () => {
     if (!syncId) {
@@ -340,8 +436,8 @@ export default function SyncingPage() {
     )
   }
 
-  // APIクライアント初期化中の表示
-  if (!isApiClientReady || isInitializing) {
+  // APIクライアント初期化中の表示（エラーがない場合のみ）
+  if ((!isApiClientReady || isInitializing) && !error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-2xl">
@@ -357,6 +453,9 @@ export default function SyncingPage() {
               <h2 className="text-xl font-semibold">初期化中...</h2>
               <p className="text-gray-600">同期ステータスを取得しています</p>
               <p className="text-sm text-gray-400">syncId: {syncId}</p>
+              {consecutiveErrors > 0 && (
+                <p className="text-sm text-yellow-600">警告: {consecutiveErrors}回のエラーが発生しましたが、再試行中...</p>
+              )}
             </div>
           </CardContent>
         </Card>

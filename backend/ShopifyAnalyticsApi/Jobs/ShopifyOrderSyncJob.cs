@@ -276,10 +276,10 @@ namespace ShopifyAnalyticsApi.Jobs
                 OrderNumber = shopifyOrder.OrderNumber ?? $"#{shopifyOrder.Id}",
                 Email = shopifyOrder.Email,
                 CustomerId = customerId, // 関連付け
-                TotalPrice = shopifyOrder.TotalPrice,
-                SubtotalPrice = shopifyOrder.SubtotalPrice,
-                TotalTax = shopifyOrder.TotalTax,
-                TaxPrice = shopifyOrder.TotalTax, // 互換性のため
+                TotalPrice = shopifyOrder.TotalPriceDecimal,
+                SubtotalPrice = shopifyOrder.SubtotalPriceDecimal,
+                TotalTax = shopifyOrder.TotalTaxDecimal,
+                TaxPrice = shopifyOrder.TotalTaxDecimal, // 互換性のため
                 Currency = shopifyOrder.Currency ?? "JPY",
                 Status = shopifyOrder.Status ?? "pending",
                 FinancialStatus = shopifyOrder.FinancialStatus ?? "pending",
@@ -305,8 +305,8 @@ namespace ShopifyAnalyticsApi.Jobs
                         Sku = lineItem.Sku,
                         ProductVendor = lineItem.Vendor,
                         Quantity = lineItem.Quantity,
-                        Price = lineItem.Price,
-                        TotalPrice = lineItem.Price * lineItem.Quantity,
+                        Price = lineItem.PriceDecimal,
+                        TotalPrice = lineItem.PriceDecimal * lineItem.Quantity,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     });

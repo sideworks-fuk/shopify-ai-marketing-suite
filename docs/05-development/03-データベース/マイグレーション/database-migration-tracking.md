@@ -28,6 +28,8 @@ docs/05-development/03-データベース/マイグレーション/
 ├── 20251222_AddShopifyAppsTable.sql
 ├── 2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql
 ├── 2025-12-31-UpdateShopifyAppsProductionEnvironments.sql
+├── 20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql
+├── 20260107-AddShopifyProductIdToProducts.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -61,6 +63,8 @@ docs/05-development/03-データベース/マイグレーション/
 | **2025-12-25-FIX-CreateSyncManagementTables.sql** | 2025-12-25 | 福田+AI | **同期管理関連テーブル作成（SyncCheckpoints, SyncRangeSettings, SyncProgressDetails, SyncStates, SyncHistories）初期同期エラー解消のため** | ⏳ 未適用 | ⏳ 未適用 | ✅ 適用済 (2025-12-25) |
 | **2025-12-31-AddWebhookEventsIdempotencyKeyUniqueIndex.sql** | 2025-12-31 | 福田+AI | **WebhookEvents.IdempotencyKeyにユニークインデックス追加（GDPR Webhook冪等性保証）** | ✅ 適用済 (2025-12-31) | ⏳ 未適用 | ✅ 適用済 (2025-12-31) |
 | **2025-12-31-UpdateShopifyAppsProductionEnvironments.sql** | 2025-12-31 | 福田+AI | **ShopifyAppsテーブルに本番環境3環境のClient IDを登録・更新（Production1/2/3）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql** | 2026-01-06 | 福田+AI | **ProductVariantsテーブルにShopifyVariantIdとTitleカラムを追加（JSONデシリアライズ問題解消のため）** | ✅ 適用済 (2026-01-06 23:49) | ⏳ 未適用 | ⏳ 未適用 |
+| **20260107-AddShopifyProductIdToProducts.sql** | 2026-01-07 | 福田+AI | **Productsテーブル、ProductVariantsテーブル、OrderItemsテーブルに不足カラムを追加（20251222151634_AddShopifyAppsTableマイグレーションが適用されていない場合の対応）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -79,6 +83,8 @@ docs/05-development/03-データベース/マイグレーション/
 12. **2025-10-26-AddAuthenticationTables.sql**
 13. **20251222_AddShopifyAppsTable_Development.sql** (開発環境用) ✅ 適用済 (2025-12-23 00:36)
 14. **20251222_AddShopifyAppsTable_Production.sql** (本番環境用)
+15. **20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql** ✅ 適用済 (2026-01-06 23:49)
+16. **20260107-AddShopifyProductIdToProducts.sql** ✅ 適用済 (2026-01-07 00:15)
 
 ### エラー発生（修正版で解決済み）❌→✅
 - 2025-08-24-AddIdempotencyKeyToWebhookEvents.sql → 2025-08-25-FIX版で解決
@@ -231,6 +237,16 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - 環境別に分離（開発環境/本番環境）
   - EF Core Migration: `AddShopifyAppsTable`
 
-最終更新: 2025-12-31 17:30
+### 🔧 ProductVariantsテーブル拡張（2026-01-06）
+- **20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql** - ProductVariantsテーブルに不足カラム追加
+  - **対象**: ProductVariantsテーブル
+  - **追加カラム**:
+    - `ShopifyVariantId` (NVARCHAR(50), NULL) - ShopifyバリアントID
+    - `Title` (NVARCHAR(255), NULL) - バリアントタイトル
+  - **目的**: Shopify APIからのデータ同期時にJSONデシリアライズエラー（Invalid column name）を解消
+  - **EF Migration**: `20260106234458_AddShopifyVariantIdAndTitleToProductVariants`
+  - **関連**: Shopify APIデータ同期機能の修正
+
+最終更新: 2026-01-06 23:49
 管理者: 福田
 更新者: 福田 + AI Assistant

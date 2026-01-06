@@ -333,7 +333,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     {
                         ShopifyVariantId = variant.Id.ToString(),
                         Title = variant.Title ?? string.Empty,
-                        Price = variant.Price,
+                        Price = variant.PriceDecimal,
                         Sku = variant.Sku,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -397,7 +397,7 @@ namespace ShopifyAnalyticsApi.Jobs
                             {
                                 // 既存のバリアントを更新
                                 existingVariant.Title = variant.Title;
-                                existingVariant.Price = variant.Price;
+                                existingVariant.Price = variant.Price; // ProductVariantエンティティのPriceプロパティを使用
                                 existingVariant.Sku = variant.Sku;
                                 existingVariant.UpdatedAt = DateTime.UtcNow;
                             }
