@@ -38,15 +38,37 @@ namespace ShopifyAnalyticsApi.Services
             _context = context;
 
             // リトライポリシーの設定
-            _retryPolicy = HttpPolicyExtensions
-                .HandleTransientHttpError()
-                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            // 🆕 429エラーの場合、Retry-Afterヘッダーを尊重するカスタムポリシー
+            _retryPolicy = Policy
+                .HandleResult<HttpResponseMessage>(msg => 
+                    msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
+                    (int)msg.StatusCode >= 500)
+                .Or<HttpRequestException>()
                 .WaitAndRetryAsync(
-                    3,
-                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                    5, // リトライ回数を5回に増加
+                    (retryAttempt, result, context) =>
+                    {
+                        // 429エラーの場合、Retry-Afterヘッダーを確認
+                        if (result.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                        {
+                            var retryAfter = result.Result.Headers.RetryAfter;
+                            if (retryAfter?.Delta != null)
+                            {
+                                var waitTime = retryAfter.Delta.Value;
+                                // Shopify APIの推奨: Retry-After + 1秒のバッファ
+                                return waitTime.Add(TimeSpan.FromSeconds(1));
+                            }
+                            // Retry-Afterヘッダーがない場合、指数バックオフ（2秒、4秒、8秒、16秒、32秒）
+                            return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+                        }
+                        // 500エラーの場合、指数バックオフ
+                        return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
+                    },
                     onRetry: (outcome, timespan, retryCount, context) =>
                     {
-                        _logger.LogWarning($"Retry {retryCount} after {timespan} seconds");
+                        var statusCode = outcome.Result?.StatusCode.ToString() ?? "Unknown";
+                        _logger.LogWarning("🔄 [ShopifyApiService] Retry {RetryCount} after {WaitTime} seconds. StatusCode: {StatusCode}", 
+                            retryCount, timespan.TotalSeconds, statusCode);
                     });
         }
 
@@ -230,6 +252,14 @@ namespace ShopifyAnalyticsApi.Services
 
             _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
                 response.StatusCode, storeId);
+            
+            // 🆕 レート制限ヘッダーのログ出力
+            if (response.Headers.TryGetValues("X-Shopify-Shop-Api-Call-Limit", out var callLimitValues))
+            {
+                var callLimit = callLimitValues.FirstOrDefault();
+                _logger.LogInformation("🛒 [ShopifyApiService] API Call Limit: {CallLimit}, StoreId={StoreId}", 
+                    callLimit ?? "N/A", storeId);
+            }
 
             if (response.IsSuccessStatusCode)
             {
@@ -282,6 +312,14 @@ namespace ShopifyAnalyticsApi.Services
 
             _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
                 response.StatusCode, storeId);
+            
+            // 🆕 レート制限ヘッダーのログ出力
+            if (response.Headers.TryGetValues("X-Shopify-Shop-Api-Call-Limit", out var callLimitValues))
+            {
+                var callLimit = callLimitValues.FirstOrDefault();
+                _logger.LogInformation("🛒 [ShopifyApiService] API Call Limit: {CallLimit}, StoreId={StoreId}", 
+                    callLimit ?? "N/A", storeId);
+            }
 
             if (response.IsSuccessStatusCode)
             {
@@ -334,6 +372,14 @@ namespace ShopifyAnalyticsApi.Services
 
             _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
                 response.StatusCode, storeId);
+            
+            // 🆕 レート制限ヘッダーのログ出力
+            if (response.Headers.TryGetValues("X-Shopify-Shop-Api-Call-Limit", out var callLimitValues))
+            {
+                var callLimit = callLimitValues.FirstOrDefault();
+                _logger.LogInformation("🛒 [ShopifyApiService] API Call Limit: {CallLimit}, StoreId={StoreId}", 
+                    callLimit ?? "N/A", storeId);
+            }
 
             if (response.IsSuccessStatusCode)
             {
@@ -456,6 +502,13 @@ namespace ShopifyAnalyticsApi.Services
 
         private string BuildCustomersUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
+            // 🆕 page_infoが指定されている場合、他のクエリパラメータ（updated_at_minなど）は使用できない
+            // Shopify APIの仕様: page_infoを使用する場合、URLはpage_infoのみを含む必要がある
+            if (!string.IsNullOrEmpty(pageInfo))
+            {
+                return $"https://{shopUrl}/admin/api/2024-01/customers.json?page_info={pageInfo}";
+            }
+            
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/customers.json?limit=250";
             
             if (sinceDate.HasValue)
@@ -463,16 +516,18 @@ namespace ShopifyAnalyticsApi.Services
                 baseUrl += $"&updated_at_min={sinceDate.Value:yyyy-MM-ddTHH:mm:ssZ}";
             }
             
-            if (!string.IsNullOrEmpty(pageInfo))
-            {
-                baseUrl += $"&page_info={pageInfo}";
-            }
-            
             return baseUrl;
         }
 
         private string BuildProductsUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
+            // 🆕 page_infoが指定されている場合、他のクエリパラメータ（updated_at_minなど）は使用できない
+            // Shopify APIの仕様: page_infoを使用する場合、URLはpage_infoのみを含む必要がある
+            if (!string.IsNullOrEmpty(pageInfo))
+            {
+                return $"https://{shopUrl}/admin/api/2024-01/products.json?page_info={pageInfo}";
+            }
+            
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/products.json?limit=250";
             
             if (sinceDate.HasValue)
@@ -480,26 +535,23 @@ namespace ShopifyAnalyticsApi.Services
                 baseUrl += $"&updated_at_min={sinceDate.Value:yyyy-MM-ddTHH:mm:ssZ}";
             }
             
-            if (!string.IsNullOrEmpty(pageInfo))
-            {
-                baseUrl += $"&page_info={pageInfo}";
-            }
-            
             return baseUrl;
         }
 
         private string BuildOrdersUrl(string shopUrl, DateTime? sinceDate, string? pageInfo)
         {
+            // 🆕 page_infoが指定されている場合、他のクエリパラメータ（updated_at_minなど）は使用できない
+            // Shopify APIの仕様: page_infoを使用する場合、URLはpage_infoのみを含む必要がある
+            if (!string.IsNullOrEmpty(pageInfo))
+            {
+                return $"https://{shopUrl}/admin/api/2024-01/orders.json?page_info={pageInfo}";
+            }
+            
             var baseUrl = $"https://{shopUrl}/admin/api/2024-01/orders.json?limit=250&status=any";
             
             if (sinceDate.HasValue)
             {
                 baseUrl += $"&updated_at_min={sinceDate.Value:yyyy-MM-ddTHH:mm:ssZ}";
-            }
-            
-            if (!string.IsNullOrEmpty(pageInfo))
-            {
-                baseUrl += $"&page_info={pageInfo}";
             }
             
             return baseUrl;

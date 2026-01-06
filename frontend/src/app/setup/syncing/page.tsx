@@ -27,7 +27,7 @@ interface SyncStatus {
 export default function SyncingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { getApiClient, isApiClientReady, setCurrentStoreId, currentStoreId: authCurrentStoreId } = useAuth()
+  const { getApiClient, isApiClientReady, setCurrentStoreId, currentStoreId: authCurrentStoreId, authMode } = useAuth()
   
   const [syncId, setSyncId] = useState<string | null>(null)
   const [syncIdLoaded, setSyncIdLoaded] = useState(false)
@@ -105,10 +105,20 @@ export default function SyncingPage() {
             console.error('❌ [SyncingPage] localStorage への保存に失敗しました', error)
           }
         } else {
-          console.error('❌ [SyncingPage] currentStoreId が localStorage にも sessionStorage にも見つかりません')
-          console.error('❌ [SyncingPage] 開発者モードでログインし直してください')
-          setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
-          setIsInitializing(false) // 🆕 エラー時は初期化を完了させる
+          console.error('❌ [SyncingPage] currentStoreId が localStorage にも sessionStorage にも見つかりません', { authMode })
+          // 🆕 認証モードに応じたエラーメッセージを設定
+          if (authMode === 'shopify') {
+            // OAuthモードの場合、バックエンドがJWTトークンから取得できる可能性があるため、エラーをすぐに表示せず待機
+            console.warn('⚠️ [SyncingPage] OAuthモード: currentStoreIdが見つかりませんが、バックエンドがJWTトークンから取得できる可能性があります')
+            // エラーは表示せず、APIリクエストを試行する（fetchSyncStatusで処理）
+          } else if (authMode === 'developer' || authMode === 'demo') {
+            setError('ストアIDが見つかりません。開発者モード/デモモードでログインし直してください。')
+            setIsInitializing(false)
+          } else {
+            // 認証モードが不明な場合
+            setError('ストアIDが見つかりません。アプリを再起動してください。')
+            setIsInitializing(false)
+          }
         }
       } else {
         console.log('✅ [SyncingPage] currentStoreId が localStorage に存在します:', currentStoreId)
@@ -140,6 +150,7 @@ export default function SyncingPage() {
     }
 
     // 🆕 currentStoreId が設定されているか確認（AuthProvider → localStorage → sessionStorage の順で確認）
+    // OAuthモード（shopify）の場合、バックエンドがJWTトークンからstore_idを取得できるため、currentStoreIdがなくてもAPIリクエストを試行する
     if (typeof window !== 'undefined') {
       // まず AuthProvider から取得を試みる
       let currentStoreId: string | null = null
@@ -152,25 +163,39 @@ export default function SyncingPage() {
       }
       
       if (!currentStoreId) {
-        console.warn('⚠️ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりません。待機します...')
-        // currentStoreId が設定されるまで待機（最大5秒）
-        let retryCount = 0
-        const maxRetries = 10
-        while (retryCount < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 500))
-          const retryStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
-          if (retryStoreId) {
-            console.log('✅ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりました:', retryStoreId)
-            setCurrentStoreId(parseInt(retryStoreId, 10))
-            break
+        // OAuthモードの場合、バックエンドがJWTトークンからstore_idを取得できるため、エラーを表示せずにAPIリクエストを試行
+        if (authMode === 'shopify') {
+          console.warn('⚠️ [SyncingPage.fetchSyncStatus] OAuthモード: currentStoreIdが見つかりませんが、バックエンドがJWTトークンから取得できる可能性があります。APIリクエストを試行します。')
+          // エラーを表示せず、APIリクエストを試行する（バックエンドがJWTトークンからstore_idを取得できる）
+        } else {
+          // 開発者モード/デモモードの場合、currentStoreIdが必要
+          console.warn('⚠️ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりません。待機します...', { authMode })
+          // currentStoreId が設定されるまで待機（最大5秒）
+          let retryCount = 0
+          const maxRetries = 10
+          while (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+            const retryStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+            if (retryStoreId) {
+              console.log('✅ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりました:', retryStoreId)
+              setCurrentStoreId(parseInt(retryStoreId, 10))
+              break
+            }
+            retryCount++
           }
-          retryCount++
-        }
-        if (retryCount >= maxRetries) {
-          console.error('❌ [SyncingPage.fetchSyncStatus] currentStoreId が設定されませんでした')
-          setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
-          setIsInitializing(false) // 🆕 エラー時は初期化を完了させる
-          return
+          if (retryCount >= maxRetries) {
+            console.error('❌ [SyncingPage.fetchSyncStatus] currentStoreId が設定されませんでした', { authMode })
+            // 🆕 認証モードに応じたエラーメッセージを設定
+            if (authMode === 'developer') {
+              setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
+            } else if (authMode === 'demo') {
+              setError('ストアIDが見つかりません。デモモードでログインし直してください。')
+            } else {
+              setError('ストアIDが見つかりません。アプリを再起動してください。')
+            }
+            setIsInitializing(false) // 🆕 エラー時は初期化を完了させる
+            return
+          }
         }
       } else {
         // currentStoreId が見つかった場合、AuthProvider にも設定
@@ -262,7 +287,7 @@ export default function SyncingPage() {
         // isInitializing は true のまま（ポーリング継続）
       }
     }
-  }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId, authCurrentStoreId])
+  }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId, authCurrentStoreId, authMode])
 
   // ★ 重要: syncId、isApiClientReady、currentStoreId が全て準備できてから処理を開始
   useEffect(() => {
@@ -285,8 +310,9 @@ export default function SyncingPage() {
     }
 
     // 🆕 currentStoreId が設定されるまで待機
-    if (!authCurrentStoreId) {
-      console.log('⏳ currentStoreId の設定を待機中...', { authCurrentStoreId })
+    // OAuthモード（shopify）の場合、バックエンドがJWTトークンからstore_idを取得できるため、currentStoreIdがなくてもAPIリクエストを試行する
+    if (!authCurrentStoreId && authMode !== 'shopify') {
+      console.log('⏳ currentStoreId の設定を待機中...', { authCurrentStoreId, authMode })
       // localStorage/sessionStorage からも確認
       const storedStoreId = typeof window !== 'undefined' 
         ? localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
@@ -298,19 +324,29 @@ export default function SyncingPage() {
           console.log('✅ localStorage/sessionStorage から currentStoreId を取得し、AuthProvider に設定しました', { storeId: parsedStoreId })
         }
       } else {
-        // 最大5秒間待機
+        // 開発者モード/デモモードの場合のみ、最大5秒間待機
         const timeout = setTimeout(() => {
           const retryStoreId = typeof window !== 'undefined' 
             ? localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
             : null
           if (!retryStoreId && !authCurrentStoreId) {
-            console.error('❌ 5秒経過しても currentStoreId が設定されませんでした。認証エラーの可能性があります。');
-            setError('認証エラー: ストア情報が取得できませんでした。再ログインしてください。');
+            console.error('❌ 5秒経過しても currentStoreId が設定されませんでした。認証エラーの可能性があります。', { authMode });
+            // 🆕 認証モードに応じたエラーメッセージを設定（OAuthモードは既にスキップ済み）
+            if (authMode === 'developer') {
+              setError('認証エラー: ストア情報が取得できませんでした。開発者モードでログインし直してください。');
+            } else if (authMode === 'demo') {
+              setError('認証エラー: ストア情報が取得できませんでした。デモモードでログインし直してください。');
+            } else {
+              setError('認証エラー: ストア情報が取得できませんでした。再ログインしてください。');
+            }
             setIsInitializing(false);
           }
         }, 5000);
         return () => clearTimeout(timeout);
       }
+    } else if (authMode === 'shopify' && !authCurrentStoreId) {
+      // OAuthモードの場合、currentStoreIdがなくてもAPIリクエストを試行する（バックエンドがJWTトークンからstore_idを取得できる）
+      console.log('⚠️ [SyncingPage] OAuthモード: currentStoreIdが見つかりませんが、バックエンドがJWTトークンから取得できる可能性があります。APIリクエストを試行します。', { authCurrentStoreId })
     }
 
     console.log('✅ 準備完了（syncId:', syncId, ', isApiClientReady:', isApiClientReady, ', currentStoreId:', authCurrentStoreId, '）')
