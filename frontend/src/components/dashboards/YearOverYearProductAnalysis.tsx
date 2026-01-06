@@ -23,6 +23,7 @@ import {
 import type { ApiResponse } from "../../lib/data-access/types/api"
 import type { YearOverYearProductData, YearOverYearResponse } from "../../lib/api/year-over-year"
 import { useAuth } from "@/components/providers/AuthProvider"
+import { getCurrentStoreId } from "@/lib/api-config"
 import FeatureLockedScreen from "@/components/billing/FeatureLockedScreen"
 
 // APIデータ用の統一型定義
@@ -156,7 +157,7 @@ const ProductTableRowVirtual = React.memo(({
 ProductTableRowVirtual.displayName = "ProductTableRowVirtual"
 
 const YearOverYearProductAnalysis = () => {
-  const { getApiClient, currentStoreId } = useAuth()
+  const { getApiClient, currentStoreId: authCurrentStoreId, setCurrentStoreId } = useAuth()
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
@@ -189,14 +190,58 @@ const YearOverYearProductAnalysis = () => {
   const [lastFetchViewMode, setLastFetchViewMode] = useState<"sales" | "quantity" | "orders" | null>(null) // 最後に取得したviewMode
   const [featureDenied, setFeatureDenied] = useState<string | null>(null)
 
+  // 🆕 ページマウント時に currentStoreId を復元（開発者モード・デモモード対応）
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // localStorage から取得を試みる
+      let savedStoreId = localStorage.getItem('currentStoreId')
+      
+      // localStorage になければ sessionStorage から取得を試みる
+      if (!savedStoreId) {
+        savedStoreId = sessionStorage.getItem('currentStoreId')
+        // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
+        if (savedStoreId) {
+          try {
+            localStorage.setItem('currentStoreId', savedStoreId)
+            console.log('✅ [YearOverYear] sessionStorage から取得し、localStorage にも保存しました', { storeId: savedStoreId })
+          } catch (error) {
+            console.warn('⚠️ [YearOverYear] localStorage への保存に失敗しました', error)
+          }
+        }
+      }
+      
+      if (savedStoreId) {
+        const storeId = parseInt(savedStoreId, 10)
+        if (!isNaN(storeId) && storeId > 0) {
+          // AuthProvider の currentStoreId が設定されていない、または異なる場合のみ更新
+          if (!authCurrentStoreId || authCurrentStoreId !== storeId) {
+            console.log('🔄 [YearOverYear] ページマウント時に currentStoreId を復元:', { storeId, previousStoreId: authCurrentStoreId })
+            setCurrentStoreId(storeId)
+          }
+        }
+      } else {
+        console.warn('⚠️ [YearOverYear] currentStoreId が localStorage にも sessionStorage にも見つかりません')
+      }
+    }
+  }, [authCurrentStoreId, setCurrentStoreId])
+
+  // 🆕 getCurrentStoreId() を使用してストアIDを解決（sessionStorage も確認）
   const resolveStoreId = useCallback((): number | null => {
-    if (typeof currentStoreId === 'number' && currentStoreId > 0) return currentStoreId
-    if (typeof window === 'undefined') return null
-    const saved = localStorage.getItem('currentStoreId')
-    if (!saved) return null
-    const parsed = Number.parseInt(saved, 10)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
-  }, [currentStoreId])
+    // AuthProvider の currentStoreId を優先的に使用
+    if (typeof authCurrentStoreId === 'number' && authCurrentStoreId > 0) {
+      console.log('✅ [YearOverYear.resolveStoreId] AuthProvider の currentStoreId を使用:', authCurrentStoreId)
+      return authCurrentStoreId
+    }
+    
+    // AuthProvider になければ getCurrentStoreId() を使用（sessionStorage も確認）
+    if (typeof window !== 'undefined') {
+      const storeId = getCurrentStoreId()
+      console.log('🔍 [YearOverYear.resolveStoreId] getCurrentStoreId() を使用:', { storeId, authCurrentStoreId })
+      return storeId > 0 ? storeId : null
+    }
+    
+    return null
+  }, [authCurrentStoreId])
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
@@ -254,7 +299,7 @@ const YearOverYearProductAnalysis = () => {
       setLoading(false)
       setHasData(true) // データ取得試行完了
     }
-  }, [filters, getApiClient, resolveStoreId, selectedYear, sortBy, viewMode])
+  }, [filters, getApiClient, resolveStoreId, selectedYear, sortBy, viewMode, authCurrentStoreId])
 
   // APIデータを表示形式に変換する関数
   const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {
