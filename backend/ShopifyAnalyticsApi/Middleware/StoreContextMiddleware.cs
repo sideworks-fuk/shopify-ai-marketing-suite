@@ -40,6 +40,50 @@ namespace ShopifyAnalyticsApi.Middleware
 
                 if (user?.Identity?.IsAuthenticated == true)
                 {
+                    // 🆕 AuthModeMiddlewareで既にStoreIdが設定されている場合は、それを優先
+                    if (context.Items.TryGetValue("StoreId", out var existingStoreId) && existingStoreId is int existingId)
+                    {
+                        _logger.LogDebug("StoreContextMiddleware - StoreId already set by AuthModeMiddleware: StoreId={StoreId}", existingId);
+                        // TenantIdとShopDomainの設定のみ行う
+                        var existingTenantIdClaim = user.FindFirst("tenant_id")?.Value;
+                        var existingShopDomainClaim = user.FindFirst("shop_domain")?.Value;
+                        
+                        if (!string.IsNullOrEmpty(existingShopDomainClaim))
+                        {
+                            context.Items["ShopDomain"] = existingShopDomainClaim;
+                        }
+                        
+                        if (!string.IsNullOrEmpty(existingTenantIdClaim))
+                        {
+                            context.Items["TenantId"] = existingTenantIdClaim;
+                        }
+                        else if (!context.Items.ContainsKey("TenantId"))
+                        {
+                            // 既存のストアで TenantId がない場合はデータベースから取得
+                            using var scope = serviceProvider.CreateScope();
+                            var dbContext = scope.ServiceProvider.GetRequiredService<ShopifyDbContext>();
+                            var store = await dbContext.Stores
+                                .Where(s => s.Id == existingId)
+                                .Select(s => new { s.TenantId })
+                                .FirstOrDefaultAsync();
+                            
+                            if (store?.TenantId != null)
+                            {
+                                context.Items["TenantId"] = store.TenantId;
+                            }
+                            else
+                            {
+                                // デフォルトテナントを使用
+                                context.Items["TenantId"] = "default-tenant";
+                            }
+                        }
+                        
+                        _logger.LogDebug("Store context preserved from AuthModeMiddleware: StoreId={StoreId}, TenantId={TenantId}, ShopDomain={ShopDomain}", 
+                            existingId, context.Items["TenantId"], existingShopDomainClaim ?? "null");
+                        await _next(context);
+                        return;
+                    }
+                    
                     try
                     {
                         // すべてのクレームをログ出力

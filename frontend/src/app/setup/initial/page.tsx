@@ -332,6 +332,16 @@ export default function InitialSetupPage() {
         sessionStorage.setItem('ec-ranger-syncId', String(syncId))
         console.log('💾 sessionStorage に syncId を保存:', syncId)
         console.log('💾 保存確認:', sessionStorage.getItem('ec-ranger-syncId'))
+        
+        // 🆕 currentStoreId も sessionStorage に保存（ページ遷移時に失われないように）
+        const currentStoreId = localStorage.getItem('currentStoreId')
+        if (currentStoreId) {
+          sessionStorage.setItem('currentStoreId', currentStoreId)
+          console.log('💾 sessionStorage に currentStoreId を保存:', currentStoreId)
+          console.log('💾 保存確認:', sessionStorage.getItem('currentStoreId'))
+        } else {
+          console.warn('⚠️ localStorage に currentStoreId が見つかりません')
+        }
       } catch (e) {
         console.warn('⚠️ sessionStorage への保存に失敗:', e)
         console.warn('⚠️ エラー詳細:', e instanceof Error ? e.message : String(e))

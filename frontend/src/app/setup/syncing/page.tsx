@@ -27,7 +27,7 @@ interface SyncStatus {
 export default function SyncingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { getApiClient, isApiClientReady } = useAuth()
+  const { getApiClient, isApiClientReady, setCurrentStoreId } = useAuth()
   
   const [syncId, setSyncId] = useState<string | null>(null)
   const [syncIdLoaded, setSyncIdLoaded] = useState(false)
@@ -79,6 +79,45 @@ export default function SyncingPage() {
   // デバッグ: コンポーネントマウント時
   useEffect(() => {
     console.log('📦 [SyncingPage] マウント')
+    
+    // 🆕 currentStoreId が localStorage に存在するか確認
+    if (typeof window !== 'undefined') {
+      const currentStoreId = localStorage.getItem('currentStoreId')
+      console.log('🔍 [SyncingPage] localStorage から currentStoreId を確認:', currentStoreId)
+      
+      if (!currentStoreId) {
+        // sessionStorage からも確認
+        const sessionStoreId = sessionStorage.getItem('currentStoreId')
+        console.log('🔍 [SyncingPage] sessionStorage から currentStoreId を確認:', sessionStoreId)
+        
+        if (sessionStoreId) {
+          // sessionStorage にあった場合は localStorage にも保存
+          try {
+            localStorage.setItem('currentStoreId', sessionStoreId)
+            const parsedStoreId = parseInt(sessionStoreId, 10)
+            if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+              setCurrentStoreId(parsedStoreId)
+              console.log('✅ [SyncingPage] currentStoreId を sessionStorage から localStorage にコピーし、AuthProvider にも設定しました', { storeId: parsedStoreId })
+            }
+          } catch (error) {
+            console.error('❌ [SyncingPage] localStorage への保存に失敗しました', error)
+          }
+        } else {
+          console.error('❌ [SyncingPage] currentStoreId が localStorage にも sessionStorage にも見つかりません')
+          console.error('❌ [SyncingPage] 開発者モードでログインし直してください')
+          setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
+        }
+      } else {
+        console.log('✅ [SyncingPage] currentStoreId が localStorage に存在します:', currentStoreId)
+        // 🆕 AuthProvider にも設定
+        const parsedStoreId = parseInt(currentStoreId, 10)
+        if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+          setCurrentStoreId(parsedStoreId)
+          console.log('✅ [SyncingPage] currentStoreId を AuthProvider に設定しました', { storeId: parsedStoreId })
+        }
+      }
+    }
+    
     return () => {
       console.log('📦 [SyncingPage] アンマウント')
     }
@@ -93,6 +132,39 @@ export default function SyncingPage() {
     if (!isApiClientReady) {
       console.log('⏳ APIクライアントが準備中のため待機...')
       return
+    }
+
+    // 🆕 currentStoreId が設定されているか確認
+    if (typeof window !== 'undefined') {
+      const currentStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+      if (!currentStoreId) {
+        console.warn('⚠️ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりません。待機します...')
+        // currentStoreId が設定されるまで待機（最大5秒）
+        let retryCount = 0
+        const maxRetries = 10
+        while (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          const retryStoreId = localStorage.getItem('currentStoreId') || sessionStorage.getItem('currentStoreId')
+          if (retryStoreId) {
+            console.log('✅ [SyncingPage.fetchSyncStatus] currentStoreId が見つかりました:', retryStoreId)
+            setCurrentStoreId(parseInt(retryStoreId, 10))
+            break
+          }
+          retryCount++
+        }
+        if (retryCount >= maxRetries) {
+          console.error('❌ [SyncingPage.fetchSyncStatus] currentStoreId が設定されませんでした')
+          setError('ストアIDが見つかりません。開発者モードでログインし直してください。')
+          return
+        }
+      } else {
+        // currentStoreId が見つかった場合、AuthProvider にも設定
+        const parsedStoreId = parseInt(currentStoreId, 10)
+        if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+          setCurrentStoreId(parsedStoreId)
+          console.log('✅ [SyncingPage.fetchSyncStatus] currentStoreId を AuthProvider に設定しました', { storeId: parsedStoreId })
+        }
+      }
     }
 
     try {
@@ -138,7 +210,7 @@ export default function SyncingPage() {
       }
       setIsInitializing(false)
     }
-  }, [syncId, isApiClientReady, getApiClient, router])
+  }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId])
 
   // ★ 重要: syncId と isApiClientReady が両方準備できてから処理を開始
   useEffect(() => {

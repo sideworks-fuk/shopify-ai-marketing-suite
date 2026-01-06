@@ -42,8 +42,9 @@ namespace ShopifyAnalyticsApi.Services
         }
 
         /// <summary>
-        /// 初期同期を開始
+        /// 初期同期を開始（HangFireバックグラウンドジョブとして実行）
         /// </summary>
+        [AutomaticRetry(Attempts = 2, DelaysInSeconds = new[] { 60, 300 })] // 1分後と5分後にリトライ
         public async Task StartInitialSync(int storeId, int syncStatusId, string syncPeriod)
         {
             _logger.LogInformation("🟡 [ShopifyDataSyncService] ========================================");

@@ -27,6 +27,7 @@ interface AuthContextType {
   refreshAuth: () => Promise<void>
   getApiClient: () => ApiClient
   markAuthenticated: (storeId: number) => void
+  setCurrentStoreId: (storeId: number | null) => void // 🆕 currentStoreId を設定する関数
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -642,6 +643,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     refreshAuth,
     getApiClient,
     markAuthenticated,
+    setCurrentStoreId, // 🆕 setCurrentStoreId を公開
   }
 
   return (
