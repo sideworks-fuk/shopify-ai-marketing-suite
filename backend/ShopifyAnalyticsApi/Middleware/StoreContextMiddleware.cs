@@ -58,6 +58,7 @@ namespace ShopifyAnalyticsApi.Middleware
                     _logger.LogDebug("StoreContextMiddleware - Extracted claims: store_id={StoreId}, tenant_id={TenantId}, shop_domain={ShopDomain}", 
                         storeIdClaim ?? "null", tenantIdClaim ?? "null", shopDomainClaim ?? "null");
 
+                    // JWTクレームからStoreIdを取得
                     if (!string.IsNullOrEmpty(storeIdClaim) && int.TryParse(storeIdClaim, out var storeId))
                     {
                         context.Items["StoreId"] = storeId;
@@ -94,7 +95,27 @@ namespace ShopifyAnalyticsApi.Middleware
                     }
                     else
                     {
-                        _logger.LogWarning("Store ID not found in JWT claims for authenticated user. store_id claim: {StoreIdClaim}", storeIdClaim ?? "null");
+                        // JWTクレームにstore_idがない場合、X-Store-Idヘッダーから取得（開発者モードなど）
+                        var storeIdHeader = context.Request.Headers["X-Store-Id"].FirstOrDefault();
+                        var tenantIdHeader = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+                        
+                        if (!string.IsNullOrEmpty(storeIdHeader) && int.TryParse(storeIdHeader, out var headerStoreId))
+                        {
+                            context.Items["StoreId"] = headerStoreId;
+                            
+                            if (!string.IsNullOrEmpty(tenantIdHeader))
+                            {
+                                context.Items["TenantId"] = tenantIdHeader;
+                            }
+                            
+                            _logger.LogDebug("Store context set from headers (authenticated user): StoreId={StoreId}, TenantId={TenantId}", 
+                                headerStoreId, tenantIdHeader);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Store ID not found in JWT claims or headers for authenticated user. store_id claim: {StoreIdClaim}, X-Store-Id header: {StoreIdHeader}", 
+                                storeIdClaim ?? "null", storeIdHeader ?? "null");
+                        }
                     }
                 }
                 else

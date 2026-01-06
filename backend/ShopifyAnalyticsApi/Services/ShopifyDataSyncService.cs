@@ -3,6 +3,7 @@ using ShopifyAnalyticsApi.Data;
 using ShopifyAnalyticsApi.Models;
 using ShopifyAnalyticsApi.Jobs;
 using System.Text.Json;
+using Hangfire;
 
 namespace ShopifyAnalyticsApi.Services
 {
@@ -18,6 +19,7 @@ namespace ShopifyAnalyticsApi.Services
         private readonly ShopifyProductSyncJob _productSyncJob;
         private readonly ShopifyCustomerSyncJob _customerSyncJob;
         private readonly ShopifyOrderSyncJob _orderSyncJob;
+        private readonly IServiceProvider _serviceProvider;
 
         public ShopifyDataSyncService(
             ShopifyDbContext context,
@@ -26,7 +28,8 @@ namespace ShopifyAnalyticsApi.Services
             ShopifyApiService shopifyApiService,
             ShopifyProductSyncJob productSyncJob,
             ShopifyCustomerSyncJob customerSyncJob,
-            ShopifyOrderSyncJob orderSyncJob)
+            ShopifyOrderSyncJob orderSyncJob,
+            IServiceProvider serviceProvider)
         {
             _context = context;
             _logger = logger;
@@ -35,6 +38,7 @@ namespace ShopifyAnalyticsApi.Services
             _productSyncJob = productSyncJob;
             _customerSyncJob = customerSyncJob;
             _orderSyncJob = orderSyncJob;
+            _serviceProvider = serviceProvider;
         }
 
         /// <summary>
@@ -42,8 +46,18 @@ namespace ShopifyAnalyticsApi.Services
         /// </summary>
         public async Task StartInitialSync(int storeId, int syncStatusId, string syncPeriod)
         {
+            _logger.LogInformation("🟡 [ShopifyDataSyncService] ========================================");
+            _logger.LogInformation("🟡 [ShopifyDataSyncService] StartInitialSync開始: StoreId={StoreId}, SyncStatusId={SyncStatusId}, SyncPeriod={SyncPeriod}", 
+                storeId, syncStatusId, syncPeriod);
+            _logger.LogInformation("🟡 [ShopifyDataSyncService] Timestamp: {Timestamp}", DateTime.UtcNow);
+            
             var syncStatus = await _context.SyncStatuses.FindAsync(syncStatusId);
-            if (syncStatus == null) return;
+            if (syncStatus == null)
+            {
+                _logger.LogError("🟡 [ShopifyDataSyncService] ❌ SyncStatusが見つかりません: SyncStatusId={SyncStatusId}", syncStatusId);
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] ========================================");
+                return;
+            }
 
             try
             {
@@ -51,15 +65,24 @@ namespace ShopifyAnalyticsApi.Services
                 syncStatus.Status = "running";
                 syncStatus.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] SyncStatusをrunningに更新完了");
 
                 var store = await _context.Stores.FindAsync(storeId);
                 if (store == null)
                 {
+                    _logger.LogError("🟡 [ShopifyDataSyncService] ❌ ストアが見つかりません: StoreId={StoreId}", storeId);
                     throw new Exception($"Store not found: {storeId}");
                 }
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] ストア情報取得完了: StoreId={StoreId}, StoreName={StoreName}, Domain={Domain}, HasAccessToken={HasAccessToken}", 
+                    store.Id, store.Name, store.Domain, !string.IsNullOrEmpty(store.AccessToken));
 
                 // 同期期間の計算
                 var startDate = GetStartDateFromPeriod(syncPeriod);
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] 同期期間計算完了: StartDate={StartDate}, SyncPeriod={SyncPeriod}", 
+                    startDate, syncPeriod);
                 
                 // 初期同期オプションを作成
                 var syncOptions = new InitialSyncOptions
@@ -69,6 +92,9 @@ namespace ShopifyAnalyticsApi.Services
                     MaxYearsBack = 3,
                     IncludeArchived = false
                 };
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] SyncOptions作成完了: StartDate={StartDate}, MaxYearsBack={MaxYearsBack}", 
+                    syncOptions.StartDate, syncOptions.MaxYearsBack);
                 
                 // 新しいジョブクラスを使用して同期を実行
                 await RunInitialSyncWithJobs(store, syncStatus, syncOptions);
@@ -84,12 +110,52 @@ namespace ShopifyAnalyticsApi.Services
                 store.UpdatedAt = DateTime.UtcNow;
                 
                 await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] 初期設定完了フラグを更新: InitialSetupCompleted=true");
 
-                _logger.LogInformation($"Initial sync completed for store {storeId}");
+                // ✅ 初期設定完了後、定期ジョブを登録
+                try
+                {
+                    using (var scope = _serviceProvider.CreateScope())
+                    {
+                        var recurringJobManager = scope.ServiceProvider.GetRequiredService<Hangfire.IRecurringJobManager>();
+                        
+                        // 商品同期ジョブ（1時間ごと）
+                        recurringJobManager.AddOrUpdate<ShopifyProductSyncJob>(
+                            $"sync-products-store-{store.Id}",
+                            job => job.SyncProducts(store.Id, null),
+                            Hangfire.Cron.Hourly);
+                        
+                        // 顧客同期ジョブ（2時間ごと）
+                        recurringJobManager.AddOrUpdate<ShopifyCustomerSyncJob>(
+                            $"sync-customers-store-{store.Id}",
+                            job => job.SyncCustomers(store.Id, null),
+                            "0 */2 * * *");
+                        
+                        // 注文同期ジョブ（3時間ごと）
+                        recurringJobManager.AddOrUpdate<ShopifyOrderSyncJob>(
+                            $"sync-orders-store-{store.Id}",
+                            job => job.SyncOrders(store.Id, null),
+                            "0 */3 * * *");
+                        
+                        _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 定期ジョブ登録完了: StoreId={StoreId}", store.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "🟡 [ShopifyDataSyncService] ⚠️ 定期ジョブ登録に失敗（アプリ再起動時に自動登録されます）: StoreId={StoreId}", store.Id);
+                    // エラーが発生しても初期同期は完了として扱う（アプリ再起動時に自動登録される）
+                }
+
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 初期同期完了: StoreId={StoreId}, SyncStatusId={SyncStatusId}", 
+                    storeId, syncStatusId);
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] ========================================");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error in initial sync for store {storeId}");
+                _logger.LogError(ex, "🟡 [ShopifyDataSyncService] ❌ エラー発生: StoreId={StoreId}, SyncStatusId={SyncStatusId}, Message={Message}", 
+                    storeId, syncStatusId, ex.Message);
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] ========================================");
                 
                 syncStatus.Status = "failed";
                 syncStatus.EndDate = DateTime.UtcNow;
@@ -105,20 +171,31 @@ namespace ShopifyAnalyticsApi.Services
         /// </summary>
         private async Task RunInitialSyncWithJobs(Store store, SyncStatus syncStatus, InitialSyncOptions syncOptions)
         {
+            _logger.LogInformation("🟡 [ShopifyDataSyncService] RunInitialSyncWithJobs開始: StoreId={StoreId}, SyncStatusId={SyncStatusId}", 
+                store.Id, syncStatus.Id);
+            
             try
             {
                 // シミュレーションモードのチェック
-                var useSimulation = _configuration.GetValue<bool>("Shopify:UseSimulation", true);
+                // デフォルト値を false に変更（本番環境では実際のデータ同期を実行するため）
+                var useSimulation = _configuration.GetValue<bool>("Shopify:UseSimulation", false);
+                
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] シミュレーションモードチェック: UseSimulation={UseSimulation}, HasAccessToken={HasAccessToken}", 
+                    useSimulation, !string.IsNullOrEmpty(store.AccessToken));
                 
                 if (useSimulation || string.IsNullOrEmpty(store.AccessToken))
                 {
                     // シミュレーションモード
+                    _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ シミュレーションモードで実行: UseSimulation={UseSimulation}, HasAccessToken={HasAccessToken}", 
+                        useSimulation, !string.IsNullOrEmpty(store.AccessToken));
                     await RunSimulatedSync(store, syncStatus, syncOptions.StartDate);
                 }
                 else
                 {
                     // 実際のジョブクラスを使用して同期を実行
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 実際の同期モードで実行開始");
                     // 1. 顧客データ同期
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 顧客データ同期開始");
                     syncStatus.CurrentTask = "顧客データ取得中";
                     await _context.SaveChangesAsync();
                     
@@ -129,9 +206,11 @@ namespace ShopifyAnalyticsApi.Services
                     syncStatus.CurrentTask = "顧客データ同期完了";
                     await _context.SaveChangesAsync();
                     
-                    _logger.LogInformation($"Synced {customerCount} customers for store {store.Id}");
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 顧客データ同期完了: Count={CustomerCount}, StoreId={StoreId}", 
+                        customerCount, store.Id);
 
                     // 2. 商品データ同期
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 商品データ同期開始");
                     syncStatus.CurrentTask = "商品データ取得中";
                     await _context.SaveChangesAsync();
                     
@@ -142,9 +221,11 @@ namespace ShopifyAnalyticsApi.Services
                     syncStatus.CurrentTask = "商品データ同期完了";
                     await _context.SaveChangesAsync();
                     
-                    _logger.LogInformation($"Synced {productCount} products for store {store.Id}");
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 商品データ同期完了: Count={ProductCount}, StoreId={StoreId}", 
+                        productCount, store.Id);
 
                     // 3. 注文データ同期
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 注文データ同期開始");
                     syncStatus.CurrentTask = "注文データ取得中";
                     await _context.SaveChangesAsync();
                     
@@ -156,13 +237,16 @@ namespace ShopifyAnalyticsApi.Services
                     syncStatus.CurrentTask = "全データ同期完了";
                     await _context.SaveChangesAsync();
                     
-                    _logger.LogInformation($"Synced {orderCount} orders for store {store.Id}");
-                    _logger.LogInformation($"Total synced records: {customerCount + productCount + orderCount} for store {store.Id}");
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 注文データ同期完了: Count={OrderCount}, StoreId={StoreId}", 
+                        orderCount, store.Id);
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 全データ同期完了: Total={TotalRecords} (Customers={CustomerCount}, Products={ProductCount}, Orders={OrderCount}), StoreId={StoreId}", 
+                        customerCount + productCount + orderCount, customerCount, productCount, orderCount, store.Id);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error during data sync for store {store.Id}");
+                _logger.LogError(ex, "🟡 [ShopifyDataSyncService] ❌ データ同期中にエラー発生: StoreId={StoreId}, Message={Message}, StackTrace={StackTrace}", 
+                    store.Id, ex.Message, ex.StackTrace);
                 throw;
             }
         }

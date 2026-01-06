@@ -99,8 +99,29 @@ export default function InitialSetupPage() {
         localStorage.setItem('currentStoreId', storeIdFromUrl);
         localStorage.setItem('oauth_authenticated', 'true');
       } else {
-        console.log('⚠️ [InitialSetup] URL パラメータに storeId がありません。localStorage の値を使用します:', 
-          localStorage.getItem('currentStoreId'));
+        const currentStoreIdFromStorage = localStorage.getItem('currentStoreId')
+      console.log('⚠️ [InitialSetup] URL パラメータに storeId がありません。localStorage の値を使用します:', currentStoreIdFromStorage)
+      
+      // 開発者モードの場合、localStorage に currentStoreId が保存されているか確認
+      const developerToken = localStorage.getItem('developerToken')
+      const authMode = localStorage.getItem('authMode')
+      if ((developerToken || authMode === 'developer') && !currentStoreIdFromStorage) {
+        console.warn('⚠️ [InitialSetup] 開発者モードですが、currentStoreId が localStorage に見つかりません')
+        console.warn('⚠️ [InitialSetup] localStorage の内容:', {
+          developerToken: !!developerToken,
+          authMode,
+          allKeys: Object.keys(localStorage)
+        })
+      } else if (currentStoreIdFromStorage) {
+        // 開発者モードで currentStoreId が存在する場合、確実に保存されていることを確認
+        // ページ遷移後に localStorage がクリアされる可能性があるため、再保存
+        try {
+          localStorage.setItem('currentStoreId', currentStoreIdFromStorage)
+          console.log('✅ [InitialSetup] currentStoreId を再保存しました', { storeId: currentStoreIdFromStorage })
+        } catch (error) {
+          console.error('❌ [InitialSetup] currentStoreId の再保存に失敗しました', error)
+        }
+      }
       }
       
       // 🆕 OAuth認証成功後のリダイレクトフラグをクリア（リダイレクトが成功したことを確認）
@@ -185,14 +206,31 @@ export default function InitialSetupPage() {
     // ========== デバッグログ開始 ==========
     console.log('========================================')
     console.log('🚀 handleStartSync が呼ばれました')
+    console.log('📌 タイムスタンプ:', new Date().toISOString())
     console.log('📌 isApiClientReady:', isApiClientReady)
     console.log('📌 syncPeriod:', syncPeriod)
+    console.log('📌 isLoading:', isLoading)
+    console.log('📌 error:', error)
+    
+    // 環境情報の確認
+    if (typeof window !== 'undefined') {
+      console.log('📌 環境情報:')
+      console.log('  - window.location.href:', window.location.href)
+      console.log('  - localStorage.oauth_authenticated:', localStorage.getItem('oauth_authenticated'))
+      console.log('  - localStorage.currentStoreId:', localStorage.getItem('currentStoreId'))
+      console.log('  - localStorage.demoToken:', localStorage.getItem('demoToken') ? '存在' : 'なし')
+      console.log('  - sessionStorage.ec-ranger-syncId:', sessionStorage.getItem('ec-ranger-syncId'))
+    }
     console.log('========================================')
     
     // isApiClientReady のチェック
     if (!isApiClientReady) {
       console.error('❌ isApiClientReady = false のため早期リターン')
       console.error('💡 AuthProvider の初期化が完了していません')
+      console.error('💡 考えられる原因:')
+      console.error('  1. AuthProvider の初期化がまだ完了していない')
+      console.error('  2. Shopify App Bridge のトークン取得に失敗している')
+      console.error('  3. OAuth認証が完了していない')
       alert('APIクライアントが準備中です。数秒待ってから再度お試しください。')
       return
     }
@@ -205,25 +243,81 @@ export default function InitialSetupPage() {
       console.log('📡 APIクライアントを取得中...')
       const apiClient = getApiClient()
       console.log('✅ APIクライアント取得成功')
+      console.log('📌 APIクライアントの型:', apiClient.constructor.name)
       
-      console.log('📤 POST /api/sync/initial 送信中...')
-      console.log('📤 リクエストボディ:', JSON.stringify({ syncPeriod }))
+      // リクエスト送信前の詳細確認
+      const requestBody = { syncPeriod }
+      const requestBodyString = JSON.stringify(requestBody)
+      console.log('📤 POST /api/sync/initial 送信準備完了')
+      console.log('📤 リクエストボディ:', requestBodyString)
+      console.log('📤 リクエストボディサイズ:', requestBodyString.length, 'bytes')
+      console.log('📤 リクエストメソッド: POST')
+      console.log('📤 エンドポイント: /api/sync/initial')
       
-      const data = await apiClient.request<any>('/api/sync/initial', {
-        method: 'POST',
-        body: JSON.stringify({ syncPeriod }),
-      })
+      // リクエスト送信開始時刻を記録
+      const requestStartTime = Date.now()
+      console.log('⏰ リクエスト送信開始時刻:', new Date(requestStartTime).toISOString())
+      
+      let data: any
+      try {
+        data = await apiClient.request<any>('/api/sync/initial', {
+          method: 'POST',
+          body: requestBodyString,
+        })
+        
+        const requestEndTime = Date.now()
+        const requestDuration = requestEndTime - requestStartTime
+        console.log('✅ リクエスト成功')
+        console.log('⏰ リクエスト完了時刻:', new Date(requestEndTime).toISOString())
+        console.log('⏰ リクエスト所要時間:', requestDuration, 'ms')
+        
+      } catch (requestError: any) {
+        const requestEndTime = Date.now()
+        const requestDuration = requestEndTime - requestStartTime
+        console.error('❌ リクエストエラー発生')
+        console.error('⏰ エラー発生時刻:', new Date(requestEndTime).toISOString())
+        console.error('⏰ リクエスト所要時間:', requestDuration, 'ms')
+        console.error('❌ エラーオブジェクト:', requestError)
+        console.error('❌ エラーメッセージ:', requestError?.message)
+        console.error('❌ エラースタック:', requestError?.stack)
+        
+        // ネットワークエラーの詳細確認
+        if (requestError instanceof TypeError && requestError.message.includes('fetch')) {
+          console.error('🌐 ネットワークエラーの可能性:')
+          console.error('  - CORSエラーの可能性')
+          console.error('  - ネットワーク接続の問題')
+          console.error('  - バックエンドサーバーが応答していない')
+        }
+        
+        // エラーを再スローしてcatchブロックで処理
+        throw requestError
+      }
       
       console.log('📥 レスポンス受信:')
-      console.log(JSON.stringify(data, null, 2))
+      console.log('📥 レスポンスタイプ:', typeof data)
+      console.log('📥 レスポンス全体:', JSON.stringify(data, null, 2))
+      
+      // レスポンスの構造確認
+      if (data && typeof data === 'object') {
+        console.log('📥 レスポンスのキー:', Object.keys(data))
+        console.log('📥 レスポンスの値:', Object.values(data))
+      }
       
       // PascalCase と camelCase 両方に対応
       const syncId = data.syncId ?? data.SyncId ?? data.id ?? data.Id
       console.log('🔑 取得したsyncId:', syncId)
+      console.log('🔑 syncIdの型:', typeof syncId)
+      console.log('🔑 syncIdの値の確認:')
+      console.log('  - data.syncId:', data.syncId)
+      console.log('  - data.SyncId:', data.SyncId)
+      console.log('  - data.id:', data.id)
+      console.log('  - data.Id:', data.Id)
       
       if (!syncId) {
         console.error('❌ syncId が取得できません')
         console.error('📋 レスポンス全体:', data)
+        console.error('📋 レスポンスの型:', typeof data)
+        console.error('📋 レスポンスが配列か:', Array.isArray(data))
         setError('同期IDが取得できませんでした。管理者に連絡してください。')
         setIsLoading(false)
         return
@@ -237,15 +331,49 @@ export default function InitialSetupPage() {
       try {
         sessionStorage.setItem('ec-ranger-syncId', String(syncId))
         console.log('💾 sessionStorage に syncId を保存:', syncId)
+        console.log('💾 保存確認:', sessionStorage.getItem('ec-ranger-syncId'))
       } catch (e) {
-        console.warn('sessionStorage への保存に失敗:', e)
+        console.warn('⚠️ sessionStorage への保存に失敗:', e)
+        console.warn('⚠️ エラー詳細:', e instanceof Error ? e.message : String(e))
       }
 
+      console.log('🔀 router.push() を実行します:', redirectUrl)
       router.push(redirectUrl)
+      console.log('✅ router.push() 実行完了')
       
     } catch (err) {
-      console.error('❌ エラー発生:', err)
-      console.error('❌ エラー詳細:', err instanceof Error ? err.stack : 'Unknown error')
+      console.error('❌ エラー発生（catchブロック）')
+      console.error('❌ エラーオブジェクト:', err)
+      console.error('❌ エラーメッセージ:', err instanceof Error ? err.message : String(err))
+      console.error('❌ エラースタック:', err instanceof Error ? err.stack : 'スタック情報なし')
+      console.error('❌ エラーの型:', err?.constructor?.name || typeof err)
+      
+      // エラーの詳細分析
+      if (err instanceof Error) {
+        console.error('❌ エラー詳細分析:')
+        console.error('  - name:', err.name)
+        console.error('  - message:', err.message)
+        console.error('  - stack:', err.stack)
+        
+        // ネットワークエラーの場合
+        if (err.message.includes('fetch') || err.message.includes('network')) {
+          console.error('🌐 ネットワークエラーの可能性が高いです')
+          console.error('💡 確認事項:')
+          console.error('  1. バックエンドサーバーが起動しているか')
+          console.error('  2. CORS設定が正しいか')
+          console.error('  3. ネットワーク接続が正常か')
+        }
+        
+        // 認証エラーの場合
+        if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          console.error('🔐 認証エラーの可能性が高いです')
+          console.error('💡 確認事項:')
+          console.error('  1. Shopify App Bridge のトークンが取得できているか')
+          console.error('  2. OAuth認証が完了しているか')
+          console.error('  3. 認証ヘッダーが正しく送信されているか')
+        }
+      }
+      
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました')
       setIsLoading(false)
     }
@@ -620,7 +748,7 @@ export default function InitialSetupPage() {
                   手動データ同期
                 </h2>
                 <p className="text-gray-600 mb-4">
-                  最新のデータを取得したい場合は、手動で同期を実行できます。
+                  最新のデータを取得したい場合は、手動で同期を実行できます。データ取得期間を選択して同期を開始できます。
                 </p>
               </div>
 
@@ -631,6 +759,13 @@ export default function InitialSetupPage() {
                     <strong>デモモード</strong><br />
                     デモモードではデータ同期を実行できません。実際のデータ同期を行うには、Shopifyアプリとしてインストールしてください。
                   </AlertDescription>
+                </Alert>
+              )}
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
@@ -647,6 +782,37 @@ export default function InitialSetupPage() {
                 </AlertDescription>
               </Alert>
 
+              {/* 同期期間選択UIを追加 */}
+              <div className="space-y-4">
+                <Label className="text-base">データ取得期間を選択してください：</Label>
+                <RadioGroup value={syncPeriod} onValueChange={(value) => setSyncPeriod(value as SyncPeriod)}>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value="3months" id="trigger-3months" />
+                    <Label htmlFor="trigger-3months" className="cursor-pointer flex-1">
+                      過去3ヶ月（推奨）
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value="6months" id="trigger-6months" />
+                    <Label htmlFor="trigger-6months" className="cursor-pointer flex-1">
+                      過去6ヶ月
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value="1year" id="trigger-1year" />
+                    <Label htmlFor="trigger-1year" className="cursor-pointer flex-1">
+                      過去1年
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value="all" id="trigger-all" />
+                    <Label htmlFor="trigger-all" className="cursor-pointer flex-1">
+                      全期間
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               <Card className="border-2 border-dashed border-gray-300 bg-gray-50">
                 <CardContent className="p-6">
                   <div className="text-center space-y-4">
@@ -654,7 +820,7 @@ export default function InitialSetupPage() {
                     <div>
                       <h3 className="font-semibold text-lg mb-1">ワンクリック同期</h3>
                       <p className="text-sm text-gray-600 mb-4">
-                        ボタンをクリックするだけで最新データを取得
+                        ボタンをクリックするだけで選択した期間のデータを取得
                       </p>
                     </div>
                     <Button 

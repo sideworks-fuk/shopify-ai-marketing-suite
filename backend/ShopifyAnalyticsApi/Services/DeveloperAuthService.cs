@@ -48,8 +48,8 @@ namespace ShopifyAnalyticsApi.Services
         {
             ipAddress = ipAddress ?? "unknown";
 
-            // 開発環境チェック
-            if (_env.EnvironmentName != "Development")
+            // 開発環境チェック（Development または LocalDevelopment）
+            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
             {
                 _logger.LogWarning("Developer mode authentication attempted in non-development environment: {Environment}", _env.EnvironmentName);
                 return new DeveloperAuthResult
@@ -223,7 +223,7 @@ namespace ShopifyAnalyticsApi.Services
         /// <summary>
         /// 開発者トークンを検証
         /// </summary>
-        public async Task<AuthenticationResult> ValidateDeveloperTokenAsync(string token)
+        public async Task<AuthenticationResult> ValidateDeveloperTokenAsync(string token, HttpContext? httpContext = null)
         {
             try
             {
@@ -250,12 +250,25 @@ namespace ShopifyAnalyticsApi.Services
                     };
                 }
 
+                // X-Store-Id ヘッダーからストアIDを取得
+                int? storeId = null;
+                if (httpContext != null)
+                {
+                    var storeIdHeader = httpContext.Request.Headers["X-Store-Id"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(storeIdHeader) && int.TryParse(storeIdHeader, out var parsedStoreId))
+                    {
+                        storeId = parsedStoreId;
+                        _logger.LogDebug("Developer token validated with StoreId from header: {StoreId}", storeId);
+                    }
+                }
+
                 return new AuthenticationResult
                 {
                     IsValid = true,
                     UserId = "developer",
                     AuthMode = "developer",
-                    IsReadOnly = false
+                    IsReadOnly = false,
+                    StoreId = storeId
                 };
             }
             catch (Exception ex)
@@ -371,7 +384,7 @@ namespace ShopifyAnalyticsApi.Services
     public interface IDeveloperAuthService
     {
         Task<DeveloperAuthResult> AuthenticateAsync(string password, string? ipAddress, string? userAgent);
-        Task<AuthenticationResult> ValidateDeveloperTokenAsync(string token);
+        Task<AuthenticationResult> ValidateDeveloperTokenAsync(string token, Microsoft.AspNetCore.Http.HttpContext? httpContext = null);
         Task<bool> LogoutAsync(string token);
     }
 

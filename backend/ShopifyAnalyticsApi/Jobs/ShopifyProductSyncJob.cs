@@ -475,9 +475,14 @@ namespace ShopifyAnalyticsApi.Jobs
                 
                 try
                 {
+                    // ✅ 初期設定完了済みのストアのみを対象
                     var activeStores = context.Stores
-                        .Where(s => s.IsActive)
+                        .Where(s => s.IsActive == true 
+                                 && s.InitialSetupCompleted == true 
+                                 && !string.IsNullOrEmpty(s.AccessToken))
                         .ToList();
+                    
+                    logger.LogInformation($"Registering recurring product sync jobs for {activeStores.Count} stores (InitialSetupCompleted=true)");
                     
                     foreach (var store in activeStores)
                     {
@@ -487,7 +492,21 @@ namespace ShopifyAnalyticsApi.Jobs
                             job => job.SyncProducts(store.Id, null),
                             Cron.Hourly);
                         
-                        logger.LogInformation($"Registered recurring product sync job for store: {store.Name}");
+                        logger.LogInformation($"Registered recurring product sync job for store: {store.Name} (ID: {store.Id})");
+                    }
+                    
+                    // 初期設定が完了していないストアのジョブを削除（念のため）
+                    var storesWithoutSetup = context.Stores
+                        .Where(s => s.IsActive == true 
+                                 && (s.InitialSetupCompleted != true))
+                        .Select(s => s.Id)
+                        .ToList();
+                    
+                    foreach (var storeId in storesWithoutSetup)
+                    {
+                        var jobId = $"sync-products-store-{storeId}";
+                        RecurringJob.RemoveIfExists(jobId);
+                        logger.LogInformation($"Removed recurring product sync job for store (InitialSetupCompleted=false): {jobId}");
                     }
                     
                     // 全ストア一括同期ジョブ（1日1回）

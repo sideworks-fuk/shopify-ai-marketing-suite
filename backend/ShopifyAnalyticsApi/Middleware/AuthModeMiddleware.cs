@@ -34,6 +34,16 @@ namespace ShopifyAnalyticsApi.Middleware
         {
             // 認証をスキップするパスをチェック
             var path = context.Request.Path.Value?.ToLower() ?? "";
+            
+            // デバッグ: 同期関連のリクエストのみログ出力
+            var isSyncRequest = path.Contains("/api/sync");
+            if (isSyncRequest)
+            {
+                _logger.LogInformation("🔐 [AuthModeMiddleware] ========================================");
+                _logger.LogInformation("🔐 [AuthModeMiddleware] 同期リクエスト受信: Path={Path}, Method={Method}", 
+                    path, context.Request.Method);
+                _logger.LogInformation("🔐 [AuthModeMiddleware] Timestamp: {Timestamp}", DateTime.UtcNow);
+            }
             var skipAuthPaths = new[]
             {
                 "/api/demo/login",
@@ -48,7 +58,10 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/shopify/test-config",
                 // Webhook（Shopifyからの通知、WebhookController内で独自HMAC検証を実施）
                 "/api/webhook",
+                // ヘルスチェックエンドポイント（認証不要）
                 "/health",
+                "/api/health",
+                "/health/ready",
                 "/swagger",
                 "/hangfire"
             };
@@ -193,15 +206,15 @@ namespace ShopifyAnalyticsApi.Middleware
                         }
                         else
                         {
-                            // 開発者トークンの検証（開発環境のみ）
-                            if (_env.EnvironmentName == "Development")
+                            // 開発者トークンの検証（開発環境のみ：Development または LocalDevelopment）
+                            if (_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment")
                             {
-                                var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token);
+                                var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token, context);
                                 isDeveloperValid = developerResult.IsValid;
                                 if (isDeveloperValid)
                                 {
                                     authResult = developerResult;
-                                    _logger.LogDebug("Developer token validation successful");
+                                    _logger.LogDebug("Developer token validation successful. StoreId: {StoreId}", developerResult.StoreId);
                                 }
                             }
                             
@@ -268,14 +281,20 @@ namespace ShopifyAnalyticsApi.Middleware
                     // 開発環境では開発者認証も許可
                     if (!isOAuthValid && !isDemoValid)
                     {
-                        // 開発環境では開発者認証を許可
-                        if (_env.EnvironmentName == "Development" && isDeveloperValid)
+                        // 開発環境では開発者認証を許可（Development または LocalDevelopment）
+                        if ((_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment") && isDeveloperValid)
                         {
-                            _logger.LogInformation("Developer authentication allowed in DemoAllowed mode (Development environment)");
+                            _logger.LogInformation("Developer authentication allowed in DemoAllowed mode (Development/LocalDevelopment environment)");
                             // 開発者認証を許可して続行
                         }
                         else
                         {
+                            if (isSyncRequest)
+                            {
+                                _logger.LogWarning("🔐 [AuthModeMiddleware] ❌ 認証失敗: OAuth/Demo/Developer認証が必要ですが提供されていません");
+                                _logger.LogInformation("🔐 [AuthModeMiddleware] ========================================");
+                            }
+                            
                             _logger.LogWarning(
                                 "OAuth, demo, or developer authentication required but not provided. Path: {Path}",
                                 context.Request.Path);
@@ -327,6 +346,36 @@ namespace ShopifyAnalyticsApi.Middleware
                 if (authResult.StoreId.HasValue)
                 {
                     context.Items["StoreId"] = authResult.StoreId.Value;
+                    
+                    // デバッグ: 同期関連のリクエストのみログ出力
+                    if (isSyncRequest)
+                    {
+                        _logger.LogInformation("🔐 [AuthModeMiddleware] 認証成功: AuthMode={AuthMode}, StoreId={StoreId}, IsReadOnly={IsReadOnly}", 
+                            authResult.AuthMode, authResult.StoreId.Value, authResult.IsReadOnly);
+                    }
+                }
+                else
+                {
+                    // StoreIdが設定されていない場合、X-Store-Idヘッダーから取得を試みる（開発者モードなど）
+                    var storeIdHeader = context.Request.Headers["X-Store-Id"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(storeIdHeader) && int.TryParse(storeIdHeader, out var headerStoreId))
+                    {
+                        context.Items["StoreId"] = headerStoreId;
+                        if (isSyncRequest)
+                        {
+                            _logger.LogInformation("🔐 [AuthModeMiddleware] StoreIdをX-Store-Idヘッダーから取得: AuthMode={AuthMode}, StoreId={StoreId}", 
+                                authResult.AuthMode, headerStoreId);
+                        }
+                    }
+                    else
+                    {
+                        // デバッグ: StoreIdが設定されていない場合
+                        if (isSyncRequest)
+                        {
+                            _logger.LogWarning("🔐 [AuthModeMiddleware] ⚠️ StoreIdが設定されていません: AuthMode={AuthMode}, X-Store-Id={XStoreId}", 
+                                authResult.AuthMode, storeIdHeader ?? "null");
+                        }
+                    }
                 }
                 context.Items["UserId"] = authResult.UserId;
 
@@ -400,8 +449,8 @@ namespace ShopifyAnalyticsApi.Middleware
                         "Level 2 (Demo) authentication successful. UserId: {UserId}, ReadOnly: true",
                         authResult.UserId);
                 }
-                // Level 1: 開発者モード（開発環境のみ）
-                else if (isDeveloperValid && environment == "Development")
+                // Level 1: 開発者モード（開発環境のみ：Development または LocalDevelopment）
+                else if (isDeveloperValid && (environment == "Development" || environment == "LocalDevelopment"))
                 {
                     context.Items["IsDemoMode"] = false;
                     context.Items["IsDeveloperMode"] = true;
@@ -433,6 +482,12 @@ namespace ShopifyAnalyticsApi.Middleware
             }
 
             // 次のミドルウェアを実行
+            if (isSyncRequest)
+            {
+                _logger.LogInformation("🔐 [AuthModeMiddleware] 次のミドルウェアへ処理を委譲");
+                _logger.LogInformation("🔐 [AuthModeMiddleware] ========================================");
+            }
+            
             await _next(context);
         }
     }

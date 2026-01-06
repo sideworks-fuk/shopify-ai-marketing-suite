@@ -6,14 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { getApiUrl } from '@/lib/api-config'
 
 export default function BackendHealthCheck() {
   const [results, setResults] = useState<{[key: string]: any}>({})
   const [isLoading, setIsLoading] = useState(false)
 
-  // バックエンドURLの設定
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+  // ✅ バックエンドURLの設定（NEXT_PUBLIC_BACKEND_URL を優先的に使用）
+  // getApiUrl() は NEXT_PUBLIC_BACKEND_URL → NEXT_PUBLIC_API_URL の順で参照します
+  const backendUrl = getApiUrl()
   const isHttps = backendUrl.startsWith('https://')
+  
+  // デバッグ情報
+  console.log('🔍 [BackendHealthCheck] バックエンドURL:', backendUrl)
+  console.log('🔍 [BackendHealthCheck] NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL)
+  console.log('🔍 [BackendHealthCheck] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
   
   // 環境変数に基づいて適切なプロトコルのエンドポイントのみを使用
   const endpoints = isHttps ? [

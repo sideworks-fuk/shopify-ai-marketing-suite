@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { getMenuByCategory, type MenuItem } from "@/lib/menuConfig"
@@ -50,6 +50,14 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, authMode, logout } = useAuth()
+  
+  // デバッグ: authModeの状態を確認
+  useEffect(() => {
+    console.log('🔍 [MainLayout] authMode状態確認', {
+      authMode,
+      timestamp: new Date().toISOString()
+    });
+  }, [authMode])
   const selectedPeriod = useAppStore((state) => state.globalFilters.selectedPeriod)
   const setSelectedPeriod = useAppStore((state) => state.setSelectedPeriod)
   const refreshData = useAppStore((state) => state.refreshData)
@@ -59,15 +67,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   // ログアウト処理
   const handleLogout = () => {
-    const isDemoMode = authMode === 'demo'
     logout()
     
-    // デモモードの場合は認証選択画面へ、OAuth認証の場合はログインページへ
-    if (isDemoMode) {
-      router.push('/auth/select')
-    } else {
-      router.push('/login')
-    }
+    // すべての認証モードで認証選択画面へ遷移
+    router.push('/auth/select')
   }
 
   const periodOptions = [
@@ -317,7 +320,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   <Button variant="ghost" size="sm" className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     <span className="hidden sm:inline text-sm">
-                      {authMode === 'shopify' ? 'Shopifyユーザー' : 'デモユーザー'}
+                      {authMode === 'shopify' ? 'Shopifyユーザー' : authMode === 'developer' ? '開発者' : 'デモユーザー'}
                     </span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
@@ -333,7 +336,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     <div className="flex flex-col">
                       <span className="text-xs font-medium">認証モード</span>
                       <span className="text-xs text-gray-500">
-                        {authMode === 'shopify' ? 'Shopify OAuth' : 'デモモード'}
+                        {authMode === 'shopify' ? 'Shopify OAuth' : authMode === 'developer' ? '開発者モード' : 'デモモード'}
                       </span>
                     </div>
                   </DropdownMenuItem>

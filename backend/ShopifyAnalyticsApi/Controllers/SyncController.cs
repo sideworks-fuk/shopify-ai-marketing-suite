@@ -54,13 +54,29 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("initial")]
         public async Task<IActionResult> StartInitialSync([FromBody] InitialSyncRequest request)
         {
+            _logger.LogInformation("🔵 [SyncController] ========================================");
+            _logger.LogInformation("🔵 [SyncController] POST /api/sync/initial 呼び出し開始");
+            _logger.LogInformation("🔵 [SyncController] StoreId: {StoreId}", StoreId);
+            _logger.LogInformation("🔵 [SyncController] Request: SyncPeriod={SyncPeriod}", request != null ? request.SyncPeriod : "null");
+            _logger.LogInformation("🔵 [SyncController] Timestamp: {Timestamp}", DateTime.UtcNow);
+            
             try
             {
+                if (request == null)
+                {
+                    _logger.LogWarning("🔵 [SyncController] リクエストがnullです");
+                    return BadRequest(new { error = "Request body is required" });
+                }
+                
                 var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
+                    _logger.LogWarning("🔵 [SyncController] ストアが見つかりません: StoreId={StoreId}", StoreId);
                     return NotFound(new { error = "Store not found" });
                 }
+                
+                _logger.LogInformation("🔵 [SyncController] ストア情報取得完了: StoreId={StoreId}, StoreName={StoreName}, Domain={Domain}", 
+                    currentStore.Id, currentStore.Name, currentStore.Domain);
 
                 // 既に同期中の場合はエラー
                 var runningSync = await _context.SyncStatuses
@@ -69,8 +85,11 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (runningSync != null)
                 {
+                    _logger.LogWarning("🔵 [SyncController] 既に同期中のためエラー: RunningSyncId={RunningSyncId}", runningSync.Id);
                     return BadRequest(new { error = "Sync already in progress", syncId = runningSync.Id });
                 }
+                
+                _logger.LogInformation("🔵 [SyncController] 既存の同期チェック完了: 同期中なし");
 
                 // 新しい同期ステータスを作成
                 var syncStatus = new SyncStatus
@@ -85,14 +104,18 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _context.SyncStatuses.Add(syncStatus);
                 await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("🔵 [SyncController] SyncStatus作成完了: SyncId={SyncId}, Status={Status}, SyncPeriod={SyncPeriod}", 
+                    syncStatus.Id, syncStatus.Status, syncStatus.SyncPeriod);
 
                 // HangFireバックグラウンドジョブとして登録
                 var jobId = _backgroundJobClient.Enqueue(() => 
                     _syncService.StartInitialSync(currentStore.Id, syncStatus.Id, request.SyncPeriod));
 
-                _logger.LogInformation(
-                    "Initial sync job enqueued. JobId: {JobId}, StoreId: {StoreId}, StoreName: {StoreName}, Period: {SyncPeriod}", 
-                    jobId, currentStore.Id, currentStore.Name, request.SyncPeriod);
+                _logger.LogInformation("🔵 [SyncController] HangFireジョブ登録完了: JobId={JobId}, StoreId={StoreId}, SyncId={SyncId}", 
+                    jobId, currentStore.Id, syncStatus.Id);
+                _logger.LogInformation("🔵 [SyncController] レスポンス返却: SyncId={SyncId}, JobId={JobId}", syncStatus.Id, jobId);
+                _logger.LogInformation("🔵 [SyncController] ========================================");
 
                 return Ok(new
                 {
@@ -104,7 +127,9 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting initial sync for store {StoreId}", StoreId);
+                _logger.LogError(ex, "🔵 [SyncController] ❌ エラー発生: StoreId={StoreId}, Message={Message}, StackTrace={StackTrace}", 
+                    StoreId, ex.Message, ex.StackTrace);
+                _logger.LogInformation("🔵 [SyncController] ========================================");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
@@ -115,19 +140,34 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpGet("status/{syncId}")]
         public async Task<IActionResult> GetSyncStatus(int syncId)
         {
+            _logger.LogInformation("🟢 [SyncController] ========================================");
+            _logger.LogInformation("🟢 [SyncController] GET /api/sync/status/{SyncId} 呼び出し開始", syncId);
+            _logger.LogInformation("🟢 [SyncController] StoreId: {StoreId}", StoreId);
+            _logger.LogInformation("🟢 [SyncController] Timestamp: {Timestamp}", DateTime.UtcNow);
+            
             try
             {
                 var syncStatus = await _context.SyncStatuses.FindAsync(syncId);
                 if (syncStatus == null)
                 {
+                    _logger.LogWarning("🟢 [SyncController] SyncStatusが見つかりません: SyncId={SyncId}", syncId);
+                    _logger.LogInformation("🟢 [SyncController] ========================================");
                     return NotFound(new { error = "Sync status not found" });
                 }
+                
+                _logger.LogInformation("🟢 [SyncController] SyncStatus取得完了: SyncId={SyncId}, StoreId={StoreStatusStoreId}, Status={Status}", 
+                    syncStatus.Id, syncStatus.StoreId, syncStatus.Status);
 
                 // セキュリティチェック: 現在のストアの同期状態のみアクセス可能
                 if (syncStatus.StoreId != StoreId.ToString())
                 {
+                    _logger.LogWarning("🟢 [SyncController] ストアID不一致: RequestStoreId={RequestStoreId}, SyncStatusStoreId={SyncStatusStoreId}", 
+                        StoreId, syncStatus.StoreId);
+                    _logger.LogInformation("🟢 [SyncController] ========================================");
                     return NotFound(new { error = "Sync status not found" });
                 }
+                
+                _logger.LogInformation("🟢 [SyncController] セキュリティチェック完了: ストアID一致");
 
                 // 進捗率を計算
                 int percentage = 0;
@@ -162,12 +202,18 @@ namespace ShopifyAnalyticsApi.Controllers
                     endDate = syncStatus.EndDate,
                     errorMessage = syncStatus.ErrorMessage
                 };
+                
+                _logger.LogInformation("🟢 [SyncController] レスポンス返却: SyncId={SyncId}, Status={Status}, Progress={Processed}/{Total} ({Percentage}%)", 
+                    syncStatus.Id, syncStatus.Status, syncStatus.ProcessedRecords ?? 0, syncStatus.TotalRecords ?? 0, percentage);
+                _logger.LogInformation("🟢 [SyncController] ========================================");
 
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting sync status for syncId: {SyncId}, store: {StoreId}", syncId, StoreId);
+                _logger.LogError(ex, "🟢 [SyncController] ❌ エラー発生: SyncId={SyncId}, StoreId={StoreId}, Message={Message}", 
+                    syncId, StoreId, ex.Message);
+                _logger.LogInformation("🟢 [SyncController] ========================================");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }

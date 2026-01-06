@@ -4,7 +4,7 @@ import React from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Shield, Presentation } from 'lucide-react'
+import { Shield, Presentation, Code } from 'lucide-react'
 
 /**
  * 認証方法選択ページ
@@ -26,6 +26,18 @@ export default function AuthSelectPage() {
     router.replace('/demo/login')
   }
 
+  const handleDeveloper = (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    console.log('🔧 [認証選択] 開発者モードボタンがクリックされました')
+    console.log('🔧 [認証選択] /dev/loginへ遷移します')
+    router.replace('/dev/login')
+  }
+
+  // 開発環境かどうかを判定
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+                        process.env.NEXT_PUBLIC_DEVELOPER_MODE === 'true'
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 p-6" suppressHydrationWarning>
       <Card className="max-w-2xl w-full">
@@ -41,7 +53,7 @@ export default function AuthSelectPage() {
               認証方法を選択してください
             </p>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${isDevelopment ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
               {/* OAuth認証 */}
               <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOAuth}>
                 <CardHeader>
@@ -62,7 +74,10 @@ export default function AuthSelectPage() {
                     <li>• すべての機能を利用可能</li>
                     <li>• データの変更・削除が可能</li>
                   </ul>
-                  <Button className="w-full mt-4" onClick={handleOAuth}>
+                  <Button 
+                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white border-blue-600" 
+                    onClick={handleOAuth}
+                  >
                     OAuth認証で開始
                   </Button>
                 </CardContent>
@@ -89,8 +104,7 @@ export default function AuthSelectPage() {
                     <li>• 読み取り専用（変更不可）</li>
                   </ul>
                   <Button 
-                    className="w-full mt-4" 
-                    variant="outline" 
+                    className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white border-green-600" 
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -102,6 +116,42 @@ export default function AuthSelectPage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* 開発者モード（開発環境のみ） */}
+              {isDevelopment && (
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleDeveloper}>
+                  <CardHeader>
+                    <div className="flex justify-center mb-4">
+                      <div className="p-4 bg-purple-100 rounded-full">
+                        <Code className="h-12 w-12 text-purple-600" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-xl text-center">開発者モード</CardTitle>
+                    <CardDescription className="text-center">
+                      ローカル開発用
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="text-sm text-gray-600 space-y-2">
+                      <li>• ローカルバックエンド接続</li>
+                      <li>• デバッグ・開発用</li>
+                      <li>• データ同期が可能</li>
+                      <li>• 開発環境専用</li>
+                    </ul>
+                    <Button 
+                      className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white border-purple-600" 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleDeveloper(e)
+                      }}
+                      type="button"
+                    >
+                      開発者モードで開始
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </CardContent>

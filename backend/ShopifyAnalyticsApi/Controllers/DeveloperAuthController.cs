@@ -33,8 +33,8 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] DeveloperLoginRequest request)
         {
-            // 開発環境チェック
-            if (_env.EnvironmentName != "Development")
+            // 開発環境チェック（Development または LocalDevelopment）
+            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
             {
                 _logger.LogWarning("Developer login attempted in non-development environment: {Environment}", _env.EnvironmentName);
                 return NotFound(new
@@ -59,7 +59,7 @@ namespace ShopifyAnalyticsApi.Controllers
             var userAgent = Request.Headers["User-Agent"].FirstOrDefault();
 
             // 認証実行
-            var result = await _developerAuthService.AuthenticateAsync(
+             var result = await _developerAuthService.AuthenticateAsync(
                 request.Password,
                 ipAddress,
                 userAgent);
@@ -96,8 +96,8 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
-            // 開発環境チェック
-            if (_env.EnvironmentName != "Development")
+            // 開発環境チェック（Development または LocalDevelopment）
+            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
             {
                 return NotFound();
             }
@@ -140,8 +140,8 @@ namespace ShopifyAnalyticsApi.Controllers
         [HttpGet("session")]
         public async Task<IActionResult> GetSession()
         {
-            // 開発環境チェック
-            if (_env.EnvironmentName != "Development")
+            // 開発環境チェック（Development または LocalDevelopment）
+            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
             {
                 return NotFound();
             }
