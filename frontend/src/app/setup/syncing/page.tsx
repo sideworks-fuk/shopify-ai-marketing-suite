@@ -202,6 +202,7 @@ export default function SyncingPage() {
       
       console.log('📥 ステータス受信:', data)
       setSyncStatus(data)
+      // 🆕 APIリクエストが成功した場合、認証エラーをクリア
       setError(null)
       setIsInitializing(false)
       setConsecutiveErrors(0) // エラーカウントをリセット
@@ -225,6 +226,10 @@ export default function SyncingPage() {
       } else if (data.status === 'failed') {
         setError(data.errorMessage || data.message || '同期中にエラーが発生しました')
         setIsInitializing(false)
+      } else if (data.status === 'running' || data.status === 'pending' || data.status === 'started') {
+        // 🆕 実行中の場合、エラーをクリア（バックエンドでデータ取得できている可能性があるため）
+        setError(null)
+        console.log('🔄 同期実行中:', data.status)
       }
     } catch (err: any) {
       console.error('❌ 同期ステータス取得エラー:', err)
@@ -234,25 +239,30 @@ export default function SyncingPage() {
       const errorMessage = err?.message || '予期しないエラーが発生しました'
       let displayError = errorMessage
       
+      // 🆕 401エラーの場合でも、バックエンドでデータ取得できている可能性があるため、警告のみ表示
       if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        displayError = '認証エラー: 再ログインしてください'
+        // 認証エラーでも、バックグラウンドで同期が続行されている可能性があるため、警告のみ
+        displayError = '警告: 認証エラーが発生しましたが、バックグラウンドで同期を続行します。'
+        // エラーカウントを増やさない（認証エラーは一時的な可能性があるため）
+        setConsecutiveErrors(Math.max(0, consecutiveErrors - 1))
       } else if (errorMessage.includes('404')) {
         displayError = '同期ステータスが見つかりません。同期が開始されていない可能性があります。'
       } else if (errorMessage.includes('タイムアウト')) {
         displayError = errorMessage
       }
       
-      // 連続で3回以上エラーが発生した場合、またはタイムアウトの場合
-      if (errorCount >= 3 || errorMessage.includes('タイムアウト')) {
+      // 連続で5回以上エラーが発生した場合、またはタイムアウトの場合のみエラーとして表示
+      // （認証エラーは一時的な可能性があるため、より寛容に）
+      if (errorCount >= 5 || (errorMessage.includes('タイムアウト') && errorCount >= 3)) {
         setError(`${displayError} (エラー回数: ${errorCount}回)`)
         setIsInitializing(false)
       } else {
-        // 1-2回目のエラーは警告として表示し、ポーリングは継続
+        // 1-4回目のエラーは警告として表示し、ポーリングは継続
         setError(`警告: ${displayError} (再試行中...)`)
         // isInitializing は true のまま（ポーリング継続）
       }
     }
-  }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId])
+  }, [syncId, isApiClientReady, getApiClient, router, setCurrentStoreId, authCurrentStoreId])
 
   // ★ 重要: syncId、isApiClientReady、currentStoreId が全て準備できてから処理を開始
   useEffect(() => {

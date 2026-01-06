@@ -249,7 +249,7 @@ namespace ShopifyAnalyticsApi.Jobs
         private async Task<Order> ConvertToOrderEntity(int storeId, ShopifyApiService.ShopifyOrder shopifyOrder)
         {
             // CustomerIdを取得（ShopifyCustomerIdから）
-            int customerId = 0;
+            int? customerId = null; // nullable: 顧客が見つからない場合はnull
             if (shopifyOrder.Customer != null && !string.IsNullOrEmpty(shopifyOrder.Customer.Id.ToString()))
             {
                 var customer = await _context.Customers
@@ -264,7 +264,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 else
                 {
                     _logger.LogWarning(
-                        "Customer not found for order {OrderId}, ShopifyCustomerId: {ShopifyCustomerId}",
+                        "Customer not found for order {OrderId}, ShopifyCustomerId: {ShopifyCustomerId}. Order will be saved without CustomerId.",
                         shopifyOrder.Id, shopifyOrder.Customer.Id);
                 }
             }

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { AppBridgeProvider, useAppBridge } from '@/lib/shopify/app-bridge-provider'
 import { ApiClient } from '@/lib/api-client'
 import { migrateLocalStorageVariables } from '@/lib/localstorage-migration'
@@ -55,6 +56,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const [isApiClientReady, setIsApiClientReady] = useState(false)
   
   const { getToken, isEmbedded } = useAppBridge()
+  const pathname = usePathname() // 🆕 ページ遷移を検知するため
 
   // 🆕 getCurrentStoreId の共通関数（AuthProvider の currentStoreId を優先し、なければ localStorage/sessionStorage から取得）
   // useCallback を使用して currentStoreId の最新値を参照できるようにする
@@ -299,8 +301,27 @@ function AuthProviderInner({ children }: AuthProviderProps) {
           console.log('🏪 Store ID:', storeId)
           setCurrentStoreId(storeId)
         } else {
-          console.warn('⚠️ Store ID not found or invalid in localStorage:', savedStoreId)
-          setCurrentStoreId(null)
+          // 🆕 sessionStorage からも確認
+          const sessionStoreId = sessionStorage.getItem('currentStoreId')
+          if (sessionStoreId) {
+            const parsedSessionStoreId = parseInt(sessionStoreId, 10)
+            if (!isNaN(parsedSessionStoreId) && parsedSessionStoreId > 0) {
+              console.log('🏪 Store ID (sessionStorage):', parsedSessionStoreId)
+              setCurrentStoreId(parsedSessionStoreId)
+              // localStorage にも保存（次回以降のため）
+              try {
+                localStorage.setItem('currentStoreId', sessionStoreId)
+              } catch (error) {
+                console.warn('⚠️ localStorage への保存に失敗しました', error)
+              }
+            } else {
+              console.warn('⚠️ Store ID not found or invalid in localStorage and sessionStorage:', { savedStoreId, sessionStoreId })
+              setCurrentStoreId(null)
+            }
+          } else {
+            console.warn('⚠️ Store ID not found or invalid in localStorage:', savedStoreId)
+            setCurrentStoreId(null)
+          }
         }
         
         if (authMode === 'shopify' && isEmbedded) {
@@ -605,30 +626,82 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     return () => window.removeEventListener('auth:error', handler)
   }, [authMode, isEmbedded]) // 🆕 isEmbedded を依存配列に追加
 
-  // OAuth認証成功フラグを確認（初期化完了後）
-  // 重要: 初期化が完了してから実行することで、認証状態の変動を防ぐ
+  // 🆕 ページ遷移時に currentStoreId を再取得（開発者モード・デモモード対応）
+  // 重要: ページ遷移時に localStorage/sessionStorage から currentStoreId を再取得し、
+  // AuthProvider の状態を更新することで、認証が通らなくなる問題を防ぐ
   useEffect(() => {
     // 初期化中は実行しない
     if (isInitializing) {
       return
     }
 
-    const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
-    if (oauthAuthenticated === 'true' && !isAuthenticated) {
-      const savedStoreId = localStorage.getItem('currentStoreId')
+    console.log('🔄 [AuthProvider] ページ遷移検知:', { pathname, authMode, currentStoreId })
+
+    // 開発者モードまたはデモモードの場合、currentStoreId を再取得
+    const isDeveloperMode = authMode === 'developer'
+    const isDemoMode = authMode === 'demo'
+    const developerToken = typeof window !== 'undefined' ? localStorage.getItem('developerToken') : null
+    const demoToken = typeof window !== 'undefined' ? localStorage.getItem('demoToken') : null
+    
+    if (isDeveloperMode || isDemoMode || developerToken || demoToken) {
+      // localStorage から取得を試みる
+      let savedStoreId = typeof window !== 'undefined' ? localStorage.getItem('currentStoreId') : null
+      
+      // localStorage になければ sessionStorage から取得を試みる
+      if (!savedStoreId && typeof window !== 'undefined') {
+        savedStoreId = sessionStorage.getItem('currentStoreId')
+        // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
+        if (savedStoreId) {
+          try {
+            localStorage.setItem('currentStoreId', savedStoreId)
+            console.log('✅ [AuthProvider] sessionStorage から取得し、localStorage にも保存しました', { storeId: savedStoreId, pathname })
+          } catch (error) {
+            console.warn('⚠️ [AuthProvider] localStorage への保存に失敗しました', error)
+          }
+        }
+      }
+      
       if (savedStoreId) {
         const storeId = parseInt(savedStoreId, 10)
         if (!isNaN(storeId) && storeId > 0) {
-          console.log('🔄 OAuth認証フラグを確認、認証状態を復元:', { storeId })
+          // AuthProvider の currentStoreId が設定されていない、または異なる場合のみ更新
+          if (!currentStoreId || currentStoreId !== storeId) {
+            console.log('🔄 [AuthProvider] ページ遷移時に currentStoreId を再取得:', { 
+              storeId, 
+              previousStoreId: currentStoreId,
+              pathname,
+              authMode
+            })
+            setCurrentStoreId(storeId)
+            setAuthError(null)
+          } else {
+            console.log('✅ [AuthProvider] currentStoreId は既に正しく設定されています:', { storeId, pathname })
+          }
+        } else {
+          console.warn('⚠️ [AuthProvider] Invalid store ID:', savedStoreId, { pathname })
+        }
+      } else {
+        console.warn('⚠️ [AuthProvider] currentStoreId が localStorage にも sessionStorage にも見つかりません（開発者モード/デモモード）', { pathname })
+      }
+    }
+
+    // OAuth認証成功フラグを確認（Shopify OAuth モード）
+    const oauthAuthenticated = typeof window !== 'undefined' ? localStorage.getItem('oauth_authenticated') : null
+    if (oauthAuthenticated === 'true' && !isAuthenticated && authMode === 'shopify') {
+      const savedStoreId = typeof window !== 'undefined' ? localStorage.getItem('currentStoreId') : null
+      if (savedStoreId) {
+        const storeId = parseInt(savedStoreId, 10)
+        if (!isNaN(storeId) && storeId > 0) {
+          console.log('🔄 OAuth認証フラグを確認、認証状態を復元:', { storeId, pathname })
           setIsAuthenticated(true)
           setCurrentStoreId(storeId)
           setAuthError(null)
         } else {
-          console.warn('⚠️ Invalid store ID in localStorage:', savedStoreId)
+          console.warn('⚠️ Invalid store ID in localStorage:', savedStoreId, { pathname })
         }
       }
     }
-  }, [isAuthenticated, isInitializing])
+  }, [isAuthenticated, isInitializing, authMode, currentStoreId, pathname]) // 🆕 pathname を依存配列に追加してページ遷移を検知
 
   const value: AuthContextType = {
     isAuthenticated,

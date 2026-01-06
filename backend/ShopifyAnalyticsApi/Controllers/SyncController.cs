@@ -80,7 +80,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 // 既に同期中の場合はエラー
                 var runningSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString() && s.Status == "running")
+                    .Where(s => s.StoreId == currentStore.Id && s.Status == "running")
                     .FirstOrDefaultAsync();
 
                 if (runningSync != null)
@@ -94,7 +94,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // 新しい同期ステータスを作成
                 var syncStatus = new SyncStatus
                 {
-                    StoreId = currentStore.Id.ToString(),
+                    StoreId = currentStore.Id,
                     SyncType = "initial",
                     Status = "pending",
                     StartDate = DateTime.UtcNow,
@@ -167,7 +167,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     syncStatus.Id, syncStatus.StoreId, syncStatus.Status);
 
                 // セキュリティチェック: 現在のストアの同期状態のみアクセス可能
-                if (syncStatus.StoreId != StoreId.ToString())
+                if (syncStatus.StoreId != StoreId)
                 {
                     _logger.LogWarning("🟢 [SyncController] ストアID不一致: RequestStoreId={RequestStoreId}, SyncStatusStoreId={SyncStatusStoreId}", 
                         StoreId, syncStatus.StoreId);
@@ -235,7 +235,7 @@ namespace ShopifyAnalyticsApi.Controllers
             try
             {
                 var latestSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == StoreId.ToString())
+                    .Where(s => s.StoreId == StoreId)
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
@@ -268,7 +268,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 var latestSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString())
+                    .Where(s => s.StoreId == currentStore.Id)
                     .OrderByDescending(s => s.StartDate)
                     .FirstOrDefaultAsync();
 
@@ -277,22 +277,22 @@ namespace ShopifyAnalyticsApi.Controllers
                 var orderCount = await _context.Orders.CountAsync(o => o.StoreId == currentStore.Id);
 
                 var lastProductSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString() && s.EntityType == "Product")
+                    .Where(s => s.StoreId == currentStore.Id && s.EntityType == "Product")
                     .OrderByDescending(s => s.EndDate)
                     .FirstOrDefaultAsync();
 
                 var lastCustomerSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString() && s.EntityType == "Customer")
+                    .Where(s => s.StoreId == currentStore.Id && s.EntityType == "Customer")
                     .OrderByDescending(s => s.EndDate)
                     .FirstOrDefaultAsync();
 
                 var lastOrderSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString() && s.EntityType == "Order")
+                    .Where(s => s.StoreId == currentStore.Id && s.EntityType == "Order")
                     .OrderByDescending(s => s.EndDate)
                     .FirstOrDefaultAsync();
 
                 var activeSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id.ToString() && s.Status == "running")
+                    .Where(s => s.StoreId == currentStore.Id && s.Status == "running")
                     .FirstOrDefaultAsync();
 
                 var response = new
@@ -361,7 +361,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
             var history = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id.ToString())
+                .Where(s => s.StoreId == currentStore.Id)
                 .OrderByDescending(s => s.StartDate)
                 .Take(limit)
                 .Select(s => new
@@ -407,7 +407,7 @@ namespace ShopifyAnalyticsApi.Controllers
 
             // 既に同期中の場合はエラー
             var runningSync = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id.ToString() && s.Status == "running")
+                .Where(s => s.StoreId == currentStore.Id && s.Status == "running")
                 .AnyAsync();
 
             if (runningSync)
@@ -422,7 +422,7 @@ namespace ShopifyAnalyticsApi.Controllers
             // 同期を開始
             var syncStatus = new SyncStatus
             {
-                StoreId = currentStore.Id.ToString(),
+                StoreId = currentStore.Id,
                 SyncType = "manual",
                 EntityType = request.Type == "all" ? "All" : 
                            request.Type == "products" ? "Product" :
@@ -501,7 +501,7 @@ namespace ShopifyAnalyticsApi.Controllers
                            type == "orders" ? "Order" : "All";
 
             var activeSync = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id.ToString() && 
+                .Where(s => s.StoreId == currentStore.Id && 
                            s.Status == "running" &&
                            s.EntityType == entityType)
                 .OrderByDescending(s => s.StartDate)

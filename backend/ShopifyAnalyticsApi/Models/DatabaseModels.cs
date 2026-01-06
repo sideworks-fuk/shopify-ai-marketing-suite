@@ -216,7 +216,7 @@ namespace ShopifyAnalyticsApi.Models
         public string? Email { get; set; }
         
         [ForeignKey("Customer")]
-        public int CustomerId { get; set; }
+        public int? CustomerId { get; set; } // nullable: 顧客が見つからない場合に対応
         
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalPrice { get; set; }
@@ -257,7 +257,7 @@ namespace ShopifyAnalyticsApi.Models
         public string YearMonth => CreatedAt.ToString("yyyy-MM");
         
         // ナビゲーションプロパティ
-        public virtual Customer Customer { get; set; } = null!;
+        public virtual Customer? Customer { get; set; } // nullable: CustomerIdがnullの場合に対応
         public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 

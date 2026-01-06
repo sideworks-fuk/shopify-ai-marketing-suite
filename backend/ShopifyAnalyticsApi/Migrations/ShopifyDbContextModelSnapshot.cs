@@ -734,7 +734,7 @@ namespace ShopifyAnalyticsApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("CustomerId")
+                    b.Property<int?>("CustomerId")
                         .HasColumnType("int");
 
                     b.Property<string>("Email")
@@ -1809,10 +1809,8 @@ namespace ShopifyAnalyticsApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("StoreId")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                    b.Property<int>("StoreId")
+                        .HasColumnType("int");
 
                     b.Property<string>("SyncPeriod")
                         .HasMaxLength(50)

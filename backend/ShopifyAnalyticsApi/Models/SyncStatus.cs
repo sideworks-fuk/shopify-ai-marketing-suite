@@ -11,8 +11,7 @@ namespace ShopifyAnalyticsApi.Models
         public int Id { get; set; }
         
         [Required]
-        [MaxLength(255)]
-        public string StoreId { get; set; } = string.Empty;
+        public int StoreId { get; set; }
         
         [Required]
         [MaxLength(50)]

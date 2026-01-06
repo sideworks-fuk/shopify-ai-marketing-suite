@@ -123,11 +123,35 @@ export const getEnvironmentInfo = () => {
 // ストアIDを取得する関数を追加
 export function getCurrentStoreId(): number {
   if (typeof window !== 'undefined') {
-    // Phase 2: currentStoreIdのみを使用
-    const currentStoreId = localStorage.getItem('currentStoreId')
-    if (!currentStoreId) return 1
+    // 🆕 localStorage から取得を試みる
+    let currentStoreId = localStorage.getItem('currentStoreId')
+    
+    // localStorage になければ sessionStorage から取得を試みる
+    if (!currentStoreId) {
+      currentStoreId = sessionStorage.getItem('currentStoreId')
+      // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
+      if (currentStoreId) {
+        try {
+          localStorage.setItem('currentStoreId', currentStoreId)
+          console.log('✅ [getCurrentStoreId] sessionStorage から取得し、localStorage にも保存しました', { storeId: currentStoreId })
+        } catch (error) {
+          console.warn('⚠️ [getCurrentStoreId] localStorage への保存に失敗しました', error)
+        }
+      }
+    }
+    
+    if (!currentStoreId) {
+      console.warn('⚠️ [getCurrentStoreId] currentStoreId が localStorage にも sessionStorage にも見つかりません。デフォルト値 1 を返します。')
+      return 1
+    }
+    
     const parsed = parseInt(currentStoreId, 10)
-    return !isNaN(parsed) && parsed > 0 ? parsed : 1
+    if (isNaN(parsed) || parsed <= 0) {
+      console.warn('⚠️ [getCurrentStoreId] currentStoreId が無効な値です:', currentStoreId, 'デフォルト値 1 を返します。')
+      return 1
+    }
+    
+    return parsed
   }
   return 1
 }

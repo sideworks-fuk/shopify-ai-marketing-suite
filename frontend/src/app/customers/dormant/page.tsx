@@ -28,7 +28,7 @@ export default function DormantCustomersPage() {
   
   // 機能アクセス制御
   const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
-  const { getApiClient, isAuthenticated, isInitializing, isApiClientReady } = useAuth()
+  const { getApiClient, isAuthenticated, isInitializing, isApiClientReady, currentStoreId: authCurrentStoreId, setCurrentStoreId } = useAuth()
   
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   // Note: All hooks must be called before any conditional returns
@@ -91,7 +91,40 @@ export default function DormantCustomersPage() {
   // 🆕 クライアントサイドマウント状態を設定（Hydrationエラー対策）
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+    
+    // 🆕 ページマウント時に currentStoreId を復元（開発者モード・デモモード対応）
+    if (typeof window !== 'undefined') {
+      // localStorage から取得を試みる
+      let savedStoreId = localStorage.getItem('currentStoreId')
+      
+      // localStorage になければ sessionStorage から取得を試みる
+      if (!savedStoreId) {
+        savedStoreId = sessionStorage.getItem('currentStoreId')
+        // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
+        if (savedStoreId) {
+          try {
+            localStorage.setItem('currentStoreId', savedStoreId)
+            console.log('✅ [DormantPage] sessionStorage から取得し、localStorage にも保存しました', { storeId: savedStoreId })
+          } catch (error) {
+            console.warn('⚠️ [DormantPage] localStorage への保存に失敗しました', error)
+          }
+        }
+      }
+      
+      if (savedStoreId) {
+        const storeId = parseInt(savedStoreId, 10)
+        if (!isNaN(storeId) && storeId > 0) {
+          // AuthProvider の currentStoreId が設定されていない、または異なる場合のみ更新
+          if (!authCurrentStoreId || authCurrentStoreId !== storeId) {
+            console.log('🔄 [DormantPage] ページマウント時に currentStoreId を復元:', { storeId, previousStoreId: authCurrentStoreId })
+            setCurrentStoreId(storeId)
+          }
+        }
+      } else {
+        console.warn('⚠️ [DormantPage] currentStoreId が localStorage にも sessionStorage にも見つかりません')
+      }
+    }
+  }, [authCurrentStoreId, setCurrentStoreId])
 
   // 認証チェック: AuthProvider に完全に委任
   // 
@@ -183,8 +216,12 @@ export default function DormantCustomersPage() {
         
         console.log('🔄 休眠顧客サマリーデータの取得を開始...')
         
+        // 🆕 AuthProvider の currentStoreId を優先的に使用
+        const storeId = authCurrentStoreId || getCurrentStoreId()
+        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+        
         const apiClient = getApiClient()
-        const response = await apiClient.dormantSummary(getCurrentStoreId())
+        const response = await apiClient.dormantSummary(storeId)
         console.log('✅ サマリーデータ取得成功:', response)
         console.log('📊 サマリーデータの内容:', {
           success: response.success,
@@ -220,7 +257,7 @@ export default function DormantCustomersPage() {
     }
 
     fetchSummaryData()
-  }, [getApiClient, isAuthenticated, isInitializing, isApiClientReady, router, searchParams])
+  }, [getApiClient, isAuthenticated, isInitializing, isApiClientReady, router, searchParams, authCurrentStoreId])
 
   // Step 1.5: 主要期間区分データを取得
   useEffect(() => {
@@ -231,8 +268,10 @@ export default function DormantCustomersPage() {
         setError(null)
         
         console.log('🔄 主要期間区分データの取得を開始...')
-        const storeId = getCurrentStoreId()
+        // 🆕 AuthProvider の currentStoreId を優先的に使用
+        const storeId = authCurrentStoreId || getCurrentStoreId()
         console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
+        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
         
         const apiClient = getApiClient()
         const response = await apiClient.dormantDetailedSegments(storeId)
@@ -296,7 +335,7 @@ export default function DormantCustomersPage() {
     }
 
     fetchDetailedSegments()
-  }, [getApiClient])
+  }, [getApiClient, authCurrentStoreId])
 
   // 代替案: サマリーデータからセグメント情報を作成
   useEffect(() => {
@@ -352,8 +391,12 @@ export default function DormantCustomersPage() {
       
       // APIリクエストパラメータを構築
       // セグメントが指定されている場合のみパラメータに含める
+      // 🆕 AuthProvider の currentStoreId を優先的に使用
+      const storeId = authCurrentStoreId || getCurrentStoreId()
+      console.log('🔍 [DormantPage.loadCustomerList] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+      
       const requestParams: any = {
-        storeId: getCurrentStoreId(),
+        storeId: storeId,
         pageSize: maxDisplayCount, // ユーザーが選択した最大表示件数
         sortBy: 'DaysSinceLastPurchase',
         descending: true
@@ -513,7 +556,7 @@ export default function DormantCustomersPage() {
       //   setIsLoadingList(false)
       // })
     }
-  }, [maxDisplayCount, getApiClient])  // getApiClientを追加
+  }, [maxDisplayCount, getApiClient, authCurrentStoreId])  // getApiClientとauthCurrentStoreIdを追加
 
   // 初期表示時は全セグメントのデータを取得
   useEffect(() => {

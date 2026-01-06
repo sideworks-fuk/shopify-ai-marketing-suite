@@ -30,6 +30,10 @@ docs/05-development/03-データベース/マイグレーション/
 ├── 2025-12-31-UpdateShopifyAppsProductionEnvironments.sql
 ├── 20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql
 ├── 20260107-AddShopifyProductIdToProducts.sql
+├── 20260107-MakeOrderCustomerIdNullable.sql
+├── 20260107-DeleteStoreId46Data.sql
+├── 20260107-DeleteStoreId46Data-v2.sql
+├── 20260107-ChangeSyncStatusStoreIdToInt.sql
 └── 2025-XX-XX-[変更内容].sql
 ```
 
@@ -65,6 +69,10 @@ docs/05-development/03-データベース/マイグレーション/
 | **2025-12-31-UpdateShopifyAppsProductionEnvironments.sql** | 2025-12-31 | 福田+AI | **ShopifyAppsテーブルに本番環境3環境のClient IDを登録・更新（Production1/2/3）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **20260106234458_AddShopifyVariantIdAndTitleToProductVariants.sql** | 2026-01-06 | 福田+AI | **ProductVariantsテーブルにShopifyVariantIdとTitleカラムを追加（JSONデシリアライズ問題解消のため）** | ✅ 適用済 (2026-01-06 23:49) | ⏳ 未適用 | ⏳ 未適用 |
 | **20260107-AddShopifyProductIdToProducts.sql** | 2026-01-07 | 福田+AI | **Productsテーブル、ProductVariantsテーブル、OrderItemsテーブルに不足カラムを追加（20251222151634_AddShopifyAppsTableマイグレーションが適用されていない場合の対応）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **20260107-MakeOrderCustomerIdNullable.sql** | 2026-01-07 | 福田+AI | **OrdersテーブルのCustomerIdカラムをNULL許可に変更（外部キー制約違反エラー解消のため）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **20260107-DeleteStoreId46Data.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（同期データのクリア・再同期用）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **20260107-DeleteStoreId46Data-v2.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（v2: SyncStatuses.StoreIdが整数型に変更されたため更新）** | ✅ 適用済 (2026-01-07 01:17) | ⏳ 未適用 | ⏳ 未適用 |
+| **20260107-ChangeSyncStatusStoreIdToInt.sql** | 2026-01-07 | 福田+AI | **SyncStatusesテーブルのStoreIdカラムを文字列型から整数型に変更（データ型の統一）** | ✅ 適用済 (2026-01-07 01:11) | ⏳ 未適用 | ✅ 適用済 (2026-01-07 01:13) |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -221,6 +229,30 @@ sqlcmd -S [server] -d [database] -i [script.sql]
 - **2025-12-31-UpdateShopifyAppsProductionEnvironments.sql** - 本番環境フロントエンド3環境のShopify Client IDを登録・更新
   - **対象**: ShopifyAppsテーブル
   - **登録内容**:
+
+### 🔧 SyncStatusesテーブル StoreId型変更（2026-01-07）
+- **20260107-ChangeSyncStatusStoreIdToInt.sql** - SyncStatusesテーブルのStoreIdカラムを文字列型から整数型に変更
+  - **対象**: SyncStatusesテーブル
+  - **変更内容**: 
+    - `StoreId`カラムを`nvarchar(255)`から`int`に変更
+    - 既存データを文字列から整数に変換（36件）
+    - インデックス`IX_SyncStatuses_StoreId`を再作成
+    - 外部キー制約`FK_SyncStatuses_Stores_StoreId`を追加
+  - **目的**: データ型の統一（他のテーブルと一致させる）
+  - **影響**: コード内の`ToString()`呼び出しが不要になり、JOINクエリが簡潔になる
+
+### 🔧 Ordersテーブル CustomerId NULL許可（2026-01-07）
+- **20260107-MakeOrderCustomerIdNullable.sql** - OrdersテーブルのCustomerIdカラムをNULL許可に変更
+  - **対象**: Ordersテーブル
+  - **変更内容**: `CustomerId`カラムを`int NOT NULL`から`int NULL`に変更
+  - **目的**: 外部キー制約違反エラー解消（顧客が見つからない注文に対応）
+  - **影響**: 顧客情報が不明な注文も保存可能になる
+
+### 🗑️ StoreId=46データ削除（2026-01-07）
+- **20260107-DeleteStoreId46Data.sql** - StoreId=46のデータをすべて削除
+  - **対象**: Orders, OrderItems, Products, ProductVariants, Customers, SyncStatuses, SyncStates, SyncCheckpoints, SyncRangeSettings, SyncHistories, SyncProgressDetails
+  - **目的**: 同期データのクリア・再同期用
+  - **注意**: このスクリプトはデータを完全に削除します。実行前に必ずバックアップを取得してください
     - Production1: EC Ranger-xn-fbkq6e5da0fpb (Custom) - ApiKey: 706a757915dedce54806c0a179bee05d
     - Production2: EC Ranger-demo (Custom) - ApiKey: 23f81e22074df1b71fb0a5a495778f49
     - Production3: EC Ranger (Public) - ApiKey: b95377afd35e5c8f4b28d286d3ff3491
