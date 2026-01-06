@@ -204,11 +204,21 @@ namespace ShopifyAnalyticsApi.Jobs
         private async Task<(List<Customer> Customers, string? NextPageInfo)> FetchCustomersFromShopify(
             Store store, DateRange dateRange, string? pageInfo)
         {
+            _logger.LogInformation("🔵 [CustomerSyncJob] FetchCustomersFromShopify開始: StoreId={StoreId}, StoreName={StoreName}, DateRange.Start={Start}, PageInfo={PageInfo}",
+                store.Id, store.Name, dateRange.Start, pageInfo ?? "null");
+            
             try
             {
                 var sinceDate = dateRange.Start;
+                
+                _logger.LogInformation("🔵 [CustomerSyncJob] ShopifyApiService.FetchCustomersPageAsync呼び出し開始: StoreId={StoreId}, SinceDate={SinceDate}",
+                    store.Id, sinceDate);
+                
                 var (shopifyCustomers, nextPageInfo) = await _shopifyApi.FetchCustomersPageAsync(
                     store.Id, sinceDate, pageInfo);
+
+                _logger.LogInformation("🔵 [CustomerSyncJob] ShopifyApiService.FetchCustomersPageAsync完了: StoreId={StoreId}, CustomerCount={Count}, NextPageInfo={NextPageInfo}",
+                    store.Id, shopifyCustomers?.Count ?? 0, nextPageInfo ?? "null");
 
                 var customers = new List<Customer>();
                 foreach (var shopifyCustomer in shopifyCustomers)
@@ -217,11 +227,15 @@ namespace ShopifyAnalyticsApi.Jobs
                     customers.Add(customer);
                 }
 
+                _logger.LogInformation("🔵 [CustomerSyncJob] FetchCustomersFromShopify完了: StoreId={StoreId}, ConvertedCount={Count}",
+                    store.Id, customers.Count);
+
                 return (customers, nextPageInfo);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to fetch customers from Shopify for store {store.Id}");
+                _logger.LogError(ex, "🔴 [CustomerSyncJob] Failed to fetch customers from Shopify for store {StoreId}. Error: {ErrorMessage}",
+                    store.Id, ex.Message);
                 throw;
             }
         }

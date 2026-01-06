@@ -204,24 +204,41 @@ namespace ShopifyAnalyticsApi.Jobs
         private async Task<(List<Order> Orders, string? NextPageInfo)> FetchOrdersFromShopify(
             Store store, DateRange dateRange, string? pageInfo)
         {
+            _logger.LogInformation("🔵 [OrderSyncJob] FetchOrdersFromShopify開始: StoreId={StoreId}, StoreName={StoreName}, DateRange.Start={Start}, PageInfo={PageInfo}",
+                store.Id, store.Name, dateRange.Start, pageInfo ?? "null");
+            
             try
             {
                 var sinceDate = dateRange.Start;
+                
+                _logger.LogInformation("🔵 [OrderSyncJob] ShopifyApiService.FetchOrdersPageAsync呼び出し開始: StoreId={StoreId}, SinceDate={SinceDate}",
+                    store.Id, sinceDate);
+                
                 var (shopifyOrders, nextPageInfo) = await _shopifyApi.FetchOrdersPageAsync(
                     store.Id, sinceDate, pageInfo);
 
+                _logger.LogInformation("🔵 [OrderSyncJob] ShopifyApiService.FetchOrdersPageAsync完了: StoreId={StoreId}, OrderCount={Count}, NextPageInfo={NextPageInfo}",
+                    store.Id, shopifyOrders != null ? shopifyOrders.Count : 0, nextPageInfo ?? "null");
+
                 var orders = new List<Order>();
-                foreach (var shopifyOrder in shopifyOrders)
+                if (shopifyOrders != null)
                 {
-                    var order = await ConvertToOrderEntity(store.Id, shopifyOrder);
-                    orders.Add(order);
+                    foreach (var shopifyOrder in shopifyOrders)
+                    {
+                        var order = await ConvertToOrderEntity(store.Id, shopifyOrder);
+                        orders.Add(order);
+                    }
                 }
+
+                _logger.LogInformation("🔵 [OrderSyncJob] FetchOrdersFromShopify完了: StoreId={StoreId}, ConvertedCount={Count}",
+                    store.Id, orders.Count);
 
                 return (orders, nextPageInfo);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to fetch orders from Shopify for store {store.Id}");
+                _logger.LogError(ex, "🔴 [OrderSyncJob] Failed to fetch orders from Shopify for store {StoreId}. Error: {ErrorMessage}",
+                    store.Id, ex.Message);
                 throw;
             }
         }

@@ -145,6 +145,14 @@ namespace ShopifyAnalyticsApi.Controllers
             _logger.LogInformation("🟢 [SyncController] StoreId: {StoreId}", StoreId);
             _logger.LogInformation("🟢 [SyncController] Timestamp: {Timestamp}", DateTime.UtcNow);
             
+            // StoreId が取得できているか確認
+            if (StoreId <= 0)
+            {
+                _logger.LogError("🟢 [SyncController] ❌ StoreIdが取得できませんでした: StoreId={StoreId}", StoreId);
+                _logger.LogInformation("🟢 [SyncController] ========================================");
+                return Unauthorized(new { error = "Store context is not available" });
+            }
+            
             try
             {
                 var syncStatus = await _context.SyncStatuses.FindAsync(syncId);

@@ -215,23 +215,40 @@ namespace ShopifyAnalyticsApi.Services
 
             var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
             var url = BuildCustomersUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            
+            _logger.LogInformation("🛒 [ShopifyApiService] FetchCustomersPageAsync開始: StoreId={StoreId}, Domain={Domain}, Url={Url}, SinceDate={SinceDate}, PageInfo={PageInfo}", 
+                storeId, store.Domain ?? store.Name, url, sinceDate, pageInfo ?? "null");
+            
             var response = await _retryPolicy.ExecuteAsync(async () => 
                 await client.GetAsync(url));
+
+            _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
+                response.StatusCode, storeId);
 
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
+                    json.Length, storeId);
+                
                 var customersData = JsonSerializer.Deserialize<ShopifyCustomersResponse>(json);
+                var customerCount = customersData?.Customers?.Count ?? 0;
+                
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: CustomerCount={CustomerCount}, StoreId={StoreId}", 
+                    customerCount, storeId);
                 
                 var nextPageInfo = ExtractPageInfo(response.Headers);
+                _logger.LogInformation("🛒 [ShopifyApiService] FetchCustomersPageAsync完了: CustomerCount={CustomerCount}, NextPageInfo={NextPageInfo}, StoreId={StoreId}", 
+                    customerCount, nextPageInfo ?? "null", storeId);
+                
                 return (customersData?.Customers ?? new List<ShopifyCustomer>(), 
                        string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
             }
             else
             {
-                _logger.LogError($"Failed to fetch customers: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError($"Error content: {errorContent}");
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch customers: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
+                    response.StatusCode, errorContent, storeId);
                 throw new HttpRequestException($"Failed to fetch customers: {response.StatusCode}");
             }
         }
@@ -250,23 +267,40 @@ namespace ShopifyAnalyticsApi.Services
 
             var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
             var url = BuildOrdersUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            
+            _logger.LogInformation("🛒 [ShopifyApiService] FetchOrdersPageAsync開始: StoreId={StoreId}, Domain={Domain}, Url={Url}, SinceDate={SinceDate}, PageInfo={PageInfo}", 
+                storeId, store.Domain ?? store.Name, url, sinceDate, pageInfo ?? "null");
+            
             var response = await _retryPolicy.ExecuteAsync(async () => 
                 await client.GetAsync(url));
+
+            _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
+                response.StatusCode, storeId);
 
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
+                    json.Length, storeId);
+                
                 var ordersData = JsonSerializer.Deserialize<ShopifyOrdersResponse>(json);
+                var orderCount = ordersData?.Orders?.Count ?? 0;
+                
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: OrderCount={OrderCount}, StoreId={StoreId}", 
+                    orderCount, storeId);
                 
                 var nextPageInfo = ExtractPageInfo(response.Headers);
+                _logger.LogInformation("🛒 [ShopifyApiService] FetchOrdersPageAsync完了: OrderCount={OrderCount}, NextPageInfo={NextPageInfo}, StoreId={StoreId}", 
+                    orderCount, nextPageInfo ?? "null", storeId);
+                
                 return (ordersData?.Orders ?? new List<ShopifyOrder>(), 
                        string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
             }
             else
             {
-                _logger.LogError($"Failed to fetch orders: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError($"Error content: {errorContent}");
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch orders: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
+                    response.StatusCode, errorContent, storeId);
                 throw new HttpRequestException($"Failed to fetch orders: {response.StatusCode}");
             }
         }
@@ -285,23 +319,40 @@ namespace ShopifyAnalyticsApi.Services
 
             var client = CreateShopifyClient(store.Domain ?? store.Name, store.AccessToken);
             var url = BuildProductsUrl(store.Domain ?? store.Name, sinceDate, pageInfo);
+            
+            _logger.LogInformation("🛒 [ShopifyApiService] FetchProductsPageAsync開始: StoreId={StoreId}, Domain={Domain}, Url={Url}, SinceDate={SinceDate}, PageInfo={PageInfo}", 
+                storeId, store.Domain ?? store.Name, url, sinceDate, pageInfo ?? "null");
+            
             var response = await _retryPolicy.ExecuteAsync(async () => 
                 await client.GetAsync(url));
+
+            _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス受信: StatusCode={StatusCode}, StoreId={StoreId}", 
+                response.StatusCode, storeId);
 
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンスJSON受信: Length={Length}, StoreId={StoreId}", 
+                    json.Length, storeId);
+                
                 var productsData = JsonSerializer.Deserialize<ShopifyProductsResponse>(json);
+                var productCount = productsData?.Products?.Count ?? 0;
+                
+                _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: ProductCount={ProductCount}, StoreId={StoreId}", 
+                    productCount, storeId);
                 
                 var nextPageInfo = ExtractPageInfo(response.Headers);
+                _logger.LogInformation("🛒 [ShopifyApiService] FetchProductsPageAsync完了: ProductCount={ProductCount}, NextPageInfo={NextPageInfo}, StoreId={StoreId}", 
+                    productCount, nextPageInfo ?? "null", storeId);
+                
                 return (productsData?.Products ?? new List<ShopifyProduct>(), 
                        string.IsNullOrEmpty(nextPageInfo) ? null : nextPageInfo);
             }
             else
             {
-                _logger.LogError($"Failed to fetch products: {response.StatusCode}");
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError($"Error content: {errorContent}");
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch products: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
+                    response.StatusCode, errorContent, storeId);
                 throw new HttpRequestException($"Failed to fetch products: {response.StatusCode}");
             }
         }
@@ -310,12 +361,24 @@ namespace ShopifyAnalyticsApi.Services
 
         private HttpClient CreateShopifyClient(string shopUrl, string accessToken)
         {
+            _logger.LogInformation("🔵 [ShopifyApiService] CreateShopifyClient開始: ShopUrl={ShopUrl}, TokenLength={TokenLength}",
+                shopUrl, accessToken?.Length ?? 0);
+            
             // AccessTokenが暗号化されている場合は復号化
-            var decryptedToken = DecryptTokenIfEncrypted(accessToken);
+            var decryptedToken = DecryptTokenIfEncrypted(accessToken ?? string.Empty);
+            
+            _logger.LogInformation("🔵 [ShopifyApiService] Token復号化後: DecryptedTokenLength={Length}, DecryptedTokenPrefix={Prefix}",
+                decryptedToken?.Length ?? 0, 
+                !string.IsNullOrEmpty(decryptedToken) && decryptedToken.Length > 0 
+                    ? decryptedToken.Substring(0, Math.Min(10, decryptedToken.Length)) 
+                    : "null");
             
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", decryptedToken);
+            client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", decryptedToken ?? string.Empty);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            
+            _logger.LogInformation("🔵 [ShopifyApiService] HttpClient作成完了");
+            
             return client;
         }
 
@@ -326,8 +389,12 @@ namespace ShopifyAnalyticsApi.Services
         {
             if (string.IsNullOrEmpty(token))
             {
+                _logger.LogWarning("🔴 [ShopifyApiService] DecryptTokenIfEncrypted: Token is null or empty");
                 return token;
             }
+
+            _logger.LogInformation("🔵 [ShopifyApiService] DecryptTokenIfEncrypted開始: TokenLength={Length}, TokenPrefix={Prefix}",
+                token.Length, token.Length > 0 ? token.Substring(0, Math.Min(10, token.Length)) : "null");
 
             // Base64エンコードされた文字列かどうかを簡易チェック
             // 暗号化されたトークンは通常Base64エンコードされている
@@ -336,12 +403,20 @@ namespace ShopifyAnalyticsApi.Services
                 var key = _configuration["Shopify:EncryptionKey"];
                 if (string.IsNullOrEmpty(key))
                 {
-                    // 暗号化キーが設定されていない場合は、Base64デコードを試みる
+                    _logger.LogInformation("🔵 [ShopifyApiService] EncryptionKey未設定、Base64デコードを試行");
+                    
+                    // Base64エンコードされた文字列かどうかをチェック
                     var bytes = Convert.FromBase64String(token);
-                    return System.Text.Encoding.UTF8.GetString(bytes);
+                    var decoded = System.Text.Encoding.UTF8.GetString(bytes);
+                    
+                    _logger.LogInformation("🔵 [ShopifyApiService] Base64デコード成功: DecodedPrefix={Prefix}",
+                        decoded.Length > 0 ? decoded.Substring(0, Math.Min(10, decoded.Length)) : "null");
+                    
+                    return decoded;
                 }
 
                 // AES暗号化されたトークンを復号化
+                _logger.LogInformation("🔵 [ShopifyApiService] AES復号化を試行");
                 using var aes = System.Security.Cryptography.Aes.Create();
                 aes.Key = Convert.FromBase64String(key);
                 
@@ -359,11 +434,16 @@ namespace ShopifyAnalyticsApi.Services
                 using var csDecrypt = new System.Security.Cryptography.CryptoStream(msDecrypt, decryptor, System.Security.Cryptography.CryptoStreamMode.Read);
                 using var srDecrypt = new StreamReader(csDecrypt);
                 
-                return srDecrypt.ReadToEnd();
+                var decrypted = srDecrypt.ReadToEnd();
+                _logger.LogInformation("🔵 [ShopifyApiService] AES復号化成功: DecryptedPrefix={Prefix}",
+                    decrypted.Length > 0 ? decrypted.Substring(0, Math.Min(10, decrypted.Length)) : "null");
+                
+                return decrypted;
             }
-            catch
+            catch (Exception ex)
             {
                 // 復号化に失敗した場合は、そのまま返す（既に復号化済みの可能性）
+                _logger.LogWarning(ex, "🟡 [ShopifyApiService] DecryptTokenIfEncrypted: 復号化失敗、元のトークンを返却. Error: {Error}", ex.Message);
                 return token;
             }
         }
