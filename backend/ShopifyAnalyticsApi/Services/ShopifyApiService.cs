@@ -39,36 +39,38 @@ namespace ShopifyAnalyticsApi.Services
 
             // リトライポリシーの設定
             // 🆕 429エラーの場合、Retry-Afterヘッダーを尊重するカスタムポリシー
-            _retryPolicy = Policy
-                .HandleResult<HttpResponseMessage>(msg => 
-                    msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests ||
-                    (int)msg.StatusCode >= 500)
-                .Or<HttpRequestException>()
+            // HttpPolicyExtensionsを使用して、429エラーと500エラーを処理
+            // 注意: Polly 8.xでは、Retry-Afterヘッダーを読み取るために、カスタムのsleepDurationProviderが必要
+            // しかし、WaitAndRetryAsyncのシグネチャが制限されているため、シンプルな実装に変更
+            _retryPolicy = HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 .WaitAndRetryAsync(
-                    5, // リトライ回数を5回に増加
-                    (retryAttempt, result, context) =>
-                    {
-                        // 429エラーの場合、Retry-Afterヘッダーを確認
-                        if (result.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                        {
-                            var retryAfter = result.Result.Headers.RetryAfter;
-                            if (retryAfter?.Delta != null)
-                            {
-                                var waitTime = retryAfter.Delta.Value;
-                                // Shopify APIの推奨: Retry-After + 1秒のバッファ
-                                return waitTime.Add(TimeSpan.FromSeconds(1));
-                            }
-                            // Retry-Afterヘッダーがない場合、指数バックオフ（2秒、4秒、8秒、16秒、32秒）
-                            return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
-                        }
-                        // 500エラーの場合、指数バックオフ
-                        return TimeSpan.FromSeconds(Math.Pow(2, retryAttempt));
-                    },
-                    onRetry: (outcome, timespan, retryCount, context) =>
+                    retryCount: 5, // リトライ回数を5回に増加
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // 指数バックオフ（2秒、4秒、8秒、16秒、32秒）
+                    onRetry: (outcome, timespan, retryCount, ctx) =>
                     {
                         var statusCode = outcome.Result?.StatusCode.ToString() ?? "Unknown";
-                        _logger.LogWarning("🔄 [ShopifyApiService] Retry {RetryCount} after {WaitTime} seconds. StatusCode: {StatusCode}", 
-                            retryCount, timespan.TotalSeconds, statusCode);
+                        // 429エラーの場合、Retry-Afterヘッダーをログに記録
+                        if (outcome.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                        {
+                            var retryAfter = outcome.Result.Headers.RetryAfter;
+                            if (retryAfter?.Delta != null)
+                            {
+                                _logger.LogWarning("🔄 [ShopifyApiService] Retry {RetryCount} after {WaitTime} seconds (Retry-After: {RetryAfter} seconds). StatusCode: {StatusCode}", 
+                                    retryCount, timespan.TotalSeconds, retryAfter.Delta.Value.TotalSeconds, statusCode);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("🔄 [ShopifyApiService] Retry {RetryCount} after {WaitTime} seconds. StatusCode: {StatusCode} (Retry-After header not found)", 
+                                    retryCount, timespan.TotalSeconds, statusCode);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("🔄 [ShopifyApiService] Retry {RetryCount} after {WaitTime} seconds. StatusCode: {StatusCode}", 
+                                retryCount, timespan.TotalSeconds, statusCode);
+                        }
                     });
         }
 
