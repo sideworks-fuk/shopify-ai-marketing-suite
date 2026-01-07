@@ -253,6 +253,7 @@ export default function SyncingPage() {
         setIsInitializing(false)
       } else if (data.status === 'running' || data.status === 'pending' || data.status === 'started') {
         // 🆕 実行中の場合、エラーをクリア（バックエンドでデータ取得できている可能性があるため）
+        // また、statusが'failed'でない場合、errorMessageがあっても表示しない（古いエラーメッセージの可能性があるため）
         setError(null)
         console.log('🔄 同期実行中:', data.status)
       }
@@ -536,7 +537,8 @@ export default function SyncingPage() {
                 )}
               </div>
 
-              {error && (
+              {/* statusが'failed'の場合のみエラーを表示（running/pending/startedの場合は古いエラーメッセージの可能性があるため） */}
+              {error && syncStatus?.status === 'failed' && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
