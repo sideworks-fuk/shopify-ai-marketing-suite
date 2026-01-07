@@ -91,11 +91,21 @@ export const validateEnvironmentConfig = (
   }
 
   // 本番環境（production）として明示的に指定されている場合のみ厳格なチェックを行う
+  // ただし、NODE_ENVがproductionでもNEXT_PUBLIC_ENVIRONMENTがdevelopment/stagingの場合は許可
   if (env === 'production') {
     // 本番環境でのdevelopment API接続チェック
-    if (config.apiBaseUrl.includes('develop')) {
+    // ただし、NEXT_PUBLIC_ENVIRONMENTがdevelopment/stagingの場合は開発環境として扱うため許可
+    const nextPublicEnv = process.env.NEXT_PUBLIC_ENVIRONMENT;
+    const isActuallyDevelopment = nextPublicEnv === 'development' || nextPublicEnv === 'staging';
+    
+    if (config.apiBaseUrl.includes('develop') && !isActuallyDevelopment) {
       console.error(`🚨 Production environment cannot use development API: ${config.apiBaseUrl}`);
       throw new Error(`Production environment cannot use development API: ${config.apiBaseUrl}`);
+    }
+    
+    // 開発環境として扱う場合は警告のみ
+    if (config.apiBaseUrl.includes('develop') && isActuallyDevelopment) {
+      console.warn(`⚠️ Production environment (NODE_ENV=production) but NEXT_PUBLIC_ENVIRONMENT=${nextPublicEnv}, allowing development API: ${config.apiBaseUrl}`);
     }
   }
 

@@ -8,13 +8,13 @@ on:
         required: false
         type: string
       target_environment:
-        description: 'デプロイ対象（1=develop / 2=staging / 3=production）'
+        description: 'デプロイ対象（1=develop / 2=staging / main=mainブランチ）'
         required: true
         type: choice
         options:
           - '1'
           - '2'
-          - '3'
+          - 'main'
         default: '1'
       confirm_deployment:
         description: 'デプロイを確認'
@@ -64,8 +64,10 @@ jobs:
           ENV_NAME="develop"
         elif [ "$TARGET" = "2" ]; then
           ENV_NAME="staging"
+        elif [ "$TARGET" = "main" ]; then
+          ENV_NAME="main"
         else
-          ENV_NAME="production"
+          ENV_NAME="unknown"
         fi
         echo "Environment: $ENV_NAME"
         echo "Triggered by: ${{ github.actor }}"
@@ -87,10 +89,12 @@ jobs:
           echo "environment_name=staging" >> $GITHUB_OUTPUT
           echo "next_public_environment=staging" >> $GITHUB_OUTPUT
           echo "frontend_url=https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net" >> $GITHUB_OUTPUT
-        elif [ "$TARGET" = "3" ]; then
+        elif [ "$TARGET" = "main" ]; then
+          # 開発環境のmainブランチへのデプロイの場合、環境はdevelopmentとして扱う
+          # （実際の本番環境とは異なるため、NEXT_PUBLIC_ENVIRONMENT=developmentを設定）
           echo "deployment_environment=" >> $GITHUB_OUTPUT
-          echo "environment_name=production" >> $GITHUB_OUTPUT
-          echo "next_public_environment=production" >> $GITHUB_OUTPUT
+          echo "environment_name=main" >> $GITHUB_OUTPUT
+          echo "next_public_environment=development" >> $GITHUB_OUTPUT
           echo "frontend_url=https://brave-sea-038f17a00.1.azurestaticapps.net" >> $GITHUB_OUTPUT
         fi
         echo "🔍 Environment Configuration:"
@@ -103,8 +107,9 @@ jobs:
           echo "  - Environment Name: staging"
           echo "  - Deployment Environment: staging"
           echo "  - Frontend URL: https://brave-sea-038f17a00-staging.eastasia.1.azurestaticapps.net"
-        elif [ "$TARGET" = "3" ]; then
-          echo "  - Environment Name: production"
+        elif [ "$TARGET" = "main" ]; then
+          echo "  - Environment Name: main (ブランチ名)"
+          echo "  - NEXT_PUBLIC_ENVIRONMENT: development (開発環境として扱う)"
           echo "  - Deployment Environment: (empty - production)"
           echo "  - Frontend URL: https://brave-sea-038f17a00.1.azurestaticapps.net"
         fi
