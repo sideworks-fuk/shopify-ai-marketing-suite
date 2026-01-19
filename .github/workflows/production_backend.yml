@@ -86,6 +86,7 @@ jobs:
           echo "⚠️ Direct deployment (requires app stop)"
         fi
         echo "⚠️ WARNING: This will deploy to the PRODUCTION environment!"
+      shell: bash
 
     - name: 🔍 Restore dependencies (with retry)
       run: |
@@ -230,6 +231,7 @@ jobs:
         echo "2. Check file timestamps in Kudu (Advanced Tools)"
         echo "3. Verify DLL files are updated: D:\home\site\wwwroot\"
         echo "4. Check appsettings.Production.json is updated"
+      shell: bash
 
     - name: 🏥 Health check
       run: |
