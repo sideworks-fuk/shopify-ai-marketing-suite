@@ -229,7 +229,7 @@ jobs:
         echo "🔍 Next steps:"
         echo "1. Verify deployment in Azure Portal → Deploy → Deployment Center"
         echo "2. Check file timestamps in Kudu (Advanced Tools)"
-        echo "3. Verify DLL files are updated: D:\home\site\wwwroot\"
+        echo "3. Verify DLL files are updated: D:/home/site/wwwroot/"
         echo "4. Check appsettings.Production.json is updated"
       shell: bash
 
