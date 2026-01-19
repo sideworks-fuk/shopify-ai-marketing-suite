@@ -28,6 +28,7 @@ env:
   DOTNET_VERSION: '8.x'
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
   APP_NAME: 'ec-ranger-backend-prod'  # Japan West の App Service
+  RESOURCE_GROUP: 'ec-ranger-prod'
   APP_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net/'
 
 jobs:
@@ -69,7 +70,6 @@ jobs:
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
 
     - name: 📝 Display deployment info
       run: |
@@ -150,13 +150,38 @@ jobs:
       run: |
         cd backend/ShopifyAnalyticsApi/published
         Write-Host "📦 Published files:"
-        Get-ChildItem -Filter "*.dll" | Select-Object Name, LastWriteTime | Format-Table
+        Get-ChildItem -Filter "*.dll" | Select-Object Name, LastWriteTime, Length | Format-Table
         Write-Host "📄 Configuration files:"
         Get-ChildItem -Filter "appsettings*.json" | Select-Object Name, LastWriteTime | Format-Table
+        
+        if (-not (Test-Path "ShopifyAnalyticsApi.dll")) {
+          throw "❌ ShopifyAnalyticsApi.dll not found!"
+        }
         Write-Host "✅ Verification complete"
       shell: pwsh
 
-    # デプロイスロットを使用する場合（推奨: ダウンタイムなし）
+    # ========================================
+    # デプロイスロットを使用する場合（推奨）
+    # ========================================
+    - name: 🔍 Get Staging Slot URL
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      id: get_staging_url
+      uses: azure/CLI@v2
+      with:
+        inlineScript: |
+          STAGING_HOSTNAME=$(az webapp deployment slot list \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.APP_NAME }} \
+            --query "[?name=='staging'].defaultHostName" -o tsv)
+          
+          if [ -z "$STAGING_HOSTNAME" ]; then
+            echo "❌ Staging slot not found!"
+            exit 1
+          fi
+          
+          echo "staging_url=https://${STAGING_HOSTNAME}" >> $GITHUB_OUTPUT
+          echo "✅ Staging URL: https://${STAGING_HOSTNAME}"
+
     - name: 🚀 Deploy to Staging Slot
       if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
       uses: azure/webapps-deploy@v3
@@ -169,38 +194,78 @@ jobs:
 
     - name: 🏥 Health check (Staging Slot)
       if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      id: staging_health
       run: |
         echo "Waiting 30 seconds for staging deployment to stabilize..."
         Start-Sleep -Seconds 30
-        echo "Performing health check on staging slot..."
-        $stagingUrl = "https://ec-ranger-backend-prod-staging-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net/api/health"
-        try {
-          $response = Invoke-WebRequest -Uri $stagingUrl -UseBasicParsing -TimeoutSec 30
-          if ($response.StatusCode -eq 200) {
-            echo "✅ Staging slot health check passed!"
-          } else {
-            echo "⚠️ Staging slot health check returned status: $($response.StatusCode)"
+        
+        $stagingUrl = "${{ steps.get_staging_url.outputs.staging_url }}/api/health"
+        Write-Host "Performing health check on: $stagingUrl"
+        
+        $maxRetries = 3
+        $retryCount = 0
+        $success = $false
+        
+        while (-not $success -and $retryCount -lt $maxRetries) {
+          $retryCount++
+          try {
+            Write-Host "Health check attempt $retryCount of $maxRetries..."
+            $response = Invoke-WebRequest -Uri $stagingUrl -UseBasicParsing -TimeoutSec 30
+            if ($response.StatusCode -eq 200) {
+              Write-Host "✅ Staging slot health check passed!"
+              $success = $true
+              echo "health_status=success" >> $env:GITHUB_OUTPUT
+            }
+          } catch {
+            Write-Host "⚠️ Attempt $retryCount failed: $_"
+            if ($retryCount -lt $maxRetries) {
+              Start-Sleep -Seconds 10
+            }
           }
-        } catch {
-          echo "❌ Staging slot health check failed: $_"
-          echo "⚠️ Note: Proceeding with swap, but please verify manually"
+        }
+        
+        if (-not $success) {
+          Write-Host "❌ Staging health check failed after $maxRetries attempts"
+          echo "health_status=failed" >> $env:GITHUB_OUTPUT
+          exit 1
         }
       shell: pwsh
 
     - name: 🔄 Swap slots (Production ↔ Staging)
-      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）' && steps.staging_health.outputs.health_status == 'success'
       uses: azure/CLI@v2
       with:
         inlineScript: |
           echo "🔄 Swapping slots: staging ↔ production"
           az webapp deployment slot swap \
-            --resource-group ec-ranger-prod \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
             --name ${{ env.APP_NAME }} \
             --slot staging \
             --target-slot production
           echo "✅ Slot swap completed successfully!"
 
-    # 直接デプロイする場合（app_offline.htmを使用してファイルロックを回避）
+    - name: 🏥 Health check (Production after swap)
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      run: |
+        echo "Waiting 15 seconds for production to stabilize..."
+        Start-Sleep -Seconds 15
+        
+        try {
+          $response = Invoke-WebRequest -Uri "${{ env.APP_URL }}api/health" -UseBasicParsing -TimeoutSec 30
+          if ($response.StatusCode -eq 200) {
+            Write-Host "✅ Production health check passed after swap!"
+          } else {
+            Write-Host "⚠️ Production returned status: $($response.StatusCode)"
+          }
+        } catch {
+          Write-Host "❌ Production health check failed: $_"
+          Write-Host "⚠️ Consider rolling back with another swap"
+        }
+      shell: pwsh
+
+    # ========================================
+    # 直接デプロイする場合（app_offline.htm使用）
+    # ========================================
     - name: 📄 Create app_offline.htm
       if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
       run: |
@@ -234,70 +299,95 @@ jobs:
         package: backend/ShopifyAnalyticsApi/published
       continue-on-error: false
 
-    # app_offline.htmの削除（オプション）
-    # デプロイが成功すると、app_offline.htmは自動的に削除される場合があります
-    # 削除されない場合は、手動でKuduから削除するか、次回のデプロイで自動的に上書きされます
-    - name: 🗑️ Remove app_offline.htm (Optional - Restart App)
+    - name: 🗑️ Remove app_offline.htm (Restart App)
       if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
-      run: |
-        echo "ℹ️ app_offline.htm removal is optional"
-        echo "If deployment succeeded, app_offline.htm may be automatically removed"
-        echo "If not removed, the application will restart automatically on next request"
-        echo "You can also manually remove it via Kudu if needed"
-      shell: bash
+      uses: azure/CLI@v2
+      with:
+        inlineScript: |
+          echo "🗑️ Attempting to remove app_offline.htm..."
+          az webapp deploy \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.APP_NAME }} \
+            --src-path /dev/null \
+            --target-path app_offline.htm \
+            --type static \
+            --clean true 2>/dev/null || echo "ℹ️ File may have been auto-removed"
       continue-on-error: true
 
-    - name: ✅ Deployment complete
-      run: |
-        echo "✅ Production backend deployment completed successfully!"
-        echo "🌐 App URL: ${{ env.APP_URL }}"
-        echo "📊 Check Azure Portal for detailed logs"
-        echo "⚠️ PRODUCTION environment is now live!"
-        echo ""
-        if [ "${{ github.event.inputs.use_deployment_slot }}" = "YES - デプロイスロットを使用（推奨）" ]; then
-          echo "✅ Deployment method: Deployment Slot (Zero Downtime)"
-          echo "   - Deployed to staging slot"
-          echo "   - Swapped to production slot"
-        else
-          echo "⚠️ Deployment method: Direct Deployment"
-          echo "   - App may have been stopped during deployment"
-        fi
-        echo ""
-        echo "🔍 Next steps:"
-        echo "1. Verify deployment in Azure Portal → Deploy → Deployment Center"
-        echo "2. Check file timestamps in Kudu (Advanced Tools)"
-        echo "3. Verify DLL files are updated: D:/home/site/wwwroot/"
-        echo "4. Check appsettings.Production.json is updated"
-      shell: bash
-
-    - name: 🏥 Health check
+    - name: 🏥 Health check (Direct Deploy)
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
       run: |
         echo "Waiting 45 seconds for deployment to stabilize..."
         Start-Sleep -Seconds 45
-        echo "Performing health check..."
-        try {
-          $response = Invoke-WebRequest -Uri "${{ env.APP_URL }}api/health" -UseBasicParsing -TimeoutSec 30
-          if ($response.StatusCode -eq 200) {
-            echo "✅ Health check passed!"
-          } else {
-            echo "⚠️ Health check returned status: $($response.StatusCode)"
+        
+        $maxRetries = 3
+        $retryCount = 0
+        
+        while ($retryCount -lt $maxRetries) {
+          $retryCount++
+          try {
+            Write-Host "Health check attempt $retryCount of $maxRetries..."
+            $response = Invoke-WebRequest -Uri "${{ env.APP_URL }}api/health" -UseBasicParsing -TimeoutSec 30
+            if ($response.StatusCode -eq 200) {
+              Write-Host "✅ Health check passed!"
+              break
+            }
+          } catch {
+            Write-Host "⚠️ Attempt $retryCount failed: $_"
+            if ($retryCount -lt $maxRetries) {
+              Start-Sleep -Seconds 10
+            }
           }
-        } catch {
-          echo "❌ Health check failed: $_"
-          echo "⚠️ Note: Please check the application manually"
         }
       shell: pwsh
 
-    - name: 📋 Production deployment summary
+    # ========================================
+    # 完了処理
+    # ========================================
+    - name: ✅ Deployment complete
+      run: |
+        echo "================================================"
+        echo "✅ Production Backend Deployment Completed!"
+        echo "================================================"
+        echo "🌐 App URL: ${{ env.APP_URL }}"
+        echo ""
+        if [ "${{ github.event.inputs.use_deployment_slot }}" = "YES - デプロイスロットを使用（推奨）" ]; then
+          echo "✅ Deployment method: Deployment Slot (Zero Downtime)"
+        else
+          echo "⚠️ Deployment method: Direct Deployment"
+        fi
+        echo ""
+        echo "🔍 Verification steps:"
+        echo "1. Check Azure Portal → Deployment Center"
+        echo "2. Verify file timestamps in Kudu"
+        echo "3. Test API endpoints"
+      shell: bash
+
+    - name: 📋 Deployment summary
       if: always()
       run: |
         echo "================================================"
         echo "Production Deployment Summary"
         echo "================================================"
-        echo "Environment: PRODUCTION"
-        echo "Region: Japan West"
+        echo "Status: ${{ job.status }}"
+        echo "Environment: PRODUCTION (Japan West)"
         echo "App Service: ${{ env.APP_NAME }}"
         echo "URL: ${{ env.APP_URL }}"
         echo "Deployed by: ${{ github.actor }}"
-        echo "Deployment time: $(date)"
+        echo "Method: ${{ github.event.inputs.use_deployment_slot }}"
+        echo "Message: ${{ github.event.inputs.deploy_message }}"
+        echo "Timestamp: $(date)"
         echo "================================================"
+      shell: bash
+
+    - name: 🔔 Notify on failure
+      if: failure()
+      run: |
+        echo "❌ DEPLOYMENT FAILED!"
+        echo ""
+        echo "🔧 Troubleshooting:"
+        echo "1. Check Azure Portal for App Service status"
+        echo "2. Review Kudu logs"
+        echo "3. Verify publish profile secrets"
+        echo "4. If using slot, verify staging slot exists"
+      shell: bash
