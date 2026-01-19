@@ -37,6 +37,8 @@ export default function SyncingPage() {
   const [isInitializing, setIsInitializing] = useState(true)
   const [consecutiveErrors, setConsecutiveErrors] = useState(0) // 連続エラーカウント
   const [lastSuccessTime, setLastSuccessTime] = useState<number | null>(null) // 最後に成功した時刻
+  const [pollingInterval, setPollingInterval] = useState(10000) // ポーリング間隔（10秒、429エラー時に延長）
+  const [isRateLimited, setIsRateLimited] = useState(false) // レート制限状態
 
   // ★ syncId の取得（URLパラメータ → sessionStorage フォールバック）
   useEffect(() => {
@@ -232,6 +234,13 @@ export default function SyncingPage() {
       setIsInitializing(false)
       setConsecutiveErrors(0) // エラーカウントをリセット
       setLastSuccessTime(Date.now()) // 成功時刻を記録
+      
+      // 🆕 429エラーから回復した場合、ポーリング間隔をリセット
+      if (isRateLimited) {
+        console.log('✅ レート制限から回復: ポーリング間隔をリセットします')
+        setIsRateLimited(false)
+        setPollingInterval(10000) // 10秒にリセット
+      }
 
       // 完了時の処理
       if (data.status === 'completed') {
@@ -259,10 +268,27 @@ export default function SyncingPage() {
       }
     } catch (err: any) {
       console.error('❌ 同期ステータス取得エラー:', err)
+      const errorMessage = err?.message || '予期しないエラーが発生しました'
+      
+      // 🆕 429エラー（レート制限）の処理
+      if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests')) {
+        console.warn('⚠️ レート制限エラー（429）: ポーリング間隔を延長します')
+        setIsRateLimited(true)
+        // 指数バックオフ: 10秒 → 20秒 → 40秒 → 60秒（最大）
+        setPollingInterval(prev => {
+          const newInterval = Math.min(prev * 2, 60000)
+          console.log(`🔄 ポーリング間隔を延長: ${prev}ms → ${newInterval}ms`)
+          return newInterval
+        })
+        setError('レート制限エラー: しばらく待ってから再試行します。')
+        // 429エラーは連続エラーカウントに含めない（一時的な問題のため）
+        return
+      }
+      
+      // 429エラー以外のエラー処理
       const errorCount = consecutiveErrors + 1
       setConsecutiveErrors(errorCount)
       
-      const errorMessage = err?.message || '予期しないエラーが発生しました'
       let displayError = errorMessage
       
       // 🆕 401エラーの場合でも、バックエンドでデータ取得できている可能性があるため、警告のみ表示
@@ -356,7 +382,7 @@ export default function SyncingPage() {
     // 初回取得
     fetchSyncStatus()
 
-    // 5秒ごとにポーリング
+    // 🆕 動的なポーリング間隔（初期値10秒、429エラー時に延長）
     const interval = setInterval(() => {
       // エラーが3回以上連続で発生している場合はポーリングを停止
       if (consecutiveErrors >= 3) {
@@ -386,13 +412,13 @@ export default function SyncingPage() {
       if (syncStatus?.status === 'running' || syncStatus?.status === 'pending' || syncStatus?.status === 'started' || !syncStatus) {
         fetchSyncStatus()
       }
-    }, 5000)
+    }, pollingInterval) // 🆕 動的なポーリング間隔を使用
 
     return () => {
       console.log('🛑 ポーリング停止')
       clearInterval(interval)
     }
-  }, [syncId, syncIdLoaded, isApiClientReady, authCurrentStoreId, syncStatus?.status, fetchSyncStatus, consecutiveErrors, lastSuccessTime, setCurrentStoreId])
+  }, [syncId, syncIdLoaded, isApiClientReady, authCurrentStoreId, syncStatus?.status, fetchSyncStatus, consecutiveErrors, lastSuccessTime, setCurrentStoreId, pollingInterval, isRateLimited])
 
   const handleRetry = async () => {
     if (!syncId) {

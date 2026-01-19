@@ -73,22 +73,41 @@ export class ApiClient {
             console.warn('⚠️ [ApiClient.getAuthHeaders] localStorage への保存に失敗しました', error);
           }
         } else {
-          console.warn('⚠️ [ApiClient.getAuthHeaders] currentStoreId が AuthProvider、localStorage、sessionStorage のいずれにも見つかりません');
-          console.warn('⚠️ [ApiClient.getAuthHeaders] localStorage の内容:', {
-            currentStoreId: localStorage.getItem('currentStoreId'),
-            developerToken: !!localStorage.getItem('developerToken'),
-            demoToken: !!localStorage.getItem('demoToken'),
-            authMode: localStorage.getItem('authMode'),
-            oauthAuthenticated: localStorage.getItem('oauth_authenticated'),
-            allLocalStorageKeys: Object.keys(localStorage)
-          });
-          console.warn('⚠️ [ApiClient.getAuthHeaders] sessionStorage の内容:', {
-            currentStoreId: sessionStorage.getItem('currentStoreId'),
-            developerToken: !!sessionStorage.getItem('developerToken'),
-            demoToken: !!sessionStorage.getItem('demoToken'),
-            authMode: sessionStorage.getItem('authMode'),
-            allSessionStorageKeys: Object.keys(sessionStorage)
-          });
+          // 🆕 OAuthモード（shopify）では、バックエンドがJWTトークンからstore_idを取得できるため、警告を出さない
+          const authMode = typeof window !== 'undefined' 
+            ? localStorage.getItem('authMode') || sessionStorage.getItem('authMode')
+            : null;
+          
+          if (authMode !== 'shopify') {
+            // 開発者モード/デモモードの場合のみ警告を表示
+            console.warn('⚠️ [ApiClient.getAuthHeaders] X-Store-Idヘッダーが設定されていません', {
+              currentStoreId,
+              authMode,
+              hasAuthHeaders: Object.keys(headers).length > 0,
+              endpoint: 'request中'
+            });
+            console.warn('⚠️ [ApiClient.getAuthHeaders] localStorage の内容:', {
+              currentStoreId: localStorage.getItem('currentStoreId'),
+              developerToken: !!localStorage.getItem('developerToken'),
+              demoToken: !!localStorage.getItem('demoToken'),
+              authMode: localStorage.getItem('authMode'),
+              oauthAuthenticated: localStorage.getItem('oauth_authenticated'),
+              allLocalStorageKeys: Object.keys(localStorage)
+            });
+            console.warn('⚠️ [ApiClient.getAuthHeaders] sessionStorage の内容:', {
+              currentStoreId: sessionStorage.getItem('currentStoreId'),
+              developerToken: !!sessionStorage.getItem('developerToken'),
+              demoToken: !!sessionStorage.getItem('demoToken'),
+              authMode: sessionStorage.getItem('authMode'),
+              allSessionStorageKeys: Object.keys(sessionStorage)
+            });
+          } else {
+            // OAuthモードでは、バックエンドがJWTトークンからstore_idを取得できるため、警告を出さない
+            console.log('ℹ️ [ApiClient.getAuthHeaders] OAuthモード: X-Store-Idヘッダーは不要（バックエンドがJWTトークンから取得）', {
+              authMode,
+              oauthAuthenticated: localStorage.getItem('oauth_authenticated')
+            });
+          }
         }
       }
     }
