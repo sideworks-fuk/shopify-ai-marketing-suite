@@ -15,6 +15,14 @@ on:
           - 'YES - 本番環境にデプロイします'
           - 'NO - キャンセルします'
         default: 'NO - キャンセルします'
+      use_deployment_slot:
+        description: 'デプロイスロットを使用（推奨: ダウンタイムなし）'
+        required: true
+        type: choice
+        options:
+          - 'YES - デプロイスロットを使用（推奨）'
+          - 'NO - 直接デプロイ（停止が必要）'
+        default: 'YES - デプロイスロットを使用（推奨）'
 
 env:
   DOTNET_VERSION: '8.x'
@@ -57,6 +65,12 @@ jobs:
         dotnet nuget list source
       shell: pwsh
 
+    - name: 🔐 Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+
     - name: 📝 Display deployment info
       run: |
         echo "🚀 Production Backend Deployment Started"
@@ -65,6 +79,12 @@ jobs:
         echo "Deploy message: ${{ github.event.inputs.deploy_message }}"
         echo "Timestamp: $(date)"
         echo "Target App: ${{ env.APP_NAME }}"
+        echo "Deployment Method: ${{ github.event.inputs.use_deployment_slot }}"
+        if [ "${{ github.event.inputs.use_deployment_slot }}" = "YES - デプロイスロットを使用（推奨）" ]; then
+          echo "✅ Using deployment slot (zero downtime)"
+        else
+          echo "⚠️ Direct deployment (requires app stop)"
+        fi
         echo "⚠️ WARNING: This will deploy to the PRODUCTION environment!"
 
     - name: 🔍 Restore dependencies (with retry)
@@ -125,14 +145,69 @@ jobs:
         cd backend/ShopifyAnalyticsApi
         dotnet publish -c Release -o ./published --no-restore --no-build
 
-    - name: 🚀 Deploy to Azure App Service (Production - Japan West)
+    - name: 🔍 Verify published files before deployment
+      run: |
+        cd backend/ShopifyAnalyticsApi/published
+        Write-Host "📦 Published files:"
+        Get-ChildItem -Filter "*.dll" | Select-Object Name, LastWriteTime | Format-Table
+        Write-Host "📄 Configuration files:"
+        Get-ChildItem -Filter "appsettings*.json" | Select-Object Name, LastWriteTime | Format-Table
+        Write-Host "✅ Verification complete"
+      shell: pwsh
+
+    # デプロイスロットを使用する場合（推奨: ダウンタイムなし）
+    - name: 🚀 Deploy to Staging Slot
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.APP_NAME }}
+        slot-name: 'staging'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION_STAGING }}
+        package: backend/ShopifyAnalyticsApi/published
+      continue-on-error: false
+
+    - name: 🏥 Health check (Staging Slot)
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      run: |
+        echo "Waiting 30 seconds for staging deployment to stabilize..."
+        Start-Sleep -Seconds 30
+        echo "Performing health check on staging slot..."
+        $stagingUrl = "https://ec-ranger-backend-prod-staging-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net/api/health"
+        try {
+          $response = Invoke-WebRequest -Uri $stagingUrl -UseBasicParsing -TimeoutSec 30
+          if ($response.StatusCode -eq 200) {
+            echo "✅ Staging slot health check passed!"
+          } else {
+            echo "⚠️ Staging slot health check returned status: $($response.StatusCode)"
+          }
+        } catch {
+          echo "❌ Staging slot health check failed: $_"
+          echo "⚠️ Note: Proceeding with swap, but please verify manually"
+        }
+      shell: pwsh
+
+    - name: 🔄 Swap slots (Production ↔ Staging)
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      uses: azure/CLI@v2
+      with:
+        inlineScript: |
+          echo "🔄 Swapping slots: staging ↔ production"
+          az webapp deployment slot swap \
+            --resource-group ec-ranger-prod \
+            --name ${{ env.APP_NAME }} \
+            --slot staging \
+            --target-slot production
+          echo "✅ Slot swap completed successfully!"
+
+    # 直接デプロイする場合（非推奨: ダウンタイム発生）
+    - name: 🚀 Deploy to Production (Direct - Not Recommended)
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
       uses: azure/webapps-deploy@v3
       with:
         app-name: ${{ env.APP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
         package: backend/ShopifyAnalyticsApi/published
-        app-settings: |
-          ASPNETCORE_ENVIRONMENT=Production
+      continue-on-error: false
 
     - name: ✅ Deployment complete
       run: |
@@ -140,6 +215,21 @@ jobs:
         echo "🌐 App URL: ${{ env.APP_URL }}"
         echo "📊 Check Azure Portal for detailed logs"
         echo "⚠️ PRODUCTION environment is now live!"
+        echo ""
+        if [ "${{ github.event.inputs.use_deployment_slot }}" = "YES - デプロイスロットを使用（推奨）" ]; then
+          echo "✅ Deployment method: Deployment Slot (Zero Downtime)"
+          echo "   - Deployed to staging slot"
+          echo "   - Swapped to production slot"
+        else
+          echo "⚠️ Deployment method: Direct Deployment"
+          echo "   - App may have been stopped during deployment"
+        fi
+        echo ""
+        echo "🔍 Next steps:"
+        echo "1. Verify deployment in Azure Portal → Deploy → Deployment Center"
+        echo "2. Check file timestamps in Kudu (Advanced Tools)"
+        echo "3. Verify DLL files are updated: D:\home\site\wwwroot\"
+        echo "4. Check appsettings.Production.json is updated"
 
     - name: 🏥 Health check
       run: |

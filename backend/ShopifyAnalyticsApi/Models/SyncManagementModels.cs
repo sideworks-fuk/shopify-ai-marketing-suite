@@ -256,6 +256,10 @@ namespace ShopifyAnalyticsApi.Models
         public DateTime? EndDate { get; set; }
         public int MaxYearsBack { get; set; } = 3;
         public bool IncludeArchived { get; set; } = false;
+        /// <summary>
+        /// 顧客データ同期をスキップする（Protected Customer Data未承認時の一時的な回避策）
+        /// </summary>
+        public bool SkipCustomers { get; set; } = false;
     }
 
     /// <summary>

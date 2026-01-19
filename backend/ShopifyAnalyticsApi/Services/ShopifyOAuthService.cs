@@ -82,10 +82,17 @@ namespace ShopifyAnalyticsApi.Services
                     _logger.LogInformation("ShopifySharp検証結果: {IsValid}", isValid);
                 }
 
-                if (!isValid && isDevelopment)
+                if (!isValid)
                 {
-                    // デバッグ用の追加情報を出力
+                    // デバッグ用の追加情報を出力（本番環境でも出力）
                     _logger.LogWarning("HMAC検証失敗。詳細デバッグ情報:");
+                    
+                    // 受信したパラメータをログ出力
+                    _logger.LogWarning("受信したクエリパラメータ:");
+                    foreach (var param in queryParams.OrderBy(x => x.Key))
+                    {
+                        _logger.LogWarning("  {Key}: {Value}", param.Key, string.Join(",", param.Value));
+                    }
                     
                     // 手動でパラメータを構築して比較
                     var manualParams = new Dictionary<string, string>();
@@ -104,7 +111,7 @@ namespace ShopifyAnalyticsApi.Services
                     var queryString = string.Join("&", 
                         sortedParams.Select(p => $"{p.Key}={p.Value}"));
                     
-                    _logger.LogInformation("手動構築したクエリ文字列: {QueryString}", queryString);
+                    _logger.LogWarning("手動構築したクエリ文字列: {QueryString}", queryString);
                     
                     using (var hmacSha256 = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
                     {
@@ -114,10 +121,16 @@ namespace ShopifyAnalyticsApi.Services
                             .ToLower();
                         
                         var receivedHmac = queryParams.FirstOrDefault(x => x.Key == "hmac").Value.FirstOrDefault();
-                        _logger.LogInformation("手動計算HMAC: {Computed}", computedHmac);
-                        _logger.LogInformation("受信HMAC: {Received}", receivedHmac);
-                        _logger.LogInformation("手動検証一致: {Match}", 
+                        _logger.LogWarning("手動計算HMAC: {Computed}", computedHmac);
+                        _logger.LogWarning("受信HMAC: {Received}", receivedHmac);
+                        _logger.LogWarning("手動検証一致: {Match}", 
                             string.Equals(computedHmac, receivedHmac, StringComparison.OrdinalIgnoreCase));
+                        
+                        // API Secretのプレビュー（最初と最後の4文字のみ）
+                        var secretPreview = secret.Length > 8 
+                            ? $"{secret.Substring(0, 4)}...{secret.Substring(secret.Length - 4)}"
+                            : "***";
+                        _logger.LogWarning("使用したAPI Secretプレビュー: {SecretPreview}", secretPreview);
                     }
                 }
 

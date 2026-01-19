@@ -32,4 +32,10 @@
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- 
+    appsettings.*.jsonファイルは.NET SDKがデフォルトで自動的にContentとして含めます。
+    明示的な定義は不要で、重複エラーを引き起こすため削除しました。
+    .NET SDKは appsettings.json と appsettings.{Environment}.json を自動的に出力ディレクトリにコピーします。
+  -->
+
 </Project>
