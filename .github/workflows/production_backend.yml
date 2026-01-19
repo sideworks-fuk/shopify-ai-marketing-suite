@@ -69,7 +69,9 @@ jobs:
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
+      if: |
+        github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）' ||
+        github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
 
     - name: 📝 Display deployment info
       run: |
@@ -200,8 +202,32 @@ jobs:
             --target-slot production
           echo "✅ Slot swap completed successfully!"
 
-    # 直接デプロイする場合（非推奨: ダウンタイム発生）
-    - name: 🚀 Deploy to Production (Direct - Not Recommended)
+    # 直接デプロイする場合（app_offline.htmを使用してファイルロックを回避）
+    - name: 📄 Create app_offline.htm
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
+      run: |
+        echo "<html><head><title>Updating...</title><meta http-equiv='refresh' content='10'></head><body style='font-family: Arial, sans-serif; text-align: center; padding: 50px;'><h1>Application is being updated</h1><p>Please wait while we update the application. This page will automatically refresh.</p><p>If this page does not refresh automatically, please try again in a few moments.</p></body></html>" > app_offline.htm
+        echo "✅ app_offline.htm created"
+      shell: bash
+
+    - name: 🚀 Deploy app_offline.htm (Shutdown App)
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
+        package: app_offline.htm
+      continue-on-error: false
+
+    - name: ⏳ Wait for app shutdown
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
+      run: |
+        echo "⏳ Waiting 15 seconds for application to shut down..."
+        sleep 15
+        echo "✅ Application shutdown complete (file locks should be released)"
+      shell: bash
+
+    - name: 🚀 Deploy application
       if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
       uses: azure/webapps-deploy@v3
       with:
@@ -209,6 +235,19 @@ jobs:
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PRODUCTION }}
         package: backend/ShopifyAnalyticsApi/published
       continue-on-error: false
+
+    - name: 🗑️ Remove app_offline.htm (Restart App)
+      if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
+      uses: azure/CLI@v2
+      with:
+        inlineScript: |
+          echo "🗑️ Removing app_offline.htm to restart the application..."
+          az rest --method DELETE \
+            --uri "https://${{ env.APP_NAME }}.scm.azurewebsites.net/api/vfs/site/wwwroot/app_offline.htm" \
+            --headers "Authorization=Bearer $(az account get-access-token --query accessToken -o tsv)" || echo "⚠️ app_offline.htm may have been automatically removed"
+          echo "✅ Application should restart automatically"
+      env:
+        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: ✅ Deployment complete
       run: |
