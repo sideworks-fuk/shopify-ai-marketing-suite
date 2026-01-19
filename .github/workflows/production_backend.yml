@@ -69,9 +69,7 @@ jobs:
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-      if: |
-        github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）' ||
-        github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
+      if: github.event.inputs.use_deployment_slot == 'YES - デプロイスロットを使用（推奨）'
 
     - name: 📝 Display deployment info
       run: |
@@ -236,18 +234,18 @@ jobs:
         package: backend/ShopifyAnalyticsApi/published
       continue-on-error: false
 
-    - name: 🗑️ Remove app_offline.htm (Restart App)
+    # app_offline.htmの削除（オプション）
+    # デプロイが成功すると、app_offline.htmは自動的に削除される場合があります
+    # 削除されない場合は、手動でKuduから削除するか、次回のデプロイで自動的に上書きされます
+    - name: 🗑️ Remove app_offline.htm (Optional - Restart App)
       if: github.event.inputs.use_deployment_slot == 'NO - 直接デプロイ（停止が必要）'
-      uses: azure/CLI@v2
-      with:
-        inlineScript: |
-          echo "🗑️ Removing app_offline.htm to restart the application..."
-          az rest --method DELETE \
-            --uri "https://${{ env.APP_NAME }}.scm.azurewebsites.net/api/vfs/site/wwwroot/app_offline.htm" \
-            --headers "Authorization=Bearer $(az account get-access-token --query accessToken -o tsv)" || echo "⚠️ app_offline.htm may have been automatically removed"
-          echo "✅ Application should restart automatically"
-      env:
-        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      run: |
+        echo "ℹ️ app_offline.htm removal is optional"
+        echo "If deployment succeeded, app_offline.htm may be automatically removed"
+        echo "If not removed, the application will restart automatically on next request"
+        echo "You can also manually remove it via Kudu if needed"
+      shell: bash
+      continue-on-error: true
 
     - name: ✅ Deployment complete
       run: |
