@@ -93,7 +93,7 @@ jobs:
       env:
         # 本番環境用の環境変数
         NEXT_PUBLIC_ENVIRONMENT: 'production'
-        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}  # GitHub Environment Variablesから取得（カスタムドメイン: https://ec-ranger-api.access-net.co.jp）
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD1_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
@@ -116,7 +116,7 @@ jobs:
       env:
         # 本番環境用の環境変数
         NEXT_PUBLIC_ENVIRONMENT: 'production'
-        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}  # GitHub Environment Variablesから取得（カスタムドメイン: https://ec-ranger-api.access-net.co.jp）
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD2_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
@@ -139,7 +139,7 @@ jobs:
       env:
         # 本番環境用の環境変数
         NEXT_PUBLIC_ENVIRONMENT: 'production'
-        NEXT_PUBLIC_API_URL: 'https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net'  # Japan West バックエンド
+        NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}  # GitHub Environment Variablesから取得（カスタムドメイン: https://ec-ranger-api.access-net.co.jp）
         NEXT_PUBLIC_SHOPIFY_API_KEY: '${{ env.PROD3_SHOPIFY_API_KEY }}'
         NEXT_PUBLIC_USE_HTTPS: 'true'
         NEXT_PUBLIC_DISABLE_FEATURE_GATES: 'false'
@@ -217,7 +217,7 @@ jobs:
         echo "Frontend (Production1 - Custom Domain): ${{ env.PROD1_CUSTOM_DOMAIN }}"
         echo "Frontend (Production2 - EC Ranger-xn-fbkq6e5da0fpb): ${{ env.PROD2_FRONTEND_URL }}"
         echo "Frontend (Production3 - EC Ranger-demo): ${{ env.PROD3_FRONTEND_URL }}"
-        echo "Backend API: https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.japanwest-01.azurewebsites.net"
+        echo "Backend API: ${{ vars.NEXT_PUBLIC_API_URL }}"
         echo "Deployed by: ${{ github.actor }}"
         echo "Deployment time: $(date)"
         echo "================================================"
