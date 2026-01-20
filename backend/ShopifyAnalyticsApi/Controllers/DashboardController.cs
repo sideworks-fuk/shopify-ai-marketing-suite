@@ -50,7 +50,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     query = query.Where(o => o.StoreId == storeId.Value);
                 }
                 
-                query = query.Where(o => o.CreatedAt >= start && o.CreatedAt <= end);
+                query = query.Where(o => (o.ShopifyCreatedAt ?? o.CreatedAt) >= start && (o.ShopifyCreatedAt ?? o.CreatedAt) <= end);
 
                 var totalSales = await query.SumAsync(o => o.TotalPrice);
                 var orderCount = await query.CountAsync();
@@ -76,7 +76,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     .ToListAsync();
 
                 var recentOrders = await query
-                    .OrderByDescending(o => o.CreatedAt)
+                    .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
                     .Take(10)
                     .Select(o => new RecentOrderDto
                     {
@@ -86,12 +86,12 @@ namespace ShopifyAnalyticsApi.Controllers
                             $"{o.Customer.FirstName} {o.Customer.LastName}" : "Guest",
                         TotalAmount = o.TotalPrice,
                         Status = o.FulfillmentStatus ?? "pending",
-                        CreatedAt = o.CreatedAt
+                        CreatedAt = o.ShopifyCreatedAt ?? o.CreatedAt
                     })
                     .ToListAsync();
 
                 var dailySales = await query
-                    .GroupBy(o => o.CreatedAt.Date)
+                    .GroupBy(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Date)
                     .Select(g => new DailySalesDto
                     {
                         Date = g.Key,
@@ -105,7 +105,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 var previousPeriodEnd = start;
                 
                 var previousPeriodSales = await _context.Orders
-                    .Where(o => o.CreatedAt >= previousPeriodStart && o.CreatedAt < previousPeriodEnd)
+                    .Where(o => (o.ShopifyCreatedAt ?? o.CreatedAt) >= previousPeriodStart && (o.ShopifyCreatedAt ?? o.CreatedAt) < previousPeriodEnd)
                     .Where(o => !storeId.HasValue || o.StoreId == storeId.Value)
                     .SumAsync(o => o.TotalPrice);
 

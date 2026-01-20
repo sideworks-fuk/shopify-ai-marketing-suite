@@ -109,7 +109,7 @@ namespace ShopifyAnalyticsApi.Services
                         TotalOrders = s.Orders.Count,
                         TotalProducts = s.Products.Count,
                         TotalRevenue = s.Orders.Sum(o => o.TotalPrice),
-                        LastOrderDate = s.Orders.Max(o => (DateTime?)o.CreatedAt)
+                        LastOrderDate = s.Orders.Max(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
                     })
                     .FirstOrDefaultAsync();
 

@@ -252,7 +252,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 LastName = shopifyCustomer.LastName ?? string.Empty,
                 Email = shopifyCustomer.Email ?? string.Empty,
                 Phone = shopifyCustomer.Phone,
-                TotalSpent = shopifyCustomer.TotalSpent,
+                TotalSpent = shopifyCustomer.TotalSpentDecimal,
                 TotalOrders = shopifyCustomer.OrdersCount,
                 // 分析に必要なフィールド
                 ProvinceCode = shopifyCustomer.ProvinceCode ?? shopifyCustomer.DefaultAddress?.ProvinceCode,
@@ -262,7 +262,10 @@ namespace ShopifyAnalyticsApi.Jobs
                 AcceptsEmailMarketing = shopifyCustomer.AcceptsEmailMarketing,
                 AcceptsSMSMarketing = shopifyCustomer.AcceptsSMSMarketing,
                 AddressPhone = shopifyCustomer.DefaultAddress?.Phone,
-                CreatedAt = shopifyCustomer.CreatedAt ?? DateTime.UtcNow,
+                ShopifyCreatedAt = shopifyCustomer.CreatedAt,
+                ShopifyUpdatedAt = shopifyCustomer.UpdatedAt,
+                SyncedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 IsActive = true
             };
@@ -300,7 +303,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingCustomer.LastName = customer.LastName;
                     existingCustomer.Email = customer.Email;
                     existingCustomer.Phone = customer.Phone;
-                    existingCustomer.TotalSpent = customer.TotalSpent;
+                    existingCustomer.TotalSpent = customer.TotalSpent;  // CustomerエンティティのTotalSpentは既にdecimal型
                     existingCustomer.TotalOrders = customer.TotalOrders;
                     // 分析に必要なフィールド
                     existingCustomer.ProvinceCode = customer.ProvinceCode;
@@ -310,13 +313,18 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingCustomer.AcceptsEmailMarketing = customer.AcceptsEmailMarketing;
                     existingCustomer.AcceptsSMSMarketing = customer.AcceptsSMSMarketing;
                     existingCustomer.AddressPhone = customer.AddressPhone;
+                    existingCustomer.ShopifyCreatedAt ??= customer.ShopifyCreatedAt;
+                    existingCustomer.ShopifyUpdatedAt = customer.ShopifyUpdatedAt;
+                    existingCustomer.SyncedAt = DateTime.UtcNow;
                     existingCustomer.UpdatedAt = DateTime.UtcNow;
                 }
                 else
                 {
                     // 新規データを追加
                     customer.StoreId = storeId;
-                    customer.CreatedAt = customer.CreatedAt == default ? DateTime.UtcNow : customer.CreatedAt;
+                    customer.CreatedAt = DateTime.UtcNow;
+                    customer.UpdatedAt = DateTime.UtcNow;
+                    customer.SyncedAt = DateTime.UtcNow;
                     _context.Customers.Add(customer);
                 }
             }

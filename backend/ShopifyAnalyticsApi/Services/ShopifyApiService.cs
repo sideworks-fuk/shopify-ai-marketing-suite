@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
@@ -23,7 +24,8 @@ namespace ShopifyAnalyticsApi.Services
         // Shopify APIのJSONレスポンスはsnake_caseのため、PropertyNameCaseInsensitiveを有効化
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
-            PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true,
+            Converters = { new FlexibleStringConverter() } // order_number等の数値/文字列両対応
         };
 
         public ShopifyApiService(
@@ -345,9 +347,23 @@ namespace ShopifyAnalyticsApi.Services
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch orders: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
-                    response.StatusCode, errorContent, storeId);
-                throw new HttpRequestException($"Failed to fetch orders: {response.StatusCode}");
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch orders: StatusCode={StatusCode}, StoreId={StoreId}", 
+                    response.StatusCode, storeId);
+                _logger.LogError("🛒 [ShopifyApiService] ErrorContent: {ErrorContent}", errorContent);
+                _logger.LogError("🛒 [ShopifyApiService] Request URL: {Url}, PageInfo: {PageInfo}", url, pageInfo ?? "null");
+                
+                // BadRequestやForbiddenでも、Protected Customer Dataエラーが含まれている可能性がある
+                if (errorContent.Contains("Protected customer data", StringComparison.OrdinalIgnoreCase) ||
+                    errorContent.Contains("not approved to access REST endpoints", StringComparison.OrdinalIgnoreCase) ||
+                    errorContent.Contains("protected-customer-data", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new HttpRequestException($"Failed to fetch orders: Protected customer data. {response.StatusCode}");
+                }
+                else
+                {
+                    // BadRequestの詳細なエラー内容を含める
+                    throw new HttpRequestException($"Failed to fetch orders: {response.StatusCode}. ErrorContent: {errorContent}");
+                }
             }
         }
 
@@ -597,7 +613,7 @@ namespace ShopifyAnalyticsApi.Services
                 existingCustomer.LastName = customer.LastName;
                 existingCustomer.Email = customer.Email;
                 existingCustomer.Phone = customer.Phone;
-                existingCustomer.TotalSpent = customer.TotalSpent;
+                existingCustomer.TotalSpent = customer.TotalSpentDecimal;
                 existingCustomer.TotalOrders = customer.OrdersCount;
                 // 分析に必要なフィールド
                 existingCustomer.ProvinceCode = customer.ProvinceCode ?? customer.DefaultAddress?.ProvinceCode;
@@ -607,6 +623,9 @@ namespace ShopifyAnalyticsApi.Services
                 existingCustomer.AcceptsEmailMarketing = customer.AcceptsEmailMarketing;
                 existingCustomer.AcceptsSMSMarketing = customer.AcceptsSMSMarketing;
                 existingCustomer.AddressPhone = customer.DefaultAddress?.Phone;
+                existingCustomer.ShopifyCreatedAt ??= customer.CreatedAt;
+                existingCustomer.ShopifyUpdatedAt = customer.UpdatedAt;
+                existingCustomer.SyncedAt = DateTime.UtcNow;
                 existingCustomer.UpdatedAt = DateTime.UtcNow;
             }
             else
@@ -620,7 +639,7 @@ namespace ShopifyAnalyticsApi.Services
                     LastName = customer.LastName,
                     Email = customer.Email,
                     Phone = customer.Phone,
-                    TotalSpent = customer.TotalSpent,
+                    TotalSpent = customer.TotalSpentDecimal,
                     TotalOrders = customer.OrdersCount,
                     // 分析に必要なフィールド
                     ProvinceCode = customer.ProvinceCode ?? customer.DefaultAddress?.ProvinceCode,
@@ -631,7 +650,10 @@ namespace ShopifyAnalyticsApi.Services
                     AcceptsSMSMarketing = customer.AcceptsSMSMarketing,
                     AddressPhone = customer.DefaultAddress?.Phone,
                     IsActive = true,
-                    CreatedAt = customer.CreatedAt ?? DateTime.UtcNow,
+                    ShopifyCreatedAt = customer.CreatedAt,
+                    ShopifyUpdatedAt = customer.UpdatedAt,
+                    SyncedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
                 _context.Customers.Add(newCustomer);
@@ -653,6 +675,9 @@ namespace ShopifyAnalyticsApi.Services
                 existingProduct.Title = product.Title;
                 existingProduct.ProductType = product.ProductType;
                 existingProduct.Vendor = product.Vendor;
+                existingProduct.ShopifyCreatedAt ??= product.CreatedAt;
+                existingProduct.ShopifyUpdatedAt = product.UpdatedAt;
+                existingProduct.SyncedAt = DateTime.UtcNow;
                 existingProduct.UpdatedAt = DateTime.UtcNow;
 
                 // バリアント更新
@@ -695,7 +720,10 @@ namespace ShopifyAnalyticsApi.Services
                     Title = product.Title,
                     ProductType = product.ProductType,
                     Vendor = product.Vendor,
-                    CreatedAt = product.CreatedAt ?? DateTime.UtcNow,
+                    ShopifyCreatedAt = product.CreatedAt,
+                    ShopifyUpdatedAt = product.UpdatedAt,
+                    SyncedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     Variants = new List<ProductVariant>()
                 };
@@ -758,6 +786,9 @@ namespace ShopifyAnalyticsApi.Services
                 existingOrder.FulfillmentStatus = order.FulfillmentStatus;
                 existingOrder.Email = order.Email;
                 existingOrder.CustomerId = customerId; // CustomerIdも更新
+                existingOrder.ShopifyCreatedAt ??= order.CreatedAt;
+                existingOrder.ShopifyUpdatedAt = order.UpdatedAt;
+                existingOrder.SyncedAt = DateTime.UtcNow;
                 existingOrder.UpdatedAt = DateTime.UtcNow;
 
                 // 注文アイテム更新
@@ -811,7 +842,10 @@ namespace ShopifyAnalyticsApi.Services
                     Status = order.Status ?? "pending",
                     FinancialStatus = order.FinancialStatus ?? "pending",
                     FulfillmentStatus = order.FulfillmentStatus,
-                    CreatedAt = order.CreatedAt ?? DateTime.UtcNow,
+                    ShopifyCreatedAt = order.CreatedAt,
+                    ShopifyUpdatedAt = order.UpdatedAt,
+                    SyncedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     OrderItems = new List<OrderItem>()
                 };
@@ -853,31 +887,55 @@ namespace ShopifyAnalyticsApi.Services
 
         public class ShopifyCustomer
         {
+            [JsonPropertyName("id")]
             public long Id { get; set; }
+            [JsonPropertyName("first_name")]
             public string FirstName { get; set; } = string.Empty;
+            [JsonPropertyName("last_name")]
             public string LastName { get; set; } = string.Empty;
+            [JsonPropertyName("email")]
             public string Email { get; set; } = string.Empty;
+            [JsonPropertyName("phone")]
             public string? Phone { get; set; }
-            public decimal TotalSpent { get; set; }
+            // Shopify APIは金額を文字列として返すため、stringとして受け取る
+            [JsonPropertyName("total_spent")]
+            public string? TotalSpent { get; set; }
+            [JsonPropertyName("orders_count")]
             public int OrdersCount { get; set; }
+            
+            // decimal型のTotalSpentプロパティ（後方互換性のため）
+            public decimal TotalSpentDecimal => decimal.TryParse(TotalSpent, out var result) ? result : 0m;
+            [JsonPropertyName("created_at")]
             public DateTime? CreatedAt { get; set; }
+            [JsonPropertyName("updated_at")]
             public DateTime? UpdatedAt { get; set; }
             // 分析に必要なフィールド
+            [JsonPropertyName("province_code")]
             public string? ProvinceCode { get; set; }
+            [JsonPropertyName("country_code")]
             public string? CountryCode { get; set; }
+            [JsonPropertyName("city")]
             public string? City { get; set; }
+            [JsonPropertyName("tags")]
             public string? Tags { get; set; }
+            [JsonPropertyName("accepts_email_marketing")]
             public bool AcceptsEmailMarketing { get; set; }
+            [JsonPropertyName("accepts_sms_marketing")]
             public bool AcceptsSMSMarketing { get; set; }
             // 住所情報（Default Address）
+            [JsonPropertyName("default_address")]
             public ShopifyCustomerAddress? DefaultAddress { get; set; }
         }
 
         public class ShopifyCustomerAddress
         {
+            [JsonPropertyName("province_code")]
             public string? ProvinceCode { get; set; }
+            [JsonPropertyName("country_code")]
             public string? CountryCode { get; set; }
+            [JsonPropertyName("city")]
             public string? City { get; set; }
+            [JsonPropertyName("phone")]
             public string? Phone { get; set; }
         }
 
@@ -888,21 +946,32 @@ namespace ShopifyAnalyticsApi.Services
 
         public class ShopifyProduct
         {
+            [JsonPropertyName("id")]
             public long Id { get; set; }
+            [JsonPropertyName("title")]
             public string Title { get; set; } = string.Empty;
+            [JsonPropertyName("product_type")]
             public string? ProductType { get; set; }
+            [JsonPropertyName("vendor")]
             public string? Vendor { get; set; }
+            [JsonPropertyName("created_at")]
             public DateTime? CreatedAt { get; set; }
+            [JsonPropertyName("updated_at")]
             public DateTime? UpdatedAt { get; set; }
+            [JsonPropertyName("variants")]
             public List<ShopifyVariant> Variants { get; set; } = new();
         }
 
         public class ShopifyVariant
         {
+            [JsonPropertyName("id")]
             public long Id { get; set; }
+            [JsonPropertyName("title")]
             public string Title { get; set; } = string.Empty;
             // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            [JsonPropertyName("price")]
             public string? Price { get; set; }
+            [JsonPropertyName("sku")]
             public string? Sku { get; set; }
             
             // decimal型のPriceプロパティ（後方互換性のため）
@@ -916,20 +985,35 @@ namespace ShopifyAnalyticsApi.Services
 
         public class ShopifyOrder
         {
+            [JsonPropertyName("id")]
             public long Id { get; set; }
+            [JsonPropertyName("email")]
             public string? Email { get; set; }
+            [JsonPropertyName("order_number")]
+            [JsonConverter(typeof(FlexibleStringConverter))]
             public string? OrderNumber { get; set; }
             // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            [JsonPropertyName("total_price")]
             public string? TotalPrice { get; set; }
+            [JsonPropertyName("subtotal_price")]
             public string? SubtotalPrice { get; set; }
+            [JsonPropertyName("total_tax")]
             public string? TotalTax { get; set; }
+            [JsonPropertyName("currency")]
             public string Currency { get; set; } = "JPY";
+            [JsonPropertyName("financial_status")]
             public string FinancialStatus { get; set; } = "pending";
+            [JsonPropertyName("fulfillment_status")]
             public string? FulfillmentStatus { get; set; }
+            [JsonPropertyName("status")]
             public string? Status { get; set; }
+            [JsonPropertyName("created_at")]
             public DateTime? CreatedAt { get; set; }
+            [JsonPropertyName("updated_at")]
             public DateTime? UpdatedAt { get; set; }
+            [JsonPropertyName("customer")]
             public ShopifyCustomer? Customer { get; set; }
+            [JsonPropertyName("line_items")]
             public List<ShopifyLineItem> LineItems { get; set; } = new();
             
             // decimal型のプロパティ（後方互換性のため）
@@ -940,19 +1024,71 @@ namespace ShopifyAnalyticsApi.Services
 
         public class ShopifyLineItem
         {
+            [JsonPropertyName("id")]
             public long Id { get; set; }
+            [JsonPropertyName("product_id")]
             public long? ProductId { get; set; }
+            [JsonPropertyName("variant_id")]
             public long? VariantId { get; set; }
+            [JsonPropertyName("title")]
             public string Title { get; set; } = string.Empty;
+            [JsonPropertyName("quantity")]
             public int Quantity { get; set; }
             // Shopify APIは価格を文字列として返すため、stringとして受け取る
+            [JsonPropertyName("price")]
             public string? Price { get; set; }
+            [JsonPropertyName("sku")]
             public string? Sku { get; set; }
+            [JsonPropertyName("variant_title")]
             public string? VariantTitle { get; set; }
+            [JsonPropertyName("vendor")]
             public string? Vendor { get; set; }
             
             // decimal型のPriceプロパティ（後方互換性のため）
             public decimal PriceDecimal => decimal.TryParse(Price, out var result) ? result : 0m;
+        }
+
+        #endregion
+
+        #region Custom JsonConverters
+
+        /// <summary>
+        /// 数値と文字列の両方を受け取れる文字列コンバーター
+        /// Shopify APIがorder_number等を数値として返す場合に対応
+        /// </summary>
+        public class FlexibleStringConverter : JsonConverter<string?>
+        {
+            public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                if (reader.TokenType == JsonTokenType.String)
+                {
+                    return reader.GetString();
+                }
+                else if (reader.TokenType == JsonTokenType.Number)
+                {
+                    // 数値の場合は文字列に変換
+                    if (reader.TryGetInt64(out var longValue))
+                    {
+                        return longValue.ToString();
+                    }
+                    else if (reader.TryGetDouble(out var doubleValue))
+                    {
+                        return doubleValue.ToString();
+                    }
+                }
+                else if (reader.TokenType == JsonTokenType.Null)
+                {
+                    return null;
+                }
+                
+                // その他の型は文字列として読み取る
+                return reader.GetString();
+            }
+
+            public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+            {
+                writer.WriteStringValue(value);
+            }
         }
 
         #endregion

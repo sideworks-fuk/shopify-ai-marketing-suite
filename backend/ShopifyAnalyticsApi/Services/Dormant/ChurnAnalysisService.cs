@@ -163,8 +163,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
                 if (request.AnalysisStartDate.HasValue && request.AnalysisEndDate.HasValue)
                 {
-                    query = query.Where(c => c.CreatedAt >= request.AnalysisStartDate.Value && 
-                                           c.CreatedAt <= request.AnalysisEndDate.Value);
+                    query = query.Where(c => (c.ShopifyCreatedAt ?? c.CreatedAt) >= request.AnalysisStartDate.Value && 
+                                           (c.ShopifyCreatedAt ?? c.CreatedAt) <= request.AnalysisEndDate.Value);
                 }
 
                 var customers = await query.ToListAsync();
@@ -243,8 +243,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 return 0.9m; // 購入履歴なしは高リスク
             }
 
-            var lastOrder = customer.Orders.OrderByDescending(o => o.CreatedAt).First();
-            var daysSinceLastPurchase = (DateTime.UtcNow - lastOrder.CreatedAt).Days;
+            var lastOrder = customer.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
+            var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+            var daysSinceLastPurchase = (DateTime.UtcNow - lastOrderDate).Days;
 
             // 基本的な休眠期間ベースの計算
             var baseProbability = CalculateBaseProbabilityFromDormancy(daysSinceLastPurchase);
@@ -289,7 +290,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 return 0.9m;
 
             var orderCount = customer.Orders.Count;
-            var customerAge = (DateTime.UtcNow - customer.CreatedAt).Days;
+            var customerCreatedAt = customer.ShopifyCreatedAt ?? customer.CreatedAt;
+            var customerAge = (DateTime.UtcNow - customerCreatedAt).Days;
             var ordersPerMonth = customerAge > 0 ? (orderCount * 30.0m) / customerAge : 0;
 
             return ordersPerMonth switch
@@ -407,8 +409,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             {
                 if (c.Orders == null || !c.Orders.Any()) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.CreatedAt).First();
-                var daysSince = (DateTime.UtcNow - lastOrder.CreatedAt).Days;
+                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
+                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();
@@ -449,7 +452,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
             // 休眠期間の長さ
             var avgDormancy = customers.Where(c => c.Orders?.Any() == true)
-                .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.CreatedAt)).Days)
+                .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
                 .DefaultIfEmpty(0)
                 .Average();
 

@@ -146,7 +146,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         c.AcceptsEmailMarketing,
                         c.AcceptsSMSMarketing,
                         c.Tags,
-                        createdAt = c.CreatedAt,
+                        createdAt = c.ShopifyCreatedAt ?? c.CreatedAt,
                         AverageOrderValue = c.TotalOrders > 0 ? c.TotalSpent / c.TotalOrders : 0,
                         IsHighValue = c.TotalSpent > 100000,
                         RegionDisplay = !string.IsNullOrEmpty(c.ProvinceCode) ?

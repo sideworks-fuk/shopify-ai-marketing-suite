@@ -116,8 +116,8 @@ namespace ShopifyAnalyticsApi.Services
                               where customer.StoreId == storeId && customer.TotalOrders > 0
                               let lastOrderDate = _context.Orders
                                   .Where(o => o.CustomerId == customer.Id)
-                                  .OrderByDescending(o => o.CreatedAt)
-                                  .Select(o => (DateTime?)o.CreatedAt)
+                                  .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
+                                  .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
                                   .FirstOrDefault()
                               where lastOrderDate.HasValue && lastOrderDate < cutoffDate
                               select customer;

@@ -1,0 +1,111 @@
+### データ同期テスト用HTTPファイル
+### VS Code REST Client拡張機能を使用して実行できます
+### 
+### 使用方法:
+### 1. VS Codeでこのファイルを開く
+### 2. まず「1. 開発者認証でトークンを取得」を実行してトークンを取得
+### 3. 取得したトークンを「@token」変数に設定
+### 4. 各リクエストの上に「Send Request」ボタンが表示されます
+### 5. クリックしてリクエストを実行
+###
+### 注意: 
+### - HTTP (http://localhost:5168) を使用することを推奨します（SSL証明書の問題を回避）
+### - HTTPS (https://localhost:7088) を使用する場合、SSL証明書の警告が表示される可能性があります
+
+@baseUrl = http://localhost:5168
+@storeId = 18
+@token = YOUR_TOKEN_HERE
+
+### ========================================
+### 0. 開発者認証でトークンを取得
+### ========================================
+### まずこのリクエストを実行して、レスポンスのtokenをコピーしてください
+### その後、上記の @token 変数に貼り付けてください
+POST {{baseUrl}}/api/developer/login
+Content-Type: application/json
+
+{
+  "password": "dev2026"
+}
+
+### ========================================
+### 1. ヘルスチェック
+### ========================================
+GET {{baseUrl}}/api/health
+Accept: application/json
+
+### ========================================
+### 2. 初期データ同期を開始（3ヶ月分）
+### ========================================
+POST {{baseUrl}}/api/sync/initial
+Content-Type: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+{
+  "syncPeriod": "3months"
+}
+
+### ========================================
+### 3. 同期ステータスを取得
+### ========================================
+GET {{baseUrl}}/api/sync/status/{{storeId}}
+Accept: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+### ========================================
+### 4. 同期履歴を取得
+### ========================================
+GET {{baseUrl}}/api/sync/history?limit=10
+Accept: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+### ========================================
+### 5. 注文データのみ同期（手動トリガー）
+### ========================================
+POST {{baseUrl}}/api/sync/trigger
+Content-Type: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+{
+  "type": "orders"
+}
+
+### ========================================
+### 6. 顧客データのみ同期（手動トリガー）
+### ========================================
+POST {{baseUrl}}/api/sync/trigger
+Content-Type: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+{
+  "type": "customers"
+}
+
+### ========================================
+### 7. 商品データのみ同期（手動トリガー）
+### ========================================
+POST {{baseUrl}}/api/sync/trigger
+Content-Type: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+{
+  "type": "products"
+}
+
+### ========================================
+### 8. 全データ同期（手動トリガー）
+### ========================================
+POST {{baseUrl}}/api/sync/trigger
+Content-Type: application/json
+Authorization: Bearer {{token}}
+X-Store-Id: {{storeId}}
+
+{
+  "type": "all"
+}

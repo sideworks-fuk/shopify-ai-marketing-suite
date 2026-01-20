@@ -97,7 +97,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 {
                     var dormantDaysList = dormantCustomers
                         .Where(c => c.Orders?.Any() == true)
-                        .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.CreatedAt)).Days)
+                        .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
                         .ToList();
                     
                     if (dormantDaysList.Any())
@@ -147,7 +147,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     .Include(c => c.Orders)
                     .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
                     .Where(c => c.Orders.Any() && 
-                              c.Orders.OrderByDescending(o => o.CreatedAt).First().CreatedAt < cutoffDate)
+                              c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
+                                  .Select(o => o.ShopifyCreatedAt ?? o.CreatedAt)
+                                  .First() < cutoffDate)
                     .ToListAsync();
 
                 // キャッシュに保存
@@ -202,7 +204,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                             AverageRevenue = segmentCustomers.Average(c => c.TotalSpent),
                             AverageDormancyDays = (int)segmentCustomers
                                 .Where(c => c.Orders?.Any() == true)
-                                .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.CreatedAt)).Days)
+                                .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
                         };
                     }
                 }
@@ -308,8 +310,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             {
                 if (c.Orders == null || !c.Orders.Any()) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.CreatedAt).First();
-                var daysSince = (DateTime.UtcNow - lastOrder.CreatedAt).Days;
+                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
+                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();

@@ -57,8 +57,8 @@ namespace ShopifyAnalyticsApi.Controllers
 						p.ProductType,
 						p.Vendor,
 						p.InventoryQuantity,
-						p.CreatedAt,
-						p.UpdatedAt
+						CreatedAt = p.ShopifyCreatedAt ?? p.CreatedAt,
+						UpdatedAt = p.ShopifyUpdatedAt ?? p.UpdatedAt
 					})
 					.ToListAsync();
 

@@ -207,13 +207,19 @@ namespace ShopifyAnalyticsApi.Services
                         customer.TotalOrders,
                         customer.TotalSpent,
                         customer.CreatedAt,
-                        customer.UpdatedAt
+                        customer.UpdatedAt,
+                        customer.ShopifyCreatedAt,
+                        customer.ShopifyUpdatedAt,
+                        customer.SyncedAt
                     },
                     Orders = customer.Orders.Select(o => new
                     {
                         o.OrderNumber,
                         o.CreatedAt,
                         o.UpdatedAt,
+                        o.ShopifyCreatedAt,
+                        o.ShopifyUpdatedAt,
+                        o.SyncedAt,
                         o.TotalPrice,
                         o.SubtotalPrice,
                         o.TaxPrice,

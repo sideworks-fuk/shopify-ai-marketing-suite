@@ -296,7 +296,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 {
                     if (customer.Orders?.Any() == true)
                     {
-                        var customerAge = (DateTime.UtcNow - customer.CreatedAt).Days / 30.0;
+                        var customerCreatedAt = customer.ShopifyCreatedAt ?? customer.CreatedAt;
+                        var customerAge = (DateTime.UtcNow - customerCreatedAt).Days / 30.0;
                         if (customerAge > 0)
                         {
                             var monthlyAverage = customer.TotalSpent / (decimal)customerAge;
@@ -395,8 +396,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             {
                 if (c.Orders == null || !c.Orders.Any()) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.CreatedAt).First();
-                var daysSince = (DateTime.UtcNow - lastOrder.CreatedAt).Days;
+                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
+                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();

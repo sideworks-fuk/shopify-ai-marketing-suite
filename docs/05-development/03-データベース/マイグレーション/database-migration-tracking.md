@@ -73,6 +73,8 @@ docs/05-development/03-データベース/マイグレーション/
 | **20260107-DeleteStoreId46Data.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（同期データのクリア・再同期用）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **20260107-DeleteStoreId46Data-v2.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（v2: SyncStatuses.StoreIdが整数型に変更されたため更新）** | ✅ 適用済 (2026-01-07 01:17) | ⏳ 未適用 | ⏳ 未適用 |
 | **20260107-ChangeSyncStatusStoreIdToInt.sql** | 2026-01-07 | 福田+AI | **SyncStatusesテーブルのStoreIdカラムを文字列型から整数型に変更（データ型の統一）** | ✅ 適用済 (2026-01-07 01:11) | ⏳ 未適用 | ✅ 適用済 (2026-01-07 01:13) |
+| **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** | 2026-01-19 | 福田+AI | **Orders/Customers/ProductsテーブルにShopifyCreatedAt, ShopifyUpdatedAt, SyncedAtカラムを追加（日時の意味明確化）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2026-01-19-FixOrderNumberUniqueConstraint.sql** | 2026-01-19 | 福田+AI | **OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更（マルチテナント対応）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 

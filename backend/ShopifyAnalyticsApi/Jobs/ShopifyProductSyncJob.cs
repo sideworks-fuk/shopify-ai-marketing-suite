@@ -319,7 +319,10 @@ namespace ShopifyAnalyticsApi.Jobs
                 Title = shopifyProduct.Title ?? string.Empty,
                 ProductType = shopifyProduct.ProductType,
                 Vendor = shopifyProduct.Vendor,
-                CreatedAt = shopifyProduct.CreatedAt ?? DateTime.UtcNow,
+                ShopifyCreatedAt = shopifyProduct.CreatedAt,
+                ShopifyUpdatedAt = shopifyProduct.UpdatedAt,
+                SyncedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 Variants = new List<ProductVariant>()
             };
@@ -376,6 +379,9 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingProduct.Title = product.Title;
                     existingProduct.ProductType = product.ProductType;
                     existingProduct.Vendor = product.Vendor;
+                    existingProduct.ShopifyCreatedAt ??= product.ShopifyCreatedAt;
+                    existingProduct.ShopifyUpdatedAt = product.ShopifyUpdatedAt;
+                    existingProduct.SyncedAt = DateTime.UtcNow;
                     existingProduct.UpdatedAt = DateTime.UtcNow;
 
                     // バリアントを更新
@@ -415,7 +421,9 @@ namespace ShopifyAnalyticsApi.Jobs
                     // 新規データを追加
                     product.StoreId = storeId;
                     product.Id = 0;
-                    product.CreatedAt = product.CreatedAt == default ? DateTime.UtcNow : product.CreatedAt;
+                    product.CreatedAt = DateTime.UtcNow;
+                    product.UpdatedAt = DateTime.UtcNow;
+                    product.SyncedAt = DateTime.UtcNow;
                     
                     // バリアントのIDをリセット
                     if (product.Variants != null)

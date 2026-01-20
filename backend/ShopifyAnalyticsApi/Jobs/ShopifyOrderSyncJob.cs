@@ -6,6 +6,8 @@ using ShopifyAnalyticsApi.Services.Sync;
 using Hangfire;
 using System;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -100,15 +102,17 @@ namespace ShopifyAnalyticsApi.Jobs
                     
                     while (hasMorePages)
                     {
-                        // 注文データを取得（実際のShopify API呼び出し）
-                        var (orders, nextPageInfo) = await FetchOrdersFromShopify(
-                            store, dateRange, currentPageInfo);
-                        
-                        if (orders == null || !orders.Any())
+                        try
                         {
-                            hasMorePages = false;
-                            break;
-                        }
+                            // 注文データを取得（実際のShopify API呼び出し）
+                            var (orders, nextPageInfo) = await FetchOrdersFromShopify(
+                                store, dateRange, currentPageInfo);
+                            
+                            if (orders == null || !orders.Any())
+                            {
+                                hasMorePages = false;
+                                break;
+                            }
                         
                         // バッチ処理でデータベースに保存
                         var batch = new List<Order>();
@@ -167,6 +171,55 @@ namespace ShopifyAnalyticsApi.Jobs
                             // Rate Limit対策
                             await Task.Delay(TimeSpan.FromMilliseconds(500));
                         }
+                        }
+                        catch (HttpRequestException httpEx) when (
+                            httpEx.Message.Contains("BadRequest") && 
+                            (httpEx.Message.Contains("page_info") || httpEx.Message.Contains("Invalid value")) &&
+                            !string.IsNullOrEmpty(currentPageInfo))
+                        {
+                            // 無効なpage_infoエラーの場合、チェックポイントをクリアして最初から再開
+                            _logger.LogWarning(
+                                "🟡 [OrderSyncJob] Invalid page_info error detected. Clearing checkpoint and restarting from beginning. PageInfo: {PageInfo}, StoreId: {StoreId}",
+                                currentPageInfo, storeId);
+                            
+                            await _checkpointManager.ClearCheckpointAsync(storeId, "Orders");
+                            
+                            // チェックポイントをクリアしたので、最初から再開
+                            currentPageInfo = null;
+                            totalProcessed = 0;
+                            page = 1;  // ページ番号もリセット
+                            _logger.LogInformation(
+                                "🟡 [OrderSyncJob] Checkpoint cleared. Restarting sync from beginning. StoreId: {StoreId}",
+                                storeId);
+                            
+                            // 最初から再試行（continueでwhileループの最初に戻る）
+                            continue;
+                        }
+                        catch (JsonException jsonEx)
+                        {
+                            // JSONデシリアライゼーションエラー（order_number等の型エラー）
+                            _logger.LogError(jsonEx, 
+                                "🔴 [OrderSyncJob] JSON deserialization error. Clearing checkpoint and restarting from beginning. StoreId: {StoreId}, Error: {ErrorMessage}",
+                                storeId, jsonEx.Message);
+                            
+                            // チェックポイントをクリアして最初から再開を試みる（1回のみ）
+                            if (page == 1 && string.IsNullOrEmpty(currentPageInfo))
+                            {
+                                // 既に最初から再開済みの場合、エラーとして処理
+                                throw;
+                            }
+                            
+                            await _checkpointManager.ClearCheckpointAsync(storeId, "Orders");
+                            currentPageInfo = null;
+                            totalProcessed = 0;
+                            page = 1;
+                            _logger.LogInformation(
+                                "🟡 [OrderSyncJob] Checkpoint cleared due to JSON error. Restarting sync from beginning. StoreId: {StoreId}",
+                                storeId);
+                            
+                            // 最初から再試行（1回のみ）
+                            continue;
+                        }
                     }
                     
                     // 同期完了
@@ -175,15 +228,36 @@ namespace ShopifyAnalyticsApi.Jobs
                     // チェックポイントをクリア
                     await _checkpointManager.ClearCheckpointAsync(storeId, "Orders");
                     
+                    // SyncStatusesテーブルも更新（TriggerSyncで作成されたレコード）
+                    await UpdateSyncStatusesAsync(storeId, "Order", true, syncedCount, null);
+                    
                     _logger.LogInformation(
                         $"Order sync completed for store: {store.Name}. Synced {syncedCount} orders");
                 }
                 catch (Exception ex)
                 {
-                    // エラー時は進捗を更新
-                    await _progressTracker.CompleteSyncAsync(
-                        syncStateId, false, ex.Message);
-                    throw;
+                    // エラー時は進捗を更新（ステータスも自動的に更新される）
+                    _logger.LogError(ex, 
+                        "🔴 [OrderSyncJob] Error syncing orders for store ID: {StoreId}. Error: {ErrorMessage}",
+                        storeId, ex.Message);
+                    
+                    try
+                    {
+                        await _progressTracker.CompleteSyncAsync(
+                            syncStateId, false, ex.Message);
+                        
+                        // SyncStatusesテーブルも更新（TriggerSyncで作成されたレコード）
+                        await UpdateSyncStatusesAsync(storeId, "Order", false, 0, ex.Message);
+                    }
+                    catch (Exception progressEx)
+                    {
+                        // 進捗更新に失敗してもメインエラーは再スロー
+                        _logger.LogError(progressEx, 
+                            "🔴 [OrderSyncJob] Failed to update progress tracker. StoreId: {StoreId}",
+                            storeId);
+                    }
+                    
+                    throw; // HangFireの自動リトライを有効にするため再スロー
                 }
                 
                 // 同期日時を更新
@@ -284,7 +358,10 @@ namespace ShopifyAnalyticsApi.Jobs
                 Status = shopifyOrder.Status ?? "pending",
                 FinancialStatus = shopifyOrder.FinancialStatus ?? "pending",
                 FulfillmentStatus = shopifyOrder.FulfillmentStatus,
-                CreatedAt = shopifyOrder.CreatedAt ?? DateTime.UtcNow,
+                ShopifyCreatedAt = shopifyOrder.CreatedAt,
+                ShopifyUpdatedAt = shopifyOrder.UpdatedAt,
+                SyncedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 OrderItems = new List<OrderItem>()
             };
@@ -357,6 +434,9 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingOrder.FulfillmentStatus = order.FulfillmentStatus;
                     existingOrder.Email = order.Email;
                     existingOrder.CustomerId = order.CustomerId; // CustomerIdも更新
+                    existingOrder.ShopifyCreatedAt ??= order.ShopifyCreatedAt;
+                    existingOrder.ShopifyUpdatedAt = order.ShopifyUpdatedAt;
+                    existingOrder.SyncedAt = DateTime.UtcNow;
                     existingOrder.UpdatedAt = DateTime.UtcNow;
 
                     // 注文明細を更新
@@ -405,7 +485,9 @@ namespace ShopifyAnalyticsApi.Jobs
                     // 新規データを追加
                     order.StoreId = storeId;
                     order.Id = 0;
-                    order.CreatedAt = order.CreatedAt == default ? DateTime.UtcNow : order.CreatedAt;
+                    order.CreatedAt = DateTime.UtcNow;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    order.SyncedAt = DateTime.UtcNow;
                     
                     // 注文明細のOrderIdを設定
                     if (order.OrderItems != null)
@@ -421,6 +503,62 @@ namespace ShopifyAnalyticsApi.Jobs
             }
             
             await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// SyncStatusesテーブルを更新（TriggerSyncで作成されたレコード）
+        /// </summary>
+        private async Task UpdateSyncStatusesAsync(int storeId, string entityType, bool success, int processedRecords, string? errorMessage)
+        {
+            try
+            {
+                // TriggerSyncで作成されたrunning状態のSyncStatusesレコードを検索
+                var syncStatuses = await _context.SyncStatuses
+                    .Where(s => s.StoreId == storeId 
+                             && s.Status == "running"
+                             && (s.EntityType == entityType || s.EntityType == "All")
+                             && s.SyncType == "manual")
+                    .ToListAsync();
+
+                if (syncStatuses.Any())
+                {
+                    foreach (var syncStatus in syncStatuses)
+                    {
+                        syncStatus.Status = success ? "completed" : "failed";
+                        syncStatus.EndDate = DateTime.UtcNow;
+                        syncStatus.UpdatedAt = DateTime.UtcNow;
+                        
+                        if (success)
+                        {
+                            syncStatus.ProcessedRecords = processedRecords;
+                            syncStatus.CurrentTask = "同期完了";
+                        }
+                        else
+                        {
+                            syncStatus.ErrorMessage = errorMessage;
+                            syncStatus.CurrentTask = "同期失敗";
+                        }
+                    }
+                    
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation(
+                        "✅ [OrderSyncJob] Updated {Count} SyncStatuses records for StoreId: {StoreId}, EntityType: {EntityType}, Success: {Success}",
+                        syncStatuses.Count, storeId, entityType, success);
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "ℹ️ [OrderSyncJob] No running SyncStatuses records found for StoreId: {StoreId}, EntityType: {EntityType}",
+                        storeId, entityType);
+                }
+            }
+            catch (Exception ex)
+            {
+                // SyncStatuses更新に失敗してもメイン処理には影響しない
+                _logger.LogWarning(ex,
+                    "⚠️ [OrderSyncJob] Failed to update SyncStatuses for StoreId: {StoreId}, EntityType: {EntityType}",
+                    storeId, entityType);
+            }
         }
 
         /// <summary>

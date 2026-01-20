@@ -159,6 +159,13 @@ namespace ShopifyAnalyticsApi.Models
         public bool IsActive { get; set; } = true;  // アクティブ状態
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Shopify側の作成/更新日時（分析用途）
+        public DateTime? ShopifyCreatedAt { get; set; }
+        public DateTime? ShopifyUpdatedAt { get; set; }
+
+        // 同期完了日時（最新同期時刻）
+        public DateTime? SyncedAt { get; set; }
         
         // 従来の互換性フィールド (非推奨だが既存データ用)
         [MaxLength(50)]
@@ -245,16 +252,23 @@ namespace ShopifyAnalyticsApi.Models
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Shopify側の作成/更新日時（分析用途）
+        public DateTime? ShopifyCreatedAt { get; set; }
+        public DateTime? ShopifyUpdatedAt { get; set; }
+
+        // 同期完了日時（最新同期時刻）
+        public DateTime? SyncedAt { get; set; }
         
         // 計算プロパティ
         [NotMapped]
-        public int Year => CreatedAt.Year;
+        public int Year => (ShopifyCreatedAt ?? CreatedAt).Year;
         
         [NotMapped]
-        public int Month => CreatedAt.Month;
+        public int Month => (ShopifyCreatedAt ?? CreatedAt).Month;
         
         [NotMapped]
-        public string YearMonth => CreatedAt.ToString("yyyy-MM");
+        public string YearMonth => (ShopifyCreatedAt ?? CreatedAt).ToString("yyyy-MM");
         
         // ナビゲーションプロパティ
         public virtual Customer? Customer { get; set; } // nullable: CustomerIdがnullの場合に対応
@@ -300,6 +314,13 @@ namespace ShopifyAnalyticsApi.Models
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Shopify側の作成/更新日時（分析用途）
+        public DateTime? ShopifyCreatedAt { get; set; }
+        public DateTime? ShopifyUpdatedAt { get; set; }
+
+        // 同期完了日時（最新同期時刻）
+        public DateTime? SyncedAt { get; set; }
         
         // ナビゲーションプロパティ
         public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();

@@ -272,18 +272,66 @@ namespace ShopifyAnalyticsApi.Services
                     syncStatus.CurrentTask = "注文データ取得中";
                     await _context.SaveChangesAsync();
                     
-                    await _orderSyncJob.SyncOrders(store.Id, syncOptions);
-                    
-                    var orderCount = await _context.Orders.CountAsync(o => o.StoreId == store.Id);
-                    syncStatus.ProcessedRecords = customerCount + productCount + orderCount;
-                    syncStatus.TotalRecords = customerCount + productCount + orderCount;
-                    syncStatus.CurrentTask = "全データ同期完了";
-                    await _context.SaveChangesAsync();
-                    
-                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 注文データ同期完了: Count={OrderCount}, StoreId={StoreId}", 
-                        orderCount, store.Id);
-                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 全データ同期完了: Total={TotalRecords} (Customers={CustomerCount}, Products={ProductCount}, Orders={OrderCount}), StoreId={StoreId}", 
-                        customerCount + productCount + orderCount, customerCount, productCount, orderCount, store.Id);
+                    try
+                    {
+                        await _orderSyncJob.SyncOrders(store.Id, syncOptions);
+                        var orderCount = await _context.Orders.CountAsync(o => o.StoreId == store.Id);
+                        syncStatus.ProcessedRecords = customerCount + productCount + orderCount;
+                        syncStatus.TotalRecords = customerCount + productCount + orderCount;
+                        syncStatus.CurrentTask = "全データ同期完了";
+                        await _context.SaveChangesAsync();
+                        
+                        _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 注文データ同期完了: Count={OrderCount}, StoreId={StoreId}", 
+                            orderCount, store.Id);
+                        _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 全データ同期完了: Total={TotalRecords} (Customers={CustomerCount}, Products={ProductCount}, Orders={OrderCount}), StoreId={StoreId}", 
+                            customerCount + productCount + orderCount, customerCount, productCount, orderCount, store.Id);
+                    }
+                    catch (Exception orderEx)
+                    {
+                        // Protected Customer Dataエラーの場合、警告を出して続行
+                        var errorMessage = orderEx.Message + (orderEx.InnerException != null ? " " + orderEx.InnerException.Message : "");
+                        var isProtectedCustomerDataError = 
+                            errorMessage.Contains("Protected customer data", StringComparison.OrdinalIgnoreCase) ||
+                            errorMessage.Contains("not approved to access REST endpoints", StringComparison.OrdinalIgnoreCase) ||
+                            errorMessage.Contains("protected-customer-data", StringComparison.OrdinalIgnoreCase) ||
+                            (orderEx is HttpRequestException && (
+                                errorMessage.Contains("Forbidden", StringComparison.OrdinalIgnoreCase) ||
+                                errorMessage.Contains("BadRequest", StringComparison.OrdinalIgnoreCase)));
+                        
+                        // BadRequestエラーの場合、エラーレスポンスの内容を詳細にログ出力
+                        if (orderEx is HttpRequestException && errorMessage.Contains("BadRequest", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ BadRequestエラーが発生しました。エラーレスポンスの内容を確認してください: {ErrorMessage}", errorMessage);
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ 注文データ同期のURLやパラメータに問題がある可能性があります");
+                        }
+                        
+                        if (isProtectedCustomerDataError)
+                        {
+                            _logger.LogWarning(orderEx, "🟡 [ShopifyDataSyncService] ⚠️ 注文データ同期が失敗しました（Protected Customer Data未承認）");
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ エラー詳細: {ErrorMessage}", errorMessage);
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ 商品データの同期は完了しています");
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ Shopify Partners管理画面でProtected Customer Dataへのアクセスを申請してください:");
+                            _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ https://partners.shopify.com → Apps → EC Ranger → App setup → Protected customer data");
+                            var orderCount = await _context.Orders.CountAsync(o => o.StoreId == store.Id);
+                            syncStatus.ProcessedRecords = customerCount + productCount + orderCount;
+                            syncStatus.TotalRecords = customerCount + productCount + orderCount;
+                            syncStatus.CurrentTask = "注文データ同期スキップ（Protected Customer Data未承認）";
+                            var existingErrorMessage = syncStatus.ErrorMessage ?? "";
+                            syncStatus.ErrorMessage = string.IsNullOrEmpty(existingErrorMessage) 
+                                ? $"注文データ同期がスキップされました: Protected Customer Data未承認。詳細: {errorMessage}"
+                                : $"{existingErrorMessage} | 注文データ同期がスキップされました: Protected Customer Data未承認。詳細: {errorMessage}";
+                            await _context.SaveChangesAsync();
+                            
+                            _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 部分的な同期完了: Total={TotalRecords} (Customers={CustomerCount}, Products={ProductCount}, Orders={OrderCount}), StoreId={StoreId}", 
+                                customerCount + productCount + orderCount, customerCount, productCount, orderCount, store.Id);
+                        }
+                        else
+                        {
+                            // その他のエラーは再スロー
+                            _logger.LogError(orderEx, "🟡 [ShopifyDataSyncService] ❌ 注文データ同期で予期しないエラーが発生しました");
+                            throw;
+                        }
+                    }
                 }
             }
             catch (Exception ex)

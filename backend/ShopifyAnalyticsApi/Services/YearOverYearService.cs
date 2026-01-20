@@ -130,16 +130,16 @@ namespace ShopifyAnalyticsApi.Services
             var query = from orderItem in _context.OrderItems
                         join order in _context.Orders on orderItem.OrderId equals order.Id
                         where order.StoreId == request.StoreId
-                           && (order.CreatedAt.Year == currentYear || order.CreatedAt.Year == previousYear)
-                           && order.CreatedAt.Month >= request.StartMonth
-                           && order.CreatedAt.Month <= request.EndMonth
+                           && ((order.ShopifyCreatedAt ?? order.CreatedAt).Year == currentYear || (order.ShopifyCreatedAt ?? order.CreatedAt).Year == previousYear)
+                           && (order.ShopifyCreatedAt ?? order.CreatedAt).Month >= request.StartMonth
+                           && (order.ShopifyCreatedAt ?? order.CreatedAt).Month <= request.EndMonth
                         select new OrderItemAnalysisData
                         {
                             ProductTitle = orderItem.ProductTitle,
                             ProductType = orderItem.ProductType ?? "未分類",
                             ProductVendor = orderItem.ProductVendor ?? "不明",
-                            Year = order.CreatedAt.Year,
-                            Month = order.CreatedAt.Month,
+                            Year = (order.ShopifyCreatedAt ?? order.CreatedAt).Year,
+                            Month = (order.ShopifyCreatedAt ?? order.CreatedAt).Month,
                             TotalPrice = orderItem.TotalPrice,
                             Quantity = orderItem.Quantity,
                             OrderCount = 1
@@ -461,8 +461,8 @@ namespace ShopifyAnalyticsApi.Services
                 .GroupBy(o => 1)
                 .Select(g => new
                 {
-                    EarliestYear = g.Min(o => o.CreatedAt.Year),
-                    LatestYear = g.Max(o => o.CreatedAt.Year)
+                    EarliestYear = g.Min(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year),
+                    LatestYear = g.Max(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year)
                 })
                 .FirstOrDefaultAsync();
 

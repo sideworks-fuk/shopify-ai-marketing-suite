@@ -76,7 +76,8 @@ namespace ShopifyAnalyticsApi.Data
                 .HasIndex(p => new { p.StoreId, p.Title });
             
             modelBuilder.Entity<Order>()
-                .HasIndex(o => new { o.StoreId, o.OrderNumber });
+                .HasIndex(o => new { o.StoreId, o.OrderNumber })
+                .IsUnique(); // マルチテナント対応: StoreId + OrderNumber でユニーク
             
             // 同期管理テーブルのインデックス設定
             modelBuilder.Entity<SyncRangeSetting>()
@@ -217,9 +218,8 @@ namespace ShopifyAnalyticsApi.Data
                 .HasForeignKey(o => o.StoreId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            modelBuilder.Entity<Order>()
-                .HasIndex(o => o.OrderNumber)
-                .IsUnique();
+            // OrderNumber単独のユニーク制約は削除（マルチテナント対応のため）
+            // StoreId + OrderNumber の複合ユニーク制約を使用
 
             modelBuilder.Entity<Product>()
                 .HasIndex(p => p.Title);
