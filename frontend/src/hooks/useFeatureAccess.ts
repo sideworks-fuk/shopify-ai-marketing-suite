@@ -221,9 +221,11 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
       
       // プラン情報の取得中は、デフォルトでロック解除（誤ったロックを防ぐ）
       // プラン情報が取得された後に、正しい判定を実行
+      // 注意: subscriptionLoadingがtrueの間でも、isLoadingをfalseにして画面を表示可能にする
+      // （認証エラーなどでプラン情報の取得が失敗した場合でも、機能を使えるようにする）
       if (subscriptionLoading) {
         setHasAccess(true); // デフォルトでロック解除
-        setIsLoading(true); // ローディング中
+        setIsLoading(false); // ローディングを解除して画面を表示
         return;
       }
       
