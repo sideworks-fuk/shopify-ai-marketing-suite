@@ -201,7 +201,7 @@ interface UseFeatureAccessReturn {
 
 // Hook for checking access to selectable features (free plan)
 export function useFeatureAccess(featureId?: SelectableFeatureId) {
-  const { currentPlan } = useSubscriptionContext();
+  const { currentPlan, loading: subscriptionLoading } = useSubscriptionContext();
   const [isLoading, setIsLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   
@@ -211,10 +211,19 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
   useEffect(() => {
     const checkAccess = async () => {
       setIsLoading(true);
+      
       // 環境フラグで機能ゲートを一時無効化
       if (gateDisabled) {
         setHasAccess(true);
         setIsLoading(false);
+        return;
+      }
+      
+      // プラン情報の取得中は、デフォルトでロック解除（誤ったロックを防ぐ）
+      // プラン情報が取得された後に、正しい判定を実行
+      if (subscriptionLoading) {
+        setHasAccess(true); // デフォルトでロック解除
+        setIsLoading(true); // ローディング中
         return;
       }
       
@@ -237,7 +246,7 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
     };
 
     checkAccess();
-  }, [currentPlanId, featureId, gateDisabled]);
+  }, [currentPlanId, featureId, gateDisabled, subscriptionLoading]);
 
   return {
     hasAccess,
