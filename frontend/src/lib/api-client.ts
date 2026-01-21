@@ -112,10 +112,19 @@ export class ApiClient {
       }
     }
     
-    if (oauthAuthenticated && !this.options.getShopifyToken) {
-      // OAuth認証成功後、埋め込みアプリでない場合: Cookieベース認証を使用
-      console.log('🔐 OAuth認証済み: Cookieベース認証を使用（Authorizationヘッダーは不要）');
-      return headers; // X-Store-Id は既に設定済み
+    // 🔧 デモトークンまたは開発者トークンがある場合は優先的に設定
+    // （oauthAuthenticatedチェックより先に処理することで、デモモードとOAuthモードの競合を防ぐ）
+    if (this.options.getDemoToken) {
+      const token = this.options.getDemoToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        // X-Store-Id は既に設定済み（上記で設定）
+        console.log('🔧 [ApiClient.getAuthHeaders] 開発者/デモモード: Authorization ヘッダーを設定', { 
+          hasXStoreId: !!headers['X-Store-Id'],
+          storeId: headers['X-Store-Id'] || '未設定'
+        });
+        return headers;
+      }
     }
 
     // Shopify埋め込みアプリの場合、セッショントークンを取得
@@ -129,18 +138,11 @@ export class ApiClient {
       }
     }
 
-    // デモモードまたは開発者モードの場合、デモトークン/開発者トークンを使用
-    if (this.options.getDemoToken) {
-      const token = this.options.getDemoToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        // X-Store-Id は既に設定済み（上記で設定）
-        console.log('🔧 [ApiClient.getAuthHeaders] 開発者/デモモード: Authorization ヘッダーを設定', { 
-          hasXStoreId: !!headers['X-Store-Id'],
-          storeId: headers['X-Store-Id'] || '未設定'
-        });
-        return headers;
-      }
+    // OAuth認証成功後（埋め込みアプリでない場合）は、Cookieベース認証を使用
+    if (oauthAuthenticated && !this.options.getShopifyToken) {
+      // OAuth認証成功後、埋め込みアプリでない場合: Cookieベース認証を使用
+      console.log('🔐 OAuth認証済み: Cookieベース認証を使用（Authorizationヘッダーは不要）');
+      return headers; // X-Store-Id は既に設定済み
     }
 
     return headers; // X-Store-Id は既に設定済み（該当する場合）

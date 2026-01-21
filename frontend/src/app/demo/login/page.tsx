@@ -62,6 +62,8 @@ export default function DemoLoginPage() {
           localStorage.setItem('authMode', 'demo')
           localStorage.setItem('readOnly', 'true')
           localStorage.setItem('currentStoreId', storeId.toString())
+          // 🔧 oauth_authenticatedフラグをクリア（デモモードとOAuthモードの競合を防ぐ）
+          localStorage.removeItem('oauth_authenticated')
         }
         
         console.log('✅ デモモード: ログイン成功', {

@@ -221,6 +221,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         setAuthMode('developer')
         console.log('✅ [AuthProvider] 開発者モードAPIクライアントを復元完了')
         console.log('🔧 [AuthProvider] authMode を "developer" に復元しました')
+      } else if (demoToken) {
+        // 🔧 デモモード: デモトークンがある場合は優先的にデモモードで初期化
+        // （oauthAuthenticatedチェックより先に処理することで、デモモードとOAuthモードの競合を防ぐ）
+        console.log('🔗 [AuthProvider] デモモードでAPIクライアントを初期化');
+        client = new ApiClient(undefined, {
+          getDemoToken: () => demoToken,
+          getCurrentStoreId: getCurrentStoreIdFn
+        });
+        setAuthMode('demo')
+        console.log('✅ [AuthProvider] デモモードAPIクライアントを初期化完了')
       } else if (oauthAuthenticated === 'true') {
         // OAuth認証成功後: Cookieベースの認証を使用（Authorizationヘッダーは不要）
         console.log('🔗 [AuthProvider] OAuth認証済み: Cookieベース認証を使用');
@@ -229,15 +239,6 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         }); // getShopifyTokenなし = Cookieベース認証
         setAuthMode('shopify')
         console.log('✅ [AuthProvider] OAuth認証済みAPIクライアントを初期化完了')
-      } else if (demoToken) {
-        // デモモード
-        console.log('🔗 [AuthProvider] デモモードでAPIクライアントを初期化');
-        client = new ApiClient(undefined, {
-          getDemoToken: () => demoToken,
-          getCurrentStoreId: getCurrentStoreIdFn
-        });
-        setAuthMode('demo')
-        console.log('✅ [AuthProvider] デモモードAPIクライアントを初期化完了')
       } else {
         // 認証なし
         console.warn('⚠️ [AuthProvider] 認証情報が見つかりません');
