@@ -38,9 +38,9 @@ namespace ShopifyAnalyticsApi.Services
         }
 
         /// <summary>
-        /// デモ認証を実行
+        /// デモ認証を実行（ストアドメイン必須、DataType制限対応）
         /// </summary>
-        public async Task<DemoAuthResult> AuthenticateAsync(string password, string? ipAddress, string? userAgent)
+        public async Task<DemoAuthResult> AuthenticateAsync(string password, string shopDomain, string? ipAddress, string? userAgent)
         {
             ipAddress = ipAddress ?? "unknown";
 
@@ -177,25 +177,59 @@ namespace ShopifyAnalyticsApi.Services
                 // キャッシュ失敗は致命的ではない
             }
 
-            // データベースから最初のアクティブなストアを取得
-            var firstActiveStore = await _dbContext.Stores
-                .Where(s => s.IsActive)
-                .OrderBy(s => s.Id)
-                .Select(s => new { s.Id, s.Domain, s.TenantId })
-                .FirstOrDefaultAsync();
-
-            if (firstActiveStore == null)
+            // 🔒 セキュリティ: ストアドメインは必須
+            if (string.IsNullOrWhiteSpace(shopDomain))
             {
-                _logger.LogError("No active store found for demo mode. Demo authentication cannot proceed.");
+                _logger.LogWarning("Shop domain is required for demo authentication");
                 return new DemoAuthResult
                 {
                     Success = false,
-                    Error = "No active store available for demo mode"
+                    Error = "ストアドメインは必須です"
                 };
             }
 
-            // トークン生成（実際のストアIDを使用）
-            var token = GenerateDemoToken(session, firstActiveStore.Id, firstActiveStore.Domain, firstActiveStore.TenantId);
+            // ドメインの正規化（https://, http://, 末尾の/を削除）
+            var normalizedDomain = shopDomain.Trim()
+                .Replace("https://", "")
+                .Replace("http://", "")
+                .Split('/')[0]
+                .ToLower();
+
+            // 🔒 セキュリティ: DataTypeによる制限を確認
+            // appsettings.jsonで許可するDataTypeを設定可能にする
+            var allowedDataTypes = _config.GetSection("Demo:AllowedDataTypes")
+                .Get<string[]>() ?? new[] { "demo" }; // デフォルトは"demo"のみ許可
+
+            // ストアを取得（IsActive = true、DataType制限、ドメイン/名前一致）
+            var targetStore = await _dbContext.Stores
+                .Where(s => s.IsActive && 
+                           allowedDataTypes.Contains(s.DataType) && // 🔒 DataType制限
+                           (s.Domain != null && s.Domain.ToLower() == normalizedDomain ||
+                            s.Name.ToLower() == normalizedDomain))
+                .FirstOrDefaultAsync();
+
+            if (targetStore == null)
+            {
+                _logger.LogWarning(
+                    "Store not found or not allowed for demo mode. Domain: {ShopDomain}, AllowedDataTypes: {AllowedDataTypes}", 
+                    shopDomain, string.Join(", ", allowedDataTypes));
+                
+                // 認証ログに記録（失敗）
+                await LogAuthenticationAttemptAsync(ipAddress, "demo", false, $"Store not found or not allowed: {shopDomain}", userAgent);
+                
+                return new DemoAuthResult
+                {
+                    Success = false,
+                    Error = $"ストアが見つかりません、またはデモモードでアクセスできません: {shopDomain}"
+                };
+            }
+
+            _logger.LogInformation(
+                "Store found for demo authentication. Domain: {ShopDomain}, StoreId: {StoreId}, DataType: {DataType}", 
+                shopDomain, targetStore.Id, targetStore.DataType);
+
+            // トークン生成（選択されたストアを使用）
+            var token = GenerateDemoToken(session, targetStore.Id, targetStore.Domain, targetStore.TenantId);
 
             // 成功ログ記録
             await LogAuthenticationAttemptAsync(ipAddress, "demo", true, null, userAgent);
@@ -204,10 +238,11 @@ namespace ShopifyAnalyticsApi.Services
             await _rateLimiter.ResetAsync(rateLimitKey);
 
             _logger.LogInformation(
-                "Demo authentication successful. SessionId: {SessionId}, IP: {IpAddress}, StoreId: {StoreId}",
+                "Demo authentication successful. SessionId: {SessionId}, IP: {IpAddress}, StoreId: {StoreId}, DataType: {DataType}",
                 sessionId,
                 ipAddress,
-                firstActiveStore.Id);
+                targetStore.Id,
+                targetStore.DataType);
 
             return new DemoAuthResult
             {

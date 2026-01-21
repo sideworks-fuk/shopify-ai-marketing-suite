@@ -915,7 +915,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                           {getSortIcon("totalOrders")}
                         </Button>
                       </TableHead>
-                      <TableHead className="w-[120px] text-right">アクション</TableHead>
+                      {/* アクション列は未実装のため非表示 */}
+                      {/* <TableHead className="w-[120px] text-right">アクション</TableHead> */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1028,7 +1029,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
+                          {/* アクション列は未実装のため非表示 */}
+                          {/* <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               <Button 
                                 variant="ghost" 
@@ -1049,7 +1051,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                                 <Gift className="h-4 w-4" />
                               </Button>
                             </div>
-                          </TableCell>
+                          </TableCell> */}
                         </TableRow>
                       )
                     })}

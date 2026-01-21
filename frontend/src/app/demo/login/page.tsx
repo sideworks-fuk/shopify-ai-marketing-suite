@@ -12,6 +12,7 @@ import { jwtDecode } from 'jwt-decode'
 
 export default function DemoLoginPage() {
   const [password, setPassword] = useState('')
+  const [shopDomain, setShopDomain] = useState('') // 🔒 ストアドメイン入力（必須）
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -30,7 +31,10 @@ export default function DemoLoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ 
+          password,
+          shopDomain: shopDomain.trim() // 🔒 ストアドメインは必須
+        }),
       })
 
       if (response.ok) {
@@ -93,12 +97,36 @@ export default function DemoLoginPage() {
           </div>
           <CardTitle className="text-2xl">デモサイト</CardTitle>
           <CardDescription>
-            パスワードを入力してアクセスしてください
+            ストアドメインとパスワードを入力してアクセスしてください
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* 🔒 ストアドメイン入力フィールド（必須） */}
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">
+                ストアドメイン <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="例: example.myshopify.com または xn-fbkq6e5da0fpb"
+                value={shopDomain}
+                onChange={(e) => setShopDomain(e.target.value)}
+                disabled={isLoading}
+                className="w-full"
+                required // 🔒 必須入力
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                デモモードでアクセスするストアのドメインを入力してください
+              </p>
+            </div>
+
+            {/* パスワード入力フィールド */}
             <div className="relative">
+              <label className="block text-sm font-medium mb-1 text-gray-700">
+                パスワード <span className="text-red-500">*</span>
+              </label>
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="パスワード"
@@ -106,12 +134,12 @@ export default function DemoLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
                 className="pr-10"
-                autoFocus
+                required // 🔒 必須入力
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-8 -translate-y-1/2 text-gray-500 hover:text-gray-700"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -123,7 +151,7 @@ export default function DemoLoginPage() {
               </Alert>
             )}
             
-            <Button type="submit" className="w-full" disabled={isLoading || !password}>
+            <Button type="submit" className="w-full" disabled={isLoading || !password || !shopDomain.trim()}>
               {isLoading ? 'ログイン中...' : 'ログイン'}
             </Button>
           </form>

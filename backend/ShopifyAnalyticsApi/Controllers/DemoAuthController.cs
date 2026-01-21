@@ -58,13 +58,24 @@ namespace ShopifyAnalyticsApi.Controllers
                 });
             }
 
+            // 🔒 セキュリティ: ストアドメイン必須チェック
+            if (string.IsNullOrWhiteSpace(request.ShopDomain))
+            {
+                return BadRequest(new
+                {
+                    error = "Bad Request",
+                    message = "ストアドメインは必須です"
+                });
+            }
+
             // IPアドレスとUser-Agentを取得
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             var userAgent = Request.Headers["User-Agent"].FirstOrDefault();
 
-            // 認証実行
+            // 🔒 ストアドメイン必須版の認証を呼び出し
             var result = await _demoAuthService.AuthenticateAsync(
                 request.Password,
+                request.ShopDomain,
                 ipAddress,
                 userAgent);
 
@@ -181,6 +192,10 @@ namespace ShopifyAnalyticsApi.Controllers
     public class DemoLoginRequest
     {
         public string Password { get; set; } = string.Empty;
+        /// <summary>
+        /// ストアドメイン（必須）
+        /// </summary>
+        public string ShopDomain { get; set; } = string.Empty;
     }
 }
 

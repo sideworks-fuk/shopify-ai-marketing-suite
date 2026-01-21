@@ -169,8 +169,8 @@ const CustomerRow = React.memo(({ customer }: { customer: ApiDormantCustomer }) 
         )}
       </div>
       
-      {/* アクション */}
-      <div className="flex-1 px-4 text-right">
+      {/* アクション列は未実装のため非表示 */}
+      {/* <div className="flex-1 px-4 text-right">
         <div className="flex justify-end gap-1">
           <Button 
             variant="ghost" 
@@ -191,7 +191,7 @@ const CustomerRow = React.memo(({ customer }: { customer: ApiDormantCustomer }) 
             <Gift className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </div> */}
     </div>
   )
 })
@@ -420,7 +420,8 @@ export function DormantCustomerTableVirtual({
           {getSortIcon("churnProbability")}
         </Button>
       </div>
-      <div className="flex-1 px-4 text-right font-semibold">アクション</div>
+      {/* アクション列は未実装のため非表示 */}
+      {/* <div className="flex-1 px-4 text-right font-semibold">アクション</div> */}
     </div>
   ), [sortField, sortDirection])
   
