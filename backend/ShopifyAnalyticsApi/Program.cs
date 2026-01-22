@@ -656,11 +656,28 @@ try
     if (environment == "Production")
     {
         // 認証モードチェック
+        // ただし、AllowDemoInProductionがtrueの場合はDemoAllowedを許可
+        var allowDemoInProduction = app.Configuration.GetValue<bool>("Authentication:AllowDemoInProduction", false);
         if (authMode != "OAuthRequired")
         {
-            throw new InvalidOperationException(
-                $"SECURITY: Production environment must use OAuthRequired mode, but '{authMode}' is configured. " +
-                "This is a critical security requirement.");
+            if (authMode == "DemoAllowed" && allowDemoInProduction)
+            {
+                logger.LogWarning(
+                    "⚠️ SECURITY: Demo mode is enabled in Production environment. " +
+                    "This should only be used for testing/demo purposes. " +
+                    "Environment: {Environment}, Mode: {Mode}, AllowDemoInProduction: {AllowDemo}",
+                    environment,
+                    authMode,
+                    allowDemoInProduction);
+                // デモモードを許可して続行
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"SECURITY: Production environment must use OAuthRequired mode, but '{authMode}' is configured. " +
+                    "To enable demo mode in production, set Authentication:AllowDemoInProduction=true. " +
+                    "This is a critical security requirement.");
+            }
         }
 
         // 必須設定チェック

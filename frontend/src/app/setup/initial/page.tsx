@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -143,86 +143,32 @@ export default function InitialSetupPage() {
   }, [])
 
   // バックエンドAPIから実際の統計情報を取得
-  useEffect(() => {
-    // APIクライアントが準備完了するまで待機
+  const fetchSyncStats = useCallback(async () => {
     if (!isApiClientReady) {
       return
     }
 
-    const fetchSyncStats = async () => {
-      try {
-        setIsLoadingHistory(true)
-        const apiClient = getApiClient()
-        
-        // データベース統計を取得（ApiClientを使用してShopify App Bridgeセッショントークンを自動送信）
-        const statsData = await apiClient.request<{ success: boolean; data?: { customers: number; orders: number; products: number; lastUpdated?: string } }>('/api/database/stats', {
-          method: 'GET',
+    try {
+      setIsLoadingHistory(true)
+      const apiClient = getApiClient()
+      
+      // データベース統計を取得（ApiClientを使用してShopify App Bridgeセッショントークンを自動送信）
+      const statsData = await apiClient.request<{ success: boolean; data?: { customers: number; orders: number; products: number; lastUpdated?: string } }>('/api/database/stats', {
+        method: 'GET',
+      })
+
+      if (statsData.success && statsData.data) {
+        // バックエンドから取得した実際のデータを設定
+        setSyncStats({
+          totalCustomers: statsData.data.customers || 0,
+          totalOrders: statsData.data.orders || 0,
+          totalProducts: statsData.data.products || 0,
+          lastSyncTime: statsData.data.lastUpdated || undefined,
+          nextScheduledSync: undefined // スケジュール情報は別途取得が必要
         })
-
-        if (statsData.success && statsData.data) {
-          // バックエンドから取得した実際のデータを設定
-          setSyncStats({
-            totalCustomers: statsData.data.customers || 0,
-            totalOrders: statsData.data.orders || 0,
-            totalProducts: statsData.data.products || 0,
-            lastSyncTime: statsData.data.lastUpdated || undefined,
-            nextScheduledSync: undefined // スケジュール情報は別途取得が必要
-          })
-          console.log('✅ 同期統計を取得:', statsData.data)
-        } else {
-          // データが取得できない場合は0件を表示
-          setSyncStats({
-            totalCustomers: 0,
-            totalOrders: 0,
-            totalProducts: 0,
-            lastSyncTime: undefined,
-            nextScheduledSync: undefined
-          })
-          console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
-        }
-
-        // 同期履歴を取得
-        try {
-          const historyData = await apiClient.request<Array<{
-            id: string
-            type: string
-            status: string
-            startedAt: string
-            completedAt?: string
-            duration: number
-            recordsProcessed: number
-            message?: string
-          }>>('/api/sync/history?limit=10', {
-            method: 'GET',
-          })
-          
-          if (Array.isArray(historyData) && historyData.length > 0) {
-            // バックエンドのレスポンスをフロントエンドのSyncHistory形式にマッピング
-            const mappedHistory: SyncHistory[] = historyData.map(h => ({
-              id: h.id,
-              startTime: h.startedAt,
-              endTime: h.completedAt,
-              status: h.status === 'success' ? 'completed' : 
-                      h.status === 'error' ? 'failed' : 
-                      h.status === 'syncing' ? 'running' : 'completed',
-              recordsProcessed: h.recordsProcessed,
-              syncType: h.type === 'all' ? 'initial' : 'manual',
-              duration: h.duration,
-              durationMinutes: h.durationMinutes
-            }))
-            setSyncHistory(mappedHistory)
-            console.log('✅ 同期履歴を取得:', mappedHistory.length, '件')
-          } else {
-            setSyncHistory([])
-            console.log('ℹ️ 同期履歴がありません')
-          }
-        } catch (historyErr) {
-          console.warn('⚠️ 同期履歴の取得に失敗（統計データは正常に取得）:', historyErr)
-          setSyncHistory([])
-        }
-      } catch (err) {
-        console.error('❌ 同期統計の取得中にエラーが発生:', err)
-        // エラー時も0件を表示
+        console.log('✅ 同期統計を取得:', statsData.data)
+      } else {
+        // データが取得できない場合は0件を表示
         setSyncStats({
           totalCustomers: 0,
           totalOrders: 0,
@@ -230,14 +176,94 @@ export default function InitialSetupPage() {
           lastSyncTime: undefined,
           nextScheduledSync: undefined
         })
-        setSyncHistory([])
-      } finally {
-        setIsLoadingHistory(false)
+        console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
       }
+
+      // 同期履歴を取得
+      try {
+        const historyData = await apiClient.request<Array<{
+          id: string
+          type: string
+          status: string
+          startedAt: string
+          completedAt?: string
+          duration: number
+          recordsProcessed: number
+          message?: string
+        }>>('/api/sync/history?limit=10', {
+          method: 'GET',
+        })
+        
+        if (Array.isArray(historyData) && historyData.length > 0) {
+          // バックエンドのレスポンスをフロントエンドのSyncHistory形式にマッピング
+          const mappedHistory: SyncHistory[] = historyData.map(h => ({
+            id: h.id,
+            startTime: h.startedAt,
+            endTime: h.completedAt,
+            status: h.status === 'success' ? 'completed' : 
+                    h.status === 'error' ? 'failed' : 
+                    h.status === 'syncing' ? 'running' : 'completed',
+            recordsProcessed: h.recordsProcessed,
+            syncType: h.type === 'all' ? 'initial' : 'manual',
+            duration: h.duration,
+            durationMinutes: h.durationMinutes
+          }))
+          setSyncHistory(mappedHistory)
+          console.log('✅ 同期履歴を取得:', mappedHistory.length, '件')
+        } else {
+          setSyncHistory([])
+          console.log('ℹ️ 同期履歴がありません')
+        }
+      } catch (historyErr) {
+        console.warn('⚠️ 同期履歴の取得に失敗（統計データは正常に取得）:', historyErr)
+        setSyncHistory([])
+      }
+    } catch (err) {
+      console.error('❌ 同期統計の取得中にエラーが発生:', err)
+      // エラー時も0件を表示
+      setSyncStats({
+        totalCustomers: 0,
+        totalOrders: 0,
+        totalProducts: 0,
+        lastSyncTime: undefined,
+        nextScheduledSync: undefined
+      })
+      setSyncHistory([])
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }, [isApiClientReady, getApiClient])
+
+  // 初回ロード時に同期統計を取得
+  useEffect(() => {
+    if (!isApiClientReady) {
+      return
+    }
+    void fetchSyncStats()
+  }, [isApiClientReady, fetchSyncStats])
+
+  // 同期履歴タブがアクティブで、進行中のジョブがある場合、ポーリングで更新
+  useEffect(() => {
+    if (activeTab !== 'history' || !isApiClientReady) {
+      return
     }
 
-    void fetchSyncStats()
-  }, [isApiClientReady, getApiClient])
+    // 進行中のジョブがあるか確認
+    const hasRunningJob = syncHistory.some(h => h.status === 'running')
+    if (!hasRunningJob) {
+      return
+    }
+
+    // 10秒ごとに同期履歴を更新
+    const interval = setInterval(() => {
+      console.log('🔄 同期履歴をポーリング更新中...')
+      void fetchSyncStats()
+    }, 10000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [activeTab, syncHistory, isApiClientReady, fetchSyncStats])
 
   const handleStartSync = async () => {
     // ========== デバッグログ開始 ==========
@@ -360,33 +386,15 @@ export default function InitialSetupPage() {
         return
       }
       
-      const redirectUrl = `/setup/syncing?syncId=${syncId}`
-      console.log('🔀 リダイレクト先:', redirectUrl)
-
-      // ★ App Bridge でURLパラメータが失われる問題の対策
-      // sessionStorage に syncId を保存
-      try {
-        sessionStorage.setItem('ec-ranger-syncId', String(syncId))
-        console.log('💾 sessionStorage に syncId を保存:', syncId)
-        console.log('💾 保存確認:', sessionStorage.getItem('ec-ranger-syncId'))
-        
-        // 🆕 currentStoreId も sessionStorage に保存（ページ遷移時に失われないように）
-        const currentStoreId = localStorage.getItem('currentStoreId')
-        if (currentStoreId) {
-          sessionStorage.setItem('currentStoreId', currentStoreId)
-          console.log('💾 sessionStorage に currentStoreId を保存:', currentStoreId)
-          console.log('💾 保存確認:', sessionStorage.getItem('currentStoreId'))
-        } else {
-          console.warn('⚠️ localStorage に currentStoreId が見つかりません')
-        }
-      } catch (e) {
-        console.warn('⚠️ sessionStorage への保存に失敗:', e)
-        console.warn('⚠️ エラー詳細:', e instanceof Error ? e.message : String(e))
-      }
-
-      console.log('🔀 router.push() を実行します:', redirectUrl)
-      router.push(redirectUrl)
-      console.log('✅ router.push() 実行完了')
+      console.log('✅ 同期開始成功: syncId =', syncId)
+      
+      // 同期履歴タブに自動切り替え
+      setActiveTab('history')
+      
+      // 同期履歴を即座に更新（新しい同期ジョブを表示するため）
+      await fetchSyncStats()
+      
+      setIsLoading(false)
       
     } catch (err) {
       console.error('❌ エラー発生（catchブロック）')
@@ -751,46 +759,73 @@ export default function InitialSetupPage() {
                   <Activity className="h-5 w-5 text-purple-600" />
                   同期履歴
                 </h2>
-                <div className="space-y-3">
-                  {syncHistory.map((history) => (
-                    <Card key={history.id} className="border-l-4 border-l-blue-500">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {history.status === 'completed' ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : history.status === 'running' ? (
-                              <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-red-500" />
-                            )}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">
-                                  {history.syncType === 'initial' ? '初期同期' :
-                                   history.syncType === 'manual' ? '手動同期' : 'スケジュール同期'}
-                                </span>
-                                <Badge variant={history.status === 'completed' ? 'default' : 
-                                              history.status === 'running' ? 'secondary' : 'destructive'}>
-                                  {history.status === 'completed' ? '完了' :
-                                   history.status === 'running' ? '実行中' : '失敗'}
-                                </Badge>
+                {syncHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>同期履歴がありません</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {syncHistory.map((history) => {
+                      const isRunning = history.status === 'running'
+                      return (
+                        <Card 
+                          key={history.id} 
+                          className={`border-l-4 ${
+                            isRunning 
+                              ? 'border-l-blue-500 bg-blue-50 shadow-md' 
+                              : history.status === 'completed'
+                              ? 'border-l-green-500'
+                              : 'border-l-red-500'
+                          } ${isRunning ? 'animate-pulse' : ''}`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {history.status === 'completed' ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                ) : history.status === 'running' ? (
+                                  <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                                ) : (
+                                  <AlertCircle className="h-5 w-5 text-red-500" />
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">
+                                      {history.syncType === 'initial' ? '初期同期' :
+                                       history.syncType === 'manual' ? '手動同期' : 'スケジュール同期'}
+                                    </span>
+                                    <Badge variant={history.status === 'completed' ? 'default' : 
+                                                  history.status === 'running' ? 'secondary' : 'destructive'}>
+                                      {history.status === 'completed' ? '完了' :
+                                       history.status === 'running' ? '実行中' : '失敗'}
+                                    </Badge>
+                                    {isRunning && (
+                                      <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                                        更新中...
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600">
+                                    {new Date(history.startTime).toLocaleString('ja-JP')}
+                                    {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
+                                    {isRunning && !history.endTime && (
+                                      <span className="ml-2 text-blue-600 font-medium">進行中...</span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-sm text-gray-600">
-                                {new Date(history.startTime).toLocaleString('ja-JP')}
-                                {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
-                              </p>
+                              <div className="text-right">
+                                <p className="font-bold text-lg">{history.recordsProcessed.toLocaleString()}</p>
+                                <p className="text-sm text-gray-600">レコード</p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-lg">{history.recordsProcessed.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">レコード</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </TabsContent>
 

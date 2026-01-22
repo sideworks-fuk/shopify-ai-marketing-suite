@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Shield, Presentation, Code } from 'lucide-react'
+import { getAuthModeConfig } from '@/lib/config/environments'
 
 /**
  * 認証方法選択ページ
@@ -12,6 +13,13 @@ import { Shield, Presentation, Code } from 'lucide-react'
  */
 export default function AuthSelectPage() {
   const router = useRouter()
+  
+  // 認証モード設定を取得
+  const authConfig = getAuthModeConfig()
+  const allowsDemo = authConfig.authMode === 'all_allowed' || authConfig.authMode === 'demo_allowed'
+  const isDevelopment = authConfig.environment === 'development' || 
+                        process.env.NODE_ENV === 'development' || 
+                        process.env.NEXT_PUBLIC_DEVELOPER_MODE === 'true'
 
   const handleOAuth = () => {
     console.log('🔵 [認証選択] OAuth認証ボタンがクリックされました')
@@ -34,10 +42,6 @@ export default function AuthSelectPage() {
     router.replace('/dev/login')
   }
 
-  // 開発環境かどうかを判定
-  const isDevelopment = process.env.NODE_ENV === 'development' || 
-                        process.env.NEXT_PUBLIC_DEVELOPER_MODE === 'true'
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 p-6" suppressHydrationWarning>
       <Card className="max-w-2xl w-full">
@@ -53,7 +57,7 @@ export default function AuthSelectPage() {
               認証方法を選択してください
             </p>
 
-            <div className={`grid gap-4 ${isDevelopment ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <div className={`grid gap-4 ${isDevelopment ? 'md:grid-cols-3' : allowsDemo ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
               {/* OAuth認証 */}
               <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOAuth}>
                 <CardHeader>
@@ -83,7 +87,8 @@ export default function AuthSelectPage() {
                 </CardContent>
               </Card>
 
-              {/* デモモード */}
+              {/* デモモード（許可されている場合のみ表示） */}
+              {allowsDemo && (
               <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleDemo}>
                 <CardHeader>
                   <div className="flex justify-center mb-4">
@@ -116,6 +121,7 @@ export default function AuthSelectPage() {
                   </Button>
                 </CardContent>
               </Card>
+              )}
 
               {/* 開発者モード（開発環境のみ） */}
               {isDevelopment && (

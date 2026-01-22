@@ -78,23 +78,42 @@ namespace ShopifyAnalyticsApi.Middleware
             // 認証モード取得
             var authMode = _config["Authentication:Mode"] ?? "OAuthRequired";
             var environment = _env.EnvironmentName;
+            
+            // 本番環境でデモモードを許可するかどうか（環境変数で明示的に許可する必要がある）
+            var allowDemoInProduction = _config.GetValue<bool>("Authentication:AllowDemoInProduction", false);
 
             // 本番環境での安全弁（セキュリティチェック）
+            // ただし、AllowDemoInProductionがtrueの場合はDemoAllowedを許可
             if (environment == "Production" && authMode != "OAuthRequired")
             {
-                _logger.LogCritical(
-                    "SECURITY: Invalid authentication mode for production environment. " +
-                    "Environment: {Environment}, Mode: {Mode}",
-                    environment,
-                    authMode);
-
-                context.Response.StatusCode = 500;
-                await context.Response.WriteAsJsonAsync(new
+                if (authMode == "DemoAllowed" && allowDemoInProduction)
                 {
-                    error = "Configuration Error",
-                    message = "Production environment must use OAuthRequired mode"
-                });
-                return;
+                    _logger.LogWarning(
+                        "⚠️ SECURITY: Demo mode is enabled in Production environment. " +
+                        "This should only be used for testing/demo purposes. " +
+                        "Environment: {Environment}, Mode: {Mode}, AllowDemoInProduction: {AllowDemo}",
+                        environment,
+                        authMode,
+                        allowDemoInProduction);
+                    // デモモードを許可して続行
+                }
+                else
+                {
+                    _logger.LogCritical(
+                        "SECURITY: Invalid authentication mode for production environment. " +
+                        "Environment: {Environment}, Mode: {Mode}, AllowDemoInProduction: {AllowDemo}",
+                        environment,
+                        authMode,
+                        allowDemoInProduction);
+
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = "Configuration Error",
+                        message = "Production environment must use OAuthRequired mode, or DemoAllowed mode with Authentication:AllowDemoInProduction=true"
+                    });
+                    return;
+                }
             }
 
             // ホスト名検証（オプション）
