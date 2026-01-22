@@ -24,6 +24,7 @@ namespace ShopifyAnalyticsApi.Tests.Jobs
         private readonly Mock<ICheckpointManager> _mockCheckpointManager;
         private readonly Mock<ISyncRangeManager> _mockSyncRangeManager;
         private readonly Mock<ISyncProgressTracker> _mockProgressTracker;
+        private readonly CustomerDataMaintenanceService _customerMaintenanceService;
         private readonly ShopifyOrderSyncJob _job;
         private readonly Store _testStore;
 
@@ -40,6 +41,10 @@ namespace ShopifyAnalyticsApi.Tests.Jobs
             _mockCheckpointManager = new Mock<ICheckpointManager>();
             _mockSyncRangeManager = new Mock<ISyncRangeManager>();
             _mockProgressTracker = new Mock<ISyncProgressTracker>();
+            
+            // CustomerDataMaintenanceService の実インスタンスを作成（テスト用DBコンテキストを使用）
+            var customerMaintenanceLogger = new Mock<ILogger<CustomerDataMaintenanceService>>();
+            _customerMaintenanceService = new CustomerDataMaintenanceService(_context, customerMaintenanceLogger.Object);
 
             _testStore = new Store
             {
@@ -61,7 +66,8 @@ namespace ShopifyAnalyticsApi.Tests.Jobs
                 _mockConfiguration.Object,
                 _mockCheckpointManager.Object,
                 _mockSyncRangeManager.Object,
-                _mockProgressTracker.Object
+                _mockProgressTracker.Object,
+                _customerMaintenanceService
             );
         }
 
