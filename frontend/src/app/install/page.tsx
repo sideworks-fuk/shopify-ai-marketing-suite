@@ -17,6 +17,7 @@ import {
   ProgressBar,
   Modal,
 } from '@shopify/polaris';
+import Image from 'next/image';
 import { getCurrentEnvironmentConfig, getCurrentEnvironment } from '@/lib/config/environments';
 import { useIsEmbedded } from '@/hooks/useIsEmbedded';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -86,6 +87,66 @@ function InstallPolarisPageContent() {
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  // 🆕 早期自動リダイレクト: 認証済みかつストアIDが存在する場合、即座にリダイレクト
+  // 理由: インストール済みでOAuth認証も完了している場合、接続ボタンを押さずに自動で進む
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isInitializing) return; // 認証状態の初期化中は待機
+    
+    // OAuth処理中フラグがある場合はスキップ
+    const oauthInProgress = localStorage.getItem('oauth_in_progress') === 'true';
+    if (oauthInProgress) {
+      console.log('⏳ [Install] OAuth処理中のため、早期自動リダイレクトをスキップ');
+      return;
+    }
+    
+    // URLパラメータを取得
+    const params = new URLSearchParams(window.location.search);
+    const shopFromUrl = params.get('shop');
+    const hostFromUrl = params.get('host');
+    
+    // shopパラメータがない場合はスキップ（ブラウザで直接アクセスした場合）
+    if (!shopFromUrl) {
+      console.log('🔍 [Install] shopパラメータがないため、早期自動リダイレクトをスキップ');
+      return;
+    }
+    
+    // 認証状態をチェック
+    const oauthAuthenticated = localStorage.getItem('oauth_authenticated') === 'true';
+    const currentStoreId = localStorage.getItem('currentStoreId');
+    
+    // 認証済みかつストアIDが存在する場合、即座にリダイレクト
+    if ((isAuthenticated || oauthAuthenticated) && currentStoreId) {
+      console.log('✅ [Install] 早期自動リダイレクト: 認証済みかつストアIDが存在', {
+        isAuthenticated,
+        oauthAuthenticated,
+        storeId: currentStoreId,
+        shop: shopFromUrl
+      });
+      
+      setAutoRedirecting(true);
+      
+      // リダイレクト先を構築
+      const redirectParams = new URLSearchParams();
+      redirectParams.set('shop', shopFromUrl);
+      if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+      redirectParams.set('embedded', '1');
+      
+      // メインダッシュボードにリダイレクト
+      const redirectUrl = `/customers/dormant?${redirectParams.toString()}`;
+      console.log('🚀 [Install] 早期自動リダイレクト実行:', redirectUrl);
+      window.location.replace(redirectUrl);
+      return;
+    }
+    
+    console.log('🔍 [Install] 早期自動リダイレクト条件を満たさない', {
+      isAuthenticated,
+      oauthAuthenticated,
+      hasStoreId: !!currentStoreId,
+      hasShop: !!shopFromUrl
+    });
+  }, [isAuthenticated, isInitializing]);
 
   // 🆕 マウント時のみ実行: auth_success=true パラメータの検出とOAuth処理中フラグの確認
   useEffect(() => {
@@ -1131,17 +1192,19 @@ function InstallPolarisPageContent() {
                 <Box padding="400">
                   <InlineStack align="center" blockAlign="center" gap="400">
                     <div style={{ 
-                      width: '56px', 
-                      height: '56px', 
-                      backgroundColor: '#008060',
-                      borderRadius: '8px',
+                      width: '64px', 
+                      height: '64px', 
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                      <path d="M21 4H7a2 2 0 0 0-2 2v2.5h0v6h0V20l6-1.5 6 1.5v-5.5h0v-6h0V6a2 2 0 0 0-2-2m-1 11.5c0 .5-.5 1-1 1s-1-.5-1-1V15h-2v.5c0 .5-.5 1-1 1s-1-.5-1-1V15h-2v.5c0 .5-.5 1-1 1s-1-.5-1-1V15H8v.5c0 .5-.5 1-1 1s-1-.5-1-1V9c0-.5.5-1 1-1s1 .5 1 1v.5h2V9c0-.5.5-1 1-1s1 .5 1 1v.5h2V9c0-.5.5-1 1-1s1 .5 1 1v.5h2V9c0-.5.5-1 1-1s1 .5 1 1v6.5M4 6H3v14h1c.6 0 1-.4 1-1V7c0-.6-.4-1-1-1z"/>
-                    </svg>
+                      <Image 
+                        src="/icon.png" 
+                        alt="EC Ranger" 
+                        width={64} 
+                        height={64}
+                        priority
+                      />
                     </div>
                   </InlineStack>
                 </Box>
