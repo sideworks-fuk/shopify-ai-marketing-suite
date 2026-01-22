@@ -58,10 +58,14 @@ namespace ShopifyAnalyticsApi.Middleware
             // セッションCookieをチェック（既に認証済みの場合）
             if (context.Request.Cookies[AdminAuthCookieName] == AdminAuthCookieValue)
             {
-                _logger.LogDebug("Admin authentication session cookie found for path: {Path}", path);
+                _logger.LogInformation("Admin authentication session cookie found for path: {Path}", path);
                 await _next(context);
                 return;
             }
+            
+            // パスへのアクセスをログに記録
+            _logger.LogInformation("Admin Basic auth required for path: {Path}, HasAuthHeader: {HasAuthHeader}, IsHttps: {IsHttps}", 
+                path, !string.IsNullOrEmpty(context.Request.Headers["Authorization"].ToString()), context.Request.IsHttps);
 
             // Basic認証のチェック
             var authHeader = context.Request.Headers["Authorization"].ToString();
@@ -92,10 +96,10 @@ namespace ShopifyAnalyticsApi.Middleware
                             _configuration["Hangfire:Dashboard:Password"],
                             "Admin2025!");
                         
-                        // デバッグログ（本番環境では削除推奨）
-                        _logger.LogDebug(
-                            "Admin Basic auth check - Username: {Username}, ExpectedUsername: {ExpectedUsername}, Password match: {PasswordMatch}",
-                            username, expectedUsername, password == expectedPassword);
+                        // 認証チェックの詳細ログ（本番環境でも確認可能）
+                        _logger.LogInformation(
+                            "Admin Basic auth check - Path: {Path}, Username: {Username}, ExpectedUsername: {ExpectedUsername}, PasswordLength: {PasswordLength}, ExpectedPasswordLength: {ExpectedPasswordLength}, PasswordMatch: {PasswordMatch}",
+                            path, username, expectedUsername, password?.Length ?? 0, expectedPassword?.Length ?? 0, password == expectedPassword);
                         
                         if (username == expectedUsername && password == expectedPassword)
                         {
@@ -103,15 +107,23 @@ namespace ShopifyAnalyticsApi.Middleware
                             var cookieOptions = new CookieOptions
                             {
                                 HttpOnly = true,
-                                Secure = true, // HTTPS必須
+                                Secure = context.Request.IsHttps, // HTTPS接続時のみSecureフラグを設定
                                 SameSite = SameSiteMode.Lax,
                                 Expires = DateTimeOffset.UtcNow.AddHours(8) // 8時間有効
                             };
                             
                             context.Response.Cookies.Append(AdminAuthCookieName, AdminAuthCookieValue, cookieOptions);
                             
-                            _logger.LogInformation("Admin Basic authentication successful for path: {Path}, Username: {Username}", 
-                                path, username);
+                            if (!context.Request.IsHttps)
+                            {
+                                _logger.LogWarning("Admin Basic authentication successful but cookie Secure flag is disabled (HTTP connection). Path: {Path}, Username: {Username}", 
+                                    path, username);
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Admin Basic authentication successful for path: {Path}, Username: {Username}", 
+                                    path, username);
+                            }
                             
                             await _next(context);
                             return;
@@ -159,14 +171,25 @@ namespace ShopifyAnalyticsApi.Middleware
             };
             
             if (!string.IsNullOrEmpty(adminValue) && !placeholderStrings.Contains(adminValue))
+            {
+                _logger.LogDebug("Using Admin config value");
                 return adminValue;
+            }
             
             if (!string.IsNullOrEmpty(swaggerValue) && !placeholderStrings.Contains(swaggerValue))
+            {
+                _logger.LogDebug("Using Swagger config value (Admin not set)");
                 return swaggerValue;
+            }
             
             if (!string.IsNullOrEmpty(hangfireValue) && !placeholderStrings.Contains(hangfireValue))
+            {
+                _logger.LogDebug("Using Hangfire config value (Admin/Swagger not set)");
                 return hangfireValue;
+            }
             
+            _logger.LogInformation("Using default value (no valid config found). Admin: {AdminValue}, Swagger: {SwaggerValue}, Hangfire: {HangfireValue}", 
+                adminValue ?? "null", swaggerValue ?? "null", hangfireValue ?? "null");
             return defaultValue;
         }
     }
