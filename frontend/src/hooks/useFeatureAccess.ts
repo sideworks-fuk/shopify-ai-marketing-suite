@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 // Type definitions
 export type PlanId = 'starter' | 'professional' | 'enterprise';
@@ -202,15 +203,26 @@ interface UseFeatureAccessReturn {
 // Hook for checking access to selectable features (free plan)
 export function useFeatureAccess(featureId?: SelectableFeatureId) {
   const { currentPlan, loading: subscriptionLoading } = useSubscriptionContext();
+  const { authMode } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   
   const currentPlanId = (currentPlan?.id as PlanId) || 'starter'; // Default to starter (free) plan
   const gateDisabled = process.env.NEXT_PUBLIC_DISABLE_FEATURE_GATES === 'true';
+  
+  // デモモードの場合は全機能有効
+  const isDemoMode = authMode === 'demo';
 
   useEffect(() => {
     const checkAccess = async () => {
       setIsLoading(true);
+      
+      // デモモードの場合は全機能有効
+      if (isDemoMode) {
+        setHasAccess(true);
+        setIsLoading(false);
+        return;
+      }
       
       // 環境フラグで機能ゲートを一時無効化
       if (gateDisabled) {
@@ -248,7 +260,7 @@ export function useFeatureAccess(featureId?: SelectableFeatureId) {
     };
 
     checkAccess();
-  }, [currentPlanId, featureId, gateDisabled, subscriptionLoading]);
+  }, [currentPlanId, featureId, gateDisabled, subscriptionLoading, isDemoMode]);
 
   return {
     hasAccess,
