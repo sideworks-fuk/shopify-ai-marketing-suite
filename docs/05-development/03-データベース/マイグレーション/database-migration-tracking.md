@@ -76,6 +76,9 @@ docs/05-development/03-データベース/マイグレーション/
 | **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** | 2026-01-19 | 福田+AI | **Orders/Customers/ProductsテーブルにShopifyCreatedAt, ShopifyUpdatedAt, SyncedAtカラムを追加（日時の意味明確化）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
 | **2026-01-19-FixOrderNumberUniqueConstraint.sql** | 2026-01-19 | 福田+AI | **OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更（マルチテナント対応）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
 | **2026-01-22-AddShopifyProcessedAtToOrders.sql** | 2026-01-22 | 福田+AI | **OrdersテーブルにShopifyProcessedAt（決済完了日時）カラムを追加（分析レポートでprocessedAt使用）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ✅ 適用済 (2026-01-22) |
+| **2026-01-22-AddOrdersPerformanceIndex.sql** | 2026-01-22 | 福田+AI | **Orders/Customers/OrderItemsテーブルにパフォーマンス改善用インデックスを追加（休眠顧客分析の高速化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ⏳ 未適用 |
+| **2026-01-22-AddLastOrderDateToCustomers.sql** | 2026-01-22 | 福田+AI | **CustomersテーブルにLastOrderDateカラムを追加（休眠顧客判定の高速化のための非正規化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ⏳ 未適用 |
+| **2026-01-23-AddIsActiveToProducts.sql** | 2026-01-23 | 福田+AI | **ProductsテーブルにIsActiveカラムを追加（商品の論理削除対応）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 

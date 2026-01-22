@@ -180,9 +180,44 @@ export default function InitialSetupPage() {
           console.log('ℹ️ 同期統計データがありません。初期状態として0件を表示します。')
         }
 
-        // 同期履歴を取得（オプション）
-        // TODO: 実際の同期履歴APIエンドポイントを実装したら、ここで取得
-        setSyncHistory([])
+        // 同期履歴を取得
+        try {
+          const historyData = await apiClient.request<Array<{
+            id: string
+            type: string
+            status: string
+            startedAt: string
+            completedAt?: string
+            duration: number
+            recordsProcessed: number
+            message?: string
+          }>>('/api/sync/history?limit=10', {
+            method: 'GET',
+          })
+          
+          if (Array.isArray(historyData) && historyData.length > 0) {
+            // バックエンドのレスポンスをフロントエンドのSyncHistory形式にマッピング
+            const mappedHistory: SyncHistory[] = historyData.map(h => ({
+              id: h.id,
+              startTime: h.startedAt,
+              endTime: h.completedAt,
+              status: h.status === 'success' ? 'completed' : 
+                      h.status === 'error' ? 'failed' : 
+                      h.status === 'syncing' ? 'running' : 'completed',
+              recordsProcessed: h.recordsProcessed,
+              syncType: h.type === 'all' ? 'initial' : 'manual',
+              duration: h.duration
+            }))
+            setSyncHistory(mappedHistory)
+            console.log('✅ 同期履歴を取得:', mappedHistory.length, '件')
+          } else {
+            setSyncHistory([])
+            console.log('ℹ️ 同期履歴がありません')
+          }
+        } catch (historyErr) {
+          console.warn('⚠️ 同期履歴の取得に失敗（統計データは正常に取得）:', historyErr)
+          setSyncHistory([])
+        }
       } catch (err) {
         console.error('❌ 同期統計の取得中にエラーが発生:', err)
         // エラー時も0件を表示
@@ -637,10 +672,15 @@ export default function InitialSetupPage() {
                   <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
                     <RadioGroupItem value="all" id="all" />
                     <Label htmlFor="all" className="cursor-pointer flex-1">
-                      全期間
+                      <span>全期間</span>
+                      <span className="ml-2 text-xs text-gray-500">※削除された商品も整理されます</span>
                     </Label>
                   </div>
                 </RadioGroup>
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 ヒント: 「全期間」を選択すると、Shopifyで削除された商品がこちらからも削除（非表示）されます。
+                  定期的に全期間同期を実行することをお勧めします。
+                </p>
               </div>
 
               <div className="flex gap-3">

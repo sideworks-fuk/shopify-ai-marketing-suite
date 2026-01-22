@@ -80,6 +80,12 @@ namespace ShopifyAnalyticsApi.Jobs
                 var syncStateId = await _progressTracker.StartSyncAsync(
                     storeId, "Products", dateRange);
                 
+                // フルスキャン同期かどうかを判定（開始日がnullまたは非常に古い場合）
+                var isFullScan = dateRange.Start == null || dateRange.Start < DateTime.UtcNow.AddYears(-10);
+                
+                // フルスキャン時は同期した商品IDを収集（削除商品検知用）
+                HashSet<string>? syncedShopifyProductIds = isFullScan ? new HashSet<string>() : null;
+                
                 try
                 {
                     // チェックポイントから再開情報を取得
@@ -94,6 +100,11 @@ namespace ShopifyAnalyticsApi.Jobs
                     {
                         _logger.LogInformation(
                             $"Resuming sync from checkpoint: {totalProcessed} records already processed");
+                    }
+                    
+                    if (isFullScan)
+                    {
+                        _logger.LogInformation("フルスキャン同期モード: 削除商品の検知を有効化");
                     }
                     
                     // 同期実行（ページネーション処理）
@@ -120,6 +131,12 @@ namespace ShopifyAnalyticsApi.Jobs
                         {
                             var product = ConvertToProductEntity(storeId, shopifyProduct);
                             batch.Add(product);
+                            
+                            // フルスキャン時は商品IDを収集
+                            if (syncedShopifyProductIds != null && !string.IsNullOrEmpty(product.ShopifyProductId))
+                            {
+                                syncedShopifyProductIds.Add(product.ShopifyProductId);
+                            }
                             
                             // バッチサイズに達したら保存
                             if (batch.Count >= batchSize)
@@ -195,10 +212,10 @@ namespace ShopifyAnalyticsApi.Jobs
                 store.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 
-                // 同期完了後、削除された商品のチェック（オプション）
-                if (_configuration.GetValue<bool>("Shopify:CheckDeletedProducts", false))
+                // フルスキャン同期の場合、削除された商品をチェックして非アクティブ化
+                if (syncedShopifyProductIds != null && syncedShopifyProductIds.Count > 0)
                 {
-                    await CheckDeletedProducts(storeId, store.Domain ?? store.Name, accessToken);
+                    await DeactivateDeletedProducts(storeId, syncedShopifyProductIds);
                 }
             }
             catch (Exception ex)
@@ -259,51 +276,51 @@ namespace ShopifyAnalyticsApi.Jobs
         }
 
         /// <summary>
-        /// 削除された商品をチェックして非アクティブ化
+        /// Shopifyに存在しなくなった商品を非アクティブ化
+        /// フルスキャン同期時に呼び出される
         /// </summary>
-        private async Task CheckDeletedProducts(int storeId, string shopDomain, string accessToken)
+        /// <param name="storeId">ストアID</param>
+        /// <param name="syncedShopifyProductIds">今回の同期で取得したShopify商品IDのセット</param>
+        private async Task DeactivateDeletedProducts(int storeId, HashSet<string> syncedShopifyProductIds)
         {
             try
             {
-                _logger.LogInformation($"Checking for deleted products in store: {storeId}");
+                _logger.LogInformation("削除商品の検知を開始: StoreId={StoreId}, 同期商品数={SyncedCount}", 
+                    storeId, syncedShopifyProductIds.Count);
                 
-                // データベース内の全商品IDを取得
-                var dbProductIds = await _context.Products
-                    .Where(p => p.StoreId == storeId)
-                    .Select(p => p.ShopifyProductId)
+                // データベース内のアクティブな商品を取得
+                var activeDbProducts = await _context.Products
+                    .Where(p => p.StoreId == storeId && p.IsActive && !string.IsNullOrEmpty(p.ShopifyProductId))
+                    .Select(p => new { p.Id, p.ShopifyProductId })
                     .ToListAsync();
                 
-                // Shopifyから現在の商品IDリストを取得
-                // （実際の実装では、ShopifyApiServiceにメソッドを追加する必要があります）
-                // var shopifyProductIds = await _shopifyApi.GetAllProductIdsAsync(shopDomain, accessToken);
+                // Shopifyに存在しない商品を特定（ローカルにあってShopifyにない）
+                var deletedProductIds = activeDbProducts
+                    .Where(p => !syncedShopifyProductIds.Contains(p.ShopifyProductId!))
+                    .Select(p => p.Id)
+                    .ToList();
                 
-                // 削除された商品を特定
-                // var deletedProductIds = dbProductIds.Except(shopifyProductIds).ToList();
-                
-                // if (deletedProductIds.Any())
-                // {
-                //     // 削除された商品を非アクティブ化
-                //     var productsToDeactivate = await _context.Products
-                //         .Where(p => p.StoreId == storeId && deletedProductIds.Contains(p.ShopifyProductId))
-                //         .ToListAsync();
+                if (deletedProductIds.Any())
+                {
+                    // 削除された商品を非アクティブ化（バルク更新）
+                    var deactivatedCount = await _context.Products
+                        .Where(p => deletedProductIds.Contains(p.Id))
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(p => p.IsActive, false)
+                            .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
                     
-                //     foreach (var product in productsToDeactivate)
-                //     {
-                //         product.IsActive = false;
-                //         product.UpdatedAt = DateTime.UtcNow;
-                //     }
-                    
-                //     await _context.SaveChangesAsync();
-                    
-                //     _logger.LogInformation($"Deactivated {deletedProductIds.Count} deleted products");
-                // }
-                
-                _logger.LogInformation("Deleted products check completed");
+                    _logger.LogInformation("削除商品を非アクティブ化しました: StoreId={StoreId}, 件数={Count}", 
+                        storeId, deactivatedCount);
+                }
+                else
+                {
+                    _logger.LogInformation("削除された商品はありませんでした: StoreId={StoreId}", storeId);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking deleted products");
-                // エラーが発生しても同期処理は続行
+                _logger.LogError(ex, "削除商品の検知中にエラーが発生: StoreId={StoreId}", storeId);
+                // エラーが発生しても同期処理自体は成功扱い（警告のみ）
             }
         }
 
@@ -383,6 +400,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingProduct.ShopifyUpdatedAt = product.ShopifyUpdatedAt;
                     existingProduct.SyncedAt = DateTime.UtcNow;
                     existingProduct.UpdatedAt = DateTime.UtcNow;
+                    existingProduct.IsActive = true; // Shopifyに存在する商品はアクティブ
 
                     // バリアントを更新
                     if (product.Variants != null && product.Variants.Any())
@@ -424,6 +442,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     product.CreatedAt = DateTime.UtcNow;
                     product.UpdatedAt = DateTime.UtcNow;
                     product.SyncedAt = DateTime.UtcNow;
+                    product.IsActive = true; // 新規商品はアクティブ
                     
                     // バリアントのIDをリセット
                     if (product.Variants != null)

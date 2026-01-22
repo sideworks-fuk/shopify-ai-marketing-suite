@@ -107,7 +107,7 @@ namespace ShopifyAnalyticsApi.Services
                     {
                         TotalCustomers = s.Customers.Count,
                         TotalOrders = s.Orders.Count,
-                        TotalProducts = s.Products.Count,
+                        TotalProducts = s.Products.Count(p => p.IsActive), // アクティブな商品のみカウント
                         TotalRevenue = s.Orders.Sum(o => o.TotalPrice),
                         LastOrderDate = s.Orders.Max(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                     })

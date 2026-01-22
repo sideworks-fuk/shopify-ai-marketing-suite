@@ -340,6 +340,9 @@ namespace ShopifyAnalyticsApi.Models
         // 同期完了日時（最新同期時刻）
         public DateTime? SyncedAt { get; set; }
         
+        // 論理削除フラグ（Shopify側で削除された商品を非アクティブ化）
+        public bool IsActive { get; set; } = true;
+        
         // ナビゲーションプロパティ
         public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
         

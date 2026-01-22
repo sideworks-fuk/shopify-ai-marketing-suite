@@ -200,7 +200,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 var lastProductSync = store.LastSyncDate;
                 
                 var productCount = await _context.Products
-                    .Where(p => p.StoreId == storeId)
+                    .Where(p => p.StoreId == storeId && p.IsActive)
                     .CountAsync();
                 
                 var customerCount = await _context.Customers

@@ -332,7 +332,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("📊 [パフォーマンス] Orders.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, orderCount);
                 
                 sw.Restart();
-                var productCount = await _context.Products.Where(p => p.StoreId == storeId).CountAsync();
+                var productCount = await _context.Products.Where(p => p.StoreId == storeId && p.IsActive).CountAsync();
                 _logger.LogInformation("📊 [パフォーマンス] Products.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, productCount);
                 
                 sw.Restart();

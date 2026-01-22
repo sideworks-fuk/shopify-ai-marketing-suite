@@ -61,12 +61,49 @@
 - 決定に基づいて実装
 
 ## 完了条件
-- [ ] 商品数カウントの問題を修正（削除後も正しくカウントされる）
-- [ ] Shopifyの商品削除時の同期方法を調査・方針決定
-- [ ] 同期履歴表示の方針を決定（表示改善 or タブ削除）
-- [ ] 決定した方針に基づいて実装
+- [x] 商品数カウントの問題を修正（削除後も正しくカウントされる）
+- [x] Shopifyの商品削除時の同期方法を調査・方針決定
+- [x] 同期履歴表示の方針を決定（表示改善 or タブ削除）
+- [x] 決定した方針に基づいて実装
+- [ ] マイグレーション適用（Development環境）
 - [ ] 動作確認完了
+
+## 実装完了（2026-01-23）
+
+### 対応内容
+
+#### 問題1: 商品数カウントの不整合 → 解決
+- **対応**: ProductsテーブルにIsActiveフィールドを追加（論理削除）
+- **変更ファイル**:
+  - `backend/ShopifyAnalyticsApi/Models/DatabaseModels.cs` - IsActiveフィールド追加
+  - `backend/ShopifyAnalyticsApi/Jobs/ShopifyProductSyncJob.cs` - 同期時にIsActive=trueを設定
+  - `backend/ShopifyAnalyticsApi/Controllers/DatabaseController.cs` - IsActive=trueでカウント
+  - `backend/ShopifyAnalyticsApi/Controllers/DashboardController.cs` - IsActive=trueでカウント
+  - `backend/ShopifyAnalyticsApi/Controllers/SyncController.cs` - IsActive=trueでカウント
+  - `backend/ShopifyAnalyticsApi/Controllers/CustomerController.cs` - IsActive=trueでカウント
+  - `backend/ShopifyAnalyticsApi/Services/StoreService.cs` - IsActive=trueでカウント
+  - `backend/ShopifyAnalyticsApi/Services/ShopifyDataSyncService.cs` - IsActive=trueでカウント
+- **マイグレーション**: `2026-01-23-AddIsActiveToProducts.sql`
+
+#### 問題2: Shopify商品削除時の同期方法 → 実装完了
+- **調査結果**: Shopify APIでは `products/delete` Webhookと Event API で削除を検知可能
+- **決定方針**: 論理削除（IsActive=false）を採用
+- **実装内容**:
+  - フルスキャン同期（全期間）時に削除商品を自動検知
+  - 同期で取得したShopify商品IDをHashSetで収集
+  - ローカルDBにのみ存在する商品を `IsActive = false` に更新
+  - `DeactivateDeletedProducts` メソッドを新規実装
+- **変更ファイル**: `backend/ShopifyAnalyticsApi/Jobs/ShopifyProductSyncJob.cs`
+- **UI改善**: 「全期間」選択時に削除商品が整理される旨の説明を追加
+
+#### 問題3: 同期履歴の表示 → 表示改善
+- **原因**: 初期設定ページで同期履歴APIを呼び出していなかった（TODOコメントアウト状態）
+- **対応**: `/api/sync/history` APIを呼び出すよう修正
+- **変更ファイル**: `frontend/src/app/setup/initial/page.tsx`
 
 ## 関連情報
 - 注文データは論理削除（ステータスで管理）のため問題なし
 - 商品データは物理削除される可能性があるため、対応が必要
+
+## 技術調査ドキュメント
+- `docs/01-project-management/backlog-tickets/260123-技術確認-商品削除同期と履歴表示.md`

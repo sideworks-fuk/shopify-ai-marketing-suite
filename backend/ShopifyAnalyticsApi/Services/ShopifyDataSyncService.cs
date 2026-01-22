@@ -259,7 +259,7 @@ namespace ShopifyAnalyticsApi.Services
                     
                     await _productSyncJob.SyncProducts(store.Id, syncOptions);
                     
-                    var productCount = await _context.Products.CountAsync(p => p.StoreId == store.Id);
+                    var productCount = await _context.Products.CountAsync(p => p.StoreId == store.Id && p.IsActive);
                     syncStatus.ProcessedRecords = customerCount + productCount;
                     syncStatus.CurrentTask = "商品データ同期完了";
                     await _context.SaveChangesAsync();

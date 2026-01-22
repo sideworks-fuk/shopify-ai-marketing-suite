@@ -272,7 +272,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     .OrderByDescending(s => s.StartDate)
                     .FirstOrDefaultAsync();
 
-                var productCount = await _context.Products.CountAsync(p => p.StoreId == currentStore.Id);
+                var productCount = await _context.Products.CountAsync(p => p.StoreId == currentStore.Id && p.IsActive);
                 var customerCount = await _context.Customers.CountAsync(c => c.StoreId == currentStore.Id);
                 var orderCount = await _context.Orders.CountAsync(o => o.StoreId == currentStore.Id);
 

@@ -450,7 +450,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 // 各テーブルのレコード数を取得
                 var customerCount = await _context.Customers.CountAsync(c => c.StoreId == storeId);
-                var productCount = await _context.Products.CountAsync(p => p.StoreId == storeId);
+                var productCount = await _context.Products.CountAsync(p => p.StoreId == storeId && p.IsActive);
                 var orderCount = await _context.Orders.CountAsync(o => o.StoreId == storeId);
                 
                 // サンプルデータ取得
