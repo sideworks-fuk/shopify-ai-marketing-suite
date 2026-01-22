@@ -76,9 +76,9 @@ docs/05-development/03-データベース/マイグレーション/
 | **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** | 2026-01-19 | 福田+AI | **Orders/Customers/ProductsテーブルにShopifyCreatedAt, ShopifyUpdatedAt, SyncedAtカラムを追加（日時の意味明確化）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
 | **2026-01-19-FixOrderNumberUniqueConstraint.sql** | 2026-01-19 | 福田+AI | **OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更（マルチテナント対応）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
 | **2026-01-22-AddShopifyProcessedAtToOrders.sql** | 2026-01-22 | 福田+AI | **OrdersテーブルにShopifyProcessedAt（決済完了日時）カラムを追加（分析レポートでprocessedAt使用）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ✅ 適用済 (2026-01-22) |
-| **2026-01-22-AddOrdersPerformanceIndex.sql** | 2026-01-22 | 福田+AI | **Orders/Customers/OrderItemsテーブルにパフォーマンス改善用インデックスを追加（休眠顧客分析の高速化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ⏳ 未適用 |
-| **2026-01-22-AddLastOrderDateToCustomers.sql** | 2026-01-22 | 福田+AI | **CustomersテーブルにLastOrderDateカラムを追加（休眠顧客判定の高速化のための非正規化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ⏳ 未適用 |
-| **2026-01-23-AddIsActiveToProducts.sql** | 2026-01-23 | 福田+AI | **ProductsテーブルにIsActiveカラムを追加（商品の論理削除対応）** | ✅ 適用済 (2026-01-23) | ⏳ 未適用 | ⏳ 未適用 |
+| **2026-01-22-AddOrdersPerformanceIndex.sql** | 2026-01-22 | 福田+AI | **Orders/Customers/OrderItemsテーブルにパフォーマンス改善用インデックスを追加（休眠顧客分析の高速化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ✅ 適用済 (2026-01-23) |
+| **2026-01-22-AddLastOrderDateToCustomers.sql** | 2026-01-22 | 福田+AI | **CustomersテーブルにLastOrderDateカラムを追加（休眠顧客判定の高速化のための非正規化）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ✅ 適用済 (2026-01-23) |
+| **2026-01-23-AddIsActiveToProducts.sql** | 2026-01-23 | 福田+AI | **ProductsテーブルにIsActiveカラムを追加（商品の論理削除対応）** | ✅ 適用済 (2026-01-23) | ⏳ 未適用 | ✅ 適用済 (2026-01-23) |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -317,7 +317,7 @@ sqlcmd -S [server] -d [database] -i [script.sql]
     - `IX_Customers_StoreId_TotalOrders` - 顧客フィルタリング用
     - `IX_OrderItems_OrderId` - JOIN高速化用
   - **目的**: 休眠顧客分析クエリのパフォーマンス改善
-  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ⏳ 未適用
+  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ✅ (2026-01-23 01:13)
 
 ### 🔧 Customers.LastOrderDate 追加（非正規化）（2026-01-22）
 - **2026-01-22-AddLastOrderDateToCustomers.sql** - 顧客テーブルに最終購入日カラムを追加
@@ -328,8 +328,16 @@ sqlcmd -S [server] -d [database] -i [script.sql]
     - 既存データの `LastOrderDate` を更新
   - **目的**: 休眠顧客クエリでサブクエリを排除しパフォーマンスを大幅改善
   - **影響**: 休眠顧客クエリが 20-50秒 → 1秒未満に改善（予想）
-  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ⏳ 未適用
+  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ✅ (2026-01-23 01:13)
 
-最終更新: 2026-01-22 23:15
+### 🏷️ Products.IsActive 追加（論理削除対応）（2026-01-23）
+- **2026-01-23-AddIsActiveToProducts.sql** - 商品テーブルに論理削除用カラムを追加
+  - **対象**: Products テーブル
+  - **追加カラム**: IsActive (BIT NOT NULL DEFAULT 1)
+  - **目的**: Shopifyで削除された商品を論理削除として管理
+  - **フルスキャン同期時**: Shopifyに存在しない商品は IsActive = false に更新
+  - **適用状況**: Development ✅ (2026-01-23) / Production ✅ (2026-01-23 01:13)
+
+最終更新: 2026-01-23 01:15
 管理者: 福田
 更新者: 福田 + AI Assistant

@@ -197,6 +197,7 @@ builder.Services.AddScoped<IGDPRService, GDPRService>();
 // Register Shopify Data Sync Service (Shopifyデータ同期サービス)
 builder.Services.AddScoped<ShopifyApiService>();
 builder.Services.AddScoped<ShopifyDataSyncService>();
+builder.Services.AddScoped<CustomerDataMaintenanceService>();
 
 // Register Subscription Service (サブスクリプション管理サービス)
 builder.Services.AddScoped<ISubscriptionService, ShopifySubscriptionService>();
