@@ -547,6 +547,7 @@ export default function InitialSetupPage() {
                     <p className="text-xl font-bold text-orange-900">
                       {syncStats.lastSyncTime && syncStats.lastSyncTime !== 'null' 
                         ? new Date(syncStats.lastSyncTime).toLocaleString('ja-JP', {
+                            timeZone: 'Asia/Tokyo',
                             month: 'numeric',
                             day: 'numeric',
                             hour: '2-digit',
@@ -807,7 +808,9 @@ export default function InitialSetupPage() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {new Date(history.startTime).toLocaleString('ja-JP')}
+                                    {new Date(history.startTime).toLocaleString('ja-JP', {
+                                      timeZone: 'Asia/Tokyo'
+                                    })}
                                     {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
                                     {isRunning && !history.endTime && (
                                       <span className="ml-2 text-blue-600 font-medium">進行中...</span>

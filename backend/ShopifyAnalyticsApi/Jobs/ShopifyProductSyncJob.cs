@@ -86,6 +86,18 @@ namespace ShopifyAnalyticsApi.Jobs
                 // フルスキャン時は同期した商品IDを収集（削除商品検知用）
                 HashSet<string>? syncedShopifyProductIds = isFullScan ? new HashSet<string>() : null;
                 
+                // 🆕 全期間取得時は、既存の商品を一度IsActive=falseにする（削除検知のため）
+                if (isFullScan)
+                {
+                    _logger.LogInformation("フルスキャン同期モード: 既存商品を一時的に非アクティブ化してから同期を開始します");
+                    var deactivatedCount = await _context.Products
+                        .Where(p => p.StoreId == storeId && p.IsActive)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(p => p.IsActive, false)
+                            .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
+                    _logger.LogInformation("既存商品を非アクティブ化しました: {Count}件", deactivatedCount);
+                }
+                
                 try
                 {
                     // チェックポイントから再開情報を取得
@@ -212,10 +224,38 @@ namespace ShopifyAnalyticsApi.Jobs
                 store.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 
-                // フルスキャン同期の場合、削除された商品をチェックして非アクティブ化
-                if (syncedShopifyProductIds != null && syncedShopifyProductIds.Count > 0)
+                // 🆕 フルスキャン同期の場合、削除された商品をチェック
+                // 全期間取得時は、同期開始時に既存商品をIsActive=falseにしているため、
+                // 同期中に取得されなかった商品（IsActive=falseのまま）が削除された商品
+                if (isFullScan)
                 {
-                    await DeactivateDeletedProducts(storeId, syncedShopifyProductIds);
+                    // 同期中に取得されなかった商品（IsActive=falseのまま）を確認
+                    var stillInactiveCount = await _context.Products
+                        .Where(p => p.StoreId == storeId && !p.IsActive && !string.IsNullOrEmpty(p.ShopifyProductId))
+                        .CountAsync();
+                    
+                    if (stillInactiveCount > 0)
+                    {
+                        _logger.LogInformation("削除された商品を検出しました: {Count}件（IsActive=falseのまま）", stillInactiveCount);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("削除された商品はありませんでした（全商品が同期されました）");
+                    }
+                    
+                    // 念のため、syncedShopifyProductIdsベースの検知も実行（二重チェック）
+                    if (syncedShopifyProductIds != null && syncedShopifyProductIds.Count > 0)
+                    {
+                        await DeactivateDeletedProducts(storeId, syncedShopifyProductIds);
+                    }
+                }
+                else
+                {
+                    // 通常の同期時は、従来通りの削除検知を実行
+                    if (syncedShopifyProductIds != null && syncedShopifyProductIds.Count > 0)
+                    {
+                        await DeactivateDeletedProducts(storeId, syncedShopifyProductIds);
+                    }
                 }
             }
             catch (Exception ex)

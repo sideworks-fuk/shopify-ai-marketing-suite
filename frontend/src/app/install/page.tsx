@@ -57,10 +57,11 @@ function InstallPolarisPageContent() {
   const [isMounted, setIsMounted] = useState(false); // クライアントサイドマウント状態（Hydrationエラー対策）
   const [isOAuthCallbackProcessing, setIsOAuthCallbackProcessing] = useState(false); // OAuthコールバック処理中フラグ
   const [isOAuthInProgress, setIsOAuthInProgress] = useState(false); // OAuth処理中フラグ（sessionStorageベース）
+  const [currentStoreIdState, setCurrentStoreIdState] = useState<string | null>(null); // currentStoreIdの状態（早期自動リダイレクト用）
   const isInstallingRef = useRef(false); // インストール処理中フラグ（useRefで確実に保持）
   const hasCheckedStoreRef = useRef(false); // ストアチェック済みフラグ（重複実行を防ぐ）
   const isEmbedded = useIsEmbedded();
-  const { isAuthenticated, isInitializing } = useAuth(); // 認証状態を取得
+  const { isAuthenticated, isInitializing, getApiClient, isApiClientReady } = useAuth(); // 認証状態を取得
   const { app } = useAppBridge(); // App Bridgeインスタンスを取得
   const searchParams = useSearchParams(); // URLパラメータを取得
 
@@ -124,7 +125,12 @@ function InstallPolarisPageContent() {
     
     // 認証状態をチェック
     const oauthAuthenticated = localStorage.getItem('oauth_authenticated') === 'true';
-    const currentStoreId = localStorage.getItem('currentStoreId');
+    const currentStoreId = localStorage.getItem('currentStoreId') || currentStoreIdState;
+    
+    // 🆕 currentStoreIdが設定された場合、状態を更新
+    if (currentStoreId && currentStoreId !== currentStoreIdState) {
+      setCurrentStoreIdState(currentStoreId);
+    }
     
     // 認証済みかつストアIDが存在する場合、即座にリダイレクト
     if ((isAuthenticated || oauthAuthenticated) && currentStoreId) {
@@ -170,7 +176,7 @@ function InstallPolarisPageContent() {
           )
         : []
     });
-  }, [isAuthenticated, isInitializing, searchParams]);
+  }, [isAuthenticated, isInitializing, searchParams, currentStoreIdState]);
 
   // 🆕 マウント時のみ実行: auth_success=true パラメータの検出とOAuth処理中フラグの確認
   useEffect(() => {
@@ -694,22 +700,30 @@ function InstallPolarisPageContent() {
   // /auth/successページで認証状態は設定されるが、iframe再読み込み時にstoreIdが失われる可能性がある
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isInitializing) return; // 認証初期化中はスキップ
+    if (isInitializing || !isApiClientReady) return; // 認証初期化中またはAPIクライアント未準備の場合はスキップ
     
     const params = new URLSearchParams(window.location.search);
     const shopFromUrl = params.get('shop');
     const hostFromUrl = params.get('host');
     
-    // 🆕 修正: oauth_authenticatedフラグも確認
-    // 理由: isAuthenticatedがtrueでも、OAuth認証が完了していない可能性がある
+    // 🆕 修正: Shopify埋め込みアプリの場合、isAuthenticated=trueでもoauth_authenticated=falseの可能性がある
+    // 理由: App Bridgeのセッショントークンで認証済みでも、oauth_authenticatedフラグが設定されていない場合がある
     const oauthAuthenticated = localStorage.getItem('oauth_authenticated') === 'true';
     
-    if (!isAuthenticated || !oauthAuthenticated || !shopFromUrl) {
-      // 🆕 デバッグ: 条件を満たさない場合はスキップ
-      if (isAuthenticated && !oauthAuthenticated) {
-        console.log('⏸️ [Install] isAuthenticated=trueだが、oauth_authenticated=falseのため、ストア情報取得をスキップします');
-      }
+    // 🆕 修正: isAuthenticated=trueでshopパラメータがある場合、oauthAuthenticatedのチェックを緩和
+    // Shopify埋め込みアプリの場合、App Bridgeのセッショントークンで認証済みなら、バックエンドAPIでストア情報を取得可能
+    if (!isAuthenticated || !shopFromUrl) {
+      console.log('⏸️ [Install] ストア情報取得をスキップ:', {
+        isAuthenticated,
+        hasShop: !!shopFromUrl,
+        isApiClientReady
+      });
       return;
+    }
+    
+    // 🆕 oauthAuthenticatedがfalseでも、isAuthenticated=trueなら続行（Shopify埋め込みアプリの場合）
+    if (!oauthAuthenticated) {
+      console.log('ℹ️ [Install] isAuthenticated=trueだが、oauth_authenticated=false。Shopify埋め込みアプリの可能性があります。ストア情報を取得します。');
     }
     
     const currentStoreId = localStorage.getItem('currentStoreId');
@@ -720,31 +734,28 @@ function InstallPolarisPageContent() {
       console.log('🔍 [Install] 認証成功ですが、storeIdがありません。APIでストア情報を取得します...', {
         isAuthenticated,
         shop: shopFromUrl,
-        oauthAuthenticated
+        oauthAuthenticated,
+        isApiClientReady
       });
       
       const fetchStoreInfo = async () => {
         try {
-          const config = getCurrentEnvironmentConfig();
+          const apiClient = getApiClient();
           const normalizedShop = normalizeShopDomain(shopFromUrl);
           
-          console.log('📡 [Install] ストア情報を取得中...', { apiUrl: config.apiBaseUrl, shop: normalizedShop });
+          console.log('📡 [Install] ストア情報を取得中...', { shop: normalizedShop });
           
-          const response = await fetch(`${config.apiBaseUrl}/api/store`, {
-            credentials: 'include', // JWTトークンを送信
+          // 🆕 getApiClientを使用してAPI呼び出し（Shopify App Bridgeセッショントークンを自動送信）
+          const result = await apiClient.request<{ success: boolean; data?: { stores?: any[] }; stores?: any[] }>('/api/store', {
+            method: 'GET',
           });
           
-          if (!response.ok) {
-            // 🆕 401エラーの場合は、認証が完了していない可能性があるため、エラーをスキップ
-            if (response.status === 401) {
-              console.warn('⚠️ [Install] 401エラー: 認証が完了していない可能性があります。通常処理に進みます。');
-              return;
-            }
-            throw new Error(`API呼び出しに失敗: ${response.status} ${response.statusText}`);
+          if (!result.success) {
+            console.warn('⚠️ [Install] API呼び出しが失敗しました:', result);
+            return;
           }
           
-          const result = await response.json();
-          const stores = result?.data?.stores || result?.stores || [];
+          const stores = result.data?.stores || result.stores || [];
           
           console.log('📋 [Install] 取得したストア一覧:', stores);
           
@@ -759,10 +770,15 @@ function InstallPolarisPageContent() {
             if (matchedStore?.id) {
               console.log('✅ [Install] ストア情報を取得:', { storeId: matchedStore.id, shop: normalizedShop });
               
+              const storeIdString = matchedStore.id.toString();
+              
               // localStorageに保存
-              localStorage.setItem('currentStoreId', matchedStore.id.toString());
+              localStorage.setItem('currentStoreId', storeIdString);
               localStorage.setItem('oauth_authenticated', 'true');
               localStorage.setItem('shopDomain', normalizedShop);
+              
+              // 🆕 currentStoreIdStateも更新（早期自動リダイレクトのuseEffectを再実行させるため）
+              setCurrentStoreIdState(storeIdString);
               
               // OAuth処理中フラグをクリア
               localStorage.removeItem('oauth_in_progress');
@@ -770,15 +786,23 @@ function InstallPolarisPageContent() {
               setIsOAuthInProgress(false);
               setLoading(false);
               
-              // /setup/initialにリダイレクト
-              const redirectParams = new URLSearchParams();
-              redirectParams.set('shop', normalizedShop);
-              if (hostFromUrl) redirectParams.set('host', hostFromUrl);
-              redirectParams.set('embedded', '1');
-              
-              const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
-              console.log('🔄 [Install] /setup/initialにリダイレクト:', redirectUrl);
-              window.location.replace(redirectUrl);
+              // 🆕 早期自動リダイレクトのuseEffectが実行されるまで少し待機
+              // その後、早期自動リダイレクトが実行されない場合のみ/setup/initialにリダイレクト
+              setTimeout(() => {
+                // 早期自動リダイレクトが実行されていない場合のみリダイレクト
+                if (!autoRedirecting) {
+                  const redirectParams = new URLSearchParams();
+                  redirectParams.set('shop', normalizedShop);
+                  if (hostFromUrl) redirectParams.set('host', hostFromUrl);
+                  redirectParams.set('embedded', '1');
+                  
+                  const redirectUrl = `/setup/initial?${redirectParams.toString()}`;
+                  console.log('🔄 [Install] 早期自動リダイレクトが実行されなかったため、/setup/initialにリダイレクト:', redirectUrl);
+                  window.location.replace(redirectUrl);
+                } else {
+                  console.log('✅ [Install] 早期自動リダイレクトが実行されたため、/setup/initialへのリダイレクトをスキップ');
+                }
+              }, 100);
               return;
             } else {
               console.warn('⚠️ [Install] shopDomainに一致するストアが見つかりませんでした:', {
@@ -797,7 +821,7 @@ function InstallPolarisPageContent() {
       
       void fetchStoreInfo();
     }
-  }, [isAuthenticated, isInitializing, normalizeShopDomain]);
+  }, [isAuthenticated, isInitializing, normalizeShopDomain, isApiClientReady, getApiClient, autoRedirecting]);
 
   // 🆕 削除: 4つ目のuseEffectは、2回目と3回目のuseEffectと役割が重複しており、
   // かつ60秒のチェックがないため、以前の認証情報で即座にフラグをクリアしてしまう問題がある
