@@ -1,5 +1,8 @@
+using System;
+using System.Linq;
 using Hangfire.Annotations;
 using Hangfire.Dashboard;
+using Microsoft.Extensions.Configuration;
 
 namespace ShopifyAnalyticsApi.Filters
 {
@@ -26,22 +29,30 @@ namespace ShopifyAnalyticsApi.Filters
         {
             var httpContext = context.GetHttpContext();
 
-            // 開発環境では認証をスキップ
+            // 開発環境では認証をスキップ（オプション）
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            if (environment == "Development")
+            var skipAuthInDev = _configuration.GetValue<bool>("Admin:BasicAuth:SkipInDevelopment", false);
+            if (environment == "Development" && skipAuthInDev)
             {
                 return true;
             }
 
-            // 本番環境での認証チェック
-            // 1. ローカルアクセスを許可
+            // 1. 共通の管理者認証セッションCookieをチェック（優先）
+            const string AdminAuthCookieName = "admin_auth_session";
+            const string AdminAuthCookieValue = "authenticated";
+            if (httpContext.Request.Cookies[AdminAuthCookieName] == AdminAuthCookieValue)
+            {
+                return true;
+            }
+
+            // 2. ローカルアクセスを許可
             if (httpContext.Connection.RemoteIpAddress?.ToString() == "127.0.0.1" ||
                 httpContext.Connection.RemoteIpAddress?.ToString() == "::1")
             {
                 return true;
             }
 
-            // 2. 認証済みユーザーのチェック
+            // 3. 認証済みユーザーのチェック
             if (httpContext.User?.Identity?.IsAuthenticated == true)
             {
                 // 管理者ロールを持つユーザーのみアクセス可能
@@ -58,7 +69,7 @@ namespace ShopifyAnalyticsApi.Filters
                 }
             }
 
-            // 3. Basic認証のチェック（オプション）
+            // 4. Basic認証のチェック（フォールバック）
             var authHeader = httpContext.Request.Headers["Authorization"].FirstOrDefault();
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Basic "))
             {
@@ -73,9 +84,16 @@ namespace ShopifyAnalyticsApi.Filters
                         var username = parts[0];
                         var password = parts[1];
                         
-                        // 環境変数または設定から認証情報を取得
-                        var expectedUsername = _configuration["Hangfire:Dashboard:Username"] ?? "admin";
-                        var expectedPassword = _configuration["Hangfire:Dashboard:Password"] ?? "HangfireAdmin2025!";
+                        // 共通の管理者認証情報を使用（優先順位: Admin > Swagger > Hangfire）
+                        var expectedUsername = _configuration["Admin:BasicAuth:Username"] 
+                            ?? _configuration["Swagger:BasicAuth:Username"] 
+                            ?? _configuration["Hangfire:Dashboard:Username"] 
+                            ?? "admin";
+                        
+                        var expectedPassword = _configuration["Admin:BasicAuth:Password"] 
+                            ?? _configuration["Swagger:BasicAuth:Password"] 
+                            ?? _configuration["Hangfire:Dashboard:Password"] 
+                            ?? "Admin2025!";
                         
                         if (username == expectedUsername && password == expectedPassword)
                         {

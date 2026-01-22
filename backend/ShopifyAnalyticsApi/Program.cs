@@ -143,6 +143,9 @@ builder.Services.AddScoped<IMockDataService, MockDataService>();
 // Register Database Service
 builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
+// Register Version Info Service
+builder.Services.AddScoped<VersionInfoService>();
+
 // Register Shopify OAuth Service (ShopifySharpライブラリ使用)
 builder.Services.AddScoped<ShopifyOAuthService>();
 
@@ -476,8 +479,8 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-// Swaggerを本番環境でも有効化（Basic認証付き）
-app.UseMiddleware<SwaggerBasicAuthMiddleware>();
+// 管理者向けエンドポイント（/admin, /swagger, /hangfire）を共通のBasic認証で保護
+app.UseAdminBasicAuth();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -543,6 +546,12 @@ app.UseGlobalExceptionHandler();
 // Shopify Webhook用のHMAC検証ミドルウェア
 // ※ WebhookController.VerifyWebhookRequest() がマルチアプリ対応で検証するため無効化
 // app.UseHmacValidation();
+
+// 管理者向けエンドポイントを認証前にマッピング（APIキー認証を使用）
+app.MapControllerRoute(
+    name: "admin",
+    pattern: "admin/{action=Index}",
+    defaults: new { controller = "Admin" });
 
 // Shopify埋め込みアプリミドルウェア（認証前に配置）
 app.UseShopifyEmbeddedApp();

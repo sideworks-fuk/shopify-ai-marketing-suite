@@ -63,7 +63,9 @@ namespace ShopifyAnalyticsApi.Middleware
                 "/api/health",
                 "/health/ready",
                 "/swagger",
-                "/hangfire"
+                "/hangfire",
+                // 管理者ダッシュボード（APIキー認証を使用）
+                "/admin"
             };
 
             if (skipAuthPaths.Any(skipPath => path.StartsWith(skipPath)))
