@@ -662,7 +662,7 @@ try
         {
             if (authMode == "DemoAllowed" && allowDemoInProduction)
             {
-                logger.LogWarning(
+                Log.Warning(
                     "⚠️ SECURITY: Demo mode is enabled in Production environment. " +
                     "This should only be used for testing/demo purposes. " +
                     "Environment: {Environment}, Mode: {Mode}, AllowDemoInProduction: {AllowDemo}",

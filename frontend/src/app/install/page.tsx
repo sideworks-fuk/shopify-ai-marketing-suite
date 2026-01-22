@@ -92,7 +92,10 @@ function InstallPolarisPageContent() {
   // 理由: インストール済みでOAuth認証も完了している場合、接続ボタンを押さずに自動で進む
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isInitializing) return; // 認証状態の初期化中は待機
+    if (isInitializing) {
+      console.log('⏳ [Install] 認証状態の初期化中、早期自動リダイレクトを待機');
+      return; // 認証状態の初期化中は待機
+    }
     
     // OAuth処理中フラグがある場合はスキップ
     const oauthInProgress = localStorage.getItem('oauth_in_progress') === 'true';
@@ -101,10 +104,17 @@ function InstallPolarisPageContent() {
       return;
     }
     
+    // OAuthコールバック処理中（code/stateパラメータがある）場合はスキップ
+    const codeParam = searchParams.get('code');
+    const stateParam = searchParams.get('state');
+    if (codeParam || stateParam) {
+      console.log('⏳ [Install] OAuthコールバック処理中のため、早期自動リダイレクトをスキップ');
+      return;
+    }
+    
     // URLパラメータを取得
-    const params = new URLSearchParams(window.location.search);
-    const shopFromUrl = params.get('shop');
-    const hostFromUrl = params.get('host');
+    const shopFromUrl = searchParams.get('shop');
+    const hostFromUrl = searchParams.get('host');
     
     // shopパラメータがない場合はスキップ（ブラウザで直接アクセスした場合）
     if (!shopFromUrl) {
@@ -125,6 +135,8 @@ function InstallPolarisPageContent() {
         shop: shopFromUrl
       });
       
+      // 早期自動リダイレクトが実行されることを記録（checkAndRedirectをスキップするため）
+      hasCheckedStoreRef.current = true;
       setAutoRedirecting(true);
       
       // リダイレクト先を構築
@@ -144,9 +156,21 @@ function InstallPolarisPageContent() {
       isAuthenticated,
       oauthAuthenticated,
       hasStoreId: !!currentStoreId,
-      hasShop: !!shopFromUrl
+      currentStoreId,
+      hasShop: !!shopFromUrl,
+      shopFromUrl,
+      isInitializing,
+      oauthInProgress,
+      codeParam: !!codeParam,
+      stateParam: !!stateParam,
+      // デバッグ用: localStorageの全認証関連キーを確認
+      localStorageKeys: typeof window !== 'undefined' 
+        ? Object.keys(localStorage).filter(k => 
+            k.includes('auth') || k.includes('oauth') || k.includes('store') || k.includes('shop')
+          )
+        : []
     });
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated, isInitializing, searchParams]);
 
   // 🆕 マウント時のみ実行: auth_success=true パラメータの検出とOAuth処理中フラグの確認
   useEffect(() => {
