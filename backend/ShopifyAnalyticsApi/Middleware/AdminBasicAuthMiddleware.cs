@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
@@ -78,15 +79,23 @@ namespace ShopifyAnalyticsApi.Middleware
                         var password = parts[1];
                         
                         // 設定から認証情報を取得（優先順位: Admin > Swagger > Hangfire）
-                        var expectedUsername = _configuration["Admin:BasicAuth:Username"] 
-                            ?? _configuration["Swagger:BasicAuth:Username"] 
-                            ?? _configuration["Hangfire:Dashboard:Username"] 
-                            ?? "admin";
+                        // "Will be overridden by environment variable" などのプレースホルダーは無視
+                        var expectedUsername = GetConfigValue(
+                            _configuration["Admin:BasicAuth:Username"],
+                            _configuration["Swagger:BasicAuth:Username"],
+                            _configuration["Hangfire:Dashboard:Username"],
+                            "admin");
                         
-                        var expectedPassword = _configuration["Admin:BasicAuth:Password"] 
-                            ?? _configuration["Swagger:BasicAuth:Password"] 
-                            ?? _configuration["Hangfire:Dashboard:Password"] 
-                            ?? "Admin2025!";
+                        var expectedPassword = GetConfigValue(
+                            _configuration["Admin:BasicAuth:Password"],
+                            _configuration["Swagger:BasicAuth:Password"],
+                            _configuration["Hangfire:Dashboard:Password"],
+                            "Admin2025!");
+                        
+                        // デバッグログ（本番環境では削除推奨）
+                        _logger.LogDebug(
+                            "Admin Basic auth check - Username: {Username}, ExpectedUsername: {ExpectedUsername}, Password match: {PasswordMatch}",
+                            username, expectedUsername, password == expectedPassword);
                         
                         if (username == expectedUsername && password == expectedPassword)
                         {
@@ -134,6 +143,31 @@ namespace ShopifyAnalyticsApi.Middleware
             {
                 await context.Response.WriteAsync("Unauthorized");
             }
+        }
+
+        /// <summary>
+        /// 設定値から有効な値を取得（プレースホルダーを無視）
+        /// </summary>
+        private string GetConfigValue(string? adminValue, string? swaggerValue, string? hangfireValue, string defaultValue)
+        {
+            // プレースホルダー文字列を無視
+            var placeholderStrings = new[] 
+            { 
+                "Will be overridden by environment variable",
+                "will be overridden by environment variable",
+                "WILL BE OVERRIDDEN BY ENVIRONMENT VARIABLE"
+            };
+            
+            if (!string.IsNullOrEmpty(adminValue) && !placeholderStrings.Contains(adminValue))
+                return adminValue;
+            
+            if (!string.IsNullOrEmpty(swaggerValue) && !placeholderStrings.Contains(swaggerValue))
+                return swaggerValue;
+            
+            if (!string.IsNullOrEmpty(hangfireValue) && !placeholderStrings.Contains(hangfireValue))
+                return hangfireValue;
+            
+            return defaultValue;
         }
     }
 
