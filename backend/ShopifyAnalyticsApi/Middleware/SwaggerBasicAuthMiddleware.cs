@@ -55,7 +55,7 @@ namespace ShopifyAnalyticsApi.Middleware
                         
                         // 設定から認証情報を取得
                         var expectedUsername = _configuration["Swagger:BasicAuth:Username"] ?? "admin";
-                        var expectedPassword = _configuration["Swagger:BasicAuth:Password"] ?? "SwaggerAdmin2025!";
+                        var expectedPassword = _configuration["Swagger:BasicAuth:Password"] ?? "Swagger55!";
                         
                         if (username == expectedUsername && password == expectedPassword)
                         {

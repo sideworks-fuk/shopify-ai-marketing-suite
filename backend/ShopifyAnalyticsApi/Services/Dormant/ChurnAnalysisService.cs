@@ -98,6 +98,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 複数顧客のチャーン確率を一括計算
+        /// パフォーマンス改善: LastOrderDateを使用し、Ordersをロードしない
         /// </summary>
         public async Task<Dictionary<int, decimal>> CalculateBatchChurnProbabilityAsync(List<int> customerIds)
         {
@@ -111,8 +112,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     return cachedResults;
                 }
 
+                // パフォーマンス改善: Ordersをロードしない（LastOrderDateを使用）
                 var customers = await _context.Customers
-                    .Include(c => c.Orders)
                     .Where(c => customerIds.Contains(c.Id))
                     .ToListAsync();
 
@@ -120,7 +121,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
                 foreach (var customer in customers)
                 {
-                    var probability = await CalculateChurnProbabilityInternal(customer);
+                    var probability = CalculateChurnProbabilityFromCustomer(customer);
                     results[customer.Id] = probability;
                 }
 
@@ -234,7 +235,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         #region Private Methods
 
         /// <summary>
-        /// チャーン確率の内部計算ロジック
+        /// チャーン確率の内部計算ロジック（Orders使用版 - 後方互換）
         /// </summary>
         private async Task<decimal> CalculateChurnProbabilityInternal(Customer customer)
         {
@@ -243,8 +244,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 return 0.9m; // 購入履歴なしは高リスク
             }
 
-            var lastOrder = customer.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
-            var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+            var lastOrder = customer.Orders.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).First();
+            var lastOrderDate = lastOrder.ShopifyProcessedAt ?? lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
             var daysSinceLastPurchase = (DateTime.UtcNow - lastOrderDate).Days;
 
             // 基本的な休眠期間ベースの計算
@@ -262,6 +263,60 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                                  (spendingAdjustment * 0.2m);
 
             return Math.Min(Math.Max(finalProbability, 0.0m), 1.0m);
+        }
+
+        /// <summary>
+        /// チャーン確率計算（LastOrderDate使用版 - パフォーマンス最適化）
+        /// Ordersをロードせずに計算可能
+        /// </summary>
+        private decimal CalculateChurnProbabilityFromCustomer(Customer customer)
+        {
+            // LastOrderDateがない場合は購入履歴なしとして高リスク
+            if (!customer.LastOrderDate.HasValue || customer.TotalOrders == 0)
+            {
+                return 0.9m;
+            }
+
+            var daysSinceLastPurchase = (DateTime.UtcNow - customer.LastOrderDate.Value).Days;
+
+            // 基本的な休眠期間ベースの計算
+            var baseProbability = CalculateBaseProbabilityFromDormancy(daysSinceLastPurchase);
+
+            // 購入頻度による調整（TotalOrdersを使用）
+            var frequencyAdjustment = CalculateFrequencyAdjustmentOptimized(customer);
+
+            // 購入金額による調整
+            var spendingAdjustment = CalculateSpendingAdjustment(customer);
+
+            // 最終確率計算（重み付き平均）
+            var finalProbability = (baseProbability * 0.5m) + 
+                                 (frequencyAdjustment * 0.3m) + 
+                                 (spendingAdjustment * 0.2m);
+
+            return Math.Min(Math.Max(finalProbability, 0.0m), 1.0m);
+        }
+
+        /// <summary>
+        /// 購入頻度による調整（最適化版 - TotalOrdersを使用）
+        /// </summary>
+        private decimal CalculateFrequencyAdjustmentOptimized(Customer customer)
+        {
+            if (customer.TotalOrders == 0)
+                return 0.9m;
+
+            var orderCount = customer.TotalOrders;
+            var customerCreatedAt = customer.ShopifyCreatedAt ?? customer.CreatedAt;
+            var customerAge = (DateTime.UtcNow - customerCreatedAt).Days;
+            var ordersPerMonth = customerAge > 0 ? (orderCount * 30.0m) / customerAge : 0;
+
+            return ordersPerMonth switch
+            {
+                >= 2.0m => 0.1m,
+                >= 1.0m => 0.2m,
+                >= 0.5m => 0.4m,
+                >= 0.25m => 0.6m,
+                _ => 0.8m
+            };
         }
 
         /// <summary>
@@ -402,16 +457,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 休眠期間範囲内の顧客を取得
+        /// パフォーマンス改善: LastOrderDateを使用
         /// </summary>
         private List<Customer> GetCustomersInDormancyRange(List<Customer> customers, int minDays, int maxDays)
         {
             return customers.Where(c =>
             {
-                if (c.Orders == null || !c.Orders.Any()) return false;
+                if (!c.LastOrderDate.HasValue) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
-                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
-                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
+                var daysSince = (DateTime.UtcNow - c.LastOrderDate.Value).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();
@@ -445,14 +499,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// トップリスクファクター取得
+        /// パフォーマンス改善: LastOrderDateを使用
         /// </summary>
         private List<ChurnRiskFactor> GetTopRiskFactors(List<Customer> customers)
         {
             var factors = new List<ChurnRiskFactor>();
 
-            // 休眠期間の長さ
-            var avgDormancy = customers.Where(c => c.Orders?.Any() == true)
-                .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
+            // 休眠期間の長さ（LastOrderDateを使用）
+            var avgDormancy = customers.Where(c => c.LastOrderDate.HasValue)
+                .Select(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
                 .DefaultIfEmpty(0)
                 .Average();
 

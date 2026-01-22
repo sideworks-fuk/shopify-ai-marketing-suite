@@ -120,10 +120,10 @@ export default function HomePage() {
         const oauthAuthenticated = typeof window !== 'undefined' ? localStorage.getItem('oauth_authenticated') : null
         
         if (demoToken && authMode === 'demo') {
-          // デモモードの場合、ストア確認をスキップしてデモモード専用のダッシュボードにリダイレクト
-          console.log('🎭 [ルートページ] デモモード検出: デモモード専用ダッシュボードへリダイレクト')
-          setStatusMessage('デモモードダッシュボードを読み込み中...')
-          const redirectUrl = buildRedirectUrl('/customers/dormant')
+          // デモモードの場合、ストア確認をスキップしてデータ同期画面にリダイレクト
+          console.log('🎭 [ルートページ] デモモード検出: データ同期画面へリダイレクト')
+          setStatusMessage('データ同期画面を読み込み中...')
+          const redirectUrl = buildRedirectUrl('/setup/initial')
           router.replace(redirectUrl)
           return
         }

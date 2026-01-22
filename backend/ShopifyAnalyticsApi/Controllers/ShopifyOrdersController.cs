@@ -45,7 +45,7 @@ namespace ShopifyAnalyticsApi.Controllers
 				var totalCount = await q.CountAsync();
 
 				var items = await q
-					.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
+					.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
 					.Skip((page - 1) * pageSize)
 					.Take(pageSize)
 					.Join(_dbContext.Customers,
@@ -58,7 +58,7 @@ namespace ShopifyAnalyticsApi.Controllers
 							CustomerName = c.DisplayName,
 							o.TotalPrice,
 							o.Status,
-							CreatedAt = o.ShopifyCreatedAt ?? o.CreatedAt
+							CreatedAt = o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt
 						})
 					.ToListAsync();
 

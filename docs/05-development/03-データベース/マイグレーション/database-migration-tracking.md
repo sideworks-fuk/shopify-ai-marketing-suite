@@ -73,8 +73,9 @@ docs/05-development/03-データベース/マイグレーション/
 | **20260107-DeleteStoreId46Data.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（同期データのクリア・再同期用）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 | **20260107-DeleteStoreId46Data-v2.sql** | 2026-01-07 | 福田+AI | **StoreId=46のデータをすべて削除（v2: SyncStatuses.StoreIdが整数型に変更されたため更新）** | ✅ 適用済 (2026-01-07 01:17) | ⏳ 未適用 | ⏳ 未適用 |
 | **20260107-ChangeSyncStatusStoreIdToInt.sql** | 2026-01-07 | 福田+AI | **SyncStatusesテーブルのStoreIdカラムを文字列型から整数型に変更（データ型の統一）** | ✅ 適用済 (2026-01-07 01:11) | ⏳ 未適用 | ✅ 適用済 (2026-01-07 01:13) |
-| **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** | 2026-01-19 | 福田+AI | **Orders/Customers/ProductsテーブルにShopifyCreatedAt, ShopifyUpdatedAt, SyncedAtカラムを追加（日時の意味明確化）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
-| **2026-01-19-FixOrderNumberUniqueConstraint.sql** | 2026-01-19 | 福田+AI | **OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更（マルチテナント対応）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
+| **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** | 2026-01-19 | 福田+AI | **Orders/Customers/ProductsテーブルにShopifyCreatedAt, ShopifyUpdatedAt, SyncedAtカラムを追加（日時の意味明確化）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
+| **2026-01-19-FixOrderNumberUniqueConstraint.sql** | 2026-01-19 | 福田+AI | **OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更（マルチテナント対応）** | ✅ 適用済 (2026-01-19) | ⏳ 未適用 | ✅ 適用済 (2026-01-20) |
+| **2026-01-22-AddShopifyProcessedAtToOrders.sql** | 2026-01-22 | 福田+AI | **OrdersテーブルにShopifyProcessedAt（決済完了日時）カラムを追加（分析レポートでprocessedAt使用）** | ✅ 適用済 (2026-01-22) | ⏳ 未適用 | ✅ 適用済 (2026-01-22) |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 
@@ -281,6 +282,51 @@ sqlcmd -S [server] -d [database] -i [script.sql]
   - **EF Migration**: `20260106234458_AddShopifyVariantIdAndTitleToProductVariants`
   - **関連**: Shopify APIデータ同期機能の修正
 
-最終更新: 2026-01-06 23:49
+### 🔧 Shopify日時フィールド追加（2026-01-19）
+- **2026-01-19-AddShopifyTimestampsAndSyncedAt.sql** - Orders/Customers/ProductsテーブルにShopify日時フィールドを追加
+  - **対象**: Orders, Customers, Products テーブル
+  - **追加カラム**:
+    - `ShopifyCreatedAt` (datetime2, NULL) - Shopifyでの作成日時
+    - `ShopifyUpdatedAt` (datetime2, NULL) - Shopifyでの更新日時
+    - `SyncedAt` (datetime2, NULL) - 同期完了日時
+  - **目的**: `CreatedAt`/`UpdatedAt` はDBレコードの作成/更新日時として明確化し、Shopifyの元の日時を保持
+  - **影響**: 分析クエリで `ShopifyCreatedAt ?? CreatedAt` を使用してShopifyの元の日時を優先
+  - **EF Migration**: `20260119132903_AddShopifyTimestampsAndSyncedAt`
+  - **適用状況**: Development ✅ (2026-01-19) / Production ✅ (2026-01-20)
+
+### 🔧 OrderNumberユニーク制約修正（2026-01-19）
+- **2026-01-19-FixOrderNumberUniqueConstraint.sql** - OrdersテーブルのOrderNumberユニーク制約をStoreId複合に変更
+  - **対象**: Ordersテーブル
+  - **変更内容**:
+    - 既存の `IX_Orders_OrderNumber` インデックス（単独ユニーク）を削除
+    - 新しい `IX_Orders_StoreId_OrderNumber` インデックス（複合ユニーク）を作成
+  - **目的**: マルチテナント環境でのOrderNumber重複を許容（StoreIdが異なる場合は同一OrderNumberを許可）
+  - **影響**: 異なるストア間でOrderNumberが重複しても問題なくなる
+  - **EF Migration**: `20260119144014_FixOrderNumberUniqueConstraint`
+  - **適用状況**: Development ✅ (2026-01-19) / Production ✅ (2026-01-20)
+
+### 🚀 パフォーマンス改善インデックス追加（2026-01-22）
+- **2026-01-22-AddOrdersPerformanceIndex.sql** - パフォーマンス改善のためのインデックス追加
+  - **対象**: Orders, Customers, OrderItems テーブル
+  - **変更内容**:
+    - `IX_Orders_CustomerId_ShopifyProcessedAt` - 休眠顧客クエリ用
+    - `IX_Orders_StoreId_ShopifyProcessedAt` - 分析クエリ全般用
+    - `IX_Customers_StoreId_TotalOrders` - 顧客フィルタリング用
+    - `IX_OrderItems_OrderId` - JOIN高速化用
+  - **目的**: 休眠顧客分析クエリのパフォーマンス改善
+  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ⏳ 未適用
+
+### 🔧 Customers.LastOrderDate 追加（非正規化）（2026-01-22）
+- **2026-01-22-AddLastOrderDateToCustomers.sql** - 顧客テーブルに最終購入日カラムを追加
+  - **対象**: Customers テーブル
+  - **変更内容**:
+    - `LastOrderDate` (datetime2, NULL) - 最終購入日時（非正規化）
+    - `IX_Customers_StoreId_LastOrderDate` インデックス追加
+    - 既存データの `LastOrderDate` を更新
+  - **目的**: 休眠顧客クエリでサブクエリを排除しパフォーマンスを大幅改善
+  - **影響**: 休眠顧客クエリが 20-50秒 → 1秒未満に改善（予想）
+  - **適用状況**: Development ✅ (2026-01-22 23:15) / Production ⏳ 未適用
+
+最終更新: 2026-01-22 23:15
 管理者: 福田
 更新者: 福田 + AI Assistant

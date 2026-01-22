@@ -92,12 +92,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 stats.TotalLostRevenue = revenueStats.TotalLostRevenue;
                 stats.PotentialRecoverableRevenue = revenueStats.PotentialRecoverableRevenue;
                 
-                // 平均休眠日数を計算（購入履歴がある休眠顧客のみ）
+                // 平均休眠日数を計算（LastOrderDateを使用）
                 if (dormantCustomers.Any())
                 {
                     var dormantDaysList = dormantCustomers
-                        .Where(c => c.Orders?.Any() == true)
-                        .Select(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
+                        .Where(c => c.LastOrderDate.HasValue)
+                        .Select(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
                         .ToList();
                     
                     if (dormantDaysList.Any())
@@ -128,6 +128,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 休眠顧客データを取得
+        /// パフォーマンス改善: LastOrderDateカラムを使用し、Ordersをロードしない
         /// </summary>
         public async Task<List<Customer>> GetDormantCustomersAsync(int storeId)
         {
@@ -143,13 +144,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
                 var cutoffDate = DateTime.UtcNow.AddDays(-_dormancyThresholdDays);
 
+                // パフォーマンス改善: LastOrderDateを使用（Ordersをロードしない）
                 var dormantCustomers = await _context.Customers
-                    .Include(c => c.Orders)
-                    .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
-                    .Where(c => c.Orders.Any() && 
-                              c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                                  .Select(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                                  .First() < cutoffDate)
+                    .Where(c => c.StoreId == storeId 
+                        && c.TotalOrders > 0 
+                        && c.LastOrderDate.HasValue 
+                        && c.LastOrderDate < cutoffDate)
                     .ToListAsync();
 
                 // キャッシュに保存
@@ -174,8 +174,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// セグメント統計を計算
+        /// パフォーマンス改善: LastOrderDateを使用（非同期処理不要になった）
         /// </summary>
-        public async Task<Dictionary<string, DormantSegmentStats>> CalculateSegmentStatsAsync(List<Customer> dormantCustomers)
+        public Task<Dictionary<string, DormantSegmentStats>> CalculateSegmentStatsAsync(List<Customer> dormantCustomers)
         {
             try
             {
@@ -197,20 +198,21 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     
                     if (segmentCustomers.Any())
                     {
+                        // パフォーマンス改善: LastOrderDateを使用
                         segmentStats[segmentName] = new DormantSegmentStats
                         {
                             CustomerCount = segmentCustomers.Count,
                             TotalRevenue = segmentCustomers.Sum(c => c.TotalSpent),
                             AverageRevenue = segmentCustomers.Average(c => c.TotalSpent),
                             AverageDormancyDays = (int)segmentCustomers
-                                .Where(c => c.Orders?.Any() == true)
-                                .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days)
+                                .Where(c => c.LastOrderDate.HasValue)
+                                .Average(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
                         };
                     }
                 }
 
                 _logger.LogDebug("セグメント統計計算完了: セグメント数={Count}", segmentStats.Count);
-                return segmentStats;
+                return Task.FromResult(segmentStats);
             }
             catch (Exception ex)
             {
@@ -303,16 +305,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 休眠期間範囲内の顧客を取得
+        /// パフォーマンス改善: LastOrderDateを使用
         /// </summary>
         private List<Customer> GetCustomersInDormancyRange(List<Customer> customers, int minDays, int maxDays)
         {
             return customers.Where(c =>
             {
-                if (c.Orders == null || !c.Orders.Any()) return false;
+                if (!c.LastOrderDate.HasValue) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
-                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
-                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
+                var daysSince = (DateTime.UtcNow - c.LastOrderDate.Value).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();

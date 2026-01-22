@@ -111,13 +111,14 @@ export default function DemoLoginPage() {
               </label>
               <Input
                 type="text"
-                placeholder="例: example.myshopify.com または xn-fbkq6e5da0fpb"
+                placeholder="例: example.myshopify.com"
                 value={shopDomain}
                 onChange={(e) => setShopDomain(e.target.value)}
                 disabled={isLoading}
                 className="w-full"
                 required // 🔒 必須入力
                 autoFocus
+                autoComplete="off" // 🔧 ブラウザの自動入力を無効化
               />
               <p className="text-xs text-gray-500 mt-1">
                 デモモードでアクセスするストアのドメインを入力してください

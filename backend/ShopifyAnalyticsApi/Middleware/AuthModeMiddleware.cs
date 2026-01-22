@@ -417,6 +417,8 @@ namespace ShopifyAnalyticsApi.Middleware
                         new Claim(ClaimTypes.NameIdentifier, authResult.UserId ?? "demo-user")
                     };
 
+                    int? extractedStoreId = null;
+
                     // デモトークンから追加のクレームを取得
                     if (!string.IsNullOrEmpty(token))
                     {
@@ -430,7 +432,14 @@ namespace ShopifyAnalyticsApi.Middleware
                             var tenantIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "tenant_id");
                             var shopDomainClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "shop_domain");
                             
-                            if (storeIdClaim != null) claims.Add(storeIdClaim);
+                            if (storeIdClaim != null)
+                            {
+                                claims.Add(storeIdClaim);
+                                if (int.TryParse(storeIdClaim.Value, out var storeId))
+                                {
+                                    extractedStoreId = storeId;
+                                }
+                            }
                             if (tenantIdClaim != null) claims.Add(tenantIdClaim);
                             if (shopDomainClaim != null) claims.Add(shopDomainClaim);
                             
@@ -443,11 +452,38 @@ namespace ShopifyAnalyticsApi.Middleware
                         }
                     }
 
+                    // 🔧 StoreIdをcontext.Itemsに設定（StoreContextMiddlewareで使用される）
+                    if (extractedStoreId.HasValue)
+                    {
+                        context.Items["StoreId"] = extractedStoreId.Value;
+                        _logger.LogDebug("Demo mode: StoreId set in context.Items: {StoreId}", extractedStoreId.Value);
+                    }
+                    else if (authResult.StoreId.HasValue)
+                    {
+                        context.Items["StoreId"] = authResult.StoreId.Value;
+                        _logger.LogDebug("Demo mode: StoreId set from authResult: {StoreId}", authResult.StoreId.Value);
+                    }
+                    else
+                    {
+                        // StoreIdが取得できない場合、X-Store-Idヘッダーから取得を試みる
+                        var storeIdHeader = context.Request.Headers["X-Store-Id"].FirstOrDefault();
+                        if (!string.IsNullOrEmpty(storeIdHeader) && int.TryParse(storeIdHeader, out var headerStoreId))
+                        {
+                            context.Items["StoreId"] = headerStoreId;
+                            _logger.LogDebug("Demo mode: StoreId set from X-Store-Id header: {StoreId}", headerStoreId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Demo mode: StoreId not found in token, authResult, or X-Store-Id header");
+                        }
+                    }
+
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Demo"));
 
                     _logger.LogInformation(
-                        "Level 2 (Demo) authentication successful. UserId: {UserId}, ReadOnly: true",
-                        authResult.UserId);
+                        "Level 2 (Demo) authentication successful. UserId: {UserId}, StoreId: {StoreId}, ReadOnly: true",
+                        authResult.UserId,
+                        context.Items["StoreId"] ?? "null");
                 }
                 // Level 1: 開発者モード（開発環境のみ：Development または LocalDevelopment）
                 else if (isDeveloperValid && (environment == "Development" || environment == "LocalDevelopment"))

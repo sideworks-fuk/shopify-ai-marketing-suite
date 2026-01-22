@@ -110,8 +110,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 // 最終注文日を取得
                 var lastOrderDate = await _context.Orders
                     .Where(o => o.CustomerId == customerId)
-                    .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                    .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
+                    .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                    .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                     .FirstOrDefaultAsync();
 
                 var daysSinceLastPurchase = lastOrderDate.HasValue 
@@ -164,6 +164,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         /// </summary>
         private async Task<PaginatedResult<DormantCustomerDto>> ExecuteQueryAsync(DormantCustomerQuery query)
         {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
             // 基本クエリ構築
             var baseQuery = BuildBaseQuery(query.StoreId);
 
@@ -174,13 +176,21 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             var sortedQuery = ApplySorting(filteredQuery, query.SortBy, query.Descending);
 
             // 総件数取得（高速化のため別クエリ）
+            var countStopwatch = System.Diagnostics.Stopwatch.StartNew();
             var totalCount = await filteredQuery.CountAsync();
+            countStopwatch.Stop();
+            _logger.LogInformation("📊 [パフォーマンス] 総件数クエリ実行時間: {ElapsedMs}ms, 件数: {Count}", 
+                countStopwatch.ElapsedMilliseconds, totalCount);
 
             // ページネーション適用
+            var pageStopwatch = System.Diagnostics.Stopwatch.StartNew();
             var pagedItems = await sortedQuery
                 .Skip((query.PageNumber - 1) * query.PageSize)
                 .Take(query.PageSize)
                 .ToListAsync();
+            pageStopwatch.Stop();
+            _logger.LogInformation("📊 [パフォーマンス] ページネーションクエリ実行時間: {ElapsedMs}ms, 取得件数: {Count}", 
+                pageStopwatch.ElapsedMilliseconds, pagedItems.Count);
 
             // DTOに変換
             var dtoItems = new List<DormantCustomerDto>();
@@ -214,6 +224,10 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 dtoItems.Add(dto);
             }
 
+            stopwatch.Stop();
+            _logger.LogInformation("📊 [パフォーマンス] ExecuteQueryAsync 全体実行時間: {ElapsedMs}ms", 
+                stopwatch.ElapsedMilliseconds);
+
             return new PaginatedResult<DormantCustomerDto>
             {
                 Items = dtoItems,
@@ -228,19 +242,19 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 基本クエリ構築
+        /// 改善版: Customer.LastOrderDate を直接使用（サブクエリ排除）
         /// </summary>
         private IQueryable<DormantCustomerQueryResult> BuildBaseQuery(int storeId)
         {
             var cutoffDate = DateTime.UtcNow.AddDays(-DormancyThresholdDays);
 
+            // 改善版: LastOrderDate を直接使用（非正規化カラム）
+            // サブクエリを排除し、パフォーマンスを大幅に改善
             return from customer in _context.Customers
-                   where customer.StoreId == storeId && customer.TotalOrders > 0
-                   let lastOrderDate = _context.Orders
-                       .Where(o => o.CustomerId == customer.Id)
-                       .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                       .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
-                       .FirstOrDefault()
-                   where lastOrderDate.HasValue && lastOrderDate < cutoffDate
+                   where customer.StoreId == storeId 
+                         && customer.TotalOrders > 0
+                         && customer.LastOrderDate.HasValue 
+                         && customer.LastOrderDate < cutoffDate
                    select new DormantCustomerQueryResult
                    {
                        CustomerId = customer.Id,
@@ -251,7 +265,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                        TotalSpent = customer.TotalSpent,
                        TotalOrders = customer.TotalOrders,
                        Tags = customer.Tags,
-                       LastOrderDate = (DateTime?)lastOrderDate
+                       LastOrderDate = customer.LastOrderDate
                    };
         }
 

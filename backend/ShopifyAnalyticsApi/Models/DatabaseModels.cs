@@ -167,6 +167,12 @@ namespace ShopifyAnalyticsApi.Models
         // 同期完了日時（最新同期時刻）
         public DateTime? SyncedAt { get; set; }
         
+        /// <summary>
+        /// 最終購入日時（非正規化: パフォーマンス改善用）
+        /// 休眠顧客分析でサブクエリを排除するために使用
+        /// </summary>
+        public DateTime? LastOrderDate { get; set; }
+        
         // 従来の互換性フィールド (非推奨だが既存データ用)
         [MaxLength(50)]
         public string CustomerSegment { get; set; } = "新規顧客";
@@ -256,19 +262,31 @@ namespace ShopifyAnalyticsApi.Models
         // Shopify側の作成/更新日時（分析用途）
         public DateTime? ShopifyCreatedAt { get; set; }
         public DateTime? ShopifyUpdatedAt { get; set; }
+        
+        /// <summary>
+        /// Shopify側の決済完了日時（分析で優先使用）
+        /// 分析レポートではCreatedAtよりもProcessedAtを使用すべき
+        /// </summary>
+        public DateTime? ShopifyProcessedAt { get; set; }
 
         // 同期完了日時（最新同期時刻）
         public DateTime? SyncedAt { get; set; }
         
-        // 計算プロパティ
+        // 計算プロパティ（ShopifyProcessedAtを優先使用）
         [NotMapped]
-        public int Year => (ShopifyCreatedAt ?? CreatedAt).Year;
+        public int Year => (ShopifyProcessedAt ?? ShopifyCreatedAt ?? CreatedAt).Year;
         
         [NotMapped]
-        public int Month => (ShopifyCreatedAt ?? CreatedAt).Month;
+        public int Month => (ShopifyProcessedAt ?? ShopifyCreatedAt ?? CreatedAt).Month;
         
         [NotMapped]
-        public string YearMonth => (ShopifyCreatedAt ?? CreatedAt).ToString("yyyy-MM");
+        public string YearMonth => (ShopifyProcessedAt ?? ShopifyCreatedAt ?? CreatedAt).ToString("yyyy-MM");
+        
+        /// <summary>
+        /// 分析用の注文日時（ShopifyProcessedAt > ShopifyCreatedAt > CreatedAt の優先順）
+        /// </summary>
+        [NotMapped]
+        public DateTime OrderDate => ShopifyProcessedAt ?? ShopifyCreatedAt ?? CreatedAt;
         
         // ナビゲーションプロパティ
         public virtual Customer? Customer { get; set; } // nullable: CustomerIdがnullの場合に対応

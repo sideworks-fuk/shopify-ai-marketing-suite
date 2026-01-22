@@ -461,8 +461,8 @@ namespace ShopifyAnalyticsApi.Services
                 .GroupBy(o => 1)
                 .Select(g => new
                 {
-                    EarliestYear = g.Min(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year),
-                    LatestYear = g.Max(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year)
+                    EarliestYear = g.Min(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).Year),
+                    LatestYear = g.Max(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).Year)
                 })
                 .FirstOrDefaultAsync();
 

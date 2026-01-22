@@ -172,7 +172,7 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
 
                 var orders = await _context.Orders
                     .Where(o => o.StoreId == storeId)
-                    .Select(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year)
+                    .Select(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).Year)
                     .ToListAsync();
 
                 if (!orders.Any())

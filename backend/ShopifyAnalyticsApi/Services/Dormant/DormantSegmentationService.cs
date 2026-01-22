@@ -105,6 +105,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     
                     if (!segmentCustomers.Any()) continue;
 
+                    // パフォーマンス改善: LastOrderDateを使用
+                    var customersWithLastOrderDate = segmentCustomers.Where(c => c.LastOrderDate.HasValue).ToList();
+                    var avgDaysSinceLastPurchase = customersWithLastOrderDate.Any() 
+                        ? (int)customersWithLastOrderDate.Average(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
+                        : 0;
+
                     var distribution = new DormantSegmentDistribution
                     {
                         Segment = name,
@@ -112,9 +118,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                         Percentage = totalCustomers > 0 ? (segmentCustomers.Count * 100.0m) / totalCustomers : 0,
                         AverageRevenue = segmentCustomers.Average(c => c.TotalSpent),
                         TotalRevenue = segmentCustomers.Sum(c => c.TotalSpent),
-                        AverageDaysSinceLastPurchase = (int)segmentCustomers
-                            .Where(c => c.Orders?.Any() == true)
-                            .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days),
+                        AverageDaysSinceLastPurchase = avgDaysSinceLastPurchase,
                         RiskLevel = await DetermineSegmentRiskLevelAsync(segmentCustomers)
                     };
 
@@ -158,6 +162,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     
                     if (!segmentCustomers.Any()) continue;
 
+                    // パフォーマンス改善: LastOrderDateを使用
+                    var customersWithLastOrderDate = segmentCustomers.Where(c => c.LastOrderDate.HasValue).ToList();
+                    var avgDaysSinceLastPurchase = customersWithLastOrderDate.Any() 
+                        ? (int)customersWithLastOrderDate.Average(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
+                        : 0;
+
                     var distribution = new DormantSegmentDistribution
                     {
                         Segment = name,
@@ -165,9 +175,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                         Percentage = totalCustomers > 0 ? (segmentCustomers.Count * 100.0m) / totalCustomers : 0,
                         AverageRevenue = segmentCustomers.Average(c => c.TotalSpent),
                         TotalRevenue = segmentCustomers.Sum(c => c.TotalSpent),
-                        AverageDaysSinceLastPurchase = (int)segmentCustomers
-                            .Where(c => c.Orders?.Any() == true)
-                            .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days),
+                        AverageDaysSinceLastPurchase = avgDaysSinceLastPurchase,
                         RiskLevel = await DetermineSegmentRiskLevelAsync(segmentCustomers)
                     };
 
@@ -211,6 +219,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     
                     if (!segmentCustomers.Any()) continue;
 
+                    // パフォーマンス改善: LastOrderDateを使用
+                    var customersWithLastOrderDate = segmentCustomers.Where(c => c.LastOrderDate.HasValue).ToList();
+                    var avgDaysSinceLastPurchase = customersWithLastOrderDate.Any() 
+                        ? (int)customersWithLastOrderDate.Average(c => (DateTime.UtcNow - c.LastOrderDate!.Value).Days)
+                        : 0;
+
                     var distribution = new DormantSegmentDistribution
                     {
                         Segment = name,
@@ -218,9 +232,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                         Percentage = totalCustomers > 0 ? (segmentCustomers.Count * 100.0m) / totalCustomers : 0,
                         AverageRevenue = segmentCustomers.Average(c => c.TotalSpent),
                         TotalRevenue = segmentCustomers.Sum(c => c.TotalSpent),
-                        AverageDaysSinceLastPurchase = (int)segmentCustomers
-                            .Where(c => c.Orders?.Any() == true)
-                            .Average(c => (DateTime.UtcNow - c.Orders!.Max(o => o.ShopifyCreatedAt ?? o.CreatedAt)).Days),
+                        AverageDaysSinceLastPurchase = avgDaysSinceLastPurchase,
                         RiskLevel = await DetermineSegmentRiskLevelAsync(segmentCustomers)
                     };
 
@@ -272,16 +284,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
         /// <summary>
         /// 休眠期間範囲内の顧客を取得
+        /// パフォーマンス改善: LastOrderDateを使用
         /// </summary>
         public List<Customer> GetCustomersInDormancyRange(List<Customer> customers, int minDays, int maxDays)
         {
             return customers.Where(c =>
             {
-                if (c.Orders == null || !c.Orders.Any()) return false;
+                if (!c.LastOrderDate.HasValue) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
-                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
-                var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
+                var daysSince = (DateTime.UtcNow - c.LastOrderDate.Value).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);
             }).ToList();

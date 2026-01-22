@@ -59,7 +59,7 @@ namespace ShopifyAnalyticsApi.Controllers
             _logger.LogInformation("🔵 [SyncController] StoreId: {StoreId}", StoreId);
             _logger.LogInformation("🔵 [SyncController] Request: SyncPeriod={SyncPeriod}", request != null ? request.SyncPeriod : "null");
             _logger.LogInformation("🔵 [SyncController] Timestamp: {Timestamp}", DateTime.UtcNow);
-            
+
             try
             {
                 if (request == null)
@@ -67,15 +67,15 @@ namespace ShopifyAnalyticsApi.Controllers
                     _logger.LogWarning("🔵 [SyncController] リクエストがnullです");
                     return BadRequest(new { error = "Request body is required" });
                 }
-                
+
                 var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     _logger.LogWarning("🔵 [SyncController] ストアが見つかりません: StoreId={StoreId}", StoreId);
                     return NotFound(new { error = "Store not found" });
                 }
-                
-                _logger.LogInformation("🔵 [SyncController] ストア情報取得完了: StoreId={StoreId}, StoreName={StoreName}, Domain={Domain}", 
+
+                _logger.LogInformation("🔵 [SyncController] ストア情報取得完了: StoreId={StoreId}, StoreName={StoreName}, Domain={Domain}",
                     currentStore.Id, currentStore.Name, currentStore.Domain);
 
                 // 既に同期中の場合はエラー
@@ -88,7 +88,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     _logger.LogWarning("🔵 [SyncController] 既に同期中のためエラー: RunningSyncId={RunningSyncId}", runningSync.Id);
                     return BadRequest(new { error = "Sync already in progress", syncId = runningSync.Id });
                 }
-                
+
                 _logger.LogInformation("🔵 [SyncController] 既存の同期チェック完了: 同期中なし");
 
                 // 新しい同期ステータスを作成
@@ -104,15 +104,15 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _context.SyncStatuses.Add(syncStatus);
                 await _context.SaveChangesAsync();
-                
-                _logger.LogInformation("🔵 [SyncController] SyncStatus作成完了: SyncId={SyncId}, Status={Status}, SyncPeriod={SyncPeriod}", 
+
+                _logger.LogInformation("🔵 [SyncController] SyncStatus作成完了: SyncId={SyncId}, Status={Status}, SyncPeriod={SyncPeriod}",
                     syncStatus.Id, syncStatus.Status, syncStatus.SyncPeriod);
 
                 // HangFireバックグラウンドジョブとして登録
-                var jobId = _backgroundJobClient.Enqueue(() => 
+                var jobId = _backgroundJobClient.Enqueue(() =>
                     _syncService.StartInitialSync(currentStore.Id, syncStatus.Id, request.SyncPeriod));
 
-                _logger.LogInformation("🔵 [SyncController] HangFireジョブ登録完了: JobId={JobId}, StoreId={StoreId}, SyncId={SyncId}", 
+                _logger.LogInformation("🔵 [SyncController] HangFireジョブ登録完了: JobId={JobId}, StoreId={StoreId}, SyncId={SyncId}",
                     jobId, currentStore.Id, syncStatus.Id);
                 _logger.LogInformation("🔵 [SyncController] レスポンス返却: SyncId={SyncId}, JobId={JobId}", syncStatus.Id, jobId);
                 _logger.LogInformation("🔵 [SyncController] ========================================");
@@ -127,7 +127,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "🔵 [SyncController] ❌ エラー発生: StoreId={StoreId}, Message={Message}, StackTrace={StackTrace}", 
+                _logger.LogError(ex, "🔵 [SyncController] ❌ エラー発生: StoreId={StoreId}, Message={Message}, StackTrace={StackTrace}",
                     StoreId, ex.Message, ex.StackTrace);
                 _logger.LogInformation("🔵 [SyncController] ========================================");
                 return StatusCode(500, new { error = "Internal server error" });
@@ -144,7 +144,7 @@ namespace ShopifyAnalyticsApi.Controllers
             _logger.LogInformation("🟢 [SyncController] GET /api/sync/status/{SyncId} 呼び出し開始", syncId);
             _logger.LogInformation("🟢 [SyncController] StoreId: {StoreId}", StoreId);
             _logger.LogInformation("🟢 [SyncController] Timestamp: {Timestamp}", DateTime.UtcNow);
-            
+
             // StoreId が取得できているか確認
             if (StoreId <= 0)
             {
@@ -152,7 +152,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("🟢 [SyncController] ========================================");
                 return Unauthorized(new { error = "Store context is not available" });
             }
-            
+
             try
             {
                 var syncStatus = await _context.SyncStatuses.FindAsync(syncId);
@@ -162,19 +162,19 @@ namespace ShopifyAnalyticsApi.Controllers
                     _logger.LogInformation("🟢 [SyncController] ========================================");
                     return NotFound(new { error = "Sync status not found" });
                 }
-                
-                _logger.LogInformation("🟢 [SyncController] SyncStatus取得完了: SyncId={SyncId}, StoreId={StoreStatusStoreId}, Status={Status}", 
+
+                _logger.LogInformation("🟢 [SyncController] SyncStatus取得完了: SyncId={SyncId}, StoreId={StoreStatusStoreId}, Status={Status}",
                     syncStatus.Id, syncStatus.StoreId, syncStatus.Status);
 
                 // セキュリティチェック: 現在のストアの同期状態のみアクセス可能
                 if (syncStatus.StoreId != StoreId)
                 {
-                    _logger.LogWarning("🟢 [SyncController] ストアID不一致: RequestStoreId={RequestStoreId}, SyncStatusStoreId={SyncStatusStoreId}", 
+                    _logger.LogWarning("🟢 [SyncController] ストアID不一致: RequestStoreId={RequestStoreId}, SyncStatusStoreId={SyncStatusStoreId}",
                         StoreId, syncStatus.StoreId);
                     _logger.LogInformation("🟢 [SyncController] ========================================");
                     return NotFound(new { error = "Sync status not found" });
                 }
-                
+
                 _logger.LogInformation("🟢 [SyncController] セキュリティチェック完了: ストアID一致");
 
                 // 進捗率を計算
@@ -210,8 +210,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     endDate = syncStatus.EndDate,
                     errorMessage = syncStatus.ErrorMessage
                 };
-                
-                _logger.LogInformation("🟢 [SyncController] レスポンス返却: SyncId={SyncId}, Status={Status}, Progress={Processed}/{Total} ({Percentage}%)", 
+
+                _logger.LogInformation("🟢 [SyncController] レスポンス返却: SyncId={SyncId}, Status={Status}, Progress={Processed}/{Total} ({Percentage}%)",
                     syncStatus.Id, syncStatus.Status, syncStatus.ProcessedRecords ?? 0, syncStatus.TotalRecords ?? 0, percentage);
                 _logger.LogInformation("🟢 [SyncController] ========================================");
 
@@ -219,7 +219,7 @@ namespace ShopifyAnalyticsApi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "🟢 [SyncController] ❌ エラー発生: SyncId={SyncId}, StoreId={StoreId}, Message={Message}", 
+                _logger.LogError(ex, "🟢 [SyncController] ❌ エラー発生: SyncId={SyncId}, StoreId={StoreId}, Message={Message}",
                     syncId, StoreId, ex.Message);
                 _logger.LogInformation("🟢 [SyncController] ========================================");
                 return StatusCode(500, new { error = "Internal server error" });
@@ -299,7 +299,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 {
                     products = new
                     {
-                        status = lastProductSync?.Status == "running" ? "syncing" : 
+                        status = lastProductSync?.Status == "running" ? "syncing" :
                                 lastProductSync?.Status == "failed" ? "error" : "synced",
                         count = productCount,
                         lastSyncAt = lastProductSync?.EndDate?.ToString("o"),
@@ -327,7 +327,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     activeSync = activeSync != null ? new
                     {
                         type = activeSync.EntityType?.ToLower() ?? "all",
-                        progress = activeSync.ProcessedRecords > 0 && activeSync.TotalRecords > 0 
+                        progress = activeSync.ProcessedRecords > 0 && activeSync.TotalRecords > 0
                             ? (double)activeSync.ProcessedRecords.Value / activeSync.TotalRecords.Value * 100 : 0,
                         total = activeSync.TotalRecords ?? 0,
                         current = activeSync.ProcessedRecords ?? 0,
@@ -346,218 +346,218 @@ namespace ShopifyAnalyticsApi.Controllers
             }
         }
 
-    /// <summary>
-    /// 同期履歴を取得
-    /// </summary>
-    [HttpGet("history")]
-    public async Task<IActionResult> GetSyncHistory([FromQuery] int limit = 10)
-    {
-        try
+        /// <summary>
+        /// 同期履歴を取得
+        /// </summary>
+        [HttpGet("history")]
+        public async Task<IActionResult> GetSyncHistory([FromQuery] int limit = 10)
         {
+            try
+            {
                 var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     return NotFound(new { error = "Store not found" });
                 }
 
-            var history = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id)
-                .OrderByDescending(s => s.StartDate)
-                .Take(limit)
-                .Select(s => new
-                {
-                    id = s.Id.ToString(),
-                    type = string.IsNullOrEmpty(s.EntityType) || s.EntityType == "All" ? "all" : s.EntityType.ToLower() + "s",
-                    status = s.Status == "completed" ? "success" : 
-                            s.Status == "failed" ? "error" : 
-                            s.Status == "running" ? "syncing" : "warning",
-                    startedAt = s.StartDate.ToString("o"),
-                    completedAt = s.EndDate.HasValue ? s.EndDate.Value.ToString("o") : null,
-                    duration = s.EndDate.HasValue 
-                        ? (int)(s.EndDate.Value - s.StartDate).TotalMilliseconds : 0,
-                    recordsProcessed = s.ProcessedRecords ?? 0,
-                    message = s.ErrorMessage ?? (s.Status == "completed" ? 
-                        $"{s.EntityType ?? "全データ"}の同期が完了しました" : null),
-                    error = s.Status == "failed" ? s.ErrorMessage : null
-                })
-                .ToListAsync();
+                var history = await _context.SyncStatuses
+                    .Where(s => s.StoreId == currentStore.Id)
+                    .OrderByDescending(s => s.StartDate)
+                    .Take(limit)
+                    .Select(s => new
+                    {
+                        id = s.Id.ToString(),
+                        type = string.IsNullOrEmpty(s.EntityType) || s.EntityType == "All" ? "all" : s.EntityType.ToLower() + "s",
+                        status = s.Status == "completed" ? "success" :
+                                s.Status == "failed" ? "error" :
+                                s.Status == "running" ? "syncing" : "warning",
+                        startedAt = s.StartDate.ToString("o"),
+                        completedAt = s.EndDate.HasValue ? s.EndDate.Value.ToString("o") : null,
+                        duration = s.EndDate.HasValue
+                            ? (int)(s.EndDate.Value - s.StartDate).TotalMilliseconds : 0,
+                        recordsProcessed = s.ProcessedRecords ?? 0,
+                        message = s.ErrorMessage ?? (s.Status == "completed" ?
+                            $"{s.EntityType ?? "全データ"}の同期が完了しました" : null),
+                        error = s.Status == "failed" ? s.ErrorMessage : null
+                    })
+                    .ToListAsync();
 
-            return Ok(history);
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sync history for store {StoreId}", StoreId);
+                return StatusCode(500, new { error = "Failed to get sync history" });
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting sync history for store {StoreId}", StoreId);
-            return StatusCode(500, new { error = "Failed to get sync history" });
-        }
-    }
 
-    /// <summary>
-    /// 同期を手動トリガー
-    /// </summary>
-    [HttpPost("trigger")]
-    public async Task<IActionResult> TriggerSync([FromBody] TriggerSyncRequest request)
-    {
-        try
+        /// <summary>
+        /// 同期を手動トリガー
+        /// </summary>
+        [HttpPost("trigger")]
+        public async Task<IActionResult> TriggerSync([FromBody] TriggerSyncRequest request)
         {
+            try
+            {
                 var currentStore = await _context.Stores.FindAsync(StoreId);
                 if (currentStore == null)
                 {
                     return NotFound(new { error = "Store not found" });
                 }
 
-            // 既に同期中の場合はエラー
-            var runningSync = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id && s.Status == "running")
-                .AnyAsync();
+                // 既に同期中の場合はエラー
+                var runningSync = await _context.SyncStatuses
+                    .Where(s => s.StoreId == currentStore.Id && s.Status == "running")
+                    .AnyAsync();
 
-            if (runningSync)
-            {
-                return BadRequest(new 
-                { 
-                    success = false, 
-                    message = "同期が既に実行中です。完了するまでお待ちください。" 
-                });
-            }
-
-            // 同期を開始
-            var syncStatus = new SyncStatus
-            {
-                StoreId = currentStore.Id,
-                SyncType = "manual",
-                EntityType = request.Type == "all" ? "All" : 
-                           request.Type == "products" ? "Product" :
-                           request.Type == "customers" ? "Customer" :
-                           request.Type == "orders" ? "Order" : "All",
-                Status = "running",
-                StartDate = DateTime.UtcNow,
-                ProcessedRecords = 0,
-                TotalRecords = 0
-            };
-
-            _context.SyncStatuses.Add(syncStatus);
-            await _context.SaveChangesAsync();
-
-            // HangFireバックグラウンドジョブとして登録
-            var jobIds = new List<string>();
-
-            if (request.Type == "all" || request.Type == "products")
-            {
-                var productJobId = _backgroundJobClient.Enqueue<ShopifyProductSyncJob>(
-                    job => job.SyncProducts(currentStore.Id, null));
-                jobIds.Add($"products:{productJobId}");
-                _logger.LogInformation("Product sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
-                    productJobId, currentStore.Id);
-            }
-
-            if (request.Type == "all" || request.Type == "customers")
-            {
-                var customerJobId = _backgroundJobClient.Enqueue<ShopifyCustomerSyncJob>(
-                    job => job.SyncCustomers(currentStore.Id, null));
-                jobIds.Add($"customers:{customerJobId}");
-                _logger.LogInformation("Customer sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
-                    customerJobId, currentStore.Id);
-            }
-
-            if (request.Type == "all" || request.Type == "orders")
-            {
-                var orderJobId = _backgroundJobClient.Enqueue<ShopifyOrderSyncJob>(
-                    job => job.SyncOrders(currentStore.Id, null));
-                jobIds.Add($"orders:{orderJobId}");
-                _logger.LogInformation("Order sync job enqueued. JobId: {JobId}, StoreId: {StoreId}", 
-                    orderJobId, currentStore.Id);
-            }
-
-            return Ok(new 
-            { 
-                success = true, 
-                message = $"{request.Type}データの同期を開始しました",
-                jobIds = jobIds
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error triggering sync for store {StoreId}", StoreId);
-            return StatusCode(500, new { error = "Failed to trigger sync" });
-        }
-    }
-
-    /// <summary>
-    /// 同期進捗を取得
-    /// </summary>
-    [HttpGet("progress")]
-    public async Task<IActionResult> GetSyncProgress([FromQuery] string type = "all")
-    {
-        try
-        {
-                var currentStore = await _context.Stores.FindAsync(StoreId);
-                if (currentStore == null)
+                if (runningSync)
                 {
-                    return NotFound(new { error = "Store not found" });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "同期が既に実行中です。完了するまでお待ちください。"
+                    });
                 }
 
-            var entityType = type == "all" ? "All" :
-                           type == "products" ? "Product" :
-                           type == "customers" ? "Customer" :
-                           type == "orders" ? "Order" : "All";
+                // 同期を開始
+                var syncStatus = new SyncStatus
+                {
+                    StoreId = currentStore.Id,
+                    SyncType = "manual",
+                    EntityType = request.Type == "all" ? "All" :
+                               request.Type == "products" ? "Product" :
+                               request.Type == "customers" ? "Customer" :
+                               request.Type == "orders" ? "Order" : "All",
+                    Status = "running",
+                    StartDate = DateTime.UtcNow,
+                    ProcessedRecords = 0,
+                    TotalRecords = 0
+                };
 
-            var activeSync = await _context.SyncStatuses
-                .Where(s => s.StoreId == currentStore.Id && 
-                           s.Status == "running" &&
-                           s.EntityType == entityType)
-                .OrderByDescending(s => s.StartDate)
-                .FirstOrDefaultAsync();
+                _context.SyncStatuses.Add(syncStatus);
+                await _context.SaveChangesAsync();
 
-            if (activeSync == null)
-            {
+                // HangFireバックグラウンドジョブとして登録
+                var jobIds = new List<string>();
+
+                if (request.Type == "all" || request.Type == "products")
+                {
+                    var productJobId = _backgroundJobClient.Enqueue<ShopifyProductSyncJob>(
+                        job => job.SyncProducts(currentStore.Id, null));
+                    jobIds.Add($"products:{productJobId}");
+                    _logger.LogInformation("Product sync job enqueued. JobId: {JobId}, StoreId: {StoreId}",
+                        productJobId, currentStore.Id);
+                }
+
+                if (request.Type == "all" || request.Type == "customers")
+                {
+                    var customerJobId = _backgroundJobClient.Enqueue<ShopifyCustomerSyncJob>(
+                        job => job.SyncCustomers(currentStore.Id, null));
+                    jobIds.Add($"customers:{customerJobId}");
+                    _logger.LogInformation("Customer sync job enqueued. JobId: {JobId}, StoreId: {StoreId}",
+                        customerJobId, currentStore.Id);
+                }
+
+                if (request.Type == "all" || request.Type == "orders")
+                {
+                    var orderJobId = _backgroundJobClient.Enqueue<ShopifyOrderSyncJob>(
+                        job => job.SyncOrders(currentStore.Id, null));
+                    jobIds.Add($"orders:{orderJobId}");
+                    _logger.LogInformation("Order sync job enqueued. JobId: {JobId}, StoreId: {StoreId}",
+                        orderJobId, currentStore.Id);
+                }
+
                 return Ok(new
                 {
-                    status = "idle",
-                    type = type,
-                    progressPercentage = 0,
-                    currentCount = 0,
-                    totalCount = 0
+                    success = true,
+                    message = $"{request.Type}データの同期を開始しました",
+                    jobIds = jobIds
                 });
             }
-
-            var progress = activeSync.ProcessedRecords > 0 && activeSync.TotalRecords > 0
-                ? (double)activeSync.ProcessedRecords.Value / activeSync.TotalRecords.Value * 100 : 0;
-
-            return Ok(new
+            catch (Exception ex)
             {
-                status = "syncing",
-                type = type,
-                progressPercentage = Math.Round(progress, 1),
-                currentCount = activeSync.ProcessedRecords ?? 0,
-                totalCount = activeSync.TotalRecords ?? 0,
-                startedAt = activeSync.StartDate.ToString("o"),
-                estimatedTimeRemaining = EstimateTimeRemaining(activeSync)
-            });
+                _logger.LogError(ex, "Error triggering sync for store {StoreId}", StoreId);
+                return StatusCode(500, new { error = "Failed to trigger sync" });
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting sync progress for store {StoreId}", StoreId);
-            return StatusCode(500, new { error = "Failed to get sync progress" });
-        }
-    }
 
-    private int? EstimateTimeRemaining(SyncStatus syncStatus)
-    {
-        if (syncStatus.ProcessedRecords == null || syncStatus.ProcessedRecords == 0 || 
-            syncStatus.TotalRecords == null || syncStatus.TotalRecords == 0)
+        /// <summary>
+        /// 同期進捗を取得
+        /// </summary>
+        [HttpGet("progress")]
+        public async Task<IActionResult> GetSyncProgress([FromQuery] string type = "all")
+        {
+            try
+            {
+                var currentStore = await _context.Stores.FindAsync(StoreId);
+                if (currentStore == null)
+                {
+                    return NotFound(new { error = "Store not found" });
+                }
+
+                var entityType = type == "all" ? "All" :
+                               type == "products" ? "Product" :
+                               type == "customers" ? "Customer" :
+                               type == "orders" ? "Order" : "All";
+
+                var activeSync = await _context.SyncStatuses
+                    .Where(s => s.StoreId == currentStore.Id &&
+                               s.Status == "running" &&
+                               s.EntityType == entityType)
+                    .OrderByDescending(s => s.StartDate)
+                    .FirstOrDefaultAsync();
+
+                if (activeSync == null)
+                {
+                    return Ok(new
+                    {
+                        status = "idle",
+                        type = type,
+                        progressPercentage = 0,
+                        currentCount = 0,
+                        totalCount = 0
+                    });
+                }
+
+                var progress = activeSync.ProcessedRecords > 0 && activeSync.TotalRecords > 0
+                    ? (double)activeSync.ProcessedRecords.Value / activeSync.TotalRecords.Value * 100 : 0;
+
+                return Ok(new
+                {
+                    status = "syncing",
+                    type = type,
+                    progressPercentage = Math.Round(progress, 1),
+                    currentCount = activeSync.ProcessedRecords ?? 0,
+                    totalCount = activeSync.TotalRecords ?? 0,
+                    startedAt = activeSync.StartDate.ToString("o"),
+                    estimatedTimeRemaining = EstimateTimeRemaining(activeSync)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sync progress for store {StoreId}", StoreId);
+                return StatusCode(500, new { error = "Failed to get sync progress" });
+            }
+        }
+
+        private int? EstimateTimeRemaining(SyncStatus syncStatus)
+        {
+            if (syncStatus.ProcessedRecords == null || syncStatus.ProcessedRecords == 0 ||
+                syncStatus.TotalRecords == null || syncStatus.TotalRecords == 0)
+                return null;
+
+            var elapsed = (DateTime.UtcNow - syncStatus.StartDate).TotalSeconds;
+            var rate = syncStatus.ProcessedRecords.Value / elapsed;
+            var remaining = syncStatus.TotalRecords.Value - syncStatus.ProcessedRecords.Value;
+
+            if (rate > 0)
+            {
+                return (int)(remaining / rate);
+            }
+
             return null;
-
-        var elapsed = (DateTime.UtcNow - syncStatus.StartDate).TotalSeconds;
-        var rate = syncStatus.ProcessedRecords.Value / elapsed;
-        var remaining = syncStatus.TotalRecords.Value - syncStatus.ProcessedRecords.Value;
-        
-        if (rate > 0)
-        {
-            return (int)(remaining / rate);
         }
-
-        return null;
     }
-}
 
     /// <summary>
     /// 初期同期リクエストモデル

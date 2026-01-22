@@ -462,7 +462,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     
                 var sampleOrders = await _context.Orders
                     .Where(o => o.StoreId == storeId)
-                    .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
+                    .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                     .Take(5)
                     .Join(_context.Customers,
                         o => o.CustomerId,
@@ -473,7 +473,7 @@ namespace ShopifyAnalyticsApi.Controllers
                             o.OrderNumber, 
                             CustomerName = c.DisplayName,
                             o.TotalPrice, 
-                            CreatedAt = o.ShopifyCreatedAt ?? o.CreatedAt 
+                            CreatedAt = o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt 
                         })
                     .ToListAsync();
                 
@@ -489,8 +489,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         CustomerName = c.DisplayName,
                         LastOrderDate = _context.Orders
                             .Where(o => o.CustomerId == c.Id)
-                            .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                            .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
+                            .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                            .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                             .FirstOrDefault()
                     })
                     .Take(10) // 上位10件のみ
@@ -500,8 +500,8 @@ namespace ShopifyAnalyticsApi.Controllers
                                   where customer.StoreId == storeId && customer.TotalOrders > 0
                                   let lastOrderDate = _context.Orders
                                       .Where(o => o.CustomerId == customer.Id)
-                                      .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                                      .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
+                                      .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                                      .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                                       .FirstOrDefault()
                                   where lastOrderDate.HasValue && lastOrderDate < cutoffDate
                                   select customer;
@@ -547,7 +547,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         RequestId = logProperties["RequestId"],
                         OrderYearDistribution = await _context.Orders
                             .Where(o => o.StoreId == storeId)
-                            .GroupBy(o => (o.ShopifyCreatedAt ?? o.CreatedAt).Year)
+                            .GroupBy(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).Year)
                             .Select(g => new { Year = g.Key, Count = g.Count() })
                             .OrderBy(x => x.Year)
                             .ToListAsync()

@@ -296,6 +296,15 @@ namespace ShopifyAnalyticsApi.Services
                 // トークンからセッション情報を取得
                 var sessionId = principal.FindFirst("session_id")?.Value;
                 var authMode = principal.FindFirst("auth_mode")?.Value;
+                
+                // 🔧 デモトークンからStoreIdを取得
+                var storeIdClaim = principal.FindFirst("store_id")?.Value;
+                int? storeId = null;
+                if (!string.IsNullOrEmpty(storeIdClaim) && int.TryParse(storeIdClaim, out var parsedStoreId))
+                {
+                    storeId = parsedStoreId;
+                    _logger.LogDebug("StoreId extracted from demo token: {StoreId}", storeId);
+                }
 
                 if (authMode != "demo")
                 {
@@ -334,15 +343,17 @@ namespace ShopifyAnalyticsApi.Services
                 await _demoAuthService.UpdateSessionAccessAsync(sessionId);
 
                 _logger.LogInformation(
-                    "Demo token validated successfully. SessionId: {SessionId}",
-                    sessionId);
+                    "Demo token validated successfully. SessionId: {SessionId}, StoreId: {StoreId}",
+                    sessionId,
+                    storeId);
 
                 return new AuthenticationResult
                 {
                     IsValid = true,
                     UserId = sessionId,
                     AuthMode = "demo",
-                    IsReadOnly = true
+                    IsReadOnly = true,
+                    StoreId = storeId // 🔧 StoreIdを返す
                 };
             }
             catch (SecurityTokenExpiredException ex)

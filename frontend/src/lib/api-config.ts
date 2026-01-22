@@ -121,7 +121,8 @@ export const getEnvironmentInfo = () => {
 };
 
 // ストアIDを取得する関数を追加
-export function getCurrentStoreId(): number {
+// 🔧 デフォルト値1を返さないように修正（誤ったStoreIdでのAPI呼び出しを防ぐ）
+export function getCurrentStoreId(): number | null {
   if (typeof window !== 'undefined') {
     // 🆕 localStorage から取得を試みる
     let currentStoreId = localStorage.getItem('currentStoreId')
@@ -141,22 +142,23 @@ export function getCurrentStoreId(): number {
     }
     
     if (!currentStoreId) {
-      console.warn('⚠️ [getCurrentStoreId] currentStoreId が localStorage にも sessionStorage にも見つかりません。デフォルト値 1 を返します。')
-      return 1
+      console.warn('⚠️ [getCurrentStoreId] currentStoreId が localStorage にも sessionStorage にも見つかりません。')
+      return null  // 🔧 デフォルト値1ではなくnullを返す
     }
     
     const parsed = parseInt(currentStoreId, 10)
     if (isNaN(parsed) || parsed <= 0) {
-      console.warn('⚠️ [getCurrentStoreId] currentStoreId が無効な値です:', currentStoreId, 'デフォルト値 1 を返します。')
-      return 1
+      console.warn('⚠️ [getCurrentStoreId] currentStoreId が無効な値です:', currentStoreId)
+      return null  // 🔧 デフォルト値1ではなくnullを返す
     }
     
     return parsed
   }
-  return 1
+  return null  // 🔧 SSR時もnullを返す
 }
 
 // APIパラメータにstoreIdを自動追加する関数
+// 🔧 getCurrentStoreId()がnullを返す可能性を考慮
 export function addStoreIdToParams(params: URLSearchParams | Record<string, any>): URLSearchParams {
   const searchParams = params instanceof URLSearchParams 
     ? params 
@@ -164,7 +166,12 @@ export function addStoreIdToParams(params: URLSearchParams | Record<string, any>
   
   // storeIdが既に設定されていない場合のみ追加
   if (!searchParams.has('storeId')) {
-    searchParams.set('storeId', getCurrentStoreId().toString())
+    const storeId = getCurrentStoreId()
+    if (storeId !== null) {
+      searchParams.set('storeId', storeId.toString())
+    } else {
+      console.warn('⚠️ [addStoreIdToParams] storeId が取得できなかったため、パラメータに追加しませんでした')
+    }
   }
   
   return searchParams

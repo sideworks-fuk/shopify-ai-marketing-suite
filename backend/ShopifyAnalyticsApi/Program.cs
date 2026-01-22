@@ -97,7 +97,8 @@ builder.Services.AddAuthentication("Custom")
 
 // Add Entity Framework
 builder.Services.AddDbContext<ShopifyDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"), 
+        sqlOptions => sqlOptions.CommandTimeout(120))); // タイムアウトを120秒に延長
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

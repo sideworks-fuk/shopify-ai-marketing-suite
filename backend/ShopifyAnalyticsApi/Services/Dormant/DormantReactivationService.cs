@@ -396,8 +396,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             {
                 if (c.Orders == null || !c.Orders.Any()) return false;
                 
-                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt).First();
-                var lastOrderDate = lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
+                var lastOrder = c.Orders.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).First();
+                var lastOrderDate = lastOrder.ShopifyProcessedAt ?? lastOrder.ShopifyCreatedAt ?? lastOrder.CreatedAt;
                 var daysSince = (DateTime.UtcNow - lastOrderDate).Days;
                 
                 return daysSince >= minDays && (maxDays == int.MaxValue || daysSince <= maxDays);

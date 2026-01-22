@@ -220,6 +220,12 @@ export default function DormantCustomersPage() {
         const storeId = authCurrentStoreId || getCurrentStoreId()
         console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
         
+        // 🔧 storeId が null の場合は API 呼び出しをスキップ
+        if (storeId === null) {
+          console.warn('⚠️ [DormantPage] storeId が取得できませんでした。API呼び出しをスキップします。')
+          return
+        }
+        
         const apiClient = getApiClient()
         const response = await apiClient.dormantSummary(storeId)
         console.log('✅ サマリーデータ取得成功:', response)
@@ -272,6 +278,12 @@ export default function DormantCustomersPage() {
         const storeId = authCurrentStoreId || getCurrentStoreId()
         console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
         console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+        
+        // 🔧 storeId が null の場合は API 呼び出しをスキップ
+        if (storeId === null) {
+          console.warn('⚠️ [DormantPage] storeId が取得できませんでした。詳細セグメントAPI呼び出しをスキップします。')
+          return
+        }
         
         const apiClient = getApiClient()
         const response = await apiClient.dormantDetailedSegments(storeId)
@@ -394,6 +406,12 @@ export default function DormantCustomersPage() {
       // 🆕 AuthProvider の currentStoreId を優先的に使用
       const storeId = authCurrentStoreId || getCurrentStoreId()
       console.log('🔍 [DormantPage.loadCustomerList] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+      
+      // 🔧 storeId が null の場合は API 呼び出しをスキップ
+      if (storeId === null) {
+        console.warn('⚠️ [DormantPage.loadCustomerList] storeId が取得できませんでした。API呼び出しをスキップします。')
+        return
+      }
       
       const requestParams: any = {
         storeId: storeId,

@@ -318,16 +318,41 @@ namespace ShopifyAnalyticsApi.Controllers
         {
             try
             {
+                var totalStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                
                 // JWTから取得したStoreIdでフィルタリング
                 var storeId = this.StoreId;
                 
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 var customerCount = await _context.Customers.Where(c => c.StoreId == storeId).CountAsync();
+                _logger.LogInformation("📊 [パフォーマンス] Customers.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, customerCount);
+                
+                sw.Restart();
                 var orderCount = await _context.Orders.Where(o => o.StoreId == storeId).CountAsync();
+                _logger.LogInformation("📊 [パフォーマンス] Orders.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, orderCount);
+                
+                sw.Restart();
                 var productCount = await _context.Products.Where(p => p.StoreId == storeId).CountAsync();
-                var orderItemCount = await _context.OrderItems.Where(oi => _context.Orders.Any(o => o.Id == oi.OrderId && o.StoreId == storeId)).CountAsync();
+                _logger.LogInformation("📊 [パフォーマンス] Products.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, productCount);
+                
+                sw.Restart();
+                // 改善版: JOINを使用（EXISTSサブクエリより効率的）
+                var orderItemCount = await (
+                    from oi in _context.OrderItems
+                    join o in _context.Orders on oi.OrderId equals o.Id
+                    where o.StoreId == storeId
+                    select oi
+                ).CountAsync();
+                _logger.LogInformation("📊 [パフォーマンス] OrderItems.Count: {ElapsedMs}ms, 件数: {Count}", sw.ElapsedMilliseconds, orderItemCount);
 
+                sw.Restart();
                 var totalRevenue = await _context.Orders.Where(o => o.StoreId == storeId).SumAsync(o => o.TotalPrice);
+                _logger.LogInformation("📊 [パフォーマンス] Orders.Sum(TotalPrice): {ElapsedMs}ms, 合計: {Total}", sw.ElapsedMilliseconds, totalRevenue);
+                
                 var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+                
+                totalStopwatch.Stop();
+                _logger.LogInformation("📊 [パフォーマンス] GetDatabaseStats 全体: {ElapsedMs}ms", totalStopwatch.ElapsedMilliseconds);
 
                 return Ok(new
                 {
@@ -443,7 +468,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         .Select(g => new
                         {
                             OrderCount = g.Count(),
-                            TotalSpent = g.Sum(o => o.TotalPrice)
+                            TotalSpent = g.Sum(o => o.TotalPrice),
+                            LastOrderDate = g.Max(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                         })
                         .FirstOrDefaultAsync();
 
@@ -451,6 +477,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     {
                         customer.TotalOrders = orderStats.OrderCount;
                         customer.TotalSpent = orderStats.TotalSpent;
+                        customer.LastOrderDate = orderStats.LastOrderDate; // 最終購入日を更新
                         customer.UpdatedAt = DateTime.UtcNow;
 
                         // CustomerSegmentも更新
@@ -473,6 +500,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     {
                         customer.TotalOrders = 0;
                         customer.TotalSpent = 0;
+                        customer.LastOrderDate = null; // 注文がなければnull
                         customer.CustomerSegment = "新規顧客";
                         customer.UpdatedAt = DateTime.UtcNow;
                     }

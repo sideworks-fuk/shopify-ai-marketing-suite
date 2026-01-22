@@ -43,14 +43,15 @@ namespace ShopifyAnalyticsApi.Services
 
                 foreach (var customer in customers)
                 {
-                    // 注文データから集計
+                    // 注文データから集計（LastOrderDate も取得）
                     var orderStats = await _context.Orders
                         .Where(o => o.CustomerId == customer.Id)
                         .GroupBy(o => o.CustomerId)
                         .Select(g => new
                         {
                             OrderCount = g.Count(),
-                            TotalSpent = g.Sum(o => o.TotalPrice)
+                            TotalSpent = g.Sum(o => o.TotalPrice),
+                            LastOrderDate = g.Max(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                         })
                         .FirstOrDefaultAsync();
 
@@ -58,6 +59,7 @@ namespace ShopifyAnalyticsApi.Services
                     {
                         customer.TotalOrders = orderStats.OrderCount;
                         customer.TotalSpent = orderStats.TotalSpent;
+                        customer.LastOrderDate = orderStats.LastOrderDate; // 最終購入日を更新
                         customer.UpdatedAt = DateTime.UtcNow;
 
                         // CustomerSegmentも更新
@@ -81,6 +83,7 @@ namespace ShopifyAnalyticsApi.Services
                         // 注文がない場合は0に設定
                         customer.TotalOrders = 0;
                         customer.TotalSpent = 0;
+                        customer.LastOrderDate = null; // 注文がなければnull
                         customer.CustomerSegment = "新規顧客";
                         customer.UpdatedAt = DateTime.UtcNow;
                     }
@@ -116,8 +119,8 @@ namespace ShopifyAnalyticsApi.Services
                               where customer.StoreId == storeId && customer.TotalOrders > 0
                               let lastOrderDate = _context.Orders
                                   .Where(o => o.CustomerId == customer.Id)
-                                  .OrderByDescending(o => o.ShopifyCreatedAt ?? o.CreatedAt)
-                                  .Select(o => (DateTime?)(o.ShopifyCreatedAt ?? o.CreatedAt))
+                                  .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                                  .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                                   .FirstOrDefault()
                               where lastOrderDate.HasValue && lastOrderDate < cutoffDate
                               select customer;

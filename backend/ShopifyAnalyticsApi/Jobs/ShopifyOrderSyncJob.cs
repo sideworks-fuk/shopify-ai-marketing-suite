@@ -26,6 +26,7 @@ namespace ShopifyAnalyticsApi.Jobs
         private readonly ICheckpointManager _checkpointManager;
         private readonly ISyncRangeManager _syncRangeManager;
         private readonly ISyncProgressTracker _progressTracker;
+        private readonly CustomerDataMaintenanceService _customerMaintenanceService;
 
         public ShopifyOrderSyncJob(
             ShopifyApiService shopifyApi,
@@ -34,7 +35,8 @@ namespace ShopifyAnalyticsApi.Jobs
             IConfiguration configuration,
             ICheckpointManager checkpointManager,
             ISyncRangeManager syncRangeManager,
-            ISyncProgressTracker progressTracker)
+            ISyncProgressTracker progressTracker,
+            CustomerDataMaintenanceService customerMaintenanceService)
         {
             _shopifyApi = shopifyApi;
             _context = context;
@@ -43,6 +45,7 @@ namespace ShopifyAnalyticsApi.Jobs
             _checkpointManager = checkpointManager;
             _syncRangeManager = syncRangeManager;
             _progressTracker = progressTracker;
+            _customerMaintenanceService = customerMaintenanceService;
         }
 
         /// <summary>
@@ -360,6 +363,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 FulfillmentStatus = shopifyOrder.FulfillmentStatus,
                 ShopifyCreatedAt = shopifyOrder.CreatedAt,
                 ShopifyUpdatedAt = shopifyOrder.UpdatedAt,
+                ShopifyProcessedAt = shopifyOrder.ProcessedAt, // 決済完了日時
                 SyncedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -436,6 +440,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingOrder.CustomerId = order.CustomerId; // CustomerIdも更新
                     existingOrder.ShopifyCreatedAt ??= order.ShopifyCreatedAt;
                     existingOrder.ShopifyUpdatedAt = order.ShopifyUpdatedAt;
+                    existingOrder.ShopifyProcessedAt = order.ShopifyProcessedAt; // 決済完了日時
                     existingOrder.SyncedAt = DateTime.UtcNow;
                     existingOrder.UpdatedAt = DateTime.UtcNow;
 
@@ -544,6 +549,21 @@ namespace ShopifyAnalyticsApi.Jobs
                     _logger.LogInformation(
                         "✅ [OrderSyncJob] Updated {Count} SyncStatuses records for StoreId: {StoreId}, EntityType: {EntityType}, Success: {Success}",
                         syncStatuses.Count, storeId, entityType, success);
+                    
+                    // 同期成功時は顧客統計（TotalOrders, TotalSpent, LastOrderDate）を更新
+                    if (success && entityType == "Orders")
+                    {
+                        try
+                        {
+                            _logger.LogInformation("📊 [OrderSyncJob] 顧客統計更新を開始: StoreId={StoreId}", storeId);
+                            var updatedCount = await _customerMaintenanceService.UpdateCustomerTotalOrdersAsync(storeId);
+                            _logger.LogInformation("📊 [OrderSyncJob] 顧客統計更新完了: StoreId={StoreId}, 更新件数={UpdatedCount}", storeId, updatedCount);
+                        }
+                        catch (Exception maintenanceEx)
+                        {
+                            _logger.LogWarning(maintenanceEx, "⚠️ [OrderSyncJob] 顧客統計更新に失敗（同期自体は成功）: StoreId={StoreId}", storeId);
+                        }
+                    }
                 }
                 else
                 {

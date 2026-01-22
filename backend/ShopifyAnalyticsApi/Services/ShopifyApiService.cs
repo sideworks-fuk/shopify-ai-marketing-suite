@@ -759,18 +759,22 @@ namespace ShopifyAnalyticsApi.Services
 
             // CustomerIdを取得
             int customerId = 0;
+            Customer? targetCustomer = null;
             if (order.Customer != null && !string.IsNullOrEmpty(order.Customer.Id.ToString()))
             {
-                var customer = await _context.Customers
+                targetCustomer = await _context.Customers
                     .FirstOrDefaultAsync(c => 
                         c.StoreId == storeId && 
                         c.ShopifyCustomerId == order.Customer.Id.ToString());
                 
-                if (customer != null)
+                if (targetCustomer != null)
                 {
-                    customerId = customer.Id;
+                    customerId = targetCustomer.Id;
                 }
             }
+            
+            // 注文日時を取得（LastOrderDate 更新用）
+            var orderDate = order.ProcessedAt ?? order.CreatedAt;
 
             if (existingOrder != null)
             {
@@ -788,6 +792,7 @@ namespace ShopifyAnalyticsApi.Services
                 existingOrder.CustomerId = customerId; // CustomerIdも更新
                 existingOrder.ShopifyCreatedAt ??= order.CreatedAt;
                 existingOrder.ShopifyUpdatedAt = order.UpdatedAt;
+                existingOrder.ShopifyProcessedAt = order.ProcessedAt; // 決済完了日時
                 existingOrder.SyncedAt = DateTime.UtcNow;
                 existingOrder.UpdatedAt = DateTime.UtcNow;
 
@@ -844,6 +849,7 @@ namespace ShopifyAnalyticsApi.Services
                     FulfillmentStatus = order.FulfillmentStatus,
                     ShopifyCreatedAt = order.CreatedAt,
                     ShopifyUpdatedAt = order.UpdatedAt,
+                    ShopifyProcessedAt = order.ProcessedAt, // 決済完了日時
                     SyncedAt = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
@@ -870,6 +876,17 @@ namespace ShopifyAnalyticsApi.Services
                 }
 
                 _context.Orders.Add(newOrder);
+            }
+
+            // 顧客の LastOrderDate を更新（非正規化フィールド）
+            if (targetCustomer != null && orderDate.HasValue)
+            {
+                // 現在の LastOrderDate より新しい場合のみ更新
+                if (!targetCustomer.LastOrderDate.HasValue || orderDate > targetCustomer.LastOrderDate)
+                {
+                    targetCustomer.LastOrderDate = orderDate;
+                    targetCustomer.UpdatedAt = DateTime.UtcNow;
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -1011,6 +1028,11 @@ namespace ShopifyAnalyticsApi.Services
             public DateTime? CreatedAt { get; set; }
             [JsonPropertyName("updated_at")]
             public DateTime? UpdatedAt { get; set; }
+            /// <summary>
+            /// 決済完了日時（分析レポートで優先使用すべき日時）
+            /// </summary>
+            [JsonPropertyName("processed_at")]
+            public DateTime? ProcessedAt { get; set; }
             [JsonPropertyName("customer")]
             public ShopifyCustomer? Customer { get; set; }
             [JsonPropertyName("line_items")]
