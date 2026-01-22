@@ -375,6 +375,8 @@ namespace ShopifyAnalyticsApi.Controllers
                         completedAt = s.EndDate.HasValue ? s.EndDate.Value.ToString("o") : null,
                         duration = s.EndDate.HasValue
                             ? (int)(s.EndDate.Value - s.StartDate).TotalMilliseconds : 0,
+                        durationMinutes = s.EndDate.HasValue
+                            ? (int)(s.EndDate.Value - s.StartDate).TotalMinutes : 0,
                         recordsProcessed = s.ProcessedRecords ?? 0,
                         message = s.ErrorMessage ?? (s.Status == "completed" ?
                             $"{s.EntityType ?? "全データ"}の同期が完了しました" : null),

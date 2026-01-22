@@ -351,6 +351,10 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
                 
+                // ストア情報を取得して最終同期日時を取得
+                var store = await _context.Stores.FindAsync(storeId);
+                var lastSyncDate = store?.LastSyncDate;
+                
                 totalStopwatch.Stop();
                 _logger.LogInformation("📊 [パフォーマンス] GetDatabaseStats 全体: {ElapsedMs}ms", totalStopwatch.ElapsedMilliseconds);
 
@@ -365,7 +369,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         orderItems = orderItemCount,
                         totalRevenue,
                         averageOrderValue,
-                        lastUpdated = DateTime.UtcNow
+                        lastUpdated = lastSyncDate?.ToString("o") ?? null
                     },
                     timestamp = DateTime.UtcNow
                 });

@@ -43,6 +43,7 @@ interface SyncHistory {
   recordsProcessed: number
   syncType: 'initial' | 'manual' | 'scheduled'
   duration?: number
+  durationMinutes?: number
 }
 
 interface SyncStats {
@@ -206,7 +207,8 @@ export default function InitialSetupPage() {
                       h.status === 'syncing' ? 'running' : 'completed',
               recordsProcessed: h.recordsProcessed,
               syncType: h.type === 'all' ? 'initial' : 'manual',
-              duration: h.duration
+              duration: h.duration,
+              durationMinutes: h.durationMinutes
             }))
             setSyncHistory(mappedHistory)
             console.log('✅ 同期履歴を取得:', mappedHistory.length, '件')
@@ -535,12 +537,14 @@ export default function InitialSetupPage() {
                   <div>
                     <p className="text-sm text-orange-600 font-medium">最終同期</p>
                     <p className="text-xl font-bold text-orange-900">
-                      {syncStats.lastSyncTime ? new Date(syncStats.lastSyncTime).toLocaleString('ja-JP', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }).replace(/\//g, '/') : '未同期'}
+                      {syncStats.lastSyncTime && syncStats.lastSyncTime !== 'null' 
+                        ? new Date(syncStats.lastSyncTime).toLocaleString('ja-JP', {
+                            month: 'numeric',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }).replace(/\//g, '/') 
+                        : '未同期'}
                     </p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-500" />
@@ -774,7 +778,7 @@ export default function InitialSetupPage() {
                               </div>
                               <p className="text-sm text-gray-600">
                                 {new Date(history.startTime).toLocaleString('ja-JP')}
-                                {history.duration && ` （所要時間: ${Math.floor(history.duration / 60)}分）`}
+                                {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
                               </p>
                             </div>
                           </div>
