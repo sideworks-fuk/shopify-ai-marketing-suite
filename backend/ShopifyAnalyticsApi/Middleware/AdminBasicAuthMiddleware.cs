@@ -40,6 +40,14 @@ namespace ShopifyAnalyticsApi.Middleware
             var targetPaths = new[] { "/admin", "/swagger", "/hangfire" };
             var isTargetPath = targetPaths.Any(targetPath => path.StartsWith(targetPath));
 
+            // デバッグ: すべてのリクエストをログに記録（対象パスの場合）
+            if (isTargetPath)
+            {
+                _logger.LogInformation(
+                    "[AdminBasicAuthMiddleware] Target path detected - Path: {Path}, Method: {Method}, IsHttps: {IsHttps}, HasAuthHeader: {HasAuthHeader}",
+                    path, context.Request.Method, context.Request.IsHttps, !string.IsNullOrEmpty(context.Request.Headers["Authorization"].ToString()));
+            }
+
             if (!isTargetPath)
             {
                 await _next(context);
@@ -63,12 +71,20 @@ namespace ShopifyAnalyticsApi.Middleware
                 return;
             }
             
-            // パスへのアクセスをログに記録
-            _logger.LogInformation("Admin Basic auth required for path: {Path}, HasAuthHeader: {HasAuthHeader}, IsHttps: {IsHttps}", 
-                path, !string.IsNullOrEmpty(context.Request.Headers["Authorization"].ToString()), context.Request.IsHttps);
+            // パスへのアクセスをログに記録（セッションCookieがない場合）
+            var authHeader = context.Request.Headers["Authorization"].ToString();
+            var authHeaderPreview = string.IsNullOrEmpty(authHeader) 
+                ? "none" 
+                : authHeader.Substring(0, Math.Min(20, authHeader.Length));
+            
+            _logger.LogInformation(
+                "[AdminBasicAuthMiddleware] Admin Basic auth required - Path: {Path}, HasAuthHeader: {HasAuthHeader}, IsHttps: {IsHttps}, AuthHeaderPreview: {AuthHeaderPreview}",
+                path, 
+                !string.IsNullOrEmpty(authHeader), 
+                context.Request.IsHttps,
+                authHeaderPreview);
 
             // Basic認証のチェック
-            var authHeader = context.Request.Headers["Authorization"].ToString();
             if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
             {
                 try
@@ -142,6 +158,10 @@ namespace ShopifyAnalyticsApi.Middleware
             }
 
             // 認証失敗: 401 Unauthorizedを返す
+            _logger.LogWarning(
+                "[AdminBasicAuthMiddleware] Authentication failed - Path: {Path}, HasAuthHeader: {HasAuthHeader}, AuthHeaderPreview: {AuthHeaderPreview}",
+                path, !string.IsNullOrEmpty(authHeader), authHeaderPreview);
+            
             context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
             context.Response.Headers["WWW-Authenticate"] = "Basic realm=\"EC Ranger Admin\"";
             
