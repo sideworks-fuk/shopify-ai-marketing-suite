@@ -100,22 +100,38 @@ namespace ShopifyAnalyticsApi.Middleware
                         
                         // 設定から認証情報を取得（優先順位: Admin > Swagger > Hangfire）
                         // "Will be overridden by environment variable" などのプレースホルダーは無視
+                        var adminUsername = _configuration["Admin:BasicAuth:Username"];
+                        var swaggerUsername = _configuration["Swagger:BasicAuth:Username"];
+                        var hangfireUsername = _configuration["Hangfire:Dashboard:Username"];
+                        var adminPassword = _configuration["Admin:BasicAuth:Password"];
+                        var swaggerPassword = _configuration["Swagger:BasicAuth:Password"];
+                        var hangfirePassword = _configuration["Hangfire:Dashboard:Password"];
+                        
                         var expectedUsername = GetConfigValue(
-                            _configuration["Admin:BasicAuth:Username"],
-                            _configuration["Swagger:BasicAuth:Username"],
-                            _configuration["Hangfire:Dashboard:Username"],
+                            adminUsername,
+                            swaggerUsername,
+                            hangfireUsername,
                             "admin");
                         
                         var expectedPassword = GetConfigValue(
-                            _configuration["Admin:BasicAuth:Password"],
-                            _configuration["Swagger:BasicAuth:Password"],
-                            _configuration["Hangfire:Dashboard:Password"],
+                            adminPassword,
+                            swaggerPassword,
+                            hangfirePassword,
                             "Admin2025!");
+                        
+                        // 設定値の詳細ログ（デバッグ用）
+                        _logger.LogInformation(
+                            "[AdminBasicAuthMiddleware] Config values - AdminUsername: {AdminUsername}, SwaggerUsername: {SwaggerUsername}, HangfireUsername: {HangfireUsername}, AdminPassword: {AdminPassword}, SwaggerPassword: {SwaggerPassword}, HangfirePassword: {HangfirePassword}",
+                            adminUsername ?? "null", swaggerUsername ?? "null", hangfireUsername ?? "null",
+                            adminPassword != null ? $"[{adminPassword.Length} chars]" : "null",
+                            swaggerPassword != null ? $"[{swaggerPassword.Length} chars]" : "null",
+                            hangfirePassword != null ? $"[{hangfirePassword.Length} chars]" : "null");
                         
                         // 認証チェックの詳細ログ（本番環境でも確認可能）
                         _logger.LogInformation(
-                            "Admin Basic auth check - Path: {Path}, Username: {Username}, ExpectedUsername: {ExpectedUsername}, PasswordLength: {PasswordLength}, ExpectedPasswordLength: {ExpectedPasswordLength}, PasswordMatch: {PasswordMatch}",
-                            path, username, expectedUsername, password?.Length ?? 0, expectedPassword?.Length ?? 0, password == expectedPassword);
+                            "[AdminBasicAuthMiddleware] Admin Basic auth check - Path: {Path}, Username: {Username}, ExpectedUsername: {ExpectedUsername}, PasswordLength: {PasswordLength}, ExpectedPasswordLength: {ExpectedPasswordLength}, PasswordMatch: {PasswordMatch}, ExpectedPasswordPreview: {ExpectedPasswordPreview}",
+                            path, username, expectedUsername, password?.Length ?? 0, expectedPassword?.Length ?? 0, password == expectedPassword,
+                            expectedPassword?.Substring(0, Math.Min(5, expectedPassword.Length)) ?? "null");
                         
                         if (username == expectedUsername && password == expectedPassword)
                         {
@@ -192,24 +208,24 @@ namespace ShopifyAnalyticsApi.Middleware
             
             if (!string.IsNullOrEmpty(adminValue) && !placeholderStrings.Contains(adminValue))
             {
-                _logger.LogDebug("Using Admin config value");
+                _logger.LogInformation("[AdminBasicAuthMiddleware] GetConfigValue: Using Admin config value (length: {Length})", adminValue.Length);
                 return adminValue;
             }
             
             if (!string.IsNullOrEmpty(swaggerValue) && !placeholderStrings.Contains(swaggerValue))
             {
-                _logger.LogDebug("Using Swagger config value (Admin not set)");
+                _logger.LogInformation("[AdminBasicAuthMiddleware] GetConfigValue: Using Swagger config value (Admin not set, length: {Length})", swaggerValue.Length);
                 return swaggerValue;
             }
             
             if (!string.IsNullOrEmpty(hangfireValue) && !placeholderStrings.Contains(hangfireValue))
             {
-                _logger.LogDebug("Using Hangfire config value (Admin/Swagger not set)");
+                _logger.LogInformation("[AdminBasicAuthMiddleware] GetConfigValue: Using Hangfire config value (Admin/Swagger not set, length: {Length})", hangfireValue.Length);
                 return hangfireValue;
             }
             
-            _logger.LogInformation("Using default value (no valid config found). Admin: {AdminValue}, Swagger: {SwaggerValue}, Hangfire: {HangfireValue}", 
-                adminValue ?? "null", swaggerValue ?? "null", hangfireValue ?? "null");
+            _logger.LogInformation("[AdminBasicAuthMiddleware] GetConfigValue: Using default value (no valid config found). Admin: {AdminValue}, Swagger: {SwaggerValue}, Hangfire: {HangfireValue}, DefaultLength: {DefaultLength}", 
+                adminValue ?? "null", swaggerValue ?? "null", hangfireValue ?? "null", defaultValue.Length);
             return defaultValue;
         }
     }
