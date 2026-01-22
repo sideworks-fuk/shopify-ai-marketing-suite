@@ -138,44 +138,68 @@ az ad sp create-for-rbac \
 
 ---
 
-### 方法2: Azure Portalで手動作成
+### 方法2: Azure Portalで手動作成（GUI）
 
-1. **Azure Portal → Azure Active Directory → アプリの登録**
-2. **新規登録**をクリック
-3. **アプリケーション情報を入力**
-   - 名前: `github-actions-deploy`
-   - サポートされているアカウントの種類: 「この組織ディレクトリのみに含まれるアカウント」
-   - 「登録」をクリック
+#### ステップ1: Azure Portalでアプリ登録を確認
 
-4. **クライアントシークレットを作成**
-   - 「証明書とシークレット」→ 「+ 新しいクライアント シークレット」
-   - 説明: `GitHub Actions Deploy`
-   - 有効期限: 24か月（推奨）
-   - 「追加」をクリック
-   - **値**をコピー（後で参照できないため）
+1. **Azure Portal** → **Microsoft Entra ID**（旧Azure Active Directory）
+2. 左メニュー → **アプリの登録**
+3. 既存のサービスプリンシパル（例: `github-actions-ec-ranger`）を選択
+   - なければ「新規登録」で作成
+     - 名前: `github-actions-deploy`
+     - サポートされているアカウントの種類: 「この組織ディレクトリのみに含まれるアカウント」
+     - 「登録」をクリック
 
-5. **必要な情報をコピー**
-   - **アプリケーション (クライアント) ID**: 「概要」からコピー
-   - **ディレクトリ (テナント) ID**: 「概要」からコピー
-   - **サブスクリプションID**: Azure Portalの右上からコピー
-   - **クライアントシークレット**: 上記でコピーした値
+#### ステップ2: 必要な値を収集
 
-6. **JSON形式で作成**
-   ```json
-   {
-     "clientId": "<アプリケーションID>",
-     "clientSecret": "<クライアントシークレット>",
-     "subscriptionId": "<サブスクリプションID>",
-     "tenantId": "<テナントID>"
-   }
-   ```
+**概要ページから取得:**
+| 項目 | 場所 |
+|------|------|
+| `clientId` | アプリケーション (クライアント) ID |
+| `tenantId` | ディレクトリ (テナント) ID |
 
-7. **GitHub Secretsに設定**
-   - GitHub → Settings → Secrets and variables → Actions
-   - `AZURE_CREDENTIALS`を削除（存在する場合）
-   - 新しいシークレットを追加:
-     - **名前**: `AZURE_CREDENTIALS`
-     - **値**: 上記のJSON（全体をコピー＆ペースト）
+**サブスクリプションIDを取得:**
+1. Azure Portal → **サブスクリプション**
+2. 使用中のサブスクリプションを選択
+3. `subscriptionId` をコピー
+
+#### ステップ3: クライアントシークレットを作成
+
+1. アプリの登録 → 対象のアプリを選択
+2. 左メニュー → **証明書とシークレット**
+3. **クライアントシークレット** → **新しいクライアントシークレット**
+4. 説明: `GitHub Actions`、有効期限: 任意（推奨: 24ヶ月）
+5. **追加** をクリック
+6. **値**（`clientSecret`）を**すぐにコピー**（後で表示されません）
+
+#### ステップ4: JSONを作成
+
+以下のテンプレートに値を入力：
+
+```json
+{
+  "clientId": "ここにアプリケーション(クライアント)ID",
+  "clientSecret": "ここにクライアントシークレットの値",
+  "subscriptionId": "ここにサブスクリプションID",
+  "tenantId": "ここにディレクトリ(テナント)ID"
+}
+```
+
+#### ステップ5: GitHub Secretsに設定
+
+1. GitHub リポジトリ → **Settings**
+2. **Secrets and variables** → **Actions**
+3. `AZURE_CREDENTIALS` を編集（または新規作成）
+4. 上記のJSONを貼り付け → **Update secret**
+
+#### ステップ6: ロール割り当て（権限付与）
+
+1. Azure Portal → **リソースグループ** → `ec-ranger-prod`
+2. 左メニュー → **アクセス制御 (IAM)**
+3. **追加** → **ロールの割り当ての追加**
+4. ロール: **共同作成者**（Contributor）
+5. メンバー: 作成したアプリ登録を検索して選択
+6. **レビューと割り当て**
 
 ---
 

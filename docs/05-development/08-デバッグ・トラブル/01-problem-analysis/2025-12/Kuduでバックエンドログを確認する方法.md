@@ -2,23 +2,134 @@
 
 ## Kuduへのアクセス方法
 
-### 方法1: Azure Portalからアクセス
+### 方法1: Azure Portalからアクセス（推奨・リージョン付きURLの問題を回避）
 
 1. **Azure Portal**にログイン
 2. **App Service**（バックエンド）を開く
 3. 左メニューの「開発ツール」→「高度なツール (Kudu)」をクリック
 4. 「移動」ボタンをクリック
 
-### 方法2: 直接URLでアクセス
+**メリット**:
+- リージョン付きURL（`.japanwest-01.azurewebsites.net`）の問題を回避
+- Trend Microなどのセキュリティソフトによるブロックを回避
+- Azure Portal経由で安全にアクセス
+
+---
+
+### 方法2: カスタムドメイン経由でアクセス（試行可能）
+
+**⚠️ 注意**: 標準のAzure App Service（マルチテナント型）では、SCM（Kudu）をカスタムドメイン経由で直接アクセスすることは**公式にはサポートされていません**。ただし、以下の方法を試すことができます：
+
+#### 試行1: パス経由でアクセス
 
 ```
-https://[アプリ名].scm.azurewebsites.net
+https://[カスタムドメイン]/.scm/
 ```
 
-例：
+**例（本番環境）**:
 ```
-https://shopifytestapi20250720173320-aed5bhc0cferg2hm.scm.japanwest-01.azurewebsites.net
+https://ec-ranger-api.access-net.co.jp/.scm/
 ```
+
+**結果**: 通常は動作しませんが、試す価値があります。
+
+#### 試行2: サブドメイン経由（DNS設定が必要・非推奨）
+
+カスタムドメインのサブドメイン（例: `scm.ec-ranger-api.access-net.co.jp`）を設定する方法もありますが、**標準のApp Serviceでは動作しません**。App Service Environment (ASE) を使用している場合のみ可能です。
+
+---
+
+### 方法3: 直接URLでアクセス（リージョン付きURL）
+
+```
+https://[アプリ名].scm.japanwest-01.azurewebsites.net
+```
+
+**例（本番環境）**:
+```
+https://ec-ranger-backend-prod-ghf3bbarghcwh4gn.scm.japanwest-01.azurewebsites.net
+```
+
+**⚠️ 問題点**:
+- Trend Microなどのセキュリティソフトでブロックされる可能性
+- SSL証明書エラーが発生する場合がある
+- アクセスできない場合がある
+
+**回避策**:
+- 別のネットワーク（例: モバイルテザリング）からアクセス
+- Trend Microの管理者にホワイトリスト追加を依頼
+- **方法1（Azure Portal経由）を使用することを推奨**
+
+---
+
+### 方法4: Azure Portalの「ログストリーム」を使用（Kudu不要）
+
+Kuduにアクセスできない場合、Azure Portalの「ログストリーム」機能を使用できます：
+
+1. **Azure Portal**にログイン
+2. **App Service**（バックエンド）を開く
+3. 左メニューの「監視」→「ログストリーム」をクリック
+4. リアルタイムでログを確認
+
+**メリット**:
+- Kuduへのアクセスが不要
+- リアルタイムでログを確認可能
+- リージョン付きURLの問題を回避
+
+---
+
+## 🔧 カスタムドメイン経由でKuduにアクセスできない場合の対処法
+
+### 問題: リージョン付きURL（`.japanwest-01.azurewebsites.net`）でエラーになる
+
+**原因**:
+- Trend Microなどのセキュリティソフトによるブロック
+- SSL証明書の不一致エラー
+
+**解決策**:
+
+1. **Azure Portal経由でアクセス（推奨）**
+   - 方法1を使用
+   - リージョン付きURLの問題を完全に回避
+
+2. **別のネットワークからアクセス**
+   - モバイルテザリングを使用
+   - 別のネットワーク環境からアクセス
+
+3. **Trend Microのホワイトリスト追加を依頼**
+   - セキュリティ管理者に依頼
+   - 以下のURLをホワイトリストに追加：
+     ```
+     *.scm.japanwest-01.azurewebsites.net
+     *.japanwest-01.azurewebsites.net
+     ```
+
+4. **ログストリームを使用（Kudu不要）**
+   - 方法4を使用
+   - ログ確認のみの場合は十分
+
+---
+
+## 📝 まとめ
+
+### 推奨アクセス方法（優先順位）
+
+1. **Azure Portal経由（方法1）** ← **最も推奨**
+   - リージョン付きURLの問題を回避
+   - セキュリティソフトによるブロックを回避
+   - 最も安全で確実
+
+2. **ログストリーム（方法4）**
+   - Kuduへのアクセスが不要
+   - ログ確認のみの場合は十分
+
+3. **直接URL（方法3）**
+   - アクセスできる場合のみ使用
+   - セキュリティソフトによるブロックに注意
+
+4. **カスタムドメイン経由（方法2）**
+   - 標準のApp Serviceでは動作しない可能性が高い
+   - 試す価値はあるが、期待しないこと
 
 ## ログの確認方法
 
@@ -197,8 +308,32 @@ Hangfire.SqlServer.SqlServerStorageException: ...
 3. エラーメッセージに基づいて原因を調査
 4. 必要に応じて修正を実施
 
+## ⚠️ Kuduにアクセスできない場合
+
+Kudu（高度なツール）にアクセスできない場合（SSLエラー、セキュリティソフトによるブロックなど）は、以下の代替手段を使用してください：
+
+### 代替手段
+
+1. **Azure Portalのログストリーム**（最も簡単・推奨）
+   - Azure Portal → App Service → 監視 → ログストリーム
+   - リアルタイムでログを確認可能
+
+2. **Application Insights**（最も強力・推奨）
+   - Azure Portal → Application Insights → ログ
+   - 過去のログも確認可能、高度なクエリ機能
+
+3. **Azure CLIでログをダウンロード**
+   - ログファイルをローカルにダウンロード可能
+   - テキストエディタやログ解析ツールで分析可能
+
+詳細は以下のドキュメントを参照してください：
+- [Kuduアクセス不可時のログ確認方法](../../02-tools/Kuduアクセス不可時のログ確認方法.md)
+
+---
+
 ## 参考リンク
 
 - [Azure App Service のログ](https://learn.microsoft.com/ja-jp/azure/app-service/troubleshoot-diagnostic-logs)
 - [Kudu の使用](https://github.com/projectkudu/kudu/wiki)
+- [Kuduアクセス不可時のログ確認方法](../../02-tools/Kuduアクセス不可時のログ確認方法.md)
 
