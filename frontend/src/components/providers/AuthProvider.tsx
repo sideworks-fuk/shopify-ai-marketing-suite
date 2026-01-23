@@ -655,6 +655,9 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const logout = () => {
     console.log('🚪 ログアウト実行', { authMode })
     
+    // 🆕 リダイレクト先を決定（状態をクリアする前に）
+    const redirectTo = authMode === 'demo' ? '/demo/login' : '/auth/select'
+    
     if (authMode === 'demo') {
       // デモモードの場合、すべてのデモ関連のlocalStorageアイテムを削除
       localStorage.removeItem('demoToken')
@@ -662,7 +665,11 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       localStorage.removeItem('authMode')
       localStorage.removeItem('readOnly')
       localStorage.removeItem('currentStoreId')
-      console.log('🗑️ デモモード関連のlocalStorageをクリアしました')
+      // sessionStorageもクリア
+      sessionStorage.removeItem('demoToken')
+      sessionStorage.removeItem('authMode')
+      sessionStorage.removeItem('currentStoreId')
+      console.log('🗑️ デモモード関連のlocalStorage/sessionStorageをクリアしました')
     } else if (authMode === 'developer') {
       // 開発者モードの場合
       localStorage.removeItem('developerToken')
@@ -680,6 +687,12 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     setAuthError(null)
     setAuthMode(null)
     console.log('✅ ログアウト完了')
+    
+    // 🆕 ログアウト後にリダイレクト
+    if (typeof window !== 'undefined') {
+      console.log('🔄 リダイレクト先:', redirectTo)
+      window.location.href = redirectTo
+    }
   }
 
   const clearError = () => {
