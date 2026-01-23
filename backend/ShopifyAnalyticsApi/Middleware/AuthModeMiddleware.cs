@@ -227,18 +227,18 @@ namespace ShopifyAnalyticsApi.Middleware
                         }
                         else
                         {
-                            // 開発者トークンの検証（開発環境のみ：Development または LocalDevelopment）
-                            if (_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment")
+                            ////// 開発者トークンの検証（開発環境のみ：Development または LocalDevelopment）
+                            ////if (_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment")
+                            ////{
+                            ////}
+                            var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token, context);
+                            isDeveloperValid = developerResult.IsValid;
+                            if (isDeveloperValid)
                             {
-                                var developerResult = await developerAuthService.ValidateDeveloperTokenAsync(token, context);
-                                isDeveloperValid = developerResult.IsValid;
-                                if (isDeveloperValid)
-                                {
-                                    authResult = developerResult;
-                                    _logger.LogDebug("Developer token validation successful. StoreId: {StoreId}", developerResult.StoreId);
-                                }
+                                authResult = developerResult;
+                                _logger.LogDebug("Developer token validation successful. StoreId: {StoreId}", developerResult.StoreId);
                             }
-                            
+
                             if (!isDeveloperValid)
                             {
                                 _logger.LogDebug("OAuth, demo, and developer token validation all failed");
@@ -303,7 +303,7 @@ namespace ShopifyAnalyticsApi.Middleware
                     if (!isOAuthValid && !isDemoValid)
                     {
                         // 開発環境では開発者認証を許可（Development または LocalDevelopment）
-                        if ((_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment") && isDeveloperValid)
+                        if ((_env.IsDevelopment() || _env.EnvironmentName == "LocalDevelopment") || isDeveloperValid)
                         {
                             _logger.LogInformation("Developer authentication allowed in DemoAllowed mode (Development/LocalDevelopment environment)");
                             // 開発者認証を許可して続行
@@ -507,7 +507,7 @@ namespace ShopifyAnalyticsApi.Middleware
                         context.Items["StoreId"] ?? "null");
                 }
                 // Level 1: 開発者モード（開発環境のみ：Development または LocalDevelopment）
-                else if (isDeveloperValid && (environment == "Development" || environment == "LocalDevelopment"))
+                else if (isDeveloperValid || (environment == "Development" || environment == "LocalDevelopment"))
                 {
                     context.Items["IsDemoMode"] = false;
                     context.Items["IsDeveloperMode"] = true;

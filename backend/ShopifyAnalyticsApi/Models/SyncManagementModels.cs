@@ -260,6 +260,11 @@ namespace ShopifyAnalyticsApi.Models
         /// 顧客データ同期をスキップする（Protected Customer Data未承認時の一時的な回避策）
         /// </summary>
         public bool SkipCustomers { get; set; } = false;
+        /// <summary>
+        /// フルスキャン同期モード（全期間取得時）
+        /// trueの場合、Shopifyに存在しない商品をIsActive=falseに更新する
+        /// </summary>
+        public bool IsFullScan { get; set; } = false;
     }
 
     /// <summary>

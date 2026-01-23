@@ -54,6 +54,41 @@ interface SyncStats {
   nextScheduledSync?: string
 }
 
+// 🆕 UTC時刻をJST（日本標準時）に変換して表示用文字列を返す
+function formatToJST(dateString: string | undefined | null): string {
+  if (!dateString || dateString === 'null') {
+    return '未同期'
+  }
+  
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ 無効な日付文字列:', dateString)
+      return '未同期'
+    }
+    
+    // toLocaleString で JST に変換
+    const jstString = date.toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    
+    console.log('🕐 日時変換:', { 
+      original: dateString, 
+      parsed: date.toISOString(),
+      jst: jstString 
+    })
+    
+    return jstString
+  } catch (error) {
+    console.error('❌ 日時変換エラー:', error, { dateString })
+    return '未同期'
+  }
+}
+
 export default function InitialSetupPage() {
   const router = useRouter()
   const { getApiClient, isApiClientReady } = useAuth()
@@ -545,15 +580,7 @@ export default function InitialSetupPage() {
                   <div>
                     <p className="text-sm text-orange-600 font-medium">最終同期</p>
                     <p className="text-xl font-bold text-orange-900">
-                      {syncStats.lastSyncTime && syncStats.lastSyncTime !== 'null' 
-                        ? new Date(syncStats.lastSyncTime).toLocaleString('ja-JP', {
-                            timeZone: 'Asia/Tokyo',
-                            month: 'numeric',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }).replace(/\//g, '/') 
-                        : '未同期'}
+                      {formatToJST(syncStats.lastSyncTime)}
                     </p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-500" />
@@ -808,9 +835,7 @@ export default function InitialSetupPage() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {new Date(history.startTime).toLocaleString('ja-JP', {
-                                      timeZone: 'Asia/Tokyo'
-                                    })}
+                                    {formatToJST(history.startTime)}
                                     {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
                                     {isRunning && !history.endTime && (
                                       <span className="ml-2 text-blue-600 font-medium">進行中...</span>

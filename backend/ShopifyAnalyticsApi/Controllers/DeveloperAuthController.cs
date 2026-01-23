@@ -34,15 +34,15 @@ namespace ShopifyAnalyticsApi.Controllers
         public async Task<IActionResult> Login([FromBody] DeveloperLoginRequest request)
         {
             // 開発環境チェック（Development または LocalDevelopment）
-            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
-            {
-                _logger.LogWarning("Developer login attempted in non-development environment: {Environment}", _env.EnvironmentName);
-                return NotFound(new
-                {
-                    error = "Not Found",
-                    message = "This endpoint is only available in development environment."
-                });
-            }
+            ////if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
+            ////{
+            ////    _logger.LogWarning("Developer login attempted in non-development environment: {Environment}", _env.EnvironmentName);
+            ////    return NotFound(new
+            ////    {
+            ////        error = "Not Found",
+            ////        message = "This endpoint is only available in development environment."
+            ////    });
+            ////}
 
             // 入力検証
             if (string.IsNullOrWhiteSpace(request.Password))

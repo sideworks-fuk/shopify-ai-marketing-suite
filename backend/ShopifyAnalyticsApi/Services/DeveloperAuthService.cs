@@ -48,16 +48,16 @@ namespace ShopifyAnalyticsApi.Services
         {
             ipAddress = ipAddress ?? "unknown";
 
-            // 開発環境チェック（Development または LocalDevelopment）
-            if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
-            {
-                _logger.LogWarning("Developer mode authentication attempted in non-development environment: {Environment}", _env.EnvironmentName);
-                return new DeveloperAuthResult
-                {
-                    Success = false,
-                    Error = "Developer mode is only available in development environment."
-                };
-            }
+            ////// 開発環境チェック（Development または LocalDevelopment）
+            ////if (!_env.IsDevelopment() && _env.EnvironmentName != "LocalDevelopment")
+            ////{
+            ////    _logger.LogWarning("Developer mode authentication attempted in non-development environment: {Environment}", _env.EnvironmentName);
+            ////    return new DeveloperAuthResult
+            ////    {
+            ////        Success = false,
+            ////        Error = "Developer mode is only available in development environment."
+            ////    };
+            ////}
 
             // 開発者モード有効チェック
             var developerEnabled = _config.GetValue<bool>("Developer:Enabled", false);

@@ -91,11 +91,12 @@ namespace ShopifyAnalyticsApi.Services
                     StartDate = startDate,
                     EndDate = null,
                     MaxYearsBack = 3,
-                    IncludeArchived = false
+                    IncludeArchived = false,
+                    IsFullScan = syncPeriod == "all"  // 「全期間」の場合はフルスキャンモード
                 };
                 
-                _logger.LogInformation("🟡 [ShopifyDataSyncService] SyncOptions作成完了: StartDate={StartDate}, MaxYearsBack={MaxYearsBack}", 
-                    syncOptions.StartDate, syncOptions.MaxYearsBack);
+                _logger.LogInformation("🟡 [ShopifyDataSyncService] SyncOptions作成完了: StartDate={StartDate}, MaxYearsBack={MaxYearsBack}, IsFullScan={IsFullScan}", 
+                    syncOptions.StartDate, syncOptions.MaxYearsBack, syncOptions.IsFullScan);
                 
                 // 新しいジョブクラスを使用して同期を実行
                 await RunInitialSyncWithJobs(store, syncStatus, syncOptions);

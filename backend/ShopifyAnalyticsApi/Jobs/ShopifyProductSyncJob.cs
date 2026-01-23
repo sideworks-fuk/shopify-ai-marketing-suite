@@ -80,8 +80,16 @@ namespace ShopifyAnalyticsApi.Jobs
                 var syncStateId = await _progressTracker.StartSyncAsync(
                     storeId, "Products", dateRange);
                 
-                // フルスキャン同期かどうかを判定（開始日がnullまたは非常に古い場合）
-                var isFullScan = dateRange.Start == null || dateRange.Start < DateTime.UtcNow.AddYears(-10);
+                // フルスキャン同期かどうかを判定
+                // 1. optionsでIsFullScanが明示的にtrueの場合
+                // 2. 開始日がnullの場合
+                // 3. 開始日が10年以上前の場合
+                var isFullScan = options?.IsFullScan == true 
+                    || dateRange.Start == null 
+                    || dateRange.Start < DateTime.UtcNow.AddYears(-10);
+
+                _logger.LogInformation("フルスキャン判定: IsFullScan={IsFullScan}, OptionsIsFullScan={OptionsIsFullScan}, DateRangeStart={DateRangeStart}",
+                    isFullScan, options?.IsFullScan, dateRange.Start);
                 
                 // フルスキャン時は同期した商品IDを収集（削除商品検知用）
                 HashSet<string>? syncedShopifyProductIds = isFullScan ? new HashSet<string>() : null;
