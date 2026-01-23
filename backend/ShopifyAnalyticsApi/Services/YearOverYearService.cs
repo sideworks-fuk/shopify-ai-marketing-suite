@@ -123,6 +123,7 @@ namespace ShopifyAnalyticsApi.Services
 
         /// <summary>
         /// 注文明細データを取得
+        /// ShopifyProcessedAt（決済完了日時）を基準に分析
         /// </summary>
         private async Task<List<OrderItemAnalysisData>> GetOrderItemsDataAsync(
             YearOverYearRequest request, int currentYear, int previousYear)
@@ -130,16 +131,17 @@ namespace ShopifyAnalyticsApi.Services
             var query = from orderItem in _context.OrderItems
                         join order in _context.Orders on orderItem.OrderId equals order.Id
                         where order.StoreId == request.StoreId
-                           && ((order.ShopifyCreatedAt ?? order.CreatedAt).Year == currentYear || (order.ShopifyCreatedAt ?? order.CreatedAt).Year == previousYear)
-                           && (order.ShopifyCreatedAt ?? order.CreatedAt).Month >= request.StartMonth
-                           && (order.ShopifyCreatedAt ?? order.CreatedAt).Month <= request.EndMonth
+                           && order.ShopifyProcessedAt != null // ShopifyProcessedAtがnullでないことを確認
+                           && (order.ShopifyProcessedAt.Value.Year == currentYear || order.ShopifyProcessedAt.Value.Year == previousYear)
+                           && order.ShopifyProcessedAt.Value.Month >= request.StartMonth
+                           && order.ShopifyProcessedAt.Value.Month <= request.EndMonth
                         select new OrderItemAnalysisData
                         {
                             ProductTitle = orderItem.ProductTitle,
                             ProductType = orderItem.ProductType ?? "未分類",
                             ProductVendor = orderItem.ProductVendor ?? "不明",
-                            Year = (order.ShopifyCreatedAt ?? order.CreatedAt).Year,
-                            Month = (order.ShopifyCreatedAt ?? order.CreatedAt).Month,
+                            Year = order.ShopifyProcessedAt.Value.Year,
+                            Month = order.ShopifyProcessedAt.Value.Month,
                             TotalPrice = orderItem.TotalPrice,
                             Quantity = orderItem.Quantity,
                             OrderCount = 1
