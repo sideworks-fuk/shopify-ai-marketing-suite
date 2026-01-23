@@ -60,75 +60,115 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const pathname = usePathname() // 🆕 ページ遷移を検知するため
   const searchParams = useSearchParams() // 🆕 URLパラメータからshopを取得するため
 
-  // 🆕 getCurrentStoreId の共通関数（AuthProvider の currentStoreId を優先し、なければ localStorage/sessionStorage から取得）
-  // useCallback を使用して currentStoreId の最新値を参照できるようにする
+  // 🆕 getCurrentStoreId の共通関数（常に localStorage/sessionStorage から直接取得）
+  // 重要: クロージャの問題を避けるため、state依存を除去
+  // ApiClientが初期化後に再利用されるため、常に最新の値を取得する必要がある
   const getCurrentStoreIdFn = useCallback((): number | null => {
-    console.log('🔍 [AuthProvider.getCurrentStoreIdFn] 呼び出し', { 
-      currentStoreId,
-      timestamp: new Date().toISOString()
-    });
+    console.log('🔍 [AuthProvider.getCurrentStoreIdFn] 呼び出し開始');
     
-    // AuthProvider の currentStoreId を優先
-    if (currentStoreId !== null && currentStoreId > 0) {
-      console.log('✅ [AuthProvider.getCurrentStoreIdFn] AuthProvider の currentStoreId を使用', { storeId: currentStoreId });
-      return currentStoreId;
+    if (typeof window === 'undefined') {
+      console.warn('⚠️ [AuthProvider.getCurrentStoreIdFn] window が undefined です（SSR）');
+      return null;
     }
     
-    if (typeof window !== 'undefined') {
-      // localStorage から取得を試みる
-      const savedStoreId = localStorage.getItem('currentStoreId');
-      console.log('🔍 [AuthProvider.getCurrentStoreIdFn] localStorage から取得を試みる', { savedStoreId });
-      if (savedStoreId) {
-        const parsedStoreId = parseInt(savedStoreId, 10);
-        if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
-          console.log('✅ [AuthProvider.getCurrentStoreIdFn] localStorage から取得成功', { storeId: parsedStoreId });
-          return parsedStoreId;
-        }
+    // 1. まず localStorage から取得を試みる（最優先）
+    const savedStoreId = localStorage.getItem('currentStoreId');
+    console.log('🔍 [AuthProvider.getCurrentStoreIdFn] localStorage から取得', { savedStoreId });
+    if (savedStoreId) {
+      const parsedStoreId = parseInt(savedStoreId, 10);
+      if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+        console.log('✅ [AuthProvider.getCurrentStoreIdFn] localStorage から取得成功', { storeId: parsedStoreId });
+        return parsedStoreId;
       }
-      // localStorage になければ sessionStorage から取得を試みる
-      const sessionStoreId = sessionStorage.getItem('currentStoreId');
-      console.log('🔍 [AuthProvider.getCurrentStoreIdFn] sessionStorage から取得を試みる', { sessionStoreId });
-      if (sessionStoreId) {
-        const parsedStoreId = parseInt(sessionStoreId, 10);
-        if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
-          // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
-          try {
-            localStorage.setItem('currentStoreId', sessionStoreId);
-            console.log('✅ [AuthProvider.getCurrentStoreIdFn] sessionStorage から取得し、localStorage にもコピーしました', { storeId: parsedStoreId });
-          } catch (error) {
-            console.warn('⚠️ [AuthProvider.getCurrentStoreIdFn] localStorage への保存に失敗しました', error);
-          }
-          return parsedStoreId;
+    }
+    
+    // 2. localStorage になければ sessionStorage から取得を試みる
+    const sessionStoreId = sessionStorage.getItem('currentStoreId');
+    console.log('🔍 [AuthProvider.getCurrentStoreIdFn] sessionStorage から取得を試みる', { sessionStoreId });
+    if (sessionStoreId) {
+      const parsedStoreId = parseInt(sessionStoreId, 10);
+      if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+        // sessionStorage にあった場合は localStorage にも保存（次回以降のため）
+        try {
+          localStorage.setItem('currentStoreId', sessionStoreId);
+          console.log('✅ [AuthProvider.getCurrentStoreIdFn] sessionStorage から取得し、localStorage にもコピーしました', { storeId: parsedStoreId });
+        } catch (error) {
+          console.warn('⚠️ [AuthProvider.getCurrentStoreIdFn] localStorage への保存に失敗しました', error);
         }
+        return parsedStoreId;
       }
     }
     
     console.warn('⚠️ [AuthProvider.getCurrentStoreIdFn] currentStoreId が見つかりませんでした', {
-      currentStoreId,
-      localStorageCurrentStoreId: typeof window !== 'undefined' ? localStorage.getItem('currentStoreId') : null,
-      sessionStorageCurrentStoreId: typeof window !== 'undefined' ? sessionStorage.getItem('currentStoreId') : null
+      localStorageCurrentStoreId: localStorage.getItem('currentStoreId'),
+      sessionStorageCurrentStoreId: sessionStorage.getItem('currentStoreId')
     });
     return null;
-  }, [currentStoreId]); // currentStoreId を依存配列に追加
+  }, []); // 依存配列を空にして、常に最新の localStorage/sessionStorage を参照
 
   // 🆕 ストアIDを解決する関数（APIからストア情報を取得する処理も含む）
   const resolveStoreId = useCallback(async (): Promise<number | null> => {
-    // まず getCurrentStoreIdFn で取得を試みる
-    const storeId = getCurrentStoreIdFn();
+    // まず getCurrentStoreIdFn で取得を試みる（localStorage/sessionStorage から直接取得）
+    let storeId = getCurrentStoreIdFn();
     if (storeId !== null && storeId > 0) {
       console.log('✅ [AuthProvider.resolveStoreId] getCurrentStoreIdFn から取得:', storeId);
       return storeId;
     }
     
-    // 🆕 デモモードまたは開発者モードの場合は、API呼び出しをスキップ
-    // デモモード/開発者モードでは、currentStoreIdはlocalStorageに保存されているはず
-    if (authMode === 'demo' || authMode === 'developer') {
-      console.log('ℹ️ [AuthProvider.resolveStoreId] デモモード/開発者モードのため、API呼び出しをスキップ', { authMode, storeId });
-      return null;
+    // 🆕 authMode を state からと localStorage の両方から確認
+    // タイミングの問題で state が更新されていない場合があるため
+    const effectiveAuthMode = authMode || (typeof window !== 'undefined' ? localStorage.getItem('authMode') : null);
+    console.log('🔍 [AuthProvider.resolveStoreId] authMode 確認:', { stateAuthMode: authMode, storageAuthMode: typeof window !== 'undefined' ? localStorage.getItem('authMode') : null, effectiveAuthMode });
+    
+    // デモモードまたは開発者モードの場合
+    if (effectiveAuthMode === 'demo' || effectiveAuthMode === 'developer') {
+      // getCurrentStoreIdFn()で取得できなかった場合、localStorageから直接再取得を試みる
+      if (storeId === null && typeof window !== 'undefined') {
+        console.log('⚠️ [AuthProvider.resolveStoreId] getCurrentStoreIdFn で取得できなかったため、localStorageから直接再取得を試みます', { effectiveAuthMode });
+        
+        const savedStoreId = localStorage.getItem('currentStoreId');
+        if (savedStoreId) {
+          const parsedStoreId = parseInt(savedStoreId, 10);
+          if (!isNaN(parsedStoreId) && parsedStoreId > 0) {
+            console.log('✅ [AuthProvider.resolveStoreId] localStorageから直接取得成功:', parsedStoreId);
+            // AuthProviderのstateも更新
+            setCurrentStoreId(parsedStoreId);
+            return parsedStoreId;
+          }
+        }
+        
+        // sessionStorageからも試みる
+        const sessionStoreId = sessionStorage.getItem('currentStoreId');
+        if (sessionStoreId) {
+          const parsedSessionStoreId = parseInt(sessionStoreId, 10);
+          if (!isNaN(parsedSessionStoreId) && parsedSessionStoreId > 0) {
+            console.log('✅ [AuthProvider.resolveStoreId] sessionStorageから直接取得成功:', parsedSessionStoreId);
+            // localStorageにも保存
+            try {
+              localStorage.setItem('currentStoreId', sessionStoreId);
+            } catch (error) {
+              console.warn('⚠️ [AuthProvider.resolveStoreId] localStorageへの保存に失敗:', error);
+            }
+            // AuthProviderのstateも更新
+            setCurrentStoreId(parsedSessionStoreId);
+            return parsedSessionStoreId;
+          }
+        }
+        
+        console.warn('❌ [AuthProvider.resolveStoreId] デモモード/開発者モードでstoreIdが見つかりませんでした', {
+          effectiveAuthMode,
+          localStorageCurrentStoreId: localStorage.getItem('currentStoreId'),
+          sessionStorageCurrentStoreId: sessionStorage.getItem('currentStoreId'),
+          allLocalStorageKeys: Object.keys(localStorage)
+        });
+      }
+      
+      console.log('ℹ️ [AuthProvider.resolveStoreId] デモモード/開発者モードのため、API呼び出しをスキップ', { effectiveAuthMode, storeId });
+      return storeId; // null または取得できた値
     }
     
     // ストアIDが取得できない場合、APIからストア情報を取得（Shopify OAuth認証の場合のみ）
-    if (isAuthenticated && isApiClientReady && apiClient && authMode === 'shopify') {
+    if (isAuthenticated && isApiClientReady && apiClient && effectiveAuthMode === 'shopify') {
       const shopFromUrl = searchParams?.get('shop');
       if (shopFromUrl) {
         try {
@@ -299,6 +339,39 @@ function AuthProviderInner({ children }: AuthProviderProps) {
         });
         setAuthMode('demo')
         console.log('✅ [AuthProvider] デモモードAPIクライアントを初期化完了')
+      } else if (savedAuthMode === 'demo') {
+        // 🆕 authModeが'demo'だがdemoTokenがない場合の処理
+        // sessionStorageからdemoTokenを取得を試みる
+        const sessionDemoToken = sessionStorage.getItem('demoToken')
+        if (sessionDemoToken) {
+          console.log('🔧 [AuthProvider] sessionStorageからdemoTokenを復元');
+          // localStorageにも保存
+          try {
+            localStorage.setItem('demoToken', sessionDemoToken)
+            console.log('✅ [AuthProvider] demoTokenをlocalStorageに復元しました')
+          } catch (e) {
+            console.warn('⚠️ [AuthProvider] localStorageへのdemoToken保存に失敗:', e)
+          }
+          client = new ApiClient(undefined, {
+            getDemoToken: () => sessionDemoToken,
+            getCurrentStoreId: getCurrentStoreIdFn
+          });
+          setAuthMode('demo')
+          console.log('✅ [AuthProvider] デモモードAPIクライアントを初期化完了（sessionStorageから復元）')
+        } else {
+          // demoTokenが完全に失われた場合
+          console.error('❌ [AuthProvider] authModeがdemoですが、demoTokenが見つかりません');
+          console.error('❌ [AuthProvider] デモモードの再ログインが必要です');
+          // authModeをクリアして、再ログインを促す
+          localStorage.removeItem('authMode')
+          sessionStorage.removeItem('authMode')
+          client = new ApiClient(undefined, {
+            getCurrentStoreId: getCurrentStoreIdFn
+          });
+          setAuthMode(null)
+          // エラー状態を設定（UIでユーザーに通知するため）
+          setAuthError('デモセッションが無効です。再度ログインしてください。')
+        }
       } else if (oauthAuthenticated === 'true') {
         // OAuth認証成功後: Cookieベースの認証を使用（Authorizationヘッダーは不要）
         console.log('🔗 [AuthProvider] OAuth認証済み: Cookieベース認証を使用');
@@ -450,16 +523,53 @@ function AuthProviderInner({ children }: AuthProviderProps) {
             setIsAuthenticated(false)
           }
         } else if (authMode === null) {
-          // authModeがnullの場合でも、oauth_authenticatedフラグを確認（初期化タイミングの問題を回避）
-          const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
-          if (oauthAuthenticated === 'true') {
-            console.log('✅ OAuth認証済みフラグを確認しました（authMode=null）')
+          // authModeがnullの場合、localStorageから認証情報を確認（初期化タイミングの問題を回避）
+          console.log('🔍 [AuthProvider] authMode=null のため、localStorageから認証情報を確認')
+          
+          // 1. まずデモトークンを確認（デモモードを優先）
+          const demoToken = localStorage.getItem('demoToken')
+          const savedAuthMode = localStorage.getItem('authMode')
+          
+          if (demoToken && savedAuthMode === 'demo') {
+            console.log('✅ [AuthProvider] デモトークンが見つかりました（authMode=null）')
+            setAuthMode('demo')
             setIsAuthenticated(true)
-            // authModeも設定（次回の初期化で正しく動作するように）
-            setAuthMode('shopify')
+            
+            // currentStoreIdも復元
+            const savedStoreId = localStorage.getItem('currentStoreId')
+            if (savedStoreId) {
+              const storeId = parseInt(savedStoreId, 10)
+              if (!isNaN(storeId) && storeId > 0) {
+                console.log('✅ [AuthProvider] currentStoreIdを復元（authMode=null→demo）:', storeId)
+                setCurrentStoreId(storeId)
+              }
+            }
+          } else if (demoToken) {
+            // authModeが'demo'でなくてもdemoTokenがある場合
+            console.log('✅ [AuthProvider] デモトークンが見つかりました（authMode設定なし）', { savedAuthMode })
+            setAuthMode('demo')
+            setIsAuthenticated(true)
+            localStorage.setItem('authMode', 'demo') // authModeも設定
+            
+            const savedStoreId = localStorage.getItem('currentStoreId')
+            if (savedStoreId) {
+              const storeId = parseInt(savedStoreId, 10)
+              if (!isNaN(storeId) && storeId > 0) {
+                console.log('✅ [AuthProvider] currentStoreIdを復元:', storeId)
+                setCurrentStoreId(storeId)
+              }
+            }
           } else {
-            console.log('⚠️ 認証情報が見つかりません（authMode=null）')
-            setIsAuthenticated(false)
+            // 2. OAuth認証フラグを確認
+            const oauthAuthenticated = localStorage.getItem('oauth_authenticated')
+            if (oauthAuthenticated === 'true') {
+              console.log('✅ OAuth認証済みフラグを確認しました（authMode=null）')
+              setIsAuthenticated(true)
+              setAuthMode('shopify')
+            } else {
+              console.log('⚠️ 認証情報が見つかりません（authMode=null）')
+              setIsAuthenticated(false)
+            }
           }
         } else {
           // authModeが設定されているが、上記の条件に該当しない場合
@@ -623,19 +733,44 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   // グローバルな認証エラーを監視
   useEffect(() => {
     const handler = (event: Event) => {
-      console.error('🔴 [AuthProvider] グローバル認証エラー発火: 認証情報をクリアします')
-      setAuthError('認証が必要です')
-      setIsAuthenticated(false)
+      console.error('🔴 [AuthProvider] グローバル認証エラー発火')
       
       // 🆕 認証情報をlocalStorageからクリア（401エラーが発生した場合、認証が無効になった可能性があるため）
-      // 注意: デモモードの場合はデモトークンもクリアする
-      if (authMode === 'demo') {
-        localStorage.removeItem('demoToken')
-        localStorage.removeItem('demo_token')
-        localStorage.removeItem('authMode')
-        console.log('🗑️ [AuthProvider] デモモード関連の認証情報をクリアしました')
+      // 注意: デモモードの場合は、currentStoreIdとauthModeは保持する（デモモードではこれらは重要）
+      const effectiveAuthMode = authMode || (typeof window !== 'undefined' ? localStorage.getItem('authMode') : null);
+      console.log('🔍 [AuthProvider] 認証エラー処理: authMode確認', { stateAuthMode: authMode, storageAuthMode: typeof window !== 'undefined' ? localStorage.getItem('authMode') : null, effectiveAuthMode });
+      
+      if (effectiveAuthMode === 'demo' || effectiveAuthMode === 'developer') {
+        // 🔧 デモモード/開発者モードの場合、トークンをクリアしない
+        // トークンをクリアすると無限ループに陥るため、認証情報を保持する
+        // 代わりに、ユーザーに再ログインを促すメッセージを表示する
+        console.warn('⚠️ [AuthProvider] デモモード/開発者モード: 認証エラーが発生しましたが、トークンは保持します', {
+          currentStoreId: localStorage.getItem('currentStoreId'),
+          authMode: localStorage.getItem('authMode'),
+          hasDemoToken: !!localStorage.getItem('demoToken'),
+          hasDemoTokenSession: !!sessionStorage.getItem('demoToken')
+        })
+        
+        // sessionStorageにdemoTokenがあれば、localStorageに復元を試みる
+        const sessionDemoToken = sessionStorage.getItem('demoToken')
+        if (sessionDemoToken && !localStorage.getItem('demoToken')) {
+          try {
+            localStorage.setItem('demoToken', sessionDemoToken)
+            console.log('🔧 [AuthProvider] sessionStorageからdemoTokenを復元しました')
+          } catch (e) {
+            console.warn('⚠️ [AuthProvider] demoTokenの復元に失敗:', e)
+          }
+        }
+        
+        // 認証エラーを設定（UIで表示するため）
+        // ただし、isAuthenticatedはfalseにしない（無限ループ防止）
+        setAuthError('認証エラーが発生しました。ページを再読み込みしてください。')
+        return; // 早期リターン（isAuthenticatedをfalseにしない）
       } else {
         // OAuth認証の場合
+        console.log('🗑️ [AuthProvider] OAuth認証情報をクリアします')
+        setAuthError('認証が必要です')
+        setIsAuthenticated(false)
         localStorage.removeItem('oauth_authenticated')
         localStorage.removeItem('currentStoreId')
         console.log('🗑️ [AuthProvider] OAuth認証情報をクリアしました')

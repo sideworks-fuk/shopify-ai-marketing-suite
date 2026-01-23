@@ -54,6 +54,18 @@ export class ApiClient {
     
     // AuthProvider から取得できなかった場合、localStorage から取得を試みる
     if (!currentStoreId && typeof window !== 'undefined') {
+      // 🆕 デモモード/開発者モードの場合、詳細ログを出力
+      const authMode = localStorage.getItem('authMode') || sessionStorage.getItem('authMode');
+      if (authMode === 'demo' || authMode === 'developer') {
+        console.log('🔍 [ApiClient.getAuthHeaders] デモモード/開発者モード: localStorageからstoreIdを取得を試みます', {
+          authMode,
+          hasDemoToken: !!localStorage.getItem('demoToken'),
+          hasDeveloperToken: !!localStorage.getItem('developerToken'),
+          localStorageCurrentStoreId: localStorage.getItem('currentStoreId'),
+          sessionStorageCurrentStoreId: sessionStorage.getItem('currentStoreId')
+        });
+      }
+      
       // localStorage から取得を試みる
       currentStoreId = localStorage.getItem('currentStoreId');
       if (currentStoreId) {
@@ -115,7 +127,23 @@ export class ApiClient {
     // 🔧 デモトークンまたは開発者トークンがある場合は優先的に設定
     // （oauthAuthenticatedチェックより先に処理することで、デモモードとOAuthモードの競合を防ぐ）
     if (this.options.getDemoToken) {
-      const token = this.options.getDemoToken();
+      let token = this.options.getDemoToken();
+      
+      // 🆕 getDemoTokenでnullが返された場合、sessionStorageからも取得を試みる
+      if (!token && typeof window !== 'undefined') {
+        token = sessionStorage.getItem('demoToken');
+        if (token) {
+          console.log('🔧 [ApiClient.getAuthHeaders] sessionStorageからdemoTokenを取得しました');
+          // localStorageにも保存を試みる
+          try {
+            localStorage.setItem('demoToken', token);
+            console.log('✅ [ApiClient.getAuthHeaders] demoTokenをlocalStorageに復元しました');
+          } catch (e) {
+            console.warn('⚠️ [ApiClient.getAuthHeaders] localStorageへの保存に失敗:', e);
+          }
+        }
+      }
+      
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
         // X-Store-Id は既に設定済み（上記で設定）

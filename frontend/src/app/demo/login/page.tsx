@@ -58,12 +58,48 @@ export default function DemoLoginPage() {
         
         // デモトークンを保存
         if (typeof window !== 'undefined') {
-          localStorage.setItem('demoToken', data.token)
-          localStorage.setItem('authMode', 'demo')
-          localStorage.setItem('readOnly', 'true')
-          localStorage.setItem('currentStoreId', storeId.toString())
-          // 🔧 oauth_authenticatedフラグをクリア（デモモードとOAuthモードの競合を防ぐ）
-          localStorage.removeItem('oauth_authenticated')
+          console.log('🔍 [DemoLogin] 保存処理開始', {
+            hasToken: !!data.token,
+            tokenLength: data.token?.length
+          })
+          
+          try {
+            // 🔧 demoToken を最初に保存し、保存結果を確認
+            localStorage.setItem('demoToken', data.token)
+            const savedToken = localStorage.getItem('demoToken')
+            if (!savedToken) {
+              console.error('❌ [DemoLogin] demoToken の保存に失敗しました')
+              // sessionStorage にもバックアップとして保存
+              sessionStorage.setItem('demoToken', data.token)
+              console.log('🔧 [DemoLogin] sessionStorage にバックアップ保存しました')
+            } else {
+              console.log('✅ [DemoLogin] demoToken 保存成功', { tokenLength: savedToken.length })
+            }
+            
+            localStorage.setItem('authMode', 'demo')
+            localStorage.setItem('readOnly', 'true')
+            localStorage.setItem('currentStoreId', storeId.toString())
+            
+            // sessionStorage にもバックアップ
+            sessionStorage.setItem('demoToken', data.token) // 🆕 demoToken もバックアップ
+            sessionStorage.setItem('currentStoreId', storeId.toString())
+            sessionStorage.setItem('authMode', 'demo')
+            
+            // OAuth認証フラグをクリア
+            localStorage.removeItem('oauth_authenticated')
+            
+            console.log('✅ [DemoLogin] 認証情報を保存しました', {
+              storeId,
+              hasDemoToken: !!localStorage.getItem('demoToken'),
+              hasDemoTokenSession: !!sessionStorage.getItem('demoToken'),
+              hasLocalStorage: !!localStorage.getItem('currentStoreId'),
+              hasSessionStorage: !!sessionStorage.getItem('currentStoreId')
+            })
+          } catch (error) {
+            console.error('❌ [DemoLogin] 保存処理でエラー:', error)
+            setError('認証情報の保存に失敗しました')
+            return
+          }
         }
         
         console.log('✅ デモモード: ログイン成功', {
