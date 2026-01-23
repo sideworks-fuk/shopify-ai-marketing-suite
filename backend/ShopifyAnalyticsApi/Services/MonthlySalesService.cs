@@ -213,8 +213,9 @@ namespace ShopifyAnalyticsApi.Services
             var query = from order in _context.Orders
                         join orderItem in _context.OrderItems on order.Id equals orderItem.OrderId
                         where order.StoreId == request.StoreId
-                           && (order.ShopifyProcessedAt ?? order.ShopifyCreatedAt ?? order.CreatedAt) >= startDate
-                           && (order.ShopifyProcessedAt ?? order.ShopifyCreatedAt ?? order.CreatedAt) <= endDate
+                           && order.ShopifyProcessedAt != null
+                           && order.ShopifyProcessedAt.Value >= startDate
+                           && order.ShopifyProcessedAt.Value <= endDate
                            && order.FinancialStatus == "paid"
                         select new SalesCalculationData
                         {
@@ -222,8 +223,8 @@ namespace ShopifyAnalyticsApi.Services
                             ProductTitle = orderItem.ProductTitle ?? "Unknown Product",
                             ProductType = orderItem.ProductType ?? "その他",
                             ProductHandle = orderItem.ProductHandle ?? "",
-                            Year = (order.ShopifyProcessedAt ?? order.ShopifyCreatedAt ?? order.CreatedAt).Year,
-                            Month = (order.ShopifyProcessedAt ?? order.ShopifyCreatedAt ?? order.CreatedAt).Month,
+                            Year = order.ShopifyProcessedAt!.Value.Year,
+                            Month = order.ShopifyProcessedAt.Value.Month,
                             Quantity = orderItem.Quantity,
                             Amount = orderItem.TotalPrice,
                             OrderCount = 1

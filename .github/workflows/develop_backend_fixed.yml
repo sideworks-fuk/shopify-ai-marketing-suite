@@ -7,14 +7,6 @@ on:
         description: 'デプロイメッセージ（任意）'
         required: false
         type: string
-      confirm_deployment:
-        description: 'デプロイを確認'
-        required: true
-        type: choice
-        options:
-          - 'YES - デプロイを実行します'
-          - 'NO - キャンセルします'
-        default: 'NO - キャンセルします'
 
 env:
   DOTNET_VERSION: '8.x'
@@ -28,13 +20,6 @@ jobs:
     environment: development
     
     steps:
-    - name: 🛡️ Deployment confirmation
-      if: github.event.inputs.confirm_deployment != 'YES - デプロイを実行します'
-      run: |
-        echo "❌ Deployment cancelled by user"
-        exit 1
-      shell: bash
-
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 

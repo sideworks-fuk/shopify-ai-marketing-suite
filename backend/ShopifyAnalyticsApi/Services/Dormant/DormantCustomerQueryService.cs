@@ -109,9 +109,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
 
                 // 最終注文日を取得
                 var lastOrderDate = await _context.Orders
-                    .Where(o => o.CustomerId == customerId)
-                    .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
-                    .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
+                    .Where(o => o.CustomerId == customerId && o.ShopifyProcessedAt != null)
+                    .OrderByDescending(o => o.ShopifyProcessedAt)
+                    .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
                     .FirstOrDefaultAsync();
 
                 var daysSinceLastPurchase = lastOrderDate.HasValue 

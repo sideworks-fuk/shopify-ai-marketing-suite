@@ -16,14 +16,6 @@ on:
           - '2'
           - 'main'
         default: '1'
-      confirm_deployment:
-        description: 'デプロイを確認'
-        required: true
-        type: choice
-        options:
-          - 'YES - デプロイを実行します'
-          - 'NO - キャンセルします'
-        default: 'NO - キャンセルします'
 
 env:
   NODE_VERSION: '20.x'
@@ -47,12 +39,6 @@ jobs:
     environment: ${{ github.event.inputs.target_environment == '1' && 'development' || github.event.inputs.target_environment == '2' && 'staging' || 'production' }}
     
     steps:
-    - name: 🛡️ Deployment confirmation
-      if: github.event.inputs.confirm_deployment != 'YES - デプロイを実行します'
-      run: |
-        echo "❌ Deployment cancelled by user"
-        exit 1
-
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 

@@ -34,8 +34,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
 
                 var customerPurchaseCounts = await _context.Orders
                     .Where(o => o.StoreId == storeId && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= startDate && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= endDate &&
+                               o.ShopifyProcessedAt != null &&
+                               o.ShopifyProcessedAt.Value >= startDate && 
+                               o.ShopifyProcessedAt.Value <= endDate &&
                                o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                     .GroupBy(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                     .Select(g => new CustomerPurchaseData
@@ -88,9 +89,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                     case "new":
                         // 新規顧客（初回購入が分析期間内）
                         customerIds = await _context.Orders
-                            .Where(o => o.StoreId == storeId && o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
+                            .Where(o => o.StoreId == storeId && o.CustomerId.HasValue && o.ShopifyProcessedAt != null) // CustomerIdがnullの注文を除外
                             .GroupBy(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
-                            .Where(g => g.Min(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= actualStartDate && g.Min(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= actualEndDate)
+                            .Where(g => g.Min(o => o.ShopifyProcessedAt!.Value) >= actualStartDate && g.Min(o => o.ShopifyProcessedAt!.Value) <= actualEndDate)
                             .Select(g => g.Key)
                             .ToListAsync();
                         segmentName = "新規顧客";
@@ -108,8 +109,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         // 1. 分析期間内に購入した顧客
                         var recentCustomerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= actualStartDate && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= actualEndDate &&
+                                       o.ShopifyProcessedAt != null &&
+                                       o.ShopifyProcessedAt.Value >= actualStartDate && 
+                                       o.ShopifyProcessedAt.Value <= actualEndDate &&
                                        o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                             .Select(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                             .Distinct()
@@ -118,7 +120,8 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         // 2. 休眠期間より前（6ヶ月以上前）に購入歴がある顧客
                         var oldCustomerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) < dormantStartDate &&
+                                       o.ShopifyProcessedAt != null &&
+                                       o.ShopifyProcessedAt.Value < dormantStartDate &&
                                        o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                             .Select(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                             .Distinct()
@@ -127,8 +130,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         // 3. 休眠期間中（分析期間開始前6ヶ月）に購入した顧客
                         var activeInDormantPeriod = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= dormantStartDate && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) < dormantEndDate &&
+                                       o.ShopifyProcessedAt != null &&
+                                       o.ShopifyProcessedAt.Value >= dormantStartDate && 
+                                       o.ShopifyProcessedAt.Value < dormantEndDate &&
                                        o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                             .Select(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                             .Distinct()
@@ -151,7 +155,8 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         // 期間内の購入有無は問わない（0回購入も含む）
                         customerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) < actualStartDate &&
+                                       o.ShopifyProcessedAt != null &&
+                                       o.ShopifyProcessedAt.Value < actualStartDate &&
                                        o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                             .Select(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                             .Distinct()
@@ -165,8 +170,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                         // 全顧客（期間内に購入したすべての顧客）
                         customerIds = await _context.Orders
                             .Where(o => o.StoreId == storeId && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= actualStartDate && 
-                                       (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= actualEndDate &&
+                                       o.ShopifyProcessedAt != null &&
+                                       o.ShopifyProcessedAt.Value >= actualStartDate && 
+                                       o.ShopifyProcessedAt.Value <= actualEndDate &&
                                        o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                             .Select(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                             .Distinct()
@@ -200,8 +206,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                     .Where(o => o.StoreId == storeId && 
                                o.CustomerId.HasValue && // CustomerIdがnullの注文を除外
                                customerIds.Contains(o.CustomerId.Value) && // nullチェック済みなので.Valueを使用
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= startDate && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= endDate)
+                               o.ShopifyProcessedAt != null &&
+                               o.ShopifyProcessedAt.Value >= startDate && 
+                               o.ShopifyProcessedAt.Value <= endDate)
                     .GroupBy(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                     .Select(g => new 
                     { 
@@ -265,8 +272,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
 
                 var totalRevenue = await _context.Orders
                     .Where(o => o.StoreId == storeId && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= startDate && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= endDate)
+                               o.ShopifyProcessedAt != null &&
+                               o.ShopifyProcessedAt.Value >= startDate && 
+                               o.ShopifyProcessedAt.Value <= endDate)
                     .SumAsync(o => o.TotalPrice);
 
                 _logger.LogDebug("総売上取得完了: Revenue={Revenue}", totalRevenue);
@@ -291,8 +299,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
 
                 var customerPurchaseCounts = await _context.Orders
                     .Where(o => o.StoreId == storeId && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= periodStart && 
-                               (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) <= periodEnd &&
+                               o.ShopifyProcessedAt != null &&
+                               o.ShopifyProcessedAt.Value >= periodStart && 
+                               o.ShopifyProcessedAt.Value <= periodEnd &&
                                o.CustomerId.HasValue) // CustomerIdがnullの注文を除外
                     .GroupBy(o => o.CustomerId!.Value) // nullチェック済みなので!を使用
                     .Select(g => new CustomerPurchaseData

@@ -18,14 +18,6 @@ on:
           - 'Both'
           - 'All'
         default: 'Production1'
-      confirm_production:
-        description: '本番環境へのデプロイを確認'
-        required: true
-        type: choice
-        options:
-          - 'YES - 本番環境にデプロイします'
-          - 'NO - キャンセルします'
-        default: 'NO - キャンセルします'
 
 env:
   NODE_VERSION: '20.x'
@@ -60,12 +52,6 @@ jobs:
     environment: ec-ranger-prod
     
     steps:
-    - name: 🛡️ Production deployment confirmation
-      if: github.event.inputs.confirm_production != 'YES - 本番環境にデプロイします'
-      run: |
-        echo "❌ Production deployment cancelled by user"
-        exit 1
-
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 

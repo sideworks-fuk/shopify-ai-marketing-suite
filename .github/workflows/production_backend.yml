@@ -7,14 +7,6 @@ on:
         description: 'デプロイメッセージ（任意）'
         required: false
         type: string
-      confirm_production:
-        description: '本番環境へのデプロイを確認'
-        required: true
-        type: choice
-        options:
-          - 'YES - 本番環境にデプロイします'
-          - 'NO - キャンセルします'
-        default: 'NO - キャンセルします'
 
 env:
   DOTNET_VERSION: '8.x'
@@ -29,13 +21,6 @@ jobs:
     environment: ec-ranger-prod
     
     steps:
-    - name: 🛡️ Production deployment confirmation
-      if: github.event.inputs.confirm_production != 'YES - 本番環境にデプロイします'
-      run: |
-        echo "❌ Production deployment cancelled by user"
-        exit 1
-      shell: bash
-
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 

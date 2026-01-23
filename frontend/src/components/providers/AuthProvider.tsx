@@ -120,8 +120,15 @@ function AuthProviderInner({ children }: AuthProviderProps) {
       return storeId;
     }
     
-    // ストアIDが取得できない場合、APIからストア情報を取得
-    if (isAuthenticated && isApiClientReady && apiClient) {
+    // 🆕 デモモードまたは開発者モードの場合は、API呼び出しをスキップ
+    // デモモード/開発者モードでは、currentStoreIdはlocalStorageに保存されているはず
+    if (authMode === 'demo' || authMode === 'developer') {
+      console.log('ℹ️ [AuthProvider.resolveStoreId] デモモード/開発者モードのため、API呼び出しをスキップ', { authMode, storeId });
+      return null;
+    }
+    
+    // ストアIDが取得できない場合、APIからストア情報を取得（Shopify OAuth認証の場合のみ）
+    if (isAuthenticated && isApiClientReady && apiClient && authMode === 'shopify') {
       const shopFromUrl = searchParams?.get('shop');
       if (shopFromUrl) {
         try {
@@ -168,7 +175,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     }
     
     return null;
-  }, [getCurrentStoreIdFn, isAuthenticated, isApiClientReady, apiClient, searchParams, setCurrentStoreId]);
+  }, [getCurrentStoreIdFn, isAuthenticated, isApiClientReady, apiClient, searchParams, setCurrentStoreId, authMode]);
 
   // APIクライアントの初期化
   useEffect(() => {
@@ -428,6 +435,16 @@ function AuthProviderInner({ children }: AuthProviderProps) {
           if (demoToken) {
             console.log('✅ デモトークンが見つかりました')
             setIsAuthenticated(true)
+            
+            // 🆕 デモモードの場合、currentStoreIdも復元
+            const savedStoreId = localStorage.getItem('currentStoreId')
+            if (savedStoreId) {
+              const storeId = parseInt(savedStoreId, 10)
+              if (!isNaN(storeId) && storeId > 0) {
+                console.log('✅ [AuthProvider] デモモード: currentStoreIdを復元:', storeId)
+                setCurrentStoreId(storeId)
+              }
+            }
           } else {
             console.log('⚠️ デモトークンが見つかりませんでした')
             setIsAuthenticated(false)

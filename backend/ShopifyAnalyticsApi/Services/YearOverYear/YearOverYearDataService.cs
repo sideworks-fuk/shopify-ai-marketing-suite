@@ -47,7 +47,8 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 var query = _context.OrderItems
                     .Include(oi => oi.Order)
                     .Where(oi => oi.Order!.StoreId == request.StoreId &&
-                                ((oi.Order.ShopifyCreatedAt ?? oi.Order.CreatedAt).Year == currentYear || (oi.Order.ShopifyCreatedAt ?? oi.Order.CreatedAt).Year == previousYear));
+                                oi.Order.ShopifyProcessedAt != null &&
+                                (oi.Order.ShopifyProcessedAt.Value.Year == currentYear || oi.Order.ShopifyProcessedAt.Value.Year == previousYear));
 
                 // 商品タイプフィルター
                 if (!string.IsNullOrEmpty(request.ProductType) && request.ProductType != "all")
@@ -64,8 +65,9 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 // 月範囲フィルター
                 if (request.StartMonth.HasValue && request.EndMonth.HasValue)
                 {
-                    query = query.Where(oi => (oi.Order!.ShopifyCreatedAt ?? oi.Order.CreatedAt).Month >= request.StartMonth.Value &&
-                                            (oi.Order.ShopifyCreatedAt ?? oi.Order.CreatedAt).Month <= request.EndMonth.Value);
+                    query = query.Where(oi => oi.Order!.ShopifyProcessedAt != null &&
+                                            oi.Order.ShopifyProcessedAt.Value.Month >= request.StartMonth.Value &&
+                                            oi.Order.ShopifyProcessedAt.Value.Month <= request.EndMonth.Value);
                 }
 
                 // サービス項目除外フィルター
@@ -76,13 +78,14 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 }
 
                 var data = await query
+                    .Where(oi => oi.Order!.ShopifyProcessedAt != null)
                     .GroupBy(oi => new
                     {
                         ProductName = oi.ProductTitle,
                         ProductType = oi.ProductType,
                         Vendor = oi.ProductVendor,
-                        Year = (oi.Order!.ShopifyCreatedAt ?? oi.Order.CreatedAt).Year,
-                        Month = (oi.Order.ShopifyCreatedAt ?? oi.Order.CreatedAt).Month
+                        Year = oi.Order!.ShopifyProcessedAt!.Value.Year,
+                        Month = oi.Order.ShopifyProcessedAt.Value.Month
                     })
                     .Select(g => new OrderItemAnalysisData
                     {
@@ -171,8 +174,8 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 _logger.LogDebug("分析期間取得開始: StoreId={StoreId}", storeId);
 
                 var orders = await _context.Orders
-                    .Where(o => o.StoreId == storeId)
-                    .Select(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt).Year)
+                    .Where(o => o.StoreId == storeId && o.ShopifyProcessedAt != null)
+                    .Select(o => o.ShopifyProcessedAt!.Value.Year)
                     .ToListAsync();
 
                 if (!orders.Any())

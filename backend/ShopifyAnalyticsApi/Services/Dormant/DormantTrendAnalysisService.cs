@@ -151,12 +151,14 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 var newDormant = await _context.Customers
                     .Include(c => c.Orders)
                     .Where(c => c.StoreId == storeId)
-                    .Where(c => c.Orders.Any() && 
-                              c.Orders.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
-                                  .Select(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                    .Where(c => c.Orders.Any(o => o.ShopifyProcessedAt != null) && 
+                              c.Orders.Where(o => o.ShopifyProcessedAt != null)
+                                  .OrderByDescending(o => o.ShopifyProcessedAt)
+                                  .Select(o => o.ShopifyProcessedAt!.Value)
                                   .First() >= cutoffStart &&
-                              c.Orders.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
-                                  .Select(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                              c.Orders.Where(o => o.ShopifyProcessedAt != null)
+                                  .OrderByDescending(o => o.ShopifyProcessedAt)
+                                  .Select(o => o.ShopifyProcessedAt!.Value)
                                   .First() < cutoffEnd)
                     .CountAsync();
 
@@ -181,12 +183,12 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 // この期間に復帰した顧客
                 // （期間内に注文があり、かつ前回注文が休眠閾値より前）
                 var reactivated = await _context.Orders
-                    .Where(o => o.Customer!.StoreId == storeId)
-                    .Where(o => (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) >= periodStart && (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt) < periodEnd)
+                    .Where(o => o.Customer!.StoreId == storeId && o.ShopifyProcessedAt != null)
+                    .Where(o => o.ShopifyProcessedAt!.Value >= periodStart && o.ShopifyProcessedAt.Value < periodEnd)
                     .Where(o => _context.Orders
-                        .Where(prev => prev.CustomerId == o.CustomerId && (prev.ShopifyCreatedAt ?? prev.CreatedAt) < (o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
-                        .OrderByDescending(prev => prev.ShopifyCreatedAt ?? prev.CreatedAt)
-                        .Select(prev => prev.ShopifyCreatedAt ?? prev.CreatedAt)
+                        .Where(prev => prev.CustomerId == o.CustomerId && prev.ShopifyProcessedAt != null && prev.ShopifyProcessedAt < o.ShopifyProcessedAt)
+                        .OrderByDescending(prev => prev.ShopifyProcessedAt)
+                        .Select(prev => prev.ShopifyProcessedAt!.Value)
                         .First() < dormancyCutoff)
                     .Select(o => o.CustomerId)
                     .Distinct()
@@ -262,9 +264,10 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             return await _context.Customers
                 .Include(c => c.Orders)
                 .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
-                .Where(c => c.Orders.Any() && 
-                          c.Orders.OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
-                              .Select(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
+                .Where(c => c.Orders.Any(o => o.ShopifyProcessedAt != null) && 
+                          c.Orders.Where(o => o.ShopifyProcessedAt != null)
+                              .OrderByDescending(o => o.ShopifyProcessedAt)
+                              .Select(o => o.ShopifyProcessedAt!.Value)
                               .First() < cutoffDate)
                 .CountAsync();
         }
