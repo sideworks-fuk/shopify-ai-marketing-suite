@@ -44,8 +44,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 // JWTから取得したStoreIdで上書き（セキュリティ対策）
                 request.StoreId = this.StoreId;
                 
-                _logger.LogInformation("前年同月比分析データ取得開始. StoreId: {StoreId}, Year: {Year}, ViewMode: {ViewMode}, RequestId: {RequestId}",
-                    request.StoreId, request.Year, request.ViewMode, logProperties["RequestId"]);
+                _logger.LogInformation("🔍 [YearOverYear API] リクエスト受信: StoreId={StoreId}, Year={Year}, ViewMode={ViewMode}, StartMonth={StartMonth}, EndMonth={EndMonth}, SortBy={SortBy}, RequestId={RequestId}",
+                    request.StoreId, request.Year, request.ViewMode, request.StartMonth, request.EndMonth, request.SortBy, logProperties["RequestId"]);
 
                 using var performanceScope = LoggingHelper.CreatePerformanceScope(_logger, "GetYearOverYearAnalysis", logProperties);
 

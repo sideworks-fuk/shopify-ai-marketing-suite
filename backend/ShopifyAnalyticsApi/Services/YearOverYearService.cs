@@ -128,13 +128,37 @@ namespace ShopifyAnalyticsApi.Services
         private async Task<List<OrderItemAnalysisData>> GetOrderItemsDataAsync(
             YearOverYearRequest request, int currentYear, int previousYear)
         {
+            _logger.LogInformation("🔍 [YearOverYear] GetOrderItemsDataAsync開始: StoreId={StoreId}, CurrentYear={CurrentYear}, PreviousYear={PreviousYear}, StartMonth={StartMonth}, EndMonth={EndMonth}",
+                request.StoreId, currentYear, previousYear, request.StartMonth, request.EndMonth);
+
+            // まず、対象ストアの全注文データの年月分布を確認（デバッグ用）
+            var orderDateDistribution = await _context.Orders
+                .Where(o => o.StoreId == request.StoreId && o.ShopifyProcessedAt != null)
+                .GroupBy(o => new { Year = o.ShopifyProcessedAt!.Value.Year, Month = o.ShopifyProcessedAt.Value.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .OrderBy(x => x.Year).ThenBy(x => x.Month)
+                .ToListAsync();
+
+            _logger.LogInformation("🔍 [YearOverYear] 注文データの年月分布（ShopifyProcessedAt基準）:");
+            foreach (var item in orderDateDistribution)
+            {
+                _logger.LogInformation("  - {Year}年{Month}月: {Count}件", item.Year, item.Month, item.Count);
+            }
+
+            // デフォルト値を適用（nullの場合は1月〜12月）
+            var startMonth = request.StartMonth ?? 1;
+            var endMonth = request.EndMonth ?? 12;
+            
+            _logger.LogInformation("🔍 [YearOverYear] 月フィルター適用: StartMonth={StartMonth}, EndMonth={EndMonth} (リクエスト値: {ReqStart}, {ReqEnd})",
+                startMonth, endMonth, request.StartMonth, request.EndMonth);
+
             var query = from orderItem in _context.OrderItems
                         join order in _context.Orders on orderItem.OrderId equals order.Id
                         where order.StoreId == request.StoreId
                            && order.ShopifyProcessedAt != null // ShopifyProcessedAtがnullでないことを確認
                            && (order.ShopifyProcessedAt.Value.Year == currentYear || order.ShopifyProcessedAt.Value.Year == previousYear)
-                           && order.ShopifyProcessedAt.Value.Month >= request.StartMonth
-                           && order.ShopifyProcessedAt.Value.Month <= request.EndMonth
+                           && order.ShopifyProcessedAt.Value.Month >= startMonth
+                           && order.ShopifyProcessedAt.Value.Month <= endMonth
                         select new OrderItemAnalysisData
                         {
                             ProductTitle = orderItem.ProductTitle,
@@ -178,7 +202,22 @@ namespace ShopifyAnalyticsApi.Services
                 query = query.Where(x => !ServiceItemKeywords.Any(keyword => x.ProductTitle.Contains(keyword)));
             }
 
-            return await query.ToListAsync();
+            var result = await query.ToListAsync();
+
+            // 取得結果の年月分布をログ出力
+            var resultDistribution = result
+                .GroupBy(x => new { x.Year, x.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count(), TotalPrice = g.Sum(x => x.TotalPrice) })
+                .OrderBy(x => x.Year).ThenBy(x => x.Month)
+                .ToList();
+
+            _logger.LogInformation("🔍 [YearOverYear] 取得結果の年月分布（OrderItems）: 合計{Total}件", result.Count);
+            foreach (var item in resultDistribution)
+            {
+                _logger.LogInformation("  - {Year}年{Month}月: {Count}件, 売上={TotalPrice:N0}円", item.Year, item.Month, item.Count, item.TotalPrice);
+            }
+
+            return result;
         }
 
         /// <summary>
