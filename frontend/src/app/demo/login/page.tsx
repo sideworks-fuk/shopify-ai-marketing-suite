@@ -69,11 +69,13 @@ export default function DemoLoginPage() {
         console.log('✅ デモモード: ログイン成功', {
           authMode: data.authMode,
           readOnly: data.readOnly,
-          expiresAt: data.expiresAt
+          expiresAt: data.expiresAt,
+          storeId
         })
         
-        // ダッシュボードへリダイレクト
-        router.push('/')
+        // データ同期画面へ直接リダイレクト（/を経由しない）
+        // これにより、AuthProviderの再初期化タイミングの問題を回避
+        router.push('/setup/initial')
       } else {
         const errorData = await response.json()
         setError(errorData.message || 'パスワードが正しくありません')
