@@ -157,7 +157,7 @@ const ProductTableRowVirtual = React.memo(({
 ProductTableRowVirtual.displayName = "ProductTableRowVirtual"
 
 const YearOverYearProductAnalysis = () => {
-  const { getApiClient, currentStoreId: authCurrentStoreId, setCurrentStoreId } = useAuth()
+  const { getApiClient, currentStoreId: authCurrentStoreId, setCurrentStoreId, resolveStoreId } = useAuth()
   // ✅ 年選択機能
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
@@ -225,23 +225,7 @@ const YearOverYearProductAnalysis = () => {
     }
   }, [authCurrentStoreId, setCurrentStoreId])
 
-  // 🆕 getCurrentStoreId() を使用してストアIDを解決（sessionStorage も確認）
-  const resolveStoreId = useCallback((): number | null => {
-    // AuthProvider の currentStoreId を優先的に使用
-    if (typeof authCurrentStoreId === 'number' && authCurrentStoreId > 0) {
-      console.log('✅ [YearOverYear.resolveStoreId] AuthProvider の currentStoreId を使用:', authCurrentStoreId)
-      return authCurrentStoreId
-    }
-    
-    // AuthProvider になければ getCurrentStoreId() を使用（sessionStorage も確認）
-    if (typeof window !== 'undefined') {
-      const storeId = getCurrentStoreId()
-      console.log('🔍 [YearOverYear.resolveStoreId] getCurrentStoreId() を使用:', { storeId, authCurrentStoreId })
-      return storeId > 0 ? storeId : null
-    }
-    
-    return null
-  }, [authCurrentStoreId])
+  // 🆕 AuthProvider の resolveStoreId を使用（汎用的な実装）
 
   // 🚀 API データ取得
   const fetchYearOverYearData = useCallback(async () => {
@@ -250,7 +234,8 @@ const YearOverYearProductAnalysis = () => {
     setFeatureDenied(null)
 
     try {
-      const storeId = resolveStoreId()
+      // 🆕 resolveStoreId()は非同期関数になったため、awaitを追加
+      const storeId = await resolveStoreId()
       if (!storeId) {
         throw new Error('ストア情報が取得できません。Shopify管理画面からアプリを起動し直してください。')
       }
@@ -299,7 +284,7 @@ const YearOverYearProductAnalysis = () => {
       setLoading(false)
       setHasData(true) // データ取得試行完了
     }
-  }, [filters, getApiClient, resolveStoreId, selectedYear, sortBy, viewMode, authCurrentStoreId])
+  }, [filters, getApiClient, resolveStoreId, selectedYear, sortBy, viewMode])
 
   // APIデータを表示形式に変換する関数
   const convertApiDataToDisplayFormat = useCallback((apiProducts: YearOverYearProductData[]): MonthlyProductData[] => {

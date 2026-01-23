@@ -28,7 +28,7 @@ export default function DormantCustomersPage() {
   
   // 機能アクセス制御
   const { hasAccess, isLoading: isAccessLoading } = useFeatureAccess('dormant_analysis')
-  const { getApiClient, isAuthenticated, isInitializing, isApiClientReady, currentStoreId: authCurrentStoreId, setCurrentStoreId } = useAuth()
+  const { getApiClient, isAuthenticated, isInitializing, isApiClientReady, currentStoreId: authCurrentStoreId, setCurrentStoreId, resolveStoreId } = useAuth()
   
   // ✅ Props Drilling解消: フィルター状態は FilterContext で管理
   // Note: All hooks must be called before any conditional returns
@@ -216,9 +216,9 @@ export default function DormantCustomersPage() {
         
         console.log('🔄 休眠顧客サマリーデータの取得を開始...')
         
-        // 🆕 AuthProvider の currentStoreId を優先的に使用
-        const storeId = authCurrentStoreId || getCurrentStoreId()
-        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+        // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
+        const storeId = await resolveStoreId()
+        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
         
         // 🔧 storeId が null の場合は API 呼び出しをスキップ
         if (storeId === null) {
@@ -263,7 +263,7 @@ export default function DormantCustomersPage() {
     }
 
     fetchSummaryData()
-  }, [getApiClient, isAuthenticated, isInitializing, isApiClientReady, router, searchParams, authCurrentStoreId])
+  }, [getApiClient, isAuthenticated, isInitializing, isApiClientReady, router, searchParams, authCurrentStoreId, resolveStoreId])
 
   // Step 1.5: 主要期間区分データを取得
   useEffect(() => {
@@ -274,10 +274,10 @@ export default function DormantCustomersPage() {
         setError(null)
         
         console.log('🔄 主要期間区分データの取得を開始...')
-        // 🆕 AuthProvider の currentStoreId を優先的に使用
-        const storeId = authCurrentStoreId || getCurrentStoreId()
+        // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
+        const storeId = await resolveStoreId()
         console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
-        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+        console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
         
         // 🔧 storeId が null の場合は API 呼び出しをスキップ
         if (storeId === null) {
@@ -347,7 +347,7 @@ export default function DormantCustomersPage() {
     }
 
     fetchDetailedSegments()
-  }, [getApiClient, authCurrentStoreId])
+  }, [getApiClient, authCurrentStoreId, resolveStoreId, isAuthenticated, isApiClientReady, searchParams])
 
   // 代替案: サマリーデータからセグメント情報を作成
   useEffect(() => {
@@ -403,9 +403,9 @@ export default function DormantCustomersPage() {
       
       // APIリクエストパラメータを構築
       // セグメントが指定されている場合のみパラメータに含める
-      // 🆕 AuthProvider の currentStoreId を優先的に使用
-      const storeId = authCurrentStoreId || getCurrentStoreId()
-      console.log('🔍 [DormantPage.loadCustomerList] 使用する storeId:', { authCurrentStoreId, getCurrentStoreId: getCurrentStoreId(), finalStoreId: storeId })
+      // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
+      const storeId = await resolveStoreId()
+      console.log('🔍 [DormantPage.loadCustomerList] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
       
       // 🔧 storeId が null の場合は API 呼び出しをスキップ
       if (storeId === null) {
@@ -574,7 +574,7 @@ export default function DormantCustomersPage() {
       //   setIsLoadingList(false)
       // })
     }
-  }, [maxDisplayCount, getApiClient, authCurrentStoreId])  // getApiClientとauthCurrentStoreIdを追加
+  }, [maxDisplayCount, getApiClient, authCurrentStoreId, resolveStoreId])  // getApiClientとauthCurrentStoreId、resolveStoreIdを追加
 
   // 初期表示時は全セグメントのデータを取得
   useEffect(() => {

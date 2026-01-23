@@ -1,7 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { AppBridgeProvider, useAppBridge } from '@/lib/shopify/app-bridge-provider'
 import { ApiClient } from '@/lib/api-client'
 import { migrateLocalStorageVariables } from '@/lib/localstorage-migration'
@@ -29,6 +29,7 @@ interface AuthContextType {
   getApiClient: () => ApiClient
   markAuthenticated: (storeId: number) => void
   setCurrentStoreId: (storeId: number | null) => void // 🆕 currentStoreId を設定する関数
+  resolveStoreId: () => Promise<number | null> // 🆕 ストアIDを解決する関数（APIから取得する処理も含む）
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -57,6 +58,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   
   const { getToken, isEmbedded } = useAppBridge()
   const pathname = usePathname() // 🆕 ページ遷移を検知するため
+  const searchParams = useSearchParams() // 🆕 URLパラメータからshopを取得するため
 
   // 🆕 getCurrentStoreId の共通関数（AuthProvider の currentStoreId を優先し、なければ localStorage/sessionStorage から取得）
   // useCallback を使用して currentStoreId の最新値を参照できるようにする
@@ -108,6 +110,65 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     });
     return null;
   }, [currentStoreId]); // currentStoreId を依存配列に追加
+
+  // 🆕 ストアIDを解決する関数（APIからストア情報を取得する処理も含む）
+  const resolveStoreId = useCallback(async (): Promise<number | null> => {
+    // まず getCurrentStoreIdFn で取得を試みる
+    const storeId = getCurrentStoreIdFn();
+    if (storeId !== null && storeId > 0) {
+      console.log('✅ [AuthProvider.resolveStoreId] getCurrentStoreIdFn から取得:', storeId);
+      return storeId;
+    }
+    
+    // ストアIDが取得できない場合、APIからストア情報を取得
+    if (isAuthenticated && isApiClientReady && apiClient) {
+      const shopFromUrl = searchParams?.get('shop');
+      if (shopFromUrl) {
+        try {
+          console.log('📡 [AuthProvider.resolveStoreId] ストア情報をAPIから取得中...', { shop: shopFromUrl });
+          const result = await apiClient.request<{ success: boolean; data?: { stores?: any[] }; stores?: any[] }>('/api/store', {
+            method: 'GET',
+          });
+          
+          if (result.success) {
+            const stores = result.data?.stores || result.stores || [];
+            if (Array.isArray(stores) && stores.length > 0) {
+              // shopパラメータで一致するストアを検索
+              const normalizedShop = shopFromUrl.toLowerCase().endsWith('.myshopify.com') 
+                ? shopFromUrl.toLowerCase() 
+                : `${shopFromUrl.toLowerCase()}.myshopify.com`;
+              
+              const matchedStore = stores.find((s: any) => {
+                const candidate = (s?.shopDomain || s?.domain || s?.ShopDomain || s?.Domain || '').toString().toLowerCase();
+                return candidate === normalizedShop || candidate === shopFromUrl.toLowerCase();
+              });
+              
+              if (matchedStore?.id) {
+                const resolvedStoreId = matchedStore.id;
+                console.log('✅ [AuthProvider.resolveStoreId] ストア情報をAPIから取得:', { storeId: resolvedStoreId, shop: normalizedShop });
+                
+                // localStorageに保存
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('currentStoreId', resolvedStoreId.toString());
+                  localStorage.setItem('oauth_authenticated', 'true');
+                  localStorage.setItem('shopDomain', normalizedShop);
+                }
+                
+                // AuthProviderにも設定
+                setCurrentStoreId(resolvedStoreId);
+                
+                return resolvedStoreId;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ [AuthProvider.resolveStoreId] ストア情報の取得に失敗:', error);
+        }
+      }
+    }
+    
+    return null;
+  }, [getCurrentStoreIdFn, isAuthenticated, isApiClientReady, apiClient, searchParams, setCurrentStoreId]);
 
   // APIクライアントの初期化
   useEffect(() => {
@@ -718,6 +779,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     getApiClient,
     markAuthenticated,
     setCurrentStoreId, // 🆕 setCurrentStoreId を公開
+    resolveStoreId, // 🆕 resolveStoreId を公開
   }
 
   return (

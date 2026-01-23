@@ -93,9 +93,12 @@ function InstallPolarisPageContent() {
   // 理由: インストール済みでOAuth認証も完了している場合、接続ボタンを押さずに自動で進む
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isInitializing) {
-      console.log('⏳ [Install] 認証状態の初期化中、早期自動リダイレクトを待機');
-      return; // 認証状態の初期化中は待機
+    if (isInitializing || !isApiClientReady) {
+      console.log('⏳ [Install] 認証状態の初期化中またはAPIクライアント未準備、早期自動リダイレクトを待機', {
+        isInitializing,
+        isApiClientReady
+      });
+      return; // 認証状態の初期化中またはAPIクライアント未準備の場合は待機
     }
     
     // OAuth処理中フラグがある場合はスキップ
@@ -813,9 +816,24 @@ function InstallPolarisPageContent() {
           } else {
             console.warn('⚠️ [Install] ストア一覧が空です');
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ [Install] ストア情報の取得に失敗:', error);
-          // エラー時は通常処理に進む（ユーザーが手動で進められるように）
+          
+          // 🆕 401エラーの場合は、認証が完了していない可能性があるため、詳細をログ出力
+          if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+            console.warn('⚠️ [Install] 401エラー: 認証が完了していない可能性があります', {
+              error: error.message,
+              isAuthenticated,
+              isApiClientReady,
+              shop: shopFromUrl,
+              timestamp: new Date().toISOString()
+            });
+            
+            // 401エラーの場合、早期自動リダイレクトをスキップ（認証が必要）
+            return;
+          }
+          
+          // その他のエラー時は通常処理に進む（ユーザーが手動で進められるように）
         }
       };
       
