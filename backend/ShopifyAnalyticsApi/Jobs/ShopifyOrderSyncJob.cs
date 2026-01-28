@@ -507,7 +507,98 @@ namespace ShopifyAnalyticsApi.Jobs
                 }
             }
             
+            // 注文を保存
             await _context.SaveChangesAsync();
+            
+            // 顧客のLastOrderDateを更新（非正規化フィールド）
+            await UpdateCustomerLastOrderDatesAsync(storeId, orders);
+        }
+
+        /// <summary>
+        /// 注文同期時に顧客のLastOrderDateを更新
+        /// </summary>
+        private async Task UpdateCustomerLastOrderDatesAsync(int storeId, List<Order> orders)
+        {
+            // 注文に関連する顧客IDを収集
+            var customerIds = orders
+                .Where(o => o.CustomerId.HasValue && o.CustomerId.Value > 0)
+                .Select(o => o.CustomerId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (!customerIds.Any())
+            {
+                return;
+            }
+
+            _logger.LogDebug("顧客のLastOrderDate更新開始: StoreId={StoreId}, CustomerCount={Count}", 
+                storeId, customerIds.Count);
+
+            // 各顧客のLastOrderDateを更新
+            foreach (var customerId in customerIds)
+            {
+                try
+                {
+                    var customer = await _context.Customers
+                        .FirstOrDefaultAsync(c => c.Id == customerId && c.StoreId == storeId);
+                    
+                    if (customer == null)
+                    {
+                        _logger.LogWarning("顧客が見つかりません: CustomerId={CustomerId}, StoreId={StoreId}", 
+                            customerId, storeId);
+                        continue;
+                    }
+
+                    // 顧客の最新の注文日を取得
+                    var lastOrderDate = await _context.Orders
+                        .Where(o => o.CustomerId == customerId 
+                                 && o.ShopifyProcessedAt != null)
+                        .OrderByDescending(o => o.ShopifyProcessedAt)
+                        .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
+                        .FirstOrDefaultAsync();
+
+                    if (lastOrderDate.HasValue)
+                    {
+                        // LastOrderDateが更新される場合のみ更新
+                        if (!customer.LastOrderDate.HasValue || lastOrderDate > customer.LastOrderDate)
+                        {
+                            customer.LastOrderDate = lastOrderDate;
+                            customer.UpdatedAt = DateTime.UtcNow;
+                            
+                            _logger.LogDebug("顧客のLastOrderDateを更新: CustomerId={CustomerId}, LastOrderDate={LastOrderDate}", 
+                                customerId, lastOrderDate);
+                        }
+                    }
+                    else
+                    {
+                        // 注文がない場合はnullに設定
+                        if (customer.LastOrderDate.HasValue)
+                        {
+                            customer.LastOrderDate = null;
+                            customer.UpdatedAt = DateTime.UtcNow;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "顧客のLastOrderDate更新でエラー: CustomerId={CustomerId}, StoreId={StoreId}", 
+                        customerId, storeId);
+                    // エラーが発生しても処理を継続
+                }
+            }
+
+            // 変更を保存
+            try
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogDebug("顧客のLastOrderDate更新完了: StoreId={StoreId}, UpdatedCount={Count}", 
+                    storeId, customerIds.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "顧客のLastOrderDate保存でエラー: StoreId={StoreId}", storeId);
+                throw;
+            }
         }
 
         /// <summary>
