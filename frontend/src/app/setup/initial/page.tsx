@@ -62,6 +62,8 @@ function formatToJST(dateString: string | undefined | null): string {
   }
   
   try {
+    // ISO 8601形式の文字列をDateオブジェクトに変換
+    // バックエンドからは '2026-01-28T03:31:00.0000000Z' のような形式で返される
     const date = new Date(dateString)
     if (isNaN(date.getTime())) {
       console.warn('⚠️ 無効な日付文字列:', dateString)
@@ -69,14 +71,22 @@ function formatToJST(dateString: string | undefined | null): string {
     }
     
     // date-fns-tz の formatInTimeZone を使用して JST に変換
+    // formatInTimeZone は Date オブジェクトを UTC として扱い、指定されたタイムゾーンに変換
     // 'M/d HH:mm' 形式で表示（例: 1/28 12:31）
+    // 注意: formatInTimeZone は Date オブジェクトの内部表現（UTC時刻）を、指定されたタイムゾーンに変換します
     const jstString = formatInTimeZone(date, 'Asia/Tokyo', 'M/d HH:mm')
     
-    console.log('🕐 日時変換:', { 
-      original: dateString, 
-      parsed: date.toISOString(),
-      jst: jstString 
-    })
+    // デバッグログ（開発環境でのみ表示）
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🕐 日時変換:', { 
+        original: dateString, 
+        parsedUTC: date.toISOString(),
+        parsedLocal: date.toString(),
+        jst: jstString,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        expectedJST: dateString.includes('T03:31') ? '1/28 12:31' : 'N/A'
+      })
+    }
     
     return jstString
   } catch (error) {
