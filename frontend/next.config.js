@@ -32,6 +32,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // 本番環境でソースマップを無効化（デプロイサイズ削減）
+  productionBrowserSourceMaps: false,
   webpack: (config, { isServer }) => {
     // パスエイリアスの明示的な設定
     config.resolve.alias = {

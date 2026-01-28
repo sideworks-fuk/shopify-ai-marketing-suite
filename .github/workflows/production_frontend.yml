@@ -93,6 +93,35 @@ jobs:
         echo "Timestamp: $(date)"
         echo "⚠️ WARNING: This will deploy to the PRODUCTION environment!"
 
+    # ============================================
+    # 📊 ビルド前のサイズ確認（参考情報）
+    # ============================================
+    - name: 📊 Check source code size
+      working-directory: frontend
+      run: |
+        echo "=== Source code size (before build) ==="
+        echo "Total frontend directory size:"
+        du -sh . 2>/dev/null || echo "Unable to calculate"
+        echo ""
+        echo "Largest source directories:"
+        du -h src/ 2>/dev/null | sort -rh | head -5 || echo "No src directory"
+        echo ""
+        echo "Node modules size (if exists):"
+        du -sh node_modules/ 2>/dev/null || echo "node_modules not found (will be installed by Oryx)"
+        echo ""
+        echo "✅ Standard Plan: Enabled (faster deployment expected)"
+        echo ""
+        echo "✅ Standard Plan: Enabled (faster deployment expected)"
+
+    # ============================================
+    # ⏱️ デプロイ開始時刻の記録
+    # ============================================
+    - name: ⏱️ Record deployment start time
+      id: deploy_start
+      run: |
+        echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+        echo "Deployment started at: $(date)"
+
     - name: 🚀 Deploy to Azure Static Web Apps (Production1)
       if: github.event.inputs.target_environment == 'Production1' || github.event.inputs.target_environment == 'Both' || github.event.inputs.target_environment == 'All'
       uses: Azure/static-web-apps-deploy@v1
@@ -162,17 +191,48 @@ jobs:
         NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Custom'
         NODE_VERSION: ${{ env.NODE_VERSION }}
 
+    # ============================================
+    # 📊 デプロイサイズ分析（参考情報）
+    # ============================================
+    - name: 📊 Analyze deployment size
+      if: always()
+      run: |
+        echo "=== Deployment Size Analysis ==="
+        echo ""
+        echo "📝 Note: Build size is determined by Oryx builder in Azure."
+        echo "   Check the deployment logs above for 'Zipping App Artifacts' section."
+        echo ""
+        echo "💡 Optimization status:"
+        echo "   1. productionBrowserSourceMaps: false (✅ enabled)"
+        echo "   2. Standard plan (✅ upgraded)"
+        echo "   3. Build caching (✅ enabled)"
+        echo "   4. Next.js build cache (✅ enabled)"
+        echo ""
+        echo "📊 Expected build sizes:"
+        echo "   - Small Next.js app: 10-30 MB"
+        echo "   - Medium Next.js app: 30-60 MB"
+        echo "   - Large Next.js app: 60-100 MB"
+        echo "   - ⚠️  If >100 MB, consider optimization"
+
     - name: ✅ Deployment complete
       run: |
-        echo "✅ Production frontend deployment completed successfully!"
+        echo "================================================"
+        echo "✅ Production Frontend Deployment Completed"
+        echo "================================================"
         echo "Target: ${{ github.event.inputs.target_environment }}"
-        echo "🌐 Production1 (EC Ranger): ${{ env.PROD1_FRONTEND_URL }}"
-        echo "🌐 Production1 Custom Domain: ${{ env.PROD1_CUSTOM_DOMAIN }}"
-        echo "🌐 Production2 (EC Ranger-xn-fbkq6e5da0fpb): ${{ env.PROD2_FRONTEND_URL }}"
-        echo "🌐 Production3 (EC Ranger-demo): ${{ env.PROD3_FRONTEND_URL }}"
+        echo ""
+        echo "🌐 Frontend URLs:"
+        echo "   Production1 (EC Ranger): ${{ env.PROD1_FRONTEND_URL }}"
+        echo "   Production1 Custom Domain: ${{ env.PROD1_CUSTOM_DOMAIN }}"
+        echo "   Production2 (EC Ranger-xn-fbkq6e5da0fpb): ${{ env.PROD2_FRONTEND_URL }}"
+        echo "   Production3 (EC Ranger-demo): ${{ env.PROD3_FRONTEND_URL }}"
+        echo ""
         echo "📊 Environment: PRODUCTION"
+        echo "📊 Plan: Standard (optimized for faster deployment)"
         echo "📊 Check Azure Portal for detailed logs"
+        echo ""
         echo "⚠️ PRODUCTION environment is now live!"
+        echo "================================================"
 
     - name: 🏥 Health check (Production1)
       if: github.event.inputs.target_environment == 'Production1' || github.event.inputs.target_environment == 'Both' || github.event.inputs.target_environment == 'All'
