@@ -18,7 +18,7 @@ on:
         default: '1'
 
 env:
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '20'
   APP_LOCATION: '/frontend'
   # Next.js のビルド成果物は .next 配下（Static Web Apps が next export と誤判定しないよう明示）
   OUTPUT_LOCATION: '.next'
@@ -41,6 +41,34 @@ jobs:
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
+
+    # ============================================
+    # 🚀 キャッシュ設定（ビルド時間短縮）
+    # ============================================
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: 📦 Cache npm dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.npm
+          frontend/node_modules
+        key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: 📦 Cache Next.js build
+      uses: actions/cache@v4
+      with:
+        path: |
+          frontend/.next/cache
+        key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx', 'frontend/**/*.js', 'frontend/**/*.jsx') }}
+        restore-keys: |
+          ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package.json') }}-
+          ${{ runner.os }}-nextjs-
 
     - name: 📝 Display deployment info
       run: |
@@ -125,15 +153,40 @@ jobs:
         NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_STORE_URL }}
         # vars が未定義の場合は空文字を返すため、デフォルト値として 'Public' を設定
         NEXT_PUBLIC_SHOPIFY_APP_TYPE: ${{ vars.NEXT_PUBLIC_SHOPIFY_APP_TYPE || 'Public' }}
-        NODE_VERSION: 20
+        NODE_VERSION: ${{ env.NODE_VERSION }}
+
+    # ============================================
+    # 📊 デプロイサイズ分析（参考情報）
+    # ============================================
+    - name: 📊 Analyze deployment size
+      if: always()
+      run: |
+        echo "=== Deployment Size Analysis ==="
+        echo ""
+        echo "📝 Note: Build size is determined by Oryx builder in Azure."
+        echo "   Check the deployment logs above for 'Zipping App Artifacts' section."
+        echo ""
+        echo "💡 Optimization status:"
+        echo "   1. Build caching (✅ enabled)"
+        echo "   2. Next.js build cache (✅ enabled)"
+        echo ""
+        echo "📊 Expected build sizes:"
+        echo "   - Small Next.js app: 10-30 MB"
+        echo "   - Medium Next.js app: 30-60 MB"
+        echo "   - Large Next.js app: 60-100 MB"
 
     - name: ✅ Deployment complete
       run: |
-        echo "✅ Frontend deployment completed successfully!"
+        echo "================================================"
+        echo "✅ Frontend Deployment Completed"
+        echo "================================================"
         echo "Target: ${{ github.event.inputs.target_environment }}"
         echo "Environment: ${{ steps.env.outputs.environment_name }}"
+        echo ""
         echo "🌐 Frontend URL: ${{ steps.env.outputs.frontend_url }}"
+        echo ""
         echo "📊 Check Azure Portal for detailed logs"
+        echo "================================================"
 
     - name: 🏥 Health check
       run: |
