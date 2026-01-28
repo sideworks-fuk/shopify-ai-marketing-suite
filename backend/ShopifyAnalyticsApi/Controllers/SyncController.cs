@@ -485,6 +485,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 return Ok(new
                 {
                     success = true,
+                    syncId = syncStatus.Id,
                     message = $"{request.Type}データの同期を開始しました",
                     jobIds = jobIds
                 });

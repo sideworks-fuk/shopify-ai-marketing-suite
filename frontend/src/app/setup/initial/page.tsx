@@ -379,15 +379,30 @@ export default function InitialSetupPage() {
       const apiClient = getApiClient()
       console.log('✅ APIクライアント取得成功')
       console.log('📌 APIクライアントの型:', apiClient.constructor.name)
+      console.log('📌 現在のアクティブタブ:', activeTab)
       
-      // リクエスト送信前の詳細確認
-      const requestBody = { syncPeriod }
+      // タブに応じてエンドポイントとリクエストボディを決定
+      let endpoint: string
+      let requestBody: any
+      
+      if (activeTab === 'trigger') {
+        // 手動同期タブの場合: /api/sync/trigger を呼ぶ
+        endpoint = '/api/sync/trigger'
+        // 手動同期は type フィールドを使用（期間指定は現在サポートされていないため、常に'all'）
+        requestBody = { type: 'all' }
+        console.log('📤 POST /api/sync/trigger 送信準備完了（手動同期）')
+      } else {
+        // 初期設定タブの場合: /api/sync/initial を呼ぶ
+        endpoint = '/api/sync/initial'
+        requestBody = { syncPeriod }
+        console.log('📤 POST /api/sync/initial 送信準備完了（初期同期）')
+      }
+      
       const requestBodyString = JSON.stringify(requestBody)
-      console.log('📤 POST /api/sync/initial 送信準備完了')
       console.log('📤 リクエストボディ:', requestBodyString)
       console.log('📤 リクエストボディサイズ:', requestBodyString.length, 'bytes')
       console.log('📤 リクエストメソッド: POST')
-      console.log('📤 エンドポイント: /api/sync/initial')
+      console.log('📤 エンドポイント:', endpoint)
       
       // リクエスト送信開始時刻を記録
       const requestStartTime = Date.now()
@@ -395,7 +410,7 @@ export default function InitialSetupPage() {
       
       let data: any
       try {
-        data = await apiClient.request<any>('/api/sync/initial', {
+        data = await apiClient.request<any>(endpoint, {
           method: 'POST',
           body: requestBodyString,
         })
@@ -438,30 +453,50 @@ export default function InitialSetupPage() {
         console.log('📥 レスポンスの値:', Object.values(data))
       }
       
-      // PascalCase と camelCase 両方に対応
-      const syncId = data.syncId ?? data.SyncId ?? data.id ?? data.Id
-      console.log('🔑 取得したsyncId:', syncId)
-      console.log('🔑 syncIdの型:', typeof syncId)
-      console.log('🔑 syncIdの値の確認:')
-      console.log('  - data.syncId:', data.syncId)
-      console.log('  - data.SyncId:', data.SyncId)
-      console.log('  - data.id:', data.id)
-      console.log('  - data.Id:', data.Id)
-      
-      if (!syncId) {
-        console.error('❌ syncId が取得できません')
-        console.error('📋 レスポンス全体:', data)
-        console.error('📋 レスポンスの型:', typeof data)
-        console.error('📋 レスポンスが配列か:', Array.isArray(data))
-        setError('同期IDが取得できませんでした。管理者に連絡してください。')
-        setIsLoading(false)
-        return
+      // レスポンス処理: タブに応じて異なる形式のレスポンスを処理
+      if (activeTab === 'trigger') {
+        // 手動同期のレスポンス: { success: true, syncId: ..., message: "...", jobIds: [...] }
+        if (data.success) {
+          console.log('✅ 手動同期開始成功:', data.message)
+          console.log('📋 SyncId:', data.syncId)
+          console.log('📋 JobIds:', data.jobIds)
+          // 手動同期の場合は同期履歴を再取得して最新状態を表示
+          await fetchSyncStats()
+          // 同期履歴タブに自動切り替え
+          setActiveTab('history')
+        } else {
+          console.error('❌ 手動同期失敗:', data.message || '不明なエラー')
+          setError(data.message || '手動同期の開始に失敗しました。')
+          setIsLoading(false)
+          return
+        }
+      } else {
+        // 初期同期のレスポンス: { syncId: ..., jobId: ... }
+        // PascalCase と camelCase 両方に対応
+        const syncId = data.syncId ?? data.SyncId ?? data.id ?? data.Id
+        console.log('🔑 取得したsyncId:', syncId)
+        console.log('🔑 syncIdの型:', typeof syncId)
+        console.log('🔑 syncIdの値の確認:')
+        console.log('  - data.syncId:', data.syncId)
+        console.log('  - data.SyncId:', data.SyncId)
+        console.log('  - data.id:', data.id)
+        console.log('  - data.Id:', data.Id)
+        
+        if (!syncId) {
+          console.error('❌ syncId が取得できません')
+          console.error('📋 レスポンス全体:', data)
+          console.error('📋 レスポンスの型:', typeof data)
+          console.error('📋 レスポンスが配列か:', Array.isArray(data))
+          setError('同期IDが取得できませんでした。管理者に連絡してください。')
+          setIsLoading(false)
+          return
+        }
+        
+        console.log('✅ 初期同期開始成功: syncId =', syncId)
+        
+        // 同期履歴タブに自動切り替え
+        setActiveTab('history')
       }
-      
-      console.log('✅ 同期開始成功: syncId =', syncId)
-      
-      // 同期履歴タブに自動切り替え
-      setActiveTab('history')
       
       // 同期履歴を即座に更新（新しい同期ジョブを表示するため）
       await fetchSyncStats()
@@ -914,7 +949,6 @@ export default function InitialSetupPage() {
               className="space-y-6"
               data-testid="manual-sync-content"
             >
-              {console.log('🔍 手動同期タブコンテンツがレンダリングされました', { activeTab })}
               <div>
                 <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
                   <RefreshCw className="h-5 w-5 text-green-600" />
