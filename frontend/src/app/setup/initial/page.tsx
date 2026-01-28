@@ -122,6 +122,11 @@ export default function InitialSetupPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isMounted, setIsMounted] = useState(false) // クライアントサイドマウント状態（Hydrationエラー対策）
   
+  // タブの状態をデバッグ
+  useEffect(() => {
+    console.log('📌 アクティブタブ:', activeTab)
+  }, [activeTab])
+  
   // デモモード判定
   const [isDemoMode, setIsDemoMode] = useState(false)
 
@@ -678,7 +683,10 @@ export default function InitialSetupPage() {
 
         {/* メインコンテンツ */}
         <Card className="shadow-xl">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(value) => {
+            console.log('🔄 タブ変更:', { from: activeTab, to: value })
+            setActiveTab(value)
+          }}>
             <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="setup" className="flex items-center gap-2">
@@ -689,7 +697,11 @@ export default function InitialSetupPage() {
                   <Clock className="h-4 w-4" />
                   同期履歴
                 </TabsTrigger>
-                <TabsTrigger value="trigger" className="flex items-center gap-2">
+                <TabsTrigger 
+                  value="trigger" 
+                  className="flex items-center gap-2"
+                  data-testid="manual-sync-tab"
+                >
                   <RefreshCw className="h-4 w-4" />
                   手動同期
                 </TabsTrigger>
@@ -897,7 +909,12 @@ export default function InitialSetupPage() {
             </TabsContent>
 
             {/* 手動同期タブ */}
-            <TabsContent value="trigger" className="space-y-6">
+            <TabsContent 
+              value="trigger" 
+              className="space-y-6"
+              data-testid="manual-sync-content"
+            >
+              {console.log('🔍 手動同期タブコンテンツがレンダリングされました', { activeTab })}
               <div>
                 <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
                   <RefreshCw className="h-5 w-5 text-green-600" />
