@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api-config'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { formatInTimeZone } from 'date-fns-tz'
 
 type SyncPeriod = '3months' | '6months' | '1year' | 'all'
 
@@ -67,14 +68,9 @@ function formatToJST(dateString: string | undefined | null): string {
       return '未同期'
     }
     
-    // toLocaleString で JST に変換
-    const jstString = date.toLocaleString('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    // date-fns-tz の formatInTimeZone を使用して JST に変換
+    // 'M/d HH:mm' 形式で表示（例: 1/28 12:31）
+    const jstString = formatInTimeZone(date, 'Asia/Tokyo', 'M/d HH:mm')
     
     console.log('🕐 日時変換:', { 
       original: dateString, 
@@ -223,6 +219,7 @@ export default function InitialSetupPage() {
           startedAt: string
           completedAt?: string
           duration: number
+          durationMinutes?: number
           recordsProcessed: number
           message?: string
         }>>('/api/sync/history?limit=10', {
@@ -241,7 +238,7 @@ export default function InitialSetupPage() {
             recordsProcessed: h.recordsProcessed,
             syncType: h.type === 'all' ? 'initial' : 'manual',
             duration: h.duration,
-            durationMinutes: h.durationMinutes
+            durationMinutes: (h as any).durationMinutes
           }))
           setSyncHistory(mappedHistory)
           console.log('✅ 同期履歴を取得:', mappedHistory.length, '件')
@@ -893,7 +890,7 @@ export default function InitialSetupPage() {
                   データは毎日午前2時に自動的に同期されます。
                   {syncStats?.nextScheduledSync && (
                     <span className="block mt-1">
-                      次回スケジュール: {new Date(syncStats.nextScheduledSync).toLocaleString('ja-JP')}
+                      次回スケジュール: {formatToJST(syncStats.nextScheduledSync)}
                     </span>
                   )}
                 </AlertDescription>
