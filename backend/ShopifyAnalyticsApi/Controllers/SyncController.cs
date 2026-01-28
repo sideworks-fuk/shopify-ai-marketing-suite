@@ -371,7 +371,8 @@ namespace ShopifyAnalyticsApi.Controllers
                     .Select(s => new
                     {
                         id = s.Id.ToString(),
-                        type = string.IsNullOrEmpty(s.EntityType) || s.EntityType == "All" ? "all" : s.EntityType.ToLower() + "s",
+                        type = string.IsNullOrEmpty(s.SyncType) ? "initial" : s.SyncType.ToLower(), // 'initial', 'manual', 'scheduled'
+                        entityType = string.IsNullOrEmpty(s.EntityType) || s.EntityType == "All" ? "all" : s.EntityType.ToLower() + "s",
                         status = s.Status == "completed" ? "success" :
                                 s.Status == "failed" ? "error" :
                                 s.Status == "running" ? "syncing" : "warning",

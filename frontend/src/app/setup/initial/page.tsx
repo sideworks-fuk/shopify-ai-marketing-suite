@@ -269,7 +269,9 @@ export default function InitialSetupPage() {
                     h.status === 'error' ? 'failed' : 
                     h.status === 'syncing' ? 'running' : 'completed',
             recordsProcessed: h.recordsProcessed,
-            syncType: h.type === 'all' ? 'initial' : 'manual',
+            syncType: h.type === 'initial' ? 'initial' : 
+                     h.type === 'manual' ? 'manual' : 
+                     h.type === 'scheduled' ? 'scheduled' : 'initial', // デフォルトは'initial'
             duration: h.duration,
             durationMinutes: (h as any).durationMinutes
           }))
