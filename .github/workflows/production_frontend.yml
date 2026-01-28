@@ -20,7 +20,7 @@ on:
         default: 'Production1'
 
 env:
-  NODE_VERSION: '20.x'
+  NODE_VERSION: '20'
   APP_LOCATION: '/frontend'
   # Next.js のビルド成果物は .next 配下（Static Web Apps が next export と誤判定しないよう明示）
   OUTPUT_LOCATION: '.next'
@@ -55,6 +55,26 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
 
+    # ============================================
+    # 🚀 キャッシュ設定（ビルド時間短縮・タイムアウト対策）
+    # ============================================
+    - name: 📦 Setup Node.js with npm cache
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: 📦 Cache Next.js build
+      uses: actions/cache@v4
+      with:
+        path: |
+          frontend/.next/cache
+        key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts', 'frontend/**/*.tsx', 'frontend/**/*.js', 'frontend/**/*.jsx') }}
+        restore-keys: |
+          ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package-lock.json') }}-
+          ${{ runner.os }}-nextjs-
+
     - name: 📝 Display deployment info
       run: |
         echo "🚀 Production Frontend Deployment Started"
@@ -86,7 +106,7 @@ jobs:
         # /install ページ アクセス制御用（Production1: 公開アプリ）
         NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: 'https://apps.shopify.com/ec-ranger'
         NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Public'
-        NODE_VERSION: 20
+        NODE_VERSION: ${{ env.NODE_VERSION }}
 
     - name: 🚀 Deploy to Azure Static Web Apps (Production2)
       if: github.event.inputs.target_environment == 'Production2' || github.event.inputs.target_environment == 'Both' || github.event.inputs.target_environment == 'All'
@@ -109,7 +129,7 @@ jobs:
         # /install ページ アクセス制御用（Production2: カスタムアプリ）
         NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ''
         NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Custom'
-        NODE_VERSION: 20
+        NODE_VERSION: ${{ env.NODE_VERSION }}
 
     - name: 🚀 Deploy to Azure Static Web Apps (Production3)
       if: github.event.inputs.target_environment == 'Production3' || github.event.inputs.target_environment == 'All'
@@ -132,7 +152,7 @@ jobs:
         # /install ページ アクセス制御用（Production3: カスタムアプリ）
         NEXT_PUBLIC_SHOPIFY_APP_STORE_URL: ''
         NEXT_PUBLIC_SHOPIFY_APP_TYPE: 'Custom'
-        NODE_VERSION: 20
+        NODE_VERSION: ${{ env.NODE_VERSION }}
 
     - name: ✅ Deployment complete
       run: |
