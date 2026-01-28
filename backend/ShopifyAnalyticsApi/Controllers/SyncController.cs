@@ -362,10 +362,11 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var history = await _context.SyncStatuses
                     .Where(s => s.StoreId == currentStore.Id)
-                    // EndDateでソートして、「最終同期」と「同期履歴の最新」の時刻を一致させる
-                    // EndDateがあるレコードを優先し、EndDateでソート
-                    // EndDateがないレコード（実行中の同期など）はStartDateでソート
-                    .OrderByDescending(s => s.EndDate.HasValue ? 1 : 0) // EndDateがあるレコードを先に
+                    // 実行中の同期（running/pending）を優先表示
+                    // その後、完了した同期をEndDateでソート
+                    // 実行中の同期はStartDateでソート（最新のものが先に）
+                    .OrderByDescending(s => s.Status == "running" || s.Status == "pending" ? 1 : 0) // 実行中を先に
+                    .ThenByDescending(s => s.EndDate.HasValue ? 1 : 0) // EndDateがあるレコードを次に
                     .ThenByDescending(s => s.EndDate ?? s.StartDate) // EndDateでソート、なければStartDateでソート
                     .Take(limit)
                     .Select(s => new
@@ -375,7 +376,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         entityType = string.IsNullOrEmpty(s.EntityType) || s.EntityType == "All" ? "all" : s.EntityType.ToLower() + "s",
                         status = s.Status == "completed" ? "success" :
                                 s.Status == "failed" ? "error" :
-                                s.Status == "running" ? "syncing" : "warning",
+                                s.Status == "running" || s.Status == "pending" ? "syncing" : "warning",
                         startedAt = s.StartDate.ToString("o"),
                         completedAt = s.EndDate.HasValue ? s.EndDate.Value.ToString("o") : null,
                         duration = s.EndDate.HasValue
