@@ -362,7 +362,11 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var history = await _context.SyncStatuses
                     .Where(s => s.StoreId == currentStore.Id)
-                    .OrderByDescending(s => s.StartDate)
+                    // EndDateでソートして、「最終同期」と「同期履歴の最新」の時刻を一致させる
+                    // EndDateがあるレコードを優先し、EndDateでソート
+                    // EndDateがないレコード（実行中の同期など）はStartDateでソート
+                    .OrderByDescending(s => s.EndDate.HasValue ? 1 : 0) // EndDateがあるレコードを先に
+                    .ThenByDescending(s => s.EndDate ?? s.StartDate) // EndDateでソート、なければStartDateでソート
                     .Take(limit)
                     .Select(s => new
                     {
@@ -383,6 +387,14 @@ namespace ShopifyAnalyticsApi.Controllers
                         error = s.Status == "failed" ? s.ErrorMessage : null
                     })
                     .ToListAsync();
+
+                // デバッグログ: 取得した履歴の最新エントリーを確認
+                if (history.Count > 0)
+                {
+                    var latestHistory = history.First();
+                    _logger.LogInformation("📊 [GetSyncHistory] 同期履歴取得: StoreId={StoreId}, Count={Count}, LatestCompletedAt={LatestCompletedAt}, LatestStartedAt={LatestStartedAt}",
+                        currentStore.Id, history.Count, latestHistory.completedAt, latestHistory.startedAt);
+                }
 
                 return Ok(history);
             }

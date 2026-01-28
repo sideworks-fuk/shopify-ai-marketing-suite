@@ -351,9 +351,28 @@ namespace ShopifyAnalyticsApi.Controllers
                 
                 var averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
                 
-                // ストア情報を取得して最終同期日時を取得
-                var store = await _context.Stores.FindAsync(storeId);
-                var lastSyncDate = store?.LastSyncDate;
+                // 最終同期日時を取得（SyncStatusesテーブルの最新の完了した同期のEndDateを使用）
+                // これにより、「最終同期」と「同期履歴の最新」の時刻が一致する
+                var lastSyncStatus = await _context.SyncStatuses
+                    .Where(s => s.StoreId == storeId && s.Status == "completed" && s.EndDate.HasValue)
+                    .OrderByDescending(s => s.EndDate)
+                    .Select(s => new { s.EndDate })
+                    .FirstOrDefaultAsync();
+                
+                DateTime? lastSyncDate = lastSyncStatus?.EndDate;
+                
+                // デバッグログ: 取得したデータを確認
+                _logger.LogInformation("📊 [GetDatabaseStats] 最終同期日時取得: StoreId={StoreId}, SyncStatusEndDate={SyncStatusEndDate}, HasValue={HasValue}",
+                    storeId, lastSyncDate?.ToString("o"), lastSyncDate.HasValue);
+                
+                // SyncStatusesにデータがない場合は、Stores.LastSyncDateをフォールバックとして使用
+                if (!lastSyncDate.HasValue)
+                {
+                    var store = await _context.Stores.FindAsync(storeId);
+                    lastSyncDate = store?.LastSyncDate;
+                    _logger.LogInformation("📊 [GetDatabaseStats] SyncStatusesにデータがないため、Stores.LastSyncDateを使用: {LastSyncDate}",
+                        lastSyncDate?.ToString("o"));
+                }
                 
                 totalStopwatch.Stop();
                 _logger.LogInformation("📊 [パフォーマンス] GetDatabaseStats 全体: {ElapsedMs}ms", totalStopwatch.ElapsedMilliseconds);

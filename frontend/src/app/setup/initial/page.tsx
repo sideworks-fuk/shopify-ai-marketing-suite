@@ -33,6 +33,7 @@ import {
 import { getApiUrl } from '@/lib/api-config'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { formatInTimeZone } from 'date-fns-tz'
+import { parseISO } from 'date-fns'
 
 type SyncPeriod = '3months' | '6months' | '1year' | 'all'
 
@@ -57,40 +58,53 @@ interface SyncStats {
 
 // 🆕 UTC時刻をJST（日本標準時）に変換して表示用文字列を返す
 function formatToJST(dateString: string | undefined | null): string {
+  console.log('🔍 [formatToJST] 呼び出されました:', { dateString, type: typeof dateString })
+  
   if (!dateString || dateString === 'null') {
+    console.log('🔍 [formatToJST] 日時文字列が空のため「未同期」を返します')
     return '未同期'
   }
   
   try {
-    // ISO 8601形式の文字列をDateオブジェクトに変換
-    // バックエンドからは '2026-01-28T03:31:00.0000000Z' のような形式で返される
-    const date = new Date(dateString)
+    // バックエンドから返される時刻文字列は UTC だが、'Z' が付いていない可能性がある
+    // 例: '2026-01-28T03:22:46.9309952' (UTC時刻だが 'Z' がない)
+    // この場合、new Date() はローカルタイムゾーンとして解釈してしまうため、
+    // 明示的に UTC として扱う必要がある
+    
+    // 'Z' が付いていない場合は追加してUTCとして明示的に扱う
+    let utcString = dateString.trim()
+    if (!utcString.endsWith('Z') && !utcString.includes('+') && !utcString.includes('-', 10)) {
+      // 'Z' がなく、タイムゾーンオフセットもない場合は UTC として扱う
+      utcString = utcString + 'Z'
+      console.log('🔧 [formatToJST] UTC指示子を追加:', { original: dateString, utcString })
+    }
+    
+    // parseISO で ISO 8601 形式の文字列を Date オブジェクトに変換（UTCとして解釈）
+    const date = parseISO(utcString)
     if (isNaN(date.getTime())) {
-      console.warn('⚠️ 無効な日付文字列:', dateString)
+      console.warn('⚠️ [formatToJST] 無効な日付文字列:', dateString)
       return '未同期'
     }
     
     // date-fns-tz の formatInTimeZone を使用して JST に変換
-    // formatInTimeZone は Date オブジェクトを UTC として扱い、指定されたタイムゾーンに変換
+    // formatInTimeZone は Date オブジェクトの内部表現（UTC時刻）を、指定されたタイムゾーンに変換
     // 'M/d HH:mm' 形式で表示（例: 1/28 12:31）
-    // 注意: formatInTimeZone は Date オブジェクトの内部表現（UTC時刻）を、指定されたタイムゾーンに変換します
     const jstString = formatInTimeZone(date, 'Asia/Tokyo', 'M/d HH:mm')
     
-    // デバッグログ（開発環境でのみ表示）
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🕐 日時変換:', { 
-        original: dateString, 
-        parsedUTC: date.toISOString(),
-        parsedLocal: date.toString(),
-        jst: jstString,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        expectedJST: dateString.includes('T03:31') ? '1/28 12:31' : 'N/A'
-      })
-    }
+    // デバッグログ（常に表示）
+    console.log('🕐 [formatToJST] 日時変換:', { 
+      original: dateString,
+      utcString: utcString,
+      parsedUTC: date.toISOString(),
+      parsedLocal: date.toString(),
+      jst: jstString,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      dateObject: date
+    })
     
     return jstString
   } catch (error) {
-    console.error('❌ 日時変換エラー:', error, { dateString })
+    console.error('❌ [formatToJST] 日時変換エラー:', error, { dateString })
     return '未同期'
   }
 }
@@ -200,11 +214,20 @@ export default function InitialSetupPage() {
 
       if (statsData.success && statsData.data) {
         // バックエンドから取得した実際のデータを設定
+        const lastSyncTime = statsData.data.lastUpdated || undefined
+        console.log('📊 [fetchSyncStats] 同期統計データ取得:', {
+          customers: statsData.data.customers,
+          orders: statsData.data.orders,
+          products: statsData.data.products,
+          lastUpdated: statsData.data.lastUpdated,
+          lastSyncTime: lastSyncTime,
+          type: typeof lastSyncTime
+        })
         setSyncStats({
           totalCustomers: statsData.data.customers || 0,
           totalOrders: statsData.data.orders || 0,
           totalProducts: statsData.data.products || 0,
-          lastSyncTime: statsData.data.lastUpdated || undefined,
+          lastSyncTime: lastSyncTime,
           nextScheduledSync: undefined // スケジュール情報は別途取得が必要
         })
         console.log('✅ 同期統計を取得:', statsData.data)
@@ -587,7 +610,11 @@ export default function InitialSetupPage() {
                   <div>
                     <p className="text-sm text-orange-600 font-medium">最終同期</p>
                     <p className="text-xl font-bold text-orange-900">
-                      {formatToJST(syncStats.lastSyncTime)}
+                      {(() => {
+                        console.log('🎨 [最終同期表示] syncStats:', syncStats)
+                        console.log('🎨 [最終同期表示] lastSyncTime:', syncStats.lastSyncTime)
+                        return formatToJST(syncStats.lastSyncTime)
+                      })()}
                     </p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-500" />
@@ -842,7 +869,10 @@ export default function InitialSetupPage() {
                                     )}
                                   </div>
                                   <p className="text-sm text-gray-600">
-                                    {formatToJST(history.startTime)}
+                                    {/* 完了した同期は完了時刻（endTime）を表示、実行中や完了していない場合は開始時刻（startTime）を表示 */}
+                                    {history.status === 'completed' && history.endTime 
+                                      ? formatToJST(history.endTime)
+                                      : formatToJST(history.startTime)}
                                     {history.durationMinutes !== undefined && history.durationMinutes > 0 && ` （所要時間: ${history.durationMinutes}分）`}
                                     {isRunning && !history.endTime && (
                                       <span className="ml-2 text-blue-600 font-medium">進行中...</span>
