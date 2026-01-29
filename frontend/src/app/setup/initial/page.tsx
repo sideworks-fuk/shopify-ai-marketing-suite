@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { formatInTimeZone } from 'date-fns-tz'
 import { parseISO } from 'date-fns'
 
-type SyncPeriod = '3months' | '6months' | '1year' | 'all'
+type SyncPeriod = '6months' | '1year' | 'all'
 
 interface SyncHistory {
   id: string
@@ -112,7 +112,7 @@ function formatToJST(dateString: string | undefined | null): string {
 export default function InitialSetupPage() {
   const router = useRouter()
   const { getApiClient, isApiClientReady } = useAuth()
-  const [syncPeriod, setSyncPeriod] = useState<SyncPeriod>('3months')
+  const [syncPeriod, setSyncPeriod] = useState<SyncPeriod>('6months')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showSkipWarning, setShowSkipWarning] = useState(false)
@@ -121,6 +121,7 @@ export default function InitialSetupPage() {
   const [activeTab, setActiveTab] = useState('setup')
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isMounted, setIsMounted] = useState(false) // クライアントサイドマウント状態（Hydrationエラー対策）
+  const hasSetDefaultTabFromStats = useRef(false)
   
   // タブの状態をデバッグ
   useEffect(() => {
@@ -313,6 +314,17 @@ export default function InitialSetupPage() {
     }
     void fetchSyncStats()
   }, [isApiClientReady, fetchSyncStats])
+
+  // 1回同期済みの場合はデフォルトで「同期履歴」タブを表示（チケット: データ同期画面改善）
+  useEffect(() => {
+    if (isLoadingHistory || hasSetDefaultTabFromStats.current) {
+      return
+    }
+    if (syncStats?.lastSyncTime) {
+      setActiveTab('history')
+      hasSetDefaultTabFromStats.current = true
+    }
+  }, [isLoadingHistory, syncStats?.lastSyncTime])
 
   // 同期履歴タブがアクティブで、進行中のジョブがある場合、ポーリングで更新
   useEffect(() => {
@@ -581,7 +593,7 @@ export default function InitialSetupPage() {
             <span>EC Ranger データ同期ダッシュボード</span>
           </h1>
           <p className="text-gray-600">
-            Shopifyストアのデータを同期・管理し、AI分析を実行します
+            Shopifyストアのデータを同期・管理します
           </p>
         </div>
 
@@ -724,22 +736,39 @@ export default function InitialSetupPage() {
           }}>
             <CardHeader>
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="setup" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  初期設定
-                </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  同期履歴
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="trigger" 
-                  className="flex items-center gap-2"
-                  data-testid="manual-sync-tab"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  手動同期
-                </TabsTrigger>
+                {(
+                  syncStats?.lastSyncTime
+                    ? (['history', 'setup', 'trigger'] as const)
+                    : (['setup', 'history', 'trigger'] as const)
+                ).map((tab) => {
+                  if (tab === 'setup') {
+                    return (
+                      <TabsTrigger key="setup" value="setup" className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        初回同期
+                      </TabsTrigger>
+                    )
+                  }
+                  if (tab === 'history') {
+                    return (
+                      <TabsTrigger key="history" value="history" className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        同期履歴
+                      </TabsTrigger>
+                    )
+                  }
+                  return (
+                    <TabsTrigger
+                      key="trigger"
+                      value="trigger"
+                      className="flex items-center gap-2"
+                      data-testid="manual-sync-tab"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      手動同期
+                    </TabsTrigger>
+                  )
+                })}
               </TabsList>
             </CardHeader>
             <CardContent>
@@ -747,7 +776,7 @@ export default function InitialSetupPage() {
               <div>
                 <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
                   <Database className="h-5 w-5 text-blue-600" />
-                  初期データ同期
+                  初回同期
                 </h2>
                 <p className="text-gray-600">
                   分析を開始するために、過去のデータを取得します。初回同期はデータ量に応じて時間がかかる場合があります。
@@ -775,12 +804,6 @@ export default function InitialSetupPage() {
                 <Label className="text-base">データ取得期間を選択してください：</Label>
                 <RadioGroup value={syncPeriod} onValueChange={(value) => setSyncPeriod(value as SyncPeriod)}>
                   <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                    <RadioGroupItem value="3months" id="3months" />
-                    <Label htmlFor="3months" className="cursor-pointer flex-1">
-                      過去3ヶ月（推奨）
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
                     <RadioGroupItem value="6months" id="6months" />
                     <Label htmlFor="6months" className="cursor-pointer flex-1">
                       過去6ヶ月
@@ -800,7 +823,7 @@ export default function InitialSetupPage() {
                     </Label>
                   </div>
                 </RadioGroup>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-red-600 mt-2">
                   💡 ヒント: 「全期間」を選択すると、Shopifyで削除された商品がこちらからも削除（非表示）されます。
                   定期的に全期間同期を実行することをお勧めします。
                 </p>
@@ -980,7 +1003,7 @@ export default function InitialSetupPage() {
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800">
                   <strong>自動同期スケジュール</strong><br />
-                  データは毎日午前2時に自動的に同期されます。
+                  データは夜間などに自動的に同期されます。
                   {syncStats?.nextScheduledSync && (
                     <span className="block mt-1">
                       次回スケジュール: {formatToJST(syncStats.nextScheduledSync)}
@@ -993,12 +1016,6 @@ export default function InitialSetupPage() {
               <div className="space-y-4">
                 <Label className="text-base">データ取得期間を選択してください：</Label>
                 <RadioGroup value={syncPeriod} onValueChange={(value) => setSyncPeriod(value as SyncPeriod)}>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                    <RadioGroupItem value="3months" id="trigger-3months" />
-                    <Label htmlFor="trigger-3months" className="cursor-pointer flex-1">
-                      過去3ヶ月（推奨）
-                    </Label>
-                  </div>
                   <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
                     <RadioGroupItem value="6months" id="trigger-6months" />
                     <Label htmlFor="trigger-6months" className="cursor-pointer flex-1">

@@ -878,7 +878,7 @@ const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
             <div>
               <Clock className="h-8 w-8 text-slate-600 mx-auto mb-2" />
               <h4 className="font-semibold text-slate-800">データ更新</h4>
-              <p className="text-sm text-slate-600">毎日午前2時に自動更新</p>
+              <p className="text-sm text-slate-600">夜間などに自動更新</p>
             </div>
             <div>
               <TrendingDown className="h-8 w-8 text-slate-600 mx-auto mb-2" />

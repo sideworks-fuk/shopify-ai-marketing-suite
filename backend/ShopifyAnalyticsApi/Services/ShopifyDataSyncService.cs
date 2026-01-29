@@ -19,6 +19,7 @@ namespace ShopifyAnalyticsApi.Services
         private readonly ShopifyProductSyncJob _productSyncJob;
         private readonly ShopifyCustomerSyncJob _customerSyncJob;
         private readonly ShopifyOrderSyncJob _orderSyncJob;
+        private readonly CustomerDataMaintenanceService _customerMaintenanceService;
         private readonly IServiceProvider _serviceProvider;
 
         public ShopifyDataSyncService(
@@ -29,6 +30,7 @@ namespace ShopifyAnalyticsApi.Services
             ShopifyProductSyncJob productSyncJob,
             ShopifyCustomerSyncJob customerSyncJob,
             ShopifyOrderSyncJob orderSyncJob,
+            CustomerDataMaintenanceService customerMaintenanceService,
             IServiceProvider serviceProvider)
         {
             _context = context;
@@ -38,6 +40,7 @@ namespace ShopifyAnalyticsApi.Services
             _productSyncJob = productSyncJob;
             _customerSyncJob = customerSyncJob;
             _orderSyncJob = orderSyncJob;
+            _customerMaintenanceService = customerMaintenanceService;
             _serviceProvider = serviceProvider;
         }
 
@@ -286,6 +289,17 @@ namespace ShopifyAnalyticsApi.Services
                             orderCount, store.Id);
                         _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 全データ同期完了: Total={TotalRecords} (Customers={CustomerCount}, Products={ProductCount}, Orders={OrderCount}), StoreId={StoreId}", 
                             customerCount + productCount + orderCount, customerCount, productCount, orderCount, store.Id);
+
+                        try
+                        {
+                            _logger.LogInformation("📊 [ShopifyDataSyncService] 顧客統計更新を開始: StoreId={StoreId}", store.Id);
+                            var updatedCount = await _customerMaintenanceService.UpdateCustomerTotalOrdersAsync(store.Id);
+                            _logger.LogInformation("📊 [ShopifyDataSyncService] 顧客統計更新完了: StoreId={StoreId}, 更新件数={UpdatedCount}", store.Id, updatedCount);
+                        }
+                        catch (Exception maintenanceEx)
+                        {
+                            _logger.LogWarning(maintenanceEx, "⚠️ [ShopifyDataSyncService] 顧客統計更新に失敗（同期自体は成功）: StoreId={StoreId}", store.Id);
+                        }
                     }
                     catch (Exception orderEx)
                     {
@@ -415,11 +429,10 @@ namespace ShopifyAnalyticsApi.Services
         {
             return syncPeriod switch
             {
-                "3months" => DateTime.UtcNow.AddMonths(-3),
                 "6months" => DateTime.UtcNow.AddMonths(-6),
                 "1year" => DateTime.UtcNow.AddYears(-1),
                 "all" => null,
-                _ => DateTime.UtcNow.AddMonths(-3)
+                _ => DateTime.UtcNow.AddMonths(-6)
             };
         }
     }

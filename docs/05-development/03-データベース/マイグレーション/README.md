@@ -7,7 +7,7 @@
 - DDLの保管場所を一本化し、適用状況を追跡可能にする
 
 ## 標準配置
-- 正式な運用DDLの格納先: `docs/04-development/03-データベース/マイグレーション/`
+- 正式な運用DDLの格納先: `docs/05-development/03-データベース/マイグレーション/`
 - 開発途中・検証用DDL（自動生成含む）: `backend/ShopifyAnalyticsApi/Migrations/`
   - 完了したらdocs配下へ移送し、`database-migration-tracking.md` を更新
 

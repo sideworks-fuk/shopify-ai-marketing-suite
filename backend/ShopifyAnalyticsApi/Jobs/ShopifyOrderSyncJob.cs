@@ -232,7 +232,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     await _checkpointManager.ClearCheckpointAsync(storeId, "Orders");
                     
                     // SyncStatusesテーブルも更新（TriggerSyncで作成されたレコード）
-                    await UpdateSyncStatusesAsync(storeId, "Order", true, syncedCount, null);
+                    await UpdateSyncStatusesAsync(storeId, "Orders", true, syncedCount, null);
                     
                     _logger.LogInformation(
                         $"Order sync completed for store: {store.Name}. Synced {syncedCount} orders");
@@ -250,7 +250,7 @@ namespace ShopifyAnalyticsApi.Jobs
                             syncStateId, false, ex.Message);
                         
                         // SyncStatusesテーブルも更新（TriggerSyncで作成されたレコード）
-                        await UpdateSyncStatusesAsync(storeId, "Order", false, 0, ex.Message);
+                        await UpdateSyncStatusesAsync(storeId, "Orders", false, 0, ex.Message);
                     }
                     catch (Exception progressEx)
                     {

@@ -583,8 +583,8 @@ namespace ShopifyAnalyticsApi.Controllers
     public class InitialSyncRequest
     {
         [Required]
-        [RegularExpression("^(3months|6months|1year|all)$", ErrorMessage = "Invalid sync period")]
-        public string SyncPeriod { get; set; } = "3months";
+        [RegularExpression("^(6months|1year|all)$", ErrorMessage = "Invalid sync period")]
+        public string SyncPeriod { get; set; } = "6months";
     }
 
     /// <summary>

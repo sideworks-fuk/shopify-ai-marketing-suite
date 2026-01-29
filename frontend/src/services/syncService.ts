@@ -1,7 +1,7 @@
 import { getApiUrl } from '@/lib/api-config'
 
 export interface InitialSyncRequest {
-  syncPeriod: '3months' | '6months' | '1year' | 'all'
+  syncPeriod: '6months' | '1year' | 'all'
 }
 
 export interface InitialSyncResponse {
