@@ -364,6 +364,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 ShopifyCreatedAt = shopifyOrder.CreatedAt,
                 ShopifyUpdatedAt = shopifyOrder.UpdatedAt,
                 ShopifyProcessedAt = shopifyOrder.ProcessedAt, // 決済完了日時
+                IsTest = shopifyOrder.Test,
                 SyncedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -441,6 +442,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingOrder.ShopifyCreatedAt ??= order.ShopifyCreatedAt;
                     existingOrder.ShopifyUpdatedAt = order.ShopifyUpdatedAt;
                     existingOrder.ShopifyProcessedAt = order.ShopifyProcessedAt; // 決済完了日時
+                    existingOrder.IsTest = order.IsTest;
                     existingOrder.SyncedAt = DateTime.UtcNow;
                     existingOrder.UpdatedAt = DateTime.UtcNow;
 
@@ -549,10 +551,11 @@ namespace ShopifyAnalyticsApi.Jobs
                         continue;
                     }
 
-                    // 顧客の最新の注文日を取得
+                    // 顧客の最新の注文日を取得（テスト注文は除外）
                     var lastOrderDate = await _context.Orders
                         .Where(o => o.CustomerId == customerId 
-                                 && o.ShopifyProcessedAt != null)
+                                 && o.ShopifyProcessedAt != null
+                                 && !o.IsTest)
                         .OrderByDescending(o => o.ShopifyProcessedAt)
                         .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
                         .FirstOrDefaultAsync();

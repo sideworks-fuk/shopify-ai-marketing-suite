@@ -362,12 +362,13 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var history = await _context.SyncStatuses
                     .Where(s => s.StoreId == currentStore.Id)
-                    // 実行中の同期（running/pending）を優先表示
-                    // その後、完了した同期をEndDateでソート
-                    // 実行中の同期はStartDateでソート（最新のものが先に）
-                    .OrderByDescending(s => s.Status == "running" || s.Status == "pending" ? 1 : 0) // 実行中を先に
-                    .ThenByDescending(s => s.EndDate.HasValue ? 1 : 0) // EndDateがあるレコードを次に
-                    .ThenByDescending(s => s.EndDate ?? s.StartDate) // EndDateでソート、なければStartDateでソート
+                    // 実行中の同期（running/pending）を一番上に表示
+                    // 実行中の同期はStartDateで降順ソート（最新のものが先に）
+                    // 完了した同期はEndDateで降順ソート（最新のものが先に）
+                    .OrderByDescending(s => s.Status == "running" || s.Status == "pending" ? 1 : 0) // 実行中を最優先
+                    .ThenByDescending(s => s.Status == "running" || s.Status == "pending" 
+                        ? s.StartDate  // 実行中はStartDateで降順
+                        : (s.EndDate ?? s.StartDate)) // 完了済みはEndDateで降順、なければStartDate
                     .Take(limit)
                     .Select(s => new
                     {

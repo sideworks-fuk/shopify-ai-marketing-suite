@@ -16,8 +16,8 @@ namespace ShopifyAnalyticsApi.Services
         private readonly IMemoryCache _cache;
         private readonly ILogger<YearOverYearService> _logger;
 
-        // キャッシュキー定数
-        private const string CACHE_KEY_PREFIX = "YearOverYear";
+        // キャッシュキー定数（ExcludeTestでテスト注文除外対応後のキャッシュ無効化）
+        private const string CACHE_KEY_PREFIX = "YearOverYear_ExcludeTest";
         private const int CACHE_DURATION_MINUTES = 30;
 
         // サービス項目キーワード
@@ -131,9 +131,9 @@ namespace ShopifyAnalyticsApi.Services
             _logger.LogInformation("🔍 [YearOverYear] GetOrderItemsDataAsync開始: StoreId={StoreId}, CurrentYear={CurrentYear}, PreviousYear={PreviousYear}, StartMonth={StartMonth}, EndMonth={EndMonth}",
                 request.StoreId, currentYear, previousYear, request.StartMonth, request.EndMonth);
 
-            // まず、対象ストアの全注文データの年月分布を確認（デバッグ用）
+            // まず、対象ストアの全注文データの年月分布を確認（デバッグ用・テスト注文除外）
             var orderDateDistribution = await _context.Orders
-                .Where(o => o.StoreId == request.StoreId && o.ShopifyProcessedAt != null)
+                .Where(o => o.StoreId == request.StoreId && o.ShopifyProcessedAt != null && !o.IsTest)
                 .GroupBy(o => new { Year = o.ShopifyProcessedAt!.Value.Year, Month = o.ShopifyProcessedAt.Value.Month })
                 .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
                 .OrderBy(x => x.Year).ThenBy(x => x.Month)
@@ -155,7 +155,8 @@ namespace ShopifyAnalyticsApi.Services
             var query = from orderItem in _context.OrderItems
                         join order in _context.Orders on orderItem.OrderId equals order.Id
                         where order.StoreId == request.StoreId
-                           && order.ShopifyProcessedAt != null // ShopifyProcessedAtがnullでないことを確認
+                           && order.ShopifyProcessedAt != null
+                           && !order.IsTest // テスト注文は分析対象外
                            && (order.ShopifyProcessedAt.Value.Year == currentYear || order.ShopifyProcessedAt.Value.Year == previousYear)
                            && order.ShopifyProcessedAt.Value.Month >= startMonth
                            && order.ShopifyProcessedAt.Value.Month <= endMonth
@@ -451,7 +452,7 @@ namespace ShopifyAnalyticsApi.Services
 
             var productTypes = await _context.OrderItems
                 .Join(_context.Orders, oi => oi.OrderId, o => o.Id, (oi, o) => new { oi, o })
-                .Where(x => x.o.StoreId == storeId)
+                .Where(x => x.o.StoreId == storeId && !x.o.IsTest)
                 .Select(x => x.oi.ProductType ?? "未分類")
                 .Distinct()
                 .OrderBy(x => x)
@@ -475,7 +476,7 @@ namespace ShopifyAnalyticsApi.Services
 
             var vendors = await _context.OrderItems
                 .Join(_context.Orders, oi => oi.OrderId, o => o.Id, (oi, o) => new { oi, o })
-                .Where(x => x.o.StoreId == storeId && !string.IsNullOrEmpty(x.oi.ProductVendor))
+                .Where(x => x.o.StoreId == storeId && !x.o.IsTest && !string.IsNullOrEmpty(x.oi.ProductVendor))
                 .Select(x => x.oi.ProductVendor!)
                 .Distinct()
                 .OrderBy(x => x)
@@ -498,7 +499,7 @@ namespace ShopifyAnalyticsApi.Services
             }
 
             var dateRange = await _context.Orders
-                .Where(o => o.StoreId == storeId)
+                .Where(o => o.StoreId == storeId && !o.IsTest)
                 .GroupBy(o => 1)
                 .Select(g => new
                 {

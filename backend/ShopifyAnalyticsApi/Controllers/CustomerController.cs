@@ -480,7 +480,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 // 休眠顧客の計算（90日以上購入なし）
                 var cutoffDate = DateTime.UtcNow.AddDays(-90);
                 
-                // デバッグ用：最新注文日の分布を確認
+                // デバッグ用：最新注文日の分布を確認（テスト注文除外）
                 var orderDateDistribution = await _context.Customers
                     .Where(c => c.StoreId == storeId && c.TotalOrders > 0)
                     .Select(c => new
@@ -488,7 +488,7 @@ namespace ShopifyAnalyticsApi.Controllers
                         CustomerId = c.Id,
                         CustomerName = c.DisplayName,
                         LastOrderDate = _context.Orders
-                            .Where(o => o.CustomerId == c.Id)
+                            .Where(o => o.CustomerId == c.Id && !o.IsTest)
                             .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                             .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                             .FirstOrDefault()
@@ -499,7 +499,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 var dormantQuery = from customer in _context.Customers
                                   where customer.StoreId == storeId && customer.TotalOrders > 0
                                   let lastOrderDate = _context.Orders
-                                      .Where(o => o.CustomerId == customer.Id)
+                                      .Where(o => o.CustomerId == customer.Id && !o.IsTest)
                                       .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                                       .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                                       .FirstOrDefault()

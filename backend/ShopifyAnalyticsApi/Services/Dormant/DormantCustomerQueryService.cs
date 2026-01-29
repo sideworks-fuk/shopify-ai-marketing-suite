@@ -107,9 +107,9 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     return null;
                 }
 
-                // 最終注文日を取得
+                // 最終注文日を取得（テスト注文は除外）
                 var lastOrderDate = await _context.Orders
-                    .Where(o => o.CustomerId == customerId && o.ShopifyProcessedAt != null)
+                    .Where(o => o.CustomerId == customerId && o.ShopifyProcessedAt != null && !o.IsTest)
                     .OrderByDescending(o => o.ShopifyProcessedAt)
                     .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
                     .FirstOrDefaultAsync();
@@ -347,7 +347,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 ? $"{query.Filters.MinDaysSinceLastPurchase}_{query.Filters.MaxDaysSinceLastPurchase}_{query.Filters.MinTotalSpent}_{query.Filters.MaxTotalSpent}_{query.Filters.DormancySegment}_{query.Filters.RiskLevel}"
                 : "null";
 
-            return $"dormant_query_v3_{query.StoreId}_{query.PageNumber}_{query.PageSize}_{query.SortBy}_{query.Descending}_{filterHash}";
+            return $"dormant_query_v4_{query.StoreId}_{query.PageNumber}_{query.PageSize}_{query.SortBy}_{query.Descending}_{filterHash}";
         }
 
         /// <summary>
@@ -469,7 +469,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             try
             {
                 var categories = await _context.OrderItems
-                    .Where(oi => oi.Order.CustomerId == customerId)
+                    .Where(oi => oi.Order.CustomerId == customerId && !oi.Order.IsTest)
                     .Where(oi => !string.IsNullOrEmpty(oi.ProductType))
                     .GroupBy(oi => oi.ProductType)
                     .OrderByDescending(g => g.Count())

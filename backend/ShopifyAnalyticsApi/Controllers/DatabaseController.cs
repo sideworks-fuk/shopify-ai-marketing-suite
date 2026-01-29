@@ -486,7 +486,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 foreach (var customer in customers)
                 {
                     var orderStats = await _context.Orders
-                        .Where(o => o.CustomerId == customer.Id)
+                        .Where(o => o.CustomerId == customer.Id && !o.IsTest)
                         .GroupBy(o => o.CustomerId)
                         .Select(g => new
                         {

@@ -271,6 +271,11 @@ namespace ShopifyAnalyticsApi.Models
 
         // 同期完了日時（最新同期時刻）
         public DateTime? SyncedAt { get; set; }
+
+        /// <summary>
+        /// Shopifyのテスト注文フラグ。分析では本注文のみを対象とするため、trueの注文は除外する。
+        /// </summary>
+        public bool IsTest { get; set; }
         
         // 計算プロパティ（ShopifyProcessedAtを優先使用）
         [NotMapped]

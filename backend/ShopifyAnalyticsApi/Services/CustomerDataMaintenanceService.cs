@@ -43,9 +43,9 @@ namespace ShopifyAnalyticsApi.Services
 
                 foreach (var customer in customers)
                 {
-                    // 注文データから集計（LastOrderDate も取得）
+                    // 注文データから集計（LastOrderDate も取得）。テスト注文は除外。
                     var orderStats = await _context.Orders
-                        .Where(o => o.CustomerId == customer.Id)
+                        .Where(o => o.CustomerId == customer.Id && !o.IsTest)
                         .GroupBy(o => o.CustomerId)
                         .Select(g => new
                         {
@@ -118,7 +118,7 @@ namespace ShopifyAnalyticsApi.Services
             var dormantQuery = from customer in _context.Customers
                               where customer.StoreId == storeId && customer.TotalOrders > 0
                               let lastOrderDate = _context.Orders
-                                  .Where(o => o.CustomerId == customer.Id)
+                                  .Where(o => o.CustomerId == customer.Id && !o.IsTest)
                                   .OrderByDescending(o => o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt)
                                   .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
                                   .FirstOrDefault()
