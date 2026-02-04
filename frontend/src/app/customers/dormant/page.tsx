@@ -22,6 +22,9 @@ import { useAuth } from "@/components/providers/AuthProvider"
 // デバッグ用カウンター
 let loadCustomerListCallCount = 0
 
+// 初期表示でカードが「選択状態」で表示するセグメント（一覧APIのデフォルトと一致させる）
+const DEFAULT_DORMANT_SEGMENT = '180-365日'
+
 export default function DormantCustomersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -576,7 +579,7 @@ export default function DormantCustomersPage() {
     }
   }, [maxDisplayCount, getApiClient, authCurrentStoreId, resolveStoreId])  // getApiClientとauthCurrentStoreId、resolveStoreIdを追加
 
-  // 初期表示時は全セグメントのデータを取得
+  // 初期表示時: UIで「180-365日」が選択表示されているので、同じセグメントでAPI取得・状態を同期
   useEffect(() => {
     console.log('🔄 [useEffect - 初期ロード]', {
       isLoadingSummary,
@@ -586,13 +589,18 @@ export default function DormantCustomersPage() {
       timestamp: new Date().toISOString()
     });
     
-    // サマリーデータが取得できたら、初期データを1回だけ取得
     if (!isLoadingSummary && summaryData && !hasInitialLoadRef.current && !isLoadingList) {
-      console.log('✋ [初期ロード] 全データ取得を実行');
-      hasInitialLoadRef.current = true;  // 初期ロード完了をマーク
-      loadCustomerList(selectedSegment || undefined).catch(err => {
+      // 初期は selectedSegment が null のため、UIでは「180-365日」が選択表示される。
+      // 一覧データも同じセグメントで取得し、状態を「180-365日」に合わせる。
+      const segmentToLoad = selectedSegment ?? DEFAULT_DORMANT_SEGMENT;
+      if (selectedSegment !== segmentToLoad) {
+        setSelectedSegmentInternal(segmentToLoad);
+      }
+      hasInitialLoadRef.current = true;
+      console.log('✋ [初期ロード] セグメント指定で取得', { segmentToLoad });
+      loadCustomerList(segmentToLoad).catch(err => {
         console.error('🚨 [初期ロード] エラー', err)
-      })
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingSummary, summaryData])  // loadCustomerListは意図的に除外
