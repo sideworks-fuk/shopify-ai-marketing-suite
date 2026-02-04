@@ -384,6 +384,8 @@ namespace ShopifyAnalyticsApi.Jobs
                 Title = shopifyProduct.Title ?? string.Empty,
                 ProductType = shopifyProduct.ProductType,
                 Vendor = shopifyProduct.Vendor,
+                // REST APIには商品カテゴリー(標準化タクソノミー)がないため、商品タイプをCategoryにマッピング（未設定時は未分類表示）
+                Category = !string.IsNullOrWhiteSpace(shopifyProduct.ProductType) ? shopifyProduct.ProductType : null,
                 ShopifyCreatedAt = shopifyProduct.CreatedAt,
                 ShopifyUpdatedAt = shopifyProduct.UpdatedAt,
                 SyncedAt = DateTime.UtcNow,
@@ -444,6 +446,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     existingProduct.Title = product.Title;
                     existingProduct.ProductType = product.ProductType;
                     existingProduct.Vendor = product.Vendor;
+                    existingProduct.Category = product.Category;
                     existingProduct.ShopifyCreatedAt ??= product.ShopifyCreatedAt;
                     existingProduct.ShopifyUpdatedAt = product.ShopifyUpdatedAt;
                     existingProduct.SyncedAt = DateTime.UtcNow;

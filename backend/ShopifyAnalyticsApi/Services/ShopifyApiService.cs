@@ -277,6 +277,17 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation("🛒 [ShopifyApiService] Shopify APIレスポンス解析完了: CustomerCount={CustomerCount}, StoreId={StoreId}", 
                     customerCount, storeId);
                 
+                // デバッグ: FirstName/LastName が空になる原因調査用。最初の2件のAPI応答をログ出力
+                if (customerCount > 0 && customersData?.Customers != null)
+                {
+                    foreach (var c in customersData.Customers.Take(2))
+                    {
+                        _logger.LogInformation(
+                            "🛒 [ShopifyApiService] 顧客サンプル(API応答): ShopifyCustomerId={Id}, FirstName=\"{FirstName}\", LastName=\"{LastName}\", Email=\"{Email}\", StoreId={StoreId}",
+                            c.Id, c.FirstName ?? "(null)", c.LastName ?? "(null)", c.Email ?? "(null)", storeId);
+                    }
+                }
+                
                 var nextPageInfo = ExtractPageInfo(response.Headers);
                 _logger.LogInformation("🛒 [ShopifyApiService] FetchCustomersPageAsync完了: CustomerCount={CustomerCount}, NextPageInfo={NextPageInfo}, StoreId={StoreId}", 
                     customerCount, nextPageInfo ?? "null", storeId);
@@ -608,10 +619,10 @@ namespace ShopifyAnalyticsApi.Services
 
             if (existingCustomer != null)
             {
-                // 更新
-                existingCustomer.FirstName = customer.FirstName;
-                existingCustomer.LastName = customer.LastName;
-                existingCustomer.Email = customer.Email;
+                // 更新（Shopify APIがnullを返す場合に備え、空文字でフォールバック）
+                existingCustomer.FirstName = customer.FirstName ?? string.Empty;
+                existingCustomer.LastName = customer.LastName ?? string.Empty;
+                existingCustomer.Email = customer.Email ?? string.Empty;
                 existingCustomer.Phone = customer.Phone;
                 existingCustomer.TotalSpent = customer.TotalSpentDecimal;
                 existingCustomer.TotalOrders = customer.OrdersCount;
@@ -635,9 +646,9 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     StoreId = storeId,
                     ShopifyCustomerId = customer.Id.ToString(),
-                    FirstName = customer.FirstName,
-                    LastName = customer.LastName,
-                    Email = customer.Email,
+                    FirstName = customer.FirstName ?? string.Empty,
+                    LastName = customer.LastName ?? string.Empty,
+                    Email = customer.Email ?? string.Empty,
                     Phone = customer.Phone,
                     TotalSpent = customer.TotalSpentDecimal,
                     TotalOrders = customer.OrdersCount,
@@ -671,10 +682,11 @@ namespace ShopifyAnalyticsApi.Services
 
             if (existingProduct != null)
             {
-                // 更新
+                // 更新（RESTに商品カテゴリーがないため、商品タイプをCategoryにマッピング）
                 existingProduct.Title = product.Title;
                 existingProduct.ProductType = product.ProductType;
                 existingProduct.Vendor = product.Vendor;
+                existingProduct.Category = !string.IsNullOrWhiteSpace(product.ProductType) ? product.ProductType : null;
                 existingProduct.ShopifyCreatedAt ??= product.CreatedAt;
                 existingProduct.ShopifyUpdatedAt = product.UpdatedAt;
                 existingProduct.SyncedAt = DateTime.UtcNow;
@@ -712,7 +724,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             else
             {
-                // 新規作成
+                // 新規作成（RESTに商品カテゴリーがないため、商品タイプをCategoryにマッピング）
                 var newProduct = new Product
                 {
                     StoreId = storeId,
@@ -720,6 +732,7 @@ namespace ShopifyAnalyticsApi.Services
                     Title = product.Title,
                     ProductType = product.ProductType,
                     Vendor = product.Vendor,
+                    Category = !string.IsNullOrWhiteSpace(product.ProductType) ? product.ProductType : null,
                     ShopifyCreatedAt = product.CreatedAt,
                     ShopifyUpdatedAt = product.UpdatedAt,
                     SyncedAt = DateTime.UtcNow,
