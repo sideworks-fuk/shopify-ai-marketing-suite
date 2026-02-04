@@ -52,6 +52,20 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
+        {/* ChunkLoadError 時に自動で再読み込み（キャッシュとチャンクの不整合対策） */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('error', function(e) {
+                var msg = (e.message || '') + (e.reason && e.reason.message ? e.reason.message : '');
+                if (msg.indexOf('ChunkLoadError') !== -1 || (msg.indexOf('Loading chunk') !== -1 && msg.indexOf('failed') !== -1)) {
+                  e.preventDefault();
+                  window.location.reload();
+                }
+              });
+            `,
+          }}
+        />
         {/* useSearchParams() を使用する Client Component ツリーは Suspense 配下に置く（missing-suspense-with-csr-bailout対策） */}
         <Suspense fallback={null}>
           <AuthProvider>

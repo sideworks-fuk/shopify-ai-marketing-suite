@@ -552,13 +552,13 @@ namespace ShopifyAnalyticsApi.Jobs
                     }
 
                     // 顧客の最新の注文日を取得（テスト注文は除外）
+                    // 注文日は Order.OrderDate と同様 ProcessedAt 優先、未設定時は CreatedAt 系を使用（pending 注文も対象）
                     var lastOrderDate = await _context.Orders
                         .Where(o => o.CustomerId == customerId 
-                                 && o.ShopifyProcessedAt != null
+                                 && o.StoreId == storeId
                                  && !o.IsTest)
-                        .OrderByDescending(o => o.ShopifyProcessedAt)
-                        .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
-                        .FirstOrDefaultAsync();
+                        .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
+                        .MaxAsync();
 
                     if (lastOrderDate.HasValue)
                     {

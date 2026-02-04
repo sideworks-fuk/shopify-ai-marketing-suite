@@ -107,12 +107,11 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     return null;
                 }
 
-                // 最終注文日を取得（テスト注文は除外）
+                // 最終注文日を取得（テスト注文は除外）。Order.OrderDate と同様 ProcessedAt 優先、未設定時は CreatedAt 系を使用
                 var lastOrderDate = await _context.Orders
-                    .Where(o => o.CustomerId == customerId && o.ShopifyProcessedAt != null && !o.IsTest)
-                    .OrderByDescending(o => o.ShopifyProcessedAt)
-                    .Select(o => (DateTime?)o.ShopifyProcessedAt!.Value)
-                    .FirstOrDefaultAsync();
+                    .Where(o => o.CustomerId == customerId && !o.IsTest)
+                    .Select(o => (DateTime?)(o.ShopifyProcessedAt ?? o.ShopifyCreatedAt ?? o.CreatedAt))
+                    .MaxAsync();
 
                 var daysSinceLastPurchase = lastOrderDate.HasValue 
                     ? (int)(DateTime.UtcNow - lastOrderDate.Value).TotalDays 
@@ -203,7 +202,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 var dto = new DormantCustomerDto
                 {
                     CustomerId = item.CustomerId,
-                    Name = item.CustomerName ?? "不明",
+                    ShopifyCustomerId = item.ShopifyCustomerId,
+                    Name = string.IsNullOrWhiteSpace(item.CustomerName) ? "不明" : item.CustomerName.Trim(),
                     Email = item.CustomerEmail ?? "",
                     Phone = item.CustomerPhone,
                     Company = item.CustomerCompany,
@@ -258,7 +258,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                    select new DormantCustomerQueryResult
                    {
                        CustomerId = customer.Id,
-                       CustomerName = customer.DisplayName,
+                       ShopifyCustomerId = customer.ShopifyCustomerId,
+                       CustomerName = customer.FirstName + " " + customer.LastName,
                        CustomerEmail = customer.Email,
                        CustomerPhone = customer.Phone,
                        CustomerCompany = customer.Company,
@@ -358,7 +359,8 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             return new DormantCustomerDto
             {
                 CustomerId = customer.Id,
-                Name = customer.DisplayName ?? "不明",
+                ShopifyCustomerId = customer.ShopifyCustomerId,
+                Name = string.IsNullOrWhiteSpace(customer.DisplayName) ? "不明" : customer.DisplayName.Trim(),
                 Email = customer.Email ?? "",
                 Phone = customer.Phone,
                 Company = customer.Company,
@@ -541,6 +543,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
     internal class DormantCustomerQueryResult
     {
         public int CustomerId { get; set; }
+        public string? ShopifyCustomerId { get; set; }
         public string? CustomerName { get; set; }
         public string? CustomerEmail { get; set; }
         public string? CustomerPhone { get; set; }

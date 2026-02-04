@@ -141,6 +141,8 @@ namespace ShopifyAnalyticsApi.Models
     public class DormantCustomerDto
     {
         public int CustomerId { get; set; }
+        /// <summary>Shopify顧客ID。休眠顧客一覧の「顧客ID」列ではこれを優先表示する。</summary>
+        public string? ShopifyCustomerId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }

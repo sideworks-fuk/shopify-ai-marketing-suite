@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useCallback } from "react"
+import React, { useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { buildShopifyCustomerAdminUrl } from "@/lib/shopify-admin-urls"
 import { 
   type DormantSegment,
   type RiskLevel
@@ -35,6 +36,8 @@ import {
 // API データの型定義
 interface ApiDormantCustomer {
   customerId?: string | number
+  /** Shopify顧客ID。一覧の「顧客ID」列ではこれを優先表示する */
+  shopifyCustomerId?: string | null
   name?: string
   email?: string
   company?: string
@@ -60,13 +63,12 @@ interface DormantCustomerTableVirtualProps {
   containerHeight?: number
 }
 
-// 購入履歴なし判定
+// 購入履歴なし判定（totalSpent === 0 は含めない: 注文ありで未集計の場合は履歴ありとみなす）
 const hasNoPurchaseHistory = (customer: ApiDormantCustomer): boolean => {
-  return (customer.totalOrders === 0 || 
+  return (customer.totalOrders === 0 ||
           customer.lastPurchaseDate === '0001-01-01T00:00:00' ||
           customer.lastPurchaseDate === '0001/01/01' ||
-          !customer.lastPurchaseDate ||
-          customer.totalSpent === 0)
+          !customer.lastPurchaseDate)
 }
 
 // リスクレベルのバッジ設定
@@ -82,13 +84,14 @@ const getRiskBadge = (level: RiskLevel | 'unrated') => {
 }
 
 // 顧客行コンポーネント（メモ化）
-const CustomerRow = React.memo(({ customer }: { customer: ApiDormantCustomer }) => {
+const CustomerRow = React.memo(({ customer, shopDomain }: { customer: ApiDormantCustomer; shopDomain: string | null }) => {
   const isNoPurchase = hasNoPurchaseHistory(customer)
-  const customerId = customer.customerId?.toString() || ''
+  const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
   const customerName = customer.name || ''
   const churnProbability = customer.churnProbability || 0
   const returnProbability = Math.round((1 - churnProbability) * 100)
   const riskLevel = (isNoPurchase ? 'unrated' : customer.riskLevel || 'medium') as RiskLevel | 'unrated'
+  const adminUrl = buildShopifyCustomerAdminUrl(shopDomain, customer.shopifyCustomerId)
   
   return (
     <div 
@@ -109,9 +112,21 @@ const CustomerRow = React.memo(({ customer }: { customer: ApiDormantCustomer }) 
         )}
       </div>
       
-      {/* 顧客ID */}
+      {/* 顧客ID（Shopify顧客IDを優先表示・リンクで管理画面を別タブで開く） */}
       <div className="flex-shrink-0 w-[100px] px-4 text-sm">
-        {customerId}
+        {adminUrl ? (
+          <a
+            href={adminUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+            title="Shopify管理画面で開く"
+          >
+            {displayId}
+          </a>
+        ) : (
+          displayId
+        )}
       </div>
       
       {/* 最終購入日 */}
@@ -203,12 +218,17 @@ export function DormantCustomerTableVirtual({
   dormantData = [],
   containerHeight = 600 
 }: DormantCustomerTableVirtualProps) {
+  const [shopDomain, setShopDomain] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [riskFilter, setRiskFilter] = React.useState<RiskLevel | "all">("all")
   const [purchaseCountFilter, setPurchaseCountFilter] = React.useState(1)
   const [purchaseHistoryFilter, setPurchaseHistoryFilter] = React.useState<"all" | "with-purchase" | "no-purchase">("with-purchase")
   const [sortField, setSortField] = React.useState<string>("daysSinceLastPurchase")
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("desc")
+
+  useEffect(() => {
+    setShopDomain(typeof window !== "undefined" ? localStorage.getItem("shopDomain") : null)
+  }, [])
   
   const { measureScrollPerformance } = useVirtualScrollPerformance('DormantCustomerTable')
   
@@ -244,13 +264,13 @@ export function DormantCustomerTableVirtual({
     let result = dormantData.filter((customer) => {
       const isNoPurchase = hasNoPurchaseHistory(customer)
       
-      // 検索条件
+      // 検索条件（顧客IDはShopify顧客IDを優先）
       const customerName = customer.name || ''
-      const customerId = customer.customerId?.toString() || ''
+      const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
       const customerCompany = customer.company || ''
       const matchesSearch = 
         customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customerId.includes(searchTerm) ||
+        displayId.includes(searchTerm) ||
         customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
       
       // 購入履歴フィルタ
@@ -340,7 +360,7 @@ export function DormantCustomerTableVirtual({
     ]
     
     const csvData = filteredAndSortedCustomers.map(customer => {
-      const customerId = customer.customerId?.toString() || ''
+      const customerId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
       const customerName = customer.name || ''
       const lastPurchaseDate = customer.lastPurchaseDate
       const daysSince = customer.daysSinceLastPurchase || 0
@@ -575,7 +595,7 @@ export function DormantCustomerTableVirtual({
                   items={filteredAndSortedCustomers}
                   itemHeight={rowHeight}
                   containerHeight={scrollAreaHeight}
-                  renderItem={(customer, index) => <CustomerRow key={customer.customerId || index} customer={customer} />}
+                  renderItem={(customer, index) => <CustomerRow key={customer.customerId || index} customer={customer} shopDomain={shopDomain} />}
                   overscan={10}
                   onScroll={handleScroll}
                   className="bg-white"

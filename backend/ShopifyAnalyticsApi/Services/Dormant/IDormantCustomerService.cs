@@ -88,6 +88,7 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 Customers = result.Items.Select(item => new DormantCustomerDto
                 {
                     CustomerId = item.CustomerId,
+                    ShopifyCustomerId = item.ShopifyCustomerId,
                     Name = item.Name,
                     Email = item.Email,
                     Phone = item.Phone,

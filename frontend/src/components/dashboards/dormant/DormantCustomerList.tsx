@@ -45,10 +45,13 @@ import {
 } from "@/types/models/customer"
 import { useAuth } from "@/components/providers/AuthProvider"
 import { getCurrentStoreId } from "@/lib/api-config"
+import { buildShopifyCustomerAdminUrl } from "@/lib/shopify-admin-urls"
 
 // API データの型定義（簡易版）
 interface ApiDormantCustomer {
   customerId?: string | number;
+  /** Shopify顧客ID。一覧の「顧客ID」列ではこれを優先表示する */
+  shopifyCustomerId?: string | null;
   name?: string;
   email?: string;
   company?: string;  // 会社名を追加
@@ -86,6 +89,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     }
   }, [riskLevelValues])
 
+  useEffect(() => {
+    setShopDomain(typeof window !== "undefined" ? localStorage.getItem("shopDomain") : null)
+  }, [])
+
   // Propsの受け取り確認
   useEffect(() => {
     console.log('🎯 [DormantCustomerList] Props受け取り', {
@@ -98,6 +105,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     })
   }, [selectedSegment, dormantData, maxDisplayCount, externalIsLoading])
 
+  const [shopDomain, setShopDomain] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all" | "unrated">("all")
   const [purchaseCountFilter, setPurchaseCountFilter] = useState(0) // デフォルト: 0回以上（すべて表示）
@@ -109,12 +117,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
   const [itemsPerPage, setItemsPerPage] = useState(30) // パフォーマンス改善: 初期表示数を30に設定
 
   // 購入履歴なし顧客を判定するヘルパー関数
+  // 注: totalSpent === 0 は判定に含めない（注文あり・未集計やpendingで0の場合は履歴ありとみなす）
   const hasNoPurchaseHistory = (customer: ApiDormantCustomer): boolean => {
-    return (customer.totalOrders === 0 || 
+    return (customer.totalOrders === 0 ||
             customer.lastPurchaseDate === '0001-01-01T00:00:00' ||
             customer.lastPurchaseDate === '0001/01/01' ||
-            !customer.lastPurchaseDate ||
-            customer.totalSpent === 0)
+            !customer.lastPurchaseDate)
   }
 
   // 購入履歴なし顧客の表示用データ処理
@@ -214,12 +222,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     let result = dormantData.filter((customer) => {
       const processedCustomer = processCustomerDisplayData(customer)
       
-      // 検索条件
+      // 検索条件（顧客IDはShopify顧客IDを優先）
       const customerName = customer.name || ''
-      const customerId = customer.customerId || ''
+      const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
       const customerCompany = customer.company || ''
       const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          customerId.toString().includes(searchTerm) ||
+                          displayId.includes(searchTerm) ||
                           customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
 
       // 購入履歴フィルタ条件（新規追加）
@@ -405,16 +413,18 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
               // リスクレベルフィルタ
               if (riskFilter !== "all" && processedCustomer.displayRiskLevel !== riskFilter) return false
               
-              // 検索フィルタ
+              // 検索フィルタ（顧客IDはShopify顧客IDを優先）
               if (searchTerm) {
                 const searchLower = searchTerm.toLowerCase()
                 const customerName = String(customer.name || '').toLowerCase()
                 const customerEmail = String(customer.email || '').toLowerCase()
                 const companyName = String(customer.company || '').toLowerCase()
+                const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString().toLowerCase() || ''
                 
                 if (!customerName.includes(searchLower) && 
                     !customerEmail.includes(searchLower) && 
-                    !companyName.includes(searchLower)) {
+                    !companyName.includes(searchLower) &&
+                    !displayId.includes(searchLower)) {
                   return false
                 }
               }
@@ -442,7 +452,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     ]
     
     const csvData = dataToExport.map(customer => {
-      const customerId = customer.customerId?.toString() || ''
+      const customerId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
       const customerName = customer.name || ''
       const lastPurchaseDate = customer.lastPurchaseDate
       const daysSince = customer.daysSinceLastPurchase || 0
@@ -922,12 +932,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                   <TableBody>
                     {paginatedCustomers.map((customer) => {
                       const processedCustomer = processCustomerDisplayData(customer)
-                      const customerId = customer.customerId?.toString() || ''
+                      const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
                       const customerName = customer.name || ''
                       
                       return (
                         <TableRow 
-                          key={customerId} 
+                          key={customer.customerId ?? displayId} 
                           className={`hover:bg-gray-50 ${
                             processedCustomer.hasNoPurchaseHistory ? 'bg-gray-50/50 text-gray-600' : ''
                           }`}
@@ -945,7 +955,24 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{customerId}</TableCell>
+                          <TableCell className="text-sm">
+                            {(() => {
+                              const adminUrl = buildShopifyCustomerAdminUrl(shopDomain, customer.shopifyCustomerId)
+                              return adminUrl ? (
+                                <a
+                                  href={adminUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline"
+                                  title="Shopify管理画面で開く"
+                                >
+                                  {displayId}
+                                </a>
+                              ) : (
+                                displayId
+                              )
+                            })()}
+                          </TableCell>
                           <TableCell>
                             <div className="text-sm">
                               {processedCustomer.hasNoPurchaseHistory ? (
