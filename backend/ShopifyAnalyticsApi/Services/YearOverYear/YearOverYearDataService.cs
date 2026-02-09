@@ -44,61 +44,68 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
                 _logger.LogDebug("注文商品データ取得開始: StoreId={StoreId}, CurrentYear={CurrentYear}, PreviousYear={PreviousYear}", 
                     request.StoreId, currentYear, previousYear);
 
-                var query = _context.OrderItems
-                    .Include(oi => oi.Order)
-                    .Where(oi => oi.Order!.StoreId == request.StoreId &&
-                                oi.Order.ShopifyProcessedAt != null &&
-                                (oi.Order.ShopifyProcessedAt.Value.Year == currentYear || oi.Order.ShopifyProcessedAt.Value.Year == previousYear));
+                // Products テーブルとLEFT JOINしてCategory（Shopify標準分類）を取得
+                var baseQuery = from oi in _context.OrderItems
+                                join o in _context.Orders on oi.OrderId equals o.Id
+                                join p in _context.Products
+                                    on new { ProductId = oi.ShopifyProductId, StoreId = o.StoreId }
+                                    equals new { ProductId = p.ShopifyProductId, StoreId = p.StoreId }
+                                    into productJoin
+                                from p in productJoin.DefaultIfEmpty()
+                                where o.StoreId == request.StoreId
+                                   && o.ShopifyProcessedAt != null
+                                   && !o.IsTest
+                                   && (o.ShopifyProcessedAt.Value.Year == currentYear || o.ShopifyProcessedAt.Value.Year == previousYear)
+                                select new { oi, o, p };
 
-                // 商品タイプフィルター
+                // 商品タイプフィルター（Products.Categoryを使用）
                 if (!string.IsNullOrEmpty(request.ProductType) && request.ProductType != "all")
                 {
-                    query = query.Where(oi => oi.ProductType == request.ProductType);
+                    baseQuery = baseQuery.Where(x =>
+                        (x.p != null && x.p.Category != null ? x.p.Category : "未分類") == request.ProductType);
                 }
 
                 // ベンダーフィルター
                 if (!string.IsNullOrEmpty(request.Vendor) && request.Vendor != "all")
                 {
-                    query = query.Where(oi => oi.ProductVendor == request.Vendor);
+                    baseQuery = baseQuery.Where(x => x.oi.ProductVendor == request.Vendor);
                 }
 
                 // 月範囲フィルター
                 if (request.StartMonth.HasValue && request.EndMonth.HasValue)
                 {
-                    query = query.Where(oi => oi.Order!.ShopifyProcessedAt != null &&
-                                            oi.Order.ShopifyProcessedAt.Value.Month >= request.StartMonth.Value &&
-                                            oi.Order.ShopifyProcessedAt.Value.Month <= request.EndMonth.Value);
+                    baseQuery = baseQuery.Where(x => x.o.ShopifyProcessedAt!.Value.Month >= request.StartMonth.Value &&
+                                                     x.o.ShopifyProcessedAt!.Value.Month <= request.EndMonth.Value);
                 }
 
                 // サービス項目除外フィルター
                 if (request.ExcludeServiceItems)
                 {
                     _logger.LogDebug("サービス項目除外フィルターを適用: Keywords={Keywords}", string.Join(", ", ServiceItemKeywords));
-                    query = query.Where(oi => !ServiceItemKeywords.Any(keyword => oi.ProductTitle.Contains(keyword)));
+                    baseQuery = baseQuery.Where(x => !ServiceItemKeywords.Any(keyword => x.oi.ProductTitle.Contains(keyword)));
                 }
 
-                var data = await query
-                    .Where(oi => oi.Order!.ShopifyProcessedAt != null)
-                    .GroupBy(oi => new
+                var data = await baseQuery
+                    .GroupBy(x => new
                     {
-                        ProductName = oi.ProductTitle,
-                        ProductType = oi.ProductType,
-                        Vendor = oi.ProductVendor,
-                        Year = oi.Order!.ShopifyProcessedAt!.Value.Year,
-                        Month = oi.Order.ShopifyProcessedAt.Value.Month
+                        ProductName = x.oi.ProductTitle,
+                        ProductType = x.p != null && x.p.Category != null ? x.p.Category : "未分類",
+                        Vendor = x.oi.ProductVendor,
+                        Year = x.o.ShopifyProcessedAt!.Value.Year,
+                        Month = x.o.ShopifyProcessedAt!.Value.Month
                     })
                     .Select(g => new OrderItemAnalysisData
                     {
                         ProductName = g.Key.ProductName ?? "不明",
-                        ProductType = g.Key.ProductType ?? "不明",
+                        ProductType = g.Key.ProductType,
                         Vendor = g.Key.Vendor ?? "不明",
                         Year = g.Key.Year,
                         Month = g.Key.Month,
-                        TotalRevenue = g.Sum(oi => oi.TotalPrice),
-                        TotalQuantity = g.Sum(oi => oi.Quantity),
-                        TotalOrders = g.Select(oi => oi.OrderId).Distinct().Count(),
-                        AverageOrderValue = g.Sum(oi => oi.TotalPrice) / 
-                                          Math.Max(g.Select(oi => oi.OrderId).Distinct().Count(), 1)
+                        TotalRevenue = g.Sum(x => x.oi.TotalPrice),
+                        TotalQuantity = g.Sum(x => x.oi.Quantity),
+                        TotalOrders = g.Select(x => x.oi.OrderId).Distinct().Count(),
+                        AverageOrderValue = g.Sum(x => x.oi.TotalPrice) /
+                                          Math.Max(g.Select(x => x.oi.OrderId).Distinct().Count(), 1)
                     })
                     .ToListAsync();
 
@@ -121,9 +128,10 @@ namespace ShopifyAnalyticsApi.Services.YearOverYear
             {
                 _logger.LogDebug("商品タイプ取得開始: StoreId={StoreId}", storeId);
 
+                // Products.Category（Shopify標準分類）から取得。ProductTypeとは混ぜない
                 var productTypes = await _context.Products
-                    .Where(p => p.StoreId == storeId && !string.IsNullOrEmpty(p.ProductType))
-                    .Select(p => p.ProductType!)
+                    .Where(p => p.StoreId == storeId && p.IsActive && p.Category != null)
+                    .Select(p => p.Category!)
                     .Distinct()
                     .OrderBy(pt => pt)
                     .ToListAsync();

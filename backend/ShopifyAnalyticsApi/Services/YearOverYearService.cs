@@ -154,6 +154,11 @@ namespace ShopifyAnalyticsApi.Services
 
             var query = from orderItem in _context.OrderItems
                         join order in _context.Orders on orderItem.OrderId equals order.Id
+                        join product in _context.Products
+                            on new { ProductId = orderItem.ShopifyProductId, StoreId = order.StoreId }
+                            equals new { ProductId = product.ShopifyProductId, StoreId = product.StoreId }
+                            into productJoin
+                        from product in productJoin.DefaultIfEmpty()
                         where order.StoreId == request.StoreId
                            && order.ShopifyProcessedAt != null
                            && !order.IsTest // テスト注文は分析対象外
@@ -163,7 +168,9 @@ namespace ShopifyAnalyticsApi.Services
                         select new OrderItemAnalysisData
                         {
                             ProductTitle = orderItem.ProductTitle,
-                            ProductType = orderItem.ProductType ?? "未分類",
+                            ProductType = product != null && product.Category != null
+                                ? product.Category
+                                : "未分類",
                             ProductVendor = orderItem.ProductVendor ?? "不明",
                             Year = order.ShopifyProcessedAt.Value.Year,
                             Month = order.ShopifyProcessedAt.Value.Month,
@@ -450,10 +457,10 @@ namespace ShopifyAnalyticsApi.Services
                 return cachedTypes!;
             }
 
-            var productTypes = await _context.OrderItems
-                .Join(_context.Orders, oi => oi.OrderId, o => o.Id, (oi, o) => new { oi, o })
-                .Where(x => x.o.StoreId == storeId && !x.o.IsTest)
-                .Select(x => x.oi.ProductType ?? "未分類")
+            // Products.Category（Shopify標準分類）から取得。ProductTypeとは混ぜない
+            var productTypes = await _context.Products
+                .Where(p => p.StoreId == storeId && p.IsActive && p.Category != null)
+                .Select(p => p.Category!)
                 .Distinct()
                 .OrderBy(x => x)
                 .ToListAsync();
