@@ -704,8 +704,8 @@ const YearOverYearProductAnalysis = () => {
             <>
               {/* 月別詳細表示（改善版：ブラウザスクロール利用） */}
               <div className="relative border rounded-lg">
-                {/* 横スクロールコンテナ */}
-                <div className="overflow-x-auto">
+                {/* 縦横スクロールコンテナ（ヘッダー固定） */}
+                <div className="overflow-auto max-h-[calc(100vh-300px)]">
                 <div className="min-w-[1690px]">
                     {/* テーブルヘッダー（sticky で固定） */}
                     <div className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200 shadow-sm">
