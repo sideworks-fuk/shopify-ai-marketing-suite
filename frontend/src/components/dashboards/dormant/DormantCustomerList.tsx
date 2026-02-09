@@ -109,7 +109,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
   const [searchTerm, setSearchTerm] = useState("")
   const [riskFilter, setRiskFilter] = useState<RiskLevel | "all" | "unrated">("all")
   const [purchaseCountFilter, setPurchaseCountFilter] = useState(0) // デフォルト: 0回以上（すべて表示）
-  const [purchaseHistoryFilter, setPurchaseHistoryFilter] = useState<"all" | "with-purchase" | "no-purchase">("all") // デフォルトを"all"に変更
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState<string>("daysSinceLastPurchase")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
@@ -230,19 +229,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                           displayId.includes(searchTerm) ||
                           customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
 
-      // 購入履歴フィルタ条件（新規追加）
-      const matchesPurchaseHistory = (() => {
-        switch (purchaseHistoryFilter) {
-          case 'with-purchase':
-            return !processedCustomer.hasNoPurchaseHistory
-          case 'no-purchase':
-            return processedCustomer.hasNoPurchaseHistory
-          case 'all':
-          default:
-            return true
-        }
-      })()
-
       // セグメント条件 - APIの dormancySegment を優先使用
       const matchesSegment = !selectedSegment || (() => {
         const customerSegment = customer.dormancySegment
@@ -276,11 +262,11 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       const riskLevel = processedCustomer.displayRiskLevel || 'medium'
       const matchesRisk = riskFilter === "all" || riskLevel === riskFilter
 
-      // 購入回数条件（購入履歴フィルタが適用されている場合は調整）
+      // 購入回数条件
       const totalOrders = customer.totalOrders || 0
-      const matchesPurchaseCount = purchaseHistoryFilter === 'no-purchase' ? true : totalOrders >= purchaseCountFilter
+      const matchesPurchaseCount = totalOrders >= purchaseCountFilter
 
-      return matchesSearch && matchesPurchaseHistory && matchesSegment && matchesRisk && matchesPurchaseCount
+      return matchesSearch && matchesSegment && matchesRisk && matchesPurchaseCount
     })
 
     // ソート処理
@@ -331,12 +317,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     })
 
     return result
-  }, [dormantData, searchTerm, selectedSegment, riskFilter, purchaseCountFilter, purchaseHistoryFilter, sortField, sortDirection])
+  }, [dormantData, searchTerm, selectedSegment, riskFilter, purchaseCountFilter, sortField, sortDirection])
 
   // フィルタ変更時にページを1に戻す
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, riskFilter, purchaseCountFilter, purchaseHistoryFilter, selectedSegment])
+  }, [searchTerm, riskFilter, purchaseCountFilter, selectedSegment])
 
   // ページネーション
   const totalPages = Math.ceil(filteredAndSortedCustomers.length / itemsPerPage)
@@ -397,18 +383,12 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           document.body.removeChild(loadingMessage)
           
           // フィルタを適用（全データに対して現在のフィルタ条件を適用）
-          if (purchaseHistoryFilter !== "all" || purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) {
+          if (purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) {
             dataToExport = dataToExport.filter(customer => {
-              // 既存のフィルタロジックを適用
               const processedCustomer = processCustomerDisplayData(customer)
-              
-              // 購入履歴フィルタ
-              if (purchaseHistoryFilter === "no-purchase" && !processedCustomer.hasNoPurchaseHistory) return false
-              if (purchaseHistoryFilter === "with-purchase" && processedCustomer.hasNoPurchaseHistory) return false
-              
+
               // 購入回数フィルタ
-              if (purchaseCountFilter > 0 && !processedCustomer.hasNoPurchaseHistory && 
-                  (customer.totalOrders || 0) < purchaseCountFilter) return false
+              if (purchaseCountFilter > 0 && (customer.totalOrders || 0) < purchaseCountFilter) return false
               
               // リスクレベルフィルタ
               if (riskFilter !== "all" && processedCustomer.displayRiskLevel !== riskFilter) return false
@@ -494,7 +474,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           <div className="flex items-center gap-2">
             <span className="text-lg">休眠顧客一覧</span>
             {/* フィルタ適用状態の表示 */}
-            {(purchaseHistoryFilter !== "all" || purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) ? (
+            {(purchaseCountFilter > 0 || riskFilter !== "all" || searchTerm) ? (
               <Badge variant="outline" className="ml-2">
                 {filteredAndSortedCustomers.length.toLocaleString()}件
                 <span className="ml-1 text-xs opacity-70">(フィルタ適用)</span>
@@ -502,22 +482,15 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
             ) : (
               <Badge variant="outline" className="ml-2">
                 {filteredAndSortedCustomers.length.toLocaleString()}件
-                {/* 実際のデータ数が最大表示件数より少ない場合 */}
                 {dormantData.length < maxDisplayCount && maxDisplayCount > 200 && (
                   <span className="ml-1 text-xs opacity-70">(全データ)</span>
                 )}
-                {/* 最大表示件数に達している場合 */}
                 {dormantData.length >= maxDisplayCount && (
                   <span className="ml-1 text-xs opacity-70">(最大{maxDisplayCount.toLocaleString()}件表示)</span>
                 )}
               </Badge>
             )}
-            {purchaseHistoryFilter !== "with-purchase" && (
-              <Badge variant="secondary" className="text-xs">
-                {purchaseHistoryFilter === "no-purchase" ? "購入履歴なし" : "すべて表示"}
-              </Badge>
-            )}
-            {purchaseCountFilter > 0 && purchaseHistoryFilter !== "no-purchase" && (
+            {purchaseCountFilter > 0 && (
               <Badge variant="secondary" className="text-xs">
                 購入{purchaseCountFilter}回以上
               </Badge>
@@ -626,7 +599,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
         <div className="mb-4">
           <h3 className="text-sm font-medium text-gray-700 mb-3">フィルター条件</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div>
             <label className="text-xs text-gray-600 mb-1 block" htmlFor="customer-search">顧客検索</label>
             <div className="relative">
@@ -642,20 +615,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
             </div>
           </div>
 
-          <div>
-            <label className="text-xs text-gray-600 mb-1 block">購買履歴</label>
-            <Select value={purchaseHistoryFilter} onValueChange={(value) => setPurchaseHistoryFilter(value as "all" | "with-purchase" | "no-purchase")}>
-              <SelectTrigger>
-                <SelectValue placeholder="購入履歴" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="with-purchase">購入履歴あり</SelectItem>
-                <SelectItem value="no-purchase">購入履歴なし</SelectItem>
-                <SelectItem value="all">すべて表示</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
           <div>
             <div className="flex items-center gap-1 mb-1">
               <label className="text-xs text-gray-600">リスクレベル</label>
@@ -724,9 +683,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
           <div>
             <label className="text-xs text-gray-600 mb-1 block">購入回数</label>
             <Select 
-              value={purchaseCountFilter.toString()} 
+              value={purchaseCountFilter.toString()}
               onValueChange={(value) => setPurchaseCountFilter(parseInt(value))}
-              disabled={purchaseHistoryFilter === 'no-purchase'}
             >
               <SelectTrigger>
                 <SelectValue placeholder="購入回数" />
@@ -749,8 +707,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
               onClick={() => {
                 setSearchTerm("")
                 setRiskFilter("all")
-                setPurchaseCountFilter(1)
-                setPurchaseHistoryFilter("with-purchase")
+                setPurchaseCountFilter(0)
                 setCurrentPage(1)
               }}
             >

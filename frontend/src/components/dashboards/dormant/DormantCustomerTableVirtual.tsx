@@ -221,8 +221,7 @@ export function DormantCustomerTableVirtual({
   const [shopDomain, setShopDomain] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [riskFilter, setRiskFilter] = React.useState<RiskLevel | "all">("all")
-  const [purchaseCountFilter, setPurchaseCountFilter] = React.useState(1)
-  const [purchaseHistoryFilter, setPurchaseHistoryFilter] = React.useState<"all" | "with-purchase" | "no-purchase">("with-purchase")
+  const [purchaseCountFilter, setPurchaseCountFilter] = React.useState(0)
   const [sortField, setSortField] = React.useState<string>("daysSinceLastPurchase")
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("desc")
 
@@ -273,19 +272,6 @@ export function DormantCustomerTableVirtual({
         displayId.includes(searchTerm) ||
         customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
       
-      // 購入履歴フィルタ
-      const matchesPurchaseHistory = (() => {
-        switch (purchaseHistoryFilter) {
-          case 'with-purchase':
-            return !isNoPurchase
-          case 'no-purchase':
-            return isNoPurchase
-          case 'all':
-          default:
-            return true
-        }
-      })()
-      
       // セグメント条件
       const matchesSegment = !selectedSegment || (() => {
         const customerSegment = customer.dormancySegment
@@ -304,9 +290,9 @@ export function DormantCustomerTableVirtual({
       
       // 購入回数条件
       const totalOrders = customer.totalOrders || 0
-      const matchesPurchaseCount = purchaseHistoryFilter === 'no-purchase' ? true : totalOrders >= purchaseCountFilter
-      
-      return matchesSearch && matchesPurchaseHistory && matchesSegment && matchesRisk && matchesPurchaseCount
+      const matchesPurchaseCount = totalOrders >= purchaseCountFilter
+
+      return matchesSearch && matchesSegment && matchesRisk && matchesPurchaseCount
     })
     
     // ソート処理
@@ -350,7 +336,7 @@ export function DormantCustomerTableVirtual({
     })
     
     return result
-  }, [dormantData, searchTerm, selectedSegment, riskFilter, purchaseCountFilter, purchaseHistoryFilter, sortField, sortDirection])
+  }, [dormantData, searchTerm, selectedSegment, riskFilter, purchaseCountFilter, sortField, sortDirection])
   
   // CSV エクスポート
   const exportToCSV = () => {
@@ -453,12 +439,7 @@ export function DormantCustomerTableVirtual({
             <Badge variant="outline" className="ml-2">
               {filteredAndSortedCustomers.length.toLocaleString()}名
             </Badge>
-            {purchaseHistoryFilter !== "with-purchase" && (
-              <Badge variant="secondary" className="text-xs">
-                {purchaseHistoryFilter === "no-purchase" ? "購入履歴なし" : "すべて表示"}
-              </Badge>
-            )}
-            {purchaseCountFilter > 0 && purchaseHistoryFilter !== "no-purchase" && (
+            {purchaseCountFilter > 0 && (
               <Badge variant="secondary" className="text-xs">
                 購入{purchaseCountFilter}回以上
               </Badge>
@@ -496,7 +477,7 @@ export function DormantCustomerTableVirtual({
         {/* フィルター */}
         <div className="p-6 border-b border-gray-200" style={{ height: filterHeight }}>
           <h3 className="text-sm font-medium text-gray-700 mb-3">フィルター条件</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -506,17 +487,6 @@ export function DormantCustomerTableVirtual({
                 className="pl-10"
               />
             </div>
-            
-            <Select value={purchaseHistoryFilter} onValueChange={(value) => setPurchaseHistoryFilter(value as "all" | "with-purchase" | "no-purchase")}>
-              <SelectTrigger>
-                <SelectValue placeholder="購入履歴" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="with-purchase">購入履歴あり</SelectItem>
-                <SelectItem value="no-purchase">購入履歴なし</SelectItem>
-                <SelectItem value="all">すべて表示</SelectItem>
-              </SelectContent>
-            </Select>
             
             <Select value={riskFilter} onValueChange={(value) => setRiskFilter(value as RiskLevel | "all")}>
               <SelectTrigger>
@@ -532,10 +502,9 @@ export function DormantCustomerTableVirtual({
               </SelectContent>
             </Select>
             
-            <Select 
-              value={purchaseCountFilter.toString()} 
+            <Select
+              value={purchaseCountFilter.toString()}
               onValueChange={(value) => setPurchaseCountFilter(parseInt(value))}
-              disabled={purchaseHistoryFilter === 'no-purchase'}
             >
               <SelectTrigger>
                 <SelectValue placeholder="購入回数" />
@@ -557,8 +526,7 @@ export function DormantCustomerTableVirtual({
                 onClick={() => {
                   setSearchTerm("")
                   setRiskFilter("all")
-                  setPurchaseCountFilter(1)
-                  setPurchaseHistoryFilter("with-purchase")
+                  setPurchaseCountFilter(0)
                 }}
               >
                 フィルタクリア
