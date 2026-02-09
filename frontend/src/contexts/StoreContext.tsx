@@ -86,13 +86,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ローカルストレージから復元
   useEffect(() => {
-    // Phase 2: currentStoreIdのみを使用
     const savedStoreId = localStorage.getItem('currentStoreId')
-    
+
     if (savedStoreId) {
-      const store = availableStores.find(s => s.id === parseInt(savedStoreId))
+      const storeId = parseInt(savedStoreId)
+      const store = availableStores.find(s => s.id === storeId)
       if (store) {
         setCurrentStore(store)
+      } else {
+        console.log('⏳ [StoreContext] 保存済みstoreId:', storeId, 'がavailableStoresに見つかりません。API取得完了を待機中...', {
+          availableStoreIds: availableStores.map(s => s.id)
+        })
       }
     }
   }, [availableStores])
@@ -161,16 +165,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const store = availableStores.find(s => s.id === storeId)
     if (!store) return
 
+    // localStorageに即座に保存（リロード前に他コンポーネントが参照できるように）
+    localStorage.setItem('currentStoreId', storeId.toString())
+
+    // ストア切替時にストア依存データをクリア（前ストアのデータ混在を防止）
+    clearStoreSpecificData(store)
+
     setIsLoading(true)
     setTimeout(() => {
-      setCurrentStore(store)
-      // Phase 2: currentStoreIdのみを使用
-      localStorage.setItem('currentStoreId', storeId.toString())
-      setIsLoading(false)
-      
       // ページリロードして新しいデータを取得
+      // Note: setCurrentStore/setIsLoadingはリロードでリセットされるため不要
       window.location.reload()
-    }, 500)
+    }, 300)
+  }
+
+  // ストア切替時にストア依存のキャッシュ・選択状態をクリア
+  const clearStoreSpecificData = (newStore: StoreInfo) => {
+    // 1. shopDomainを新ストアのドメインに更新
+    if (newStore.shopDomain) {
+      localStorage.setItem('shopDomain', newStore.shopDomain)
+    } else {
+      localStorage.removeItem('shopDomain')
+    }
+
+    // 2. Zustand永続化ストア内のストア依存データをクリア
+    //    （recentItems: 顧客ID・商品IDなど前ストアのデータ）
+    try {
+      const appStorageRaw = localStorage.getItem('app-storage')
+      if (appStorageRaw) {
+        const appStorage = JSON.parse(appStorageRaw)
+        if (appStorage.state) {
+          appStorage.state.recentItems = []
+          localStorage.setItem('app-storage', JSON.stringify(appStorage))
+        }
+      }
+    } catch {
+      // パースエラー時はZustand永続化データを削除（次回起動時にデフォルトで再生成）
+      localStorage.removeItem('app-storage')
+    }
+
+    console.log('🗑️ [StoreContext] ストア依存データをクリアしました', { newStoreId: newStore.id })
   }
 
   const refreshStores = async () => {

@@ -212,19 +212,24 @@ export default function DormantCustomersPage() {
       return
     }
 
-    const fetchSummaryData = async () => {
+    const fetchSummaryData = async (retryCount = 0) => {
       try {
         setIsLoadingSummary(true)
         setError(null)
-        
-        console.log('🔄 休眠顧客サマリーデータの取得を開始...')
-        
-        // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
+
+        console.log('🔄 休眠顧客サマリーデータの取得を開始...', { retryCount })
+
+        // resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
         const storeId = await resolveStoreId()
         console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
-        
-        // 🔧 storeId が null の場合は API 呼び出しをスキップ
+
+        // storeId が null の場合はリトライ（最大2回、1秒間隔）
         if (storeId === null) {
+          if (retryCount < 2) {
+            console.warn(`⚠️ [DormantPage] storeId が取得できません。${retryCount + 1}回目のリトライを1秒後に実行...`)
+            setTimeout(() => fetchSummaryData(retryCount + 1), 1000)
+            return
+          }
           console.warn('⚠️ [DormantPage] storeId が取得できませんでした。API呼び出しをスキップします。')
           return
         }
@@ -270,20 +275,21 @@ export default function DormantCustomersPage() {
 
   // Step 1.5: 主要期間区分データを取得
   useEffect(() => {
-    const fetchDetailedSegments = async () => {
+    const fetchDetailedSegments = async (retryCount = 0) => {
       try {
-        // セグメントデータの取得はオプションなので、ローディング表示をしない
-        // setIsLoadingSegments(true)
         setError(null)
-        
-        console.log('🔄 主要期間区分データの取得を開始...')
-        // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
+
+        console.log('🔄 主要期間区分データの取得を開始...', { retryCount })
         const storeId = await resolveStoreId()
-        console.log('🔍 APIエンドポイント:', `/api/customer/dormant/detailed-segments?storeId=${storeId}`)
         console.log('🔍 [DormantPage] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
-        
-        // 🔧 storeId が null の場合は API 呼び出しをスキップ
+
+        // storeId が null の場合はリトライ
         if (storeId === null) {
+          if (retryCount < 2) {
+            console.warn(`⚠️ [DormantPage] storeId が取得できません。詳細セグメント: ${retryCount + 1}回目のリトライを1秒後に実行...`)
+            setTimeout(() => fetchDetailedSegments(retryCount + 1), 1000)
+            return
+          }
           console.warn('⚠️ [DormantPage] storeId が取得できませんでした。詳細セグメントAPI呼び出しをスキップします。')
           return
         }
@@ -726,23 +732,16 @@ export default function DormantCustomersPage() {
                     <div className="text-2xl font-bold">
                       {(() => {
                         const rate = Number(summaryData.dormantRate || 0);
-                        // 小数点以下1桁で表示、必要に応じて整数表示
                         return rate % 1 === 0 ? `${rate}%` : `${rate.toFixed(1)}%`;
                       })()}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      ※購入履歴のある顧客のみで算出
                     </div>
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow">
                     <div className="text-sm text-gray-600">平均休眠日数</div>
                     <div className="text-2xl font-bold">{calculateAdjustedAverageDormancyDays(summaryData)}日</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      ※購入履歴のある顧客のみで算出<br/>
-                      （一度も購入していない顧客を除外）
-                    </div>
                   </div>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">※購入履歴のある顧客のみで算出</p>
               </div>
             )}
 
