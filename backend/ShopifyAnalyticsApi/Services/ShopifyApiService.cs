@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
@@ -438,7 +439,234 @@ namespace ShopifyAnalyticsApi.Services
             }
         }
 
+        /// <summary>
+        /// GraphQL APIを使用して商品カテゴリー（Shopify標準分類）を一括取得
+        /// REST APIにはcategoryフィールドがないため、GraphQLで取得する
+        /// </summary>
+        public async Task<Dictionary<string, string>> FetchProductCategoriesGraphQLAsync(int storeId)
+        {
+            var store = await _context.Stores.FindAsync(storeId);
+            if (store == null || string.IsNullOrEmpty(store.AccessToken))
+            {
+                throw new InvalidOperationException($"Store {storeId} not found or not authenticated");
+            }
+
+            var shopDomain = store.Domain ?? store.Name;
+            var accessToken = DecryptTokenIfEncrypted(store.AccessToken);
+            var categories = new Dictionary<string, string>();
+            string? cursor = null;
+            var hasNextPage = true;
+
+            // API 2025-01の category フィールドを使用（2024-04以降で利用可能）
+            const string query = @"
+                query ($cursor: String) {
+                  products(first: 250, after: $cursor) {
+                    edges {
+                      node {
+                        id
+                        productType
+                        category {
+                          name
+                        }
+                      }
+                    }
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                  }
+                }";
+
+            _logger.LogInformation("📦 [GraphQL] 商品カテゴリー取得開始: StoreId={StoreId}, Domain={Domain}", storeId, shopDomain);
+
+            while (hasNextPage)
+            {
+                var variables = new { cursor = cursor };
+                var response = await ExecuteGraphQLAsync(shopDomain, accessToken, query, variables);
+
+                if (response == null)
+                {
+                    _logger.LogWarning("📦 [GraphQL] レスポンスがnull: StoreId={StoreId}", storeId);
+                    break;
+                }
+
+                if (response.RootElement.TryGetProperty("data", out var data) &&
+                    data.TryGetProperty("products", out var products))
+                {
+                    if (products.TryGetProperty("edges", out var edges))
+                    {
+                        foreach (var edge in edges.EnumerateArray())
+                        {
+                            if (!edge.TryGetProperty("node", out var node)) continue;
+
+                            var gid = node.GetProperty("id").GetString();
+                            var shopifyProductId = gid?.Split('/').LastOrDefault();
+
+                            string? categoryName = null;
+                            // category.name から標準商品分類名を取得（API 2025-01）
+                            if (node.TryGetProperty("category", out var category) &&
+                                category.ValueKind != JsonValueKind.Null)
+                            {
+                                if (category.TryGetProperty("name", out var name))
+                                {
+                                    categoryName = name.GetString();
+                                }
+                            }
+
+                            // "Uncategorized" / "カテゴリーなし" は未設定と同等なのでnull扱い
+                            if (string.Equals(categoryName, "Uncategorized", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(categoryName, "カテゴリーなし"))
+                            {
+                                categoryName = null;
+                            }
+
+                            // 標準分類カテゴリーがある場合のみ登録（productTypeとは混ぜない）
+                            if (!string.IsNullOrWhiteSpace(shopifyProductId) && !string.IsNullOrWhiteSpace(categoryName))
+                            {
+                                categories[shopifyProductId] = categoryName;
+                            }
+                        }
+                    }
+
+                    if (products.TryGetProperty("pageInfo", out var pageInfo))
+                    {
+                        hasNextPage = pageInfo.GetProperty("hasNextPage").GetBoolean();
+                        if (hasNextPage)
+                        {
+                            cursor = pageInfo.GetProperty("endCursor").GetString();
+                        }
+                    }
+                    else
+                    {
+                        hasNextPage = false;
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("📦 [GraphQL] 予期しないレスポンス構造: StoreId={StoreId}", storeId);
+                    break;
+                }
+
+                response.Dispose();
+            }
+
+            _logger.LogInformation("📦 [GraphQL] 商品カテゴリー取得完了: Count={Count}, StoreId={StoreId}", categories.Count, storeId);
+            return categories;
+        }
+
         #region Private Methods
+
+        /// <summary>
+        /// ShopifyProductIdからProducts.Category ?? Products.ProductTypeを取得
+        /// OrderItem作成時にProductTypeを設定するために使用
+        /// </summary>
+        private async Task<string?> LookupProductTypeAsync(int storeId, string? shopifyProductId)
+        {
+            if (string.IsNullOrEmpty(shopifyProductId)) return null;
+
+            var product = await _context.Products
+                .Where(p => p.StoreId == storeId && p.ShopifyProductId == shopifyProductId)
+                .Select(p => new { p.Category, p.ProductType })
+                .FirstOrDefaultAsync();
+
+            return product?.Category ?? product?.ProductType;
+        }
+
+        /// <summary>
+        /// GraphQL APIを実行（リトライ・レート制限対応）
+        /// ShopifySubscriptionServiceのパターンを流用
+        /// </summary>
+        private async Task<JsonDocument?> ExecuteGraphQLAsync(string shopDomain, string accessToken, string query, object variables, int maxRetries = 3)
+        {
+            var retryCount = 0;
+
+            while (retryCount < maxRetries)
+            {
+                try
+                {
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
+                    client.DefaultRequestHeaders.Add("Accept-Language", "ja");
+                    client.Timeout = TimeSpan.FromSeconds(30);
+
+                    var graphqlEndpoint = $"https://{shopDomain}/admin/api/2025-01/graphql.json";
+                    var requestBody = new { query, variables };
+                    var json = JsonSerializer.Serialize(requestBody);
+                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    var response = await client.PostAsync(graphqlEndpoint, content);
+
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        retryCount++;
+                        var delay = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Pow(2, retryCount));
+                        _logger.LogWarning("📦 [GraphQL] Rate limited. Retrying after {Delay}s. Attempt {Attempt}/{MaxRetries}",
+                            delay.TotalSeconds, retryCount, maxRetries);
+                        await Task.Delay(delay);
+                        continue;
+                    }
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        var document = JsonDocument.Parse(responseContent);
+
+                        if (document.RootElement.TryGetProperty("errors", out var errors))
+                        {
+                            var errorMessages = errors.EnumerateArray()
+                                .Select(e => e.TryGetProperty("message", out var m) ? m.GetString() ?? "Unknown" : "Unknown")
+                                .ToList();
+
+                            _logger.LogError("📦 [GraphQL] Errors: {Errors}", string.Join(", ", errorMessages));
+
+                            if (errorMessages.Any(m => m.Contains("throttled", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                retryCount++;
+                                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+                                continue;
+                            }
+                        }
+
+                        return document;
+                    }
+
+                    _logger.LogWarning("📦 [GraphQL] Request failed: Status={Status}", response.StatusCode);
+                    if ((int)response.StatusCode >= 500)
+                    {
+                        retryCount++;
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+                        continue;
+                    }
+
+                    return null;
+                }
+                catch (TaskCanceledException ex)
+                {
+                    _logger.LogError(ex, "📦 [GraphQL] Request timeout");
+                    retryCount++;
+                    if (retryCount < maxRetries)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+                        continue;
+                    }
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "📦 [GraphQL] Error executing request");
+                    retryCount++;
+                    if (retryCount < maxRetries)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
+                        continue;
+                    }
+                    return null;
+                }
+            }
+
+            _logger.LogError("📦 [GraphQL] Max retries ({MaxRetries}) exceeded", maxRetries);
+            return null;
+        }
 
         private HttpClient CreateShopifyClient(string shopUrl, string accessToken)
         {
@@ -682,11 +910,10 @@ namespace ShopifyAnalyticsApi.Services
 
             if (existingProduct != null)
             {
-                // 更新（RESTに商品カテゴリーがないため、商品タイプをCategoryにマッピング）
+                // 更新（CategoryはGraphQL同期で設定するため、REST側では変更しない）
                 existingProduct.Title = product.Title;
                 existingProduct.ProductType = product.ProductType;
                 existingProduct.Vendor = product.Vendor;
-                existingProduct.Category = !string.IsNullOrWhiteSpace(product.ProductType) ? product.ProductType : null;
                 existingProduct.ShopifyCreatedAt ??= product.CreatedAt;
                 existingProduct.ShopifyUpdatedAt = product.UpdatedAt;
                 existingProduct.SyncedAt = DateTime.UtcNow;
@@ -724,7 +951,7 @@ namespace ShopifyAnalyticsApi.Services
             }
             else
             {
-                // 新規作成（RESTに商品カテゴリーがないため、商品タイプをCategoryにマッピング）
+                // 新規作成（CategoryはGraphQL同期で設定するため、REST側ではnull）
                 var newProduct = new Product
                 {
                     StoreId = storeId,
@@ -732,7 +959,6 @@ namespace ShopifyAnalyticsApi.Services
                     Title = product.Title,
                     ProductType = product.ProductType,
                     Vendor = product.Vendor,
-                    Category = !string.IsNullOrWhiteSpace(product.ProductType) ? product.ProductType : null,
                     ShopifyCreatedAt = product.CreatedAt,
                     ShopifyUpdatedAt = product.UpdatedAt,
                     SyncedAt = DateTime.UtcNow,
@@ -826,13 +1052,16 @@ namespace ShopifyAnalyticsApi.Services
                         }
                         else
                         {
+                            // Productsテーブルからカテゴリー/商品タイプを取得
+                            var productType = await LookupProductTypeAsync(storeId, item.ProductId?.ToString());
                             existingOrder.OrderItems.Add(new OrderItem
                             {
                                 ShopifyLineItemId = item.Id.ToString(),
                                 ShopifyProductId = item.ProductId?.ToString(),
                                 ShopifyVariantId = item.VariantId?.ToString(),
                                 ProductTitle = item.Title,
-                            Title = item.Title,
+                                Title = item.Title,
+                                ProductType = productType,
                                 Quantity = item.Quantity,
                                 Price = item.PriceDecimal,
                                 CreatedAt = DateTime.UtcNow,
@@ -875,6 +1104,7 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     foreach (var item in order.LineItems)
                     {
+                        var productType = await LookupProductTypeAsync(storeId, item.ProductId?.ToString());
                         newOrder.OrderItems.Add(new OrderItem
                         {
                             ShopifyLineItemId = item.Id.ToString(),
@@ -882,6 +1112,7 @@ namespace ShopifyAnalyticsApi.Services
                             ShopifyVariantId = item.VariantId?.ToString(),
                             ProductTitle = item.Title,
                             Title = item.Title,
+                            ProductType = productType,
                             Quantity = item.Quantity,
                             Price = item.PriceDecimal,
                             CreatedAt = DateTime.UtcNow,

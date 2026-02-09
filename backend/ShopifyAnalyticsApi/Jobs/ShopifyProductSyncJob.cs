@@ -265,6 +265,9 @@ namespace ShopifyAnalyticsApi.Jobs
                         await DeactivateDeletedProducts(storeId, syncedShopifyProductIds);
                     }
                 }
+
+                // GraphQL APIで商品カテゴリー（Shopify標準分類）を取得し、Products.Categoryを更新
+                await SyncProductCategoriesFromGraphQL(storeId);
             }
             catch (Exception ex)
             {
@@ -373,6 +376,99 @@ namespace ShopifyAnalyticsApi.Jobs
         }
 
         /// <summary>
+        /// GraphQL APIで商品カテゴリー（Shopify標準分類）を取得し、Products.Categoryを一括更新
+        /// また、OrderItemsのProductTypeがnullの行もProducts情報から補完する
+        /// </summary>
+        private async Task SyncProductCategoriesFromGraphQL(int storeId)
+        {
+            try
+            {
+                _logger.LogInformation("📦 商品カテゴリーGraphQL同期を開始: StoreId={StoreId}", storeId);
+
+                var categories = await _shopifyApi.FetchProductCategoriesGraphQLAsync(storeId);
+                if (categories.Count == 0)
+                {
+                    _logger.LogInformation("📦 GraphQLから取得したカテゴリーが0件: StoreId={StoreId}", storeId);
+                    return;
+                }
+
+                // Products.Categoryを一括更新
+                var products = await _context.Products
+                    .Where(p => p.StoreId == storeId && p.IsActive && !string.IsNullOrEmpty(p.ShopifyProductId))
+                    .ToListAsync();
+
+                var updatedCount = 0;
+                foreach (var product in products)
+                {
+                    if (categories.TryGetValue(product.ShopifyProductId!, out var categoryName))
+                    {
+                        // GraphQLでカテゴリーが見つかった場合 → 設定
+                        if (product.Category != categoryName)
+                        {
+                            product.Category = categoryName;
+                            product.UpdatedAt = DateTime.UtcNow;
+                            updatedCount++;
+                        }
+                    }
+                    else if (product.Category != null)
+                    {
+                        // GraphQLでカテゴリーがない場合 → nullにクリア（productTypeと混ぜない）
+                        product.Category = null;
+                        product.UpdatedAt = DateTime.UtcNow;
+                        updatedCount++;
+                    }
+                }
+
+                if (updatedCount > 0)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                _logger.LogInformation("📦 商品カテゴリー更新完了: {Updated}/{Total}件, StoreId={StoreId}",
+                    updatedCount, products.Count, storeId);
+
+                // OrderItems.ProductType がnullの行を Products から補完（バックフィル）
+                await BackfillOrderItemProductTypes(storeId);
+            }
+            catch (Exception ex)
+            {
+                // カテゴリー同期のエラーはREST商品同期全体を失敗させない
+                _logger.LogError(ex, "📦 商品カテゴリーGraphQL同期でエラー発生: StoreId={StoreId}", storeId);
+            }
+        }
+
+        /// <summary>
+        /// OrderItems.ProductType がnullの行を、Products テーブルの Category/ProductType から補完
+        /// </summary>
+        private async Task BackfillOrderItemProductTypes(int storeId)
+        {
+            try
+            {
+                var affectedRows = await _context.Database.ExecuteSqlRawAsync(@"
+                    UPDATE oi
+                    SET oi.ProductType = COALESCE(p.Category, p.ProductType),
+                        oi.UpdatedAt = GETUTCDATE()
+                    FROM OrderItems oi
+                    INNER JOIN Orders o ON oi.OrderId = o.Id
+                    INNER JOIN Products p ON oi.ShopifyProductId = p.ShopifyProductId AND p.StoreId = o.StoreId
+                    WHERE o.StoreId = {0}
+                      AND oi.ProductType IS NULL
+                      AND COALESCE(p.Category, p.ProductType) IS NOT NULL",
+                    storeId);
+
+                if (affectedRows > 0)
+                {
+                    _logger.LogInformation("📦 OrderItems.ProductType バックフィル完了: {Count}件更新, StoreId={StoreId}",
+                        affectedRows, storeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "📦 OrderItems.ProductType バックフィル中にエラー: StoreId={StoreId}", storeId);
+            }
+        }
+
+        /// <summary>
         /// ShopifyProductをProductエンティティに変換
         /// </summary>
         private Product ConvertToProductEntity(int storeId, ShopifyApiService.ShopifyProduct shopifyProduct)
@@ -384,8 +480,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 Title = shopifyProduct.Title ?? string.Empty,
                 ProductType = shopifyProduct.ProductType,
                 Vendor = shopifyProduct.Vendor,
-                // REST APIには商品カテゴリー(標準化タクソノミー)がないため、商品タイプをCategoryにマッピング（未設定時は未分類表示）
-                Category = !string.IsNullOrWhiteSpace(shopifyProduct.ProductType) ? shopifyProduct.ProductType : null,
+                // CategoryはGraphQL同期で標準分類のみ設定（productTypeとは混ぜない）
                 ShopifyCreatedAt = shopifyProduct.CreatedAt,
                 ShopifyUpdatedAt = shopifyProduct.UpdatedAt,
                 SyncedAt = DateTime.UtcNow,
