@@ -55,13 +55,17 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// <summary>
         /// 比較メトリクスを計算
         /// </summary>
-        /// <param name="customerPurchaseCounts">顧客購入データ</param>
-        /// <param name="totalRevenue">総売上</param>
+        /// <param name="currentCustomerPurchaseCounts">当期顧客購入データ</param>
+        /// <param name="currentTotalRevenue">当期総売上</param>
+        /// <param name="previousCustomerPurchaseCounts">前期顧客購入データ</param>
+        /// <param name="previousTotalRevenue">前期総売上</param>
         /// <param name="comparisonPeriod">比較期間ラベル</param>
         /// <returns>比較メトリクス</returns>
         ComparisonMetrics CalculateComparisonMetrics(
-            List<CustomerPurchaseData> customerPurchaseCounts, 
-            decimal totalRevenue,
+            List<CustomerPurchaseData> currentCustomerPurchaseCounts,
+            decimal currentTotalRevenue,
+            List<CustomerPurchaseData> previousCustomerPurchaseCounts,
+            decimal previousTotalRevenue,
             string comparisonPeriod);
 
         /// <summary>

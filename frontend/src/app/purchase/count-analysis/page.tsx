@@ -59,8 +59,14 @@ export default function PurchaseCountAnalysisPage() {
       
 
       {/* 条件設定パネル */}
-      <PurchaseCountConditionPanel 
+      <PurchaseCountConditionPanel
         onExecute={handleAnalysisExecute}
+        onConditionsChange={() => {
+          // 条件変更時にデータをクリア（分析実行ボタンを必須とする仕様）
+          if (analysisConditions) {
+            setAnalysisConditions(null)
+          }
+        }}
         isAnalyzing={isAnalyzing}
       />
 

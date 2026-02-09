@@ -223,23 +223,36 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
         /// 比較メトリクスを計算
         /// </summary>
         public ComparisonMetrics CalculateComparisonMetrics(
-            List<CustomerPurchaseData> customerPurchaseCounts, 
-            decimal totalRevenue,
+            List<CustomerPurchaseData> currentCustomerPurchaseCounts,
+            decimal currentTotalRevenue,
+            List<CustomerPurchaseData> previousCustomerPurchaseCounts,
+            decimal previousTotalRevenue,
             string comparisonPeriod)
         {
             try
             {
-                var totalCustomers = customerPurchaseCounts.Count;
-                var totalOrders = customerPurchaseCounts.Sum(c => c.OrderCount);
+                var currentCustomers = currentCustomerPurchaseCounts.Count;
+                var previousCustomers = previousCustomerPurchaseCounts.Count;
+                var previousOrders = previousCustomerPurchaseCounts.Sum(c => c.OrderCount);
+
+                var customerGrowthRate = previousCustomers > 0
+                    ? (decimal)(currentCustomers - previousCustomers) / previousCustomers * 100
+                    : 0;
+
+                var revenueGrowthRate = previousTotalRevenue > 0
+                    ? (currentTotalRevenue - previousTotalRevenue) / previousTotalRevenue * 100
+                    : 0;
 
                 return new ComparisonMetrics
                 {
                     Previous = new BasicMetrics
                     {
-                        CustomerCount = totalCustomers,
-                        OrderCount = totalOrders,
-                        TotalAmount = totalRevenue
+                        CustomerCount = previousCustomers,
+                        OrderCount = previousOrders,
+                        TotalAmount = previousTotalRevenue
                     },
+                    CustomerGrowthRate = customerGrowthRate,
+                    RevenueGrowthRate = revenueGrowthRate,
                     ComparisonPeriod = comparisonPeriod
                 };
             }

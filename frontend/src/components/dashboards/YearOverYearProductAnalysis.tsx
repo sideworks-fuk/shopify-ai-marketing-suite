@@ -11,11 +11,7 @@ import {
   Search,
   Download,
   BarChart3,
-  Settings,
-  ChevronUp,
-  ChevronDown,
   Calendar,
-  FileSpreadsheet,
   Loader2,
   AlertCircle,
   Play,
@@ -163,9 +159,6 @@ const YearOverYearProductAnalysis = () => {
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
   
-  // ✅ 分析条件トグル状態
-  const [showConditions, setShowConditions] = useState(true)
-  
   // 仮想スクロール用の設定
   const ROW_HEIGHT = 100 // 行の高さ（px）
   const TABLE_HEIGHT = 600 // テーブルの高さ（px）
@@ -188,6 +181,7 @@ const YearOverYearProductAnalysis = () => {
   const [categories, setCategories] = useState<string[]>([])
   const [hasData, setHasData] = useState(false) // データ取得済みフラグ
   const [lastFetchViewMode, setLastFetchViewMode] = useState<"sales" | "quantity" | "orders" | null>(null) // 最後に取得したviewMode
+  const [lastFetchYear, setLastFetchYear] = useState<number | null>(null) // 最後に取得した対象年
   const [featureDenied, setFeatureDenied] = useState<string | null>(null)
 
   // 🆕 ページマウント時に currentStoreId を復元（開発者モード・デモモード対応）
@@ -261,6 +255,7 @@ const YearOverYearProductAnalysis = () => {
       if (response.success && response.data) {
         setApiData(response.data.products)
         setLastFetchViewMode(viewMode) // 取得時のviewModeを保存
+        setLastFetchYear(selectedYear) // 取得時の対象年を保存
         
         // カテゴリ一覧を更新
         const uniqueCategories = Array.from(new Set(response.data.products.map(p => p.productType)))
@@ -397,43 +392,58 @@ const YearOverYearProductAnalysis = () => {
     return "bg-red-100 text-red-800 border-red-200"
   }, [])
 
+  // CSV用の値フォーマット（カンマ・通貨記号なし、数値のみ）
+  const formatValueForCsv = useCallback((value: number, mode: string) => {
+    switch (mode) {
+      case "sales":
+        return value.toString()
+      case "quantity":
+        return value.toString()
+      case "orders":
+        return value.toString()
+      default:
+        return value.toString()
+    }
+  }, [])
+
   // CSV/Excelエクスポート（月別詳細データ）
   const handleExport = useCallback((format: 'csv' | 'excel') => {
     const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-    const headers = ['商品名', 'カテゴリ', ...months.map(m => `${m}${selectedYear}`), ...months.map(m => `${m}${previousYear}`), ...months.map(m => `${m}成長率`)]
-    
+    const headers = ['商品名', 'カテゴリ', ...months.map(m => `${selectedYear}年${m}`), ...months.map(m => `${previousYear}年${m}`), ...months.map(m => `${m}成長率`)]
+
     const rows = sortedData.map(item => {
       const row = [item.productName, item.category]
-      
+
       // 現在年のデータ
       item.monthlyData.forEach(monthData => {
-        row.push(formatValue(monthData.current, viewMode))
+        row.push(formatValueForCsv(monthData.current, viewMode))
       })
-      
+
       // 前年のデータ
       item.monthlyData.forEach(monthData => {
-        row.push(formatValue(monthData.previous, viewMode))
+        row.push(formatValueForCsv(monthData.previous, viewMode))
       })
-      
+
       // 成長率
       item.monthlyData.forEach(monthData => {
         row.push(`${monthData.growthRate}%`)
       })
-      
+
       return row
     })
 
     const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
+    const extension = format === 'excel' ? 'csv' : 'csv'
     link.setAttribute('href', url)
-    link.setAttribute('download', `前年同月比月別分析_${selectedYear}vs${previousYear}_${new Date().toISOString().slice(0, 10)}.${format}`)
+    link.setAttribute('download', `前年同月比月別分析_${selectedYear}vs${previousYear}_${new Date().toISOString().slice(0, 10)}.${extension}`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-  }, [sortedData, selectedYear, previousYear, viewMode, formatValue])
+  }, [sortedData, selectedYear, previousYear, viewMode, formatValueForCsv])
 
   // ⚠️ 重要: hooksの呼び出し順序が変わらないよう、早期returnはhooks定義の後に行う
   if (featureDenied) {
@@ -448,198 +458,162 @@ const YearOverYearProductAnalysis = () => {
 
   return (
     <div className="space-y-6 w-full max-w-full">
-      {/* ✅ 分析条件トグル機能付きフィルターセクション */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="text-lg">分析条件設定</CardTitle>
-              <CardDescription>期間・商品・表示条件を設定してください</CardDescription>
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowConditions(!showConditions)}
-              className="flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              分析条件
-              {showConditions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </div>
+          <CardTitle className="text-lg">分析条件設定</CardTitle>
+          <CardDescription>期間・商品・表示条件を設定してください</CardDescription>
         </CardHeader>
-        
-        {showConditions && (
-          <CardContent>
+        <CardContent>
             <div className="space-y-6">
-              {/* ✅ 年選択と表示設定 */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    <Calendar className="h-4 w-4 inline mr-1" />
-                    対象年
-                  </label>
-                  <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableYears.map(year => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}年 vs {year - 1}年
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* 分析条件（変更時はデータクリア → 「分析実行」が必要） */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800">分析条件</h3>
+                  <span className="text-xs text-gray-500">変更後は「分析実行」を押してください</span>
                 </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    <BarChart3 className="h-4 w-4 inline mr-1" />
-                    表示モード
-                  </label>
-                  <div className="flex items-center h-10 px-3 py-2 border border-input bg-background rounded-md text-sm">
-                    <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                    月別詳細表示（固定）
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">表示データ</label>
-                  <Select 
-                    value={viewMode} 
-                    onValueChange={(value: any) => {
-                      setViewMode(value)
-                      // viewMode変更時にデータをクリア（分析実行ボタンを必須とする仕様）
-                      if (hasData && lastFetchViewMode !== value) {
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      対象年
+                    </label>
+                    <Select value={selectedYear.toString()} onValueChange={(value) => {
+                      const newYear = parseInt(value)
+                      setSelectedYear(newYear)
+                      if (hasData && lastFetchYear !== newYear) {
                         setApiData(null)
                         setHasData(false)
                       }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sales">売上金額</SelectItem>
-                      <SelectItem value="quantity">販売数量</SelectItem>
-                      <SelectItem value="orders">注文件数</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map(year => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}年 vs {year - 1}年
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">並び順</label>
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="growth">成長率順</SelectItem>
-                      <SelectItem value="total">売上順</SelectItem>
-                      <SelectItem value="name">商品名順</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">表示データ</label>
+                    <Select
+                      value={viewMode}
+                      onValueChange={(value: any) => {
+                        setViewMode(value)
+                        if (hasData && lastFetchViewMode !== value) {
+                          setApiData(null)
+                          setHasData(false)
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sales">売上金額</SelectItem>
+                        <SelectItem value="quantity">販売数量</SelectItem>
+                        <SelectItem value="orders">注文件数</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* 詳細フィルター */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">成長状況</label>
-                  <Select value={filters.growthRate} onValueChange={(value) => handleFilterChange({ growthRate: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全商品</SelectItem>
-                      <SelectItem value="positive">成長商品のみ</SelectItem>
-                      <SelectItem value="negative">減少商品のみ</SelectItem>
-                      <SelectItem value="high_growth">高成長商品（+20%以上）</SelectItem>
-                      <SelectItem value="high_decline">要注意商品（-20%以下）</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">商品カテゴリ</label>
-                  <Select value={filters.category} onValueChange={(value) => handleFilterChange({ category: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">全カテゴリ</SelectItem>
-                      {allCategories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">商品検索</label>
-                  <Input
-                    placeholder="商品名で検索..."
-                    value={filters.searchTerm}
-                    onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
-                    className="w-full"
-                  />
+                  <div className="flex items-end">
+                    <Button
+                      onClick={fetchYearOverYearData}
+                      disabled={loading}
+                      size="lg"
+                      className="min-w-[120px]"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          分析中...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2" />
+                          分析実行
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {/* アクションボタン */}
-              <div className="flex gap-2 pt-4">
-                <Button 
-                  onClick={fetchYearOverYearData}
-                  disabled={loading}
-                  size="lg"
-                  className="min-w-[120px]"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      分析中...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      分析実行
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setFilters({ growthRate: "all", category: "all", searchTerm: "" })}
-                  size="lg"
-                  className="min-w-[120px]"
-                >
-                  条件クリア
-                </Button>
+              <hr className="border-gray-200" />
+
+              {/* 表示設定（即時反映） */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800">表示設定</h3>
+                  <span className="text-xs text-gray-500">変更は即時反映されます</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">並び順</label>
+                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="growth">成長率順</SelectItem>
+                        <SelectItem value="total">売上順</SelectItem>
+                        <SelectItem value="name">商品名順</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">成長状況</label>
+                    <Select value={filters.growthRate} onValueChange={(value) => handleFilterChange({ growthRate: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全商品</SelectItem>
+                        <SelectItem value="positive">成長商品のみ</SelectItem>
+                        <SelectItem value="negative">減少商品のみ</SelectItem>
+                        <SelectItem value="high_growth">高成長商品（+20%以上）</SelectItem>
+                        <SelectItem value="high_decline">要注意商品（-20%以下）</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">商品カテゴリ</label>
+                    <Select value={filters.category} onValueChange={(value) => handleFilterChange({ category: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全カテゴリ</SelectItem>
+                        {allCategories.map(category => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">商品検索</label>
+                    <Input
+                      placeholder="商品名で検索..."
+                      value={filters.searchTerm}
+                      onChange={(e) => handleFilterChange({ searchTerm: e.target.value })}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
-        )}
       </Card>
-
-      {/* 条件サマリーバッジ（折りたたみ時に表示） */}
-      {!showConditions && (
-        <Card className="bg-slate-50">
-          <CardContent className="pt-4">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm text-slate-600 mr-2">現在の条件:</span>
-              <Badge variant="outline">{selectedYear}年 vs {previousYear}年</Badge>
-              <Badge variant="outline">月別詳細表示</Badge>
-              <Badge variant="outline">{viewMode === "sales" ? "売上金額" : viewMode === "quantity" ? "販売数量" : "注文件数"}</Badge>
-              <Badge variant="outline">{sortBy === "growth" ? "成長率順" : sortBy === "total" ? "売上順" : "商品名順"}</Badge>
-              {filters.category !== "all" && <Badge variant="outline">カテゴリ: {filters.category}</Badge>}
-              {filters.growthRate !== "all" && <Badge variant="outline">成長状況フィルター適用</Badge>}
-              {filters.searchTerm && <Badge variant="outline">検索: {filters.searchTerm}</Badge>}
-              <Badge variant="secondary">{sortedData.length}件表示</Badge>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* サマリー統計カード（データ取得済みの場合のみ表示） */}
       {hasData && (
@@ -705,10 +679,6 @@ const YearOverYearProductAnalysis = () => {
                 <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
                   <Download className="h-4 w-4 mr-1" />
                   CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
-                  <FileSpreadsheet className="h-4 w-4 mr-1" />
-                  Excel
                 </Button>
               </div>
             </div>

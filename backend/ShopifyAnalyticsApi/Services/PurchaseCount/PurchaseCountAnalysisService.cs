@@ -211,7 +211,9 @@ namespace ShopifyAnalyticsApi.Services.PurchaseCount
                 var previousTotalRevenue = await _dataService.GetTotalRevenueAsync(storeId, previousStartDate, previousEndDate);
 
                 var comparison = _calculationService.CalculateComparisonMetrics(
-                    previousCustomerPurchaseCounts, 
+                    customerPurchaseCounts,
+                    totalRevenue,
+                    previousCustomerPurchaseCounts,
                     previousTotalRevenue,
                     $"{previousStartDate:yyyy/MM/dd} - {previousEndDate:yyyy/MM/dd}");
 

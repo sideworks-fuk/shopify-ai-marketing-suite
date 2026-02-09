@@ -16,8 +16,14 @@ export default function YearOverYearDebugPage() {
     setError(null)
     
     try {
+      const storeId = getCurrentStoreId()
+      if (!storeId) {
+        setError('ストアIDが取得できません')
+        setLoading(false)
+        return
+      }
       const response = await yearOverYearApi.getYearOverYearAnalysis({
-        storeId: getCurrentStoreId(),
+        storeId,
         year: 2025,
         viewMode: 'sales',
         sortBy: 'growth_rate',

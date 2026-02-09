@@ -14,12 +14,14 @@ interface AnalysisConditions {
 
 interface PurchaseCountConditionPanelProps {
   onExecute: (conditions: AnalysisConditions) => void
+  onConditionsChange?: () => void
   isAnalyzing: boolean
 }
 
-export function PurchaseCountConditionPanel({ 
-  onExecute, 
-  isAnalyzing 
+export function PurchaseCountConditionPanel({
+  onExecute,
+  onConditionsChange,
+  isAnalyzing
 }: PurchaseCountConditionPanelProps) {
   const [period, setPeriod] = useState("12months")
   const [segment, setSegment] = useState("all")
@@ -50,7 +52,7 @@ export function PurchaseCountConditionPanel({
           {/* 分析期間 */}
           <div className="space-y-2">
             <Label>分析期間</Label>
-            <Select value={period} onValueChange={setPeriod}>
+            <Select value={period} onValueChange={(v) => { setPeriod(v); onConditionsChange?.() }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -67,7 +69,7 @@ export function PurchaseCountConditionPanel({
           {/* 顧客セグメント */}
           <div className="space-y-2">
             <Label>顧客セグメント</Label>
-            <Select value={segment} onValueChange={setSegment}>
+            <Select value={segment} onValueChange={(v) => { setSegment(v); onConditionsChange?.() }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -85,7 +87,7 @@ export function PurchaseCountConditionPanel({
             <Label>前年同期比較</Label>
             <Select 
               value={compareWithPrevious ? "yes" : "no"} 
-              onValueChange={(v) => setCompareWithPrevious(v === "yes")}
+              onValueChange={(v) => { setCompareWithPrevious(v === "yes"); onConditionsChange?.() }}
             >
               <SelectTrigger>
                 <SelectValue />

@@ -11,10 +11,17 @@ export function formatCurrency(value: number): string {
 }
 
 /**
- * パーセンテージフォーマット
+ * パーセンテージフォーマット（増減表示用: +/-付き）
  */
 export function formatPercentage(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+/**
+ * 構成比フォーマット（符号なし）
+ */
+export function formatCompositionPercentage(value: number): string {
+  return `${value.toFixed(1)}%`
 }
 
 /**

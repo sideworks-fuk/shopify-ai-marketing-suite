@@ -447,8 +447,8 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     
     // CSV用のデータ作成
     const headers = [
-      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
-      'リスクレベル', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
+      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント',
+      'リスクレベル', '総購入金額', '購入回数', '平均注文金額'
     ]
     
     const csvData = dataToExport.map(customer => {
@@ -472,8 +472,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
         getRiskBadge(riskLevel).label,
         totalSpent.toLocaleString(),
         customer.totalOrders || 0,
-        (customer.averageOrderValue || 0).toLocaleString(),
-        customer.insight?.recommendedAction || ''
+        (customer.averageOrderValue || 0).toLocaleString()
       ]
     })
 
@@ -676,19 +675,19 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                       <p className="font-semibold text-xs">判定基準</p>
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-red-100 text-red-800 text-xs px-1 py-0">危険</Badge>
+                          <Badge variant="destructive" className="bg-red-100 text-red-800 text-xs px-1 py-0">危険</Badge>
                           <span className="text-xs">365日以上</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-orange-100 text-orange-800 text-xs px-1 py-0">高</Badge>
+                          <Badge variant="destructive" className="bg-orange-100 text-orange-800 text-xs px-1 py-0">高</Badge>
                           <span className="text-xs">181-365日</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-yellow-100 text-yellow-800 text-xs px-1 py-0">中</Badge>
+                          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs px-1 py-0">中</Badge>
                           <span className="text-xs">91-180日</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-green-100 text-green-800 text-xs px-1 py-0">低</Badge>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-1 py-0">低</Badge>
                           <span className="text-xs">0-90日</span>
                         </div>
                       </div>
@@ -888,19 +887,19 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                                   <p className="font-semibold text-sm">リスクレベルの判定基準</p>
                                   <div className="space-y-2 text-xs">
                                     <div className="flex items-center gap-2">
-                                      <Badge className="bg-red-100 text-red-800">危険</Badge>
+                                      <Badge variant="destructive" className="bg-red-100 text-red-800">危険</Badge>
                                       <span>365日以上</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Badge className="bg-orange-100 text-orange-800">高</Badge>
+                                      <Badge variant="destructive" className="bg-orange-100 text-orange-800">高</Badge>
                                       <span>181-365日</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Badge className="bg-yellow-100 text-yellow-800">中</Badge>
+                                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">中</Badge>
                                       <span>91-180日</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Badge className="bg-green-100 text-green-800">低</Badge>
+                                      <Badge variant="secondary" className="bg-green-100 text-green-800">低</Badge>
                                       <span>0-90日</span>
                                     </div>
                                   </div>
@@ -1005,9 +1004,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                                       未評価
                                     </Badge>
                                   ) : (
-                                    <Badge 
-                                      variant={getRiskBadge(processedCustomer.displayRiskLevel).variant} 
-                                      className="text-xs cursor-help"
+                                    <Badge
+                                      variant={getRiskBadge(processedCustomer.displayRiskLevel).variant}
+                                      className={`text-xs cursor-help ${getRiskBadge(processedCustomer.displayRiskLevel).color}`}
                                     >
                                       {getRiskBadge(processedCustomer.displayRiskLevel).label}
                                     </Badge>

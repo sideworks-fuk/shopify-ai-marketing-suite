@@ -153,7 +153,7 @@ const CustomerRow = React.memo(({ customer, shopDomain }: { customer: ApiDormant
       
       {/* リスクレベル */}
       <div className="flex-shrink-0 w-[100px] px-4">
-        <Badge variant={getRiskBadge(riskLevel).variant} className="text-xs">
+        <Badge variant={getRiskBadge(riskLevel).variant} className={`text-xs ${getRiskBadge(riskLevel).color}`}>
           {isNoPurchase && <Info className="w-3 h-3 mr-1" />}
           {getRiskBadge(riskLevel).label}
         </Badge>
@@ -355,8 +355,8 @@ export function DormantCustomerTableVirtual({
   // CSV エクスポート
   const exportToCSV = () => {
     const headers = [
-      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント', 
-      'リスクレベル', '復帰確率', '総購入金額', '購入回数', '平均注文金額', '推奨アクション'
+      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント',
+      'リスクレベル', '復帰確率', '総購入金額', '購入回数', '平均注文金額'
     ]
     
     const csvData = filteredAndSortedCustomers.map(customer => {
@@ -382,8 +382,7 @@ export function DormantCustomerTableVirtual({
         `${Math.round((1 - churnProbability) * 100)}%`,
         totalSpent.toLocaleString(),
         customer.totalOrders || 0,
-        (customer.averageOrderValue || 0).toLocaleString(),
-        customer.insight?.recommendedAction || ''
+        (customer.averageOrderValue || 0).toLocaleString()
       ]
     })
     

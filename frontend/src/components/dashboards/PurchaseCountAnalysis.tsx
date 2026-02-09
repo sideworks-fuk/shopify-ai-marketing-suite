@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PurchaseCountTableSkeleton } from "@/components/purchase/PurchaseCountTableSkeleton"
 import { DownloadIcon, TrendingUpIcon, UsersIcon, ShoppingCartIcon, AlertCircleIcon } from "lucide-react"
-import { formatCurrency, formatPercentage, formatNumber } from "@/lib/format"
+import { formatCurrency, formatPercentage, formatCompositionPercentage, formatNumber } from "@/lib/format"
 import { getApiUrl, addStoreIdToParams } from "@/lib/api-config"
 import { handleError } from "@/lib/error-handler"
 import { useAuth } from "@/components/providers/AuthProvider"
@@ -163,11 +163,6 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
             <div className="text-2xl font-bold">
               {formatNumber(analysisData.summary.totalCustomers)}
             </div>
-            {analysisData.summary.comparison && (
-              <p className="text-xs text-muted-foreground">
-                前年比 {formatPercentage(analysisData.summary.comparison.customerGrowthRate)}
-              </p>
-            )}
           </CardContent>
         </Card>
 
@@ -210,11 +205,6 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
             <div className="text-2xl font-bold">
               {formatCurrency(analysisData.summary.totalRevenue)}
             </div>
-            {analysisData.summary.comparison && (
-              <p className="text-xs text-muted-foreground">
-                前年比 {formatPercentage(analysisData.summary.comparison.revenueGrowthRate)}
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -284,7 +274,7 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
                             {formatNumber(detail.current.customerCount)}
                           </td>
                           <td className="text-right p-2">
-                            {formatPercentage(detail.percentage.customerPercentage)}
+                            {formatCompositionPercentage(detail.percentage.customerPercentage)}
                           </td>
                           <td className="text-right p-2">
                             {isZeroPurchases ? (
@@ -297,7 +287,7 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
                             {isZeroPurchases ? (
                               <span className="text-gray-400">0%</span>
                             ) : (
-                              formatPercentage(detail.percentage.amountPercentage)
+                              formatCompositionPercentage(detail.percentage.amountPercentage)
                             )}
                           </td>
                           <td className="text-right p-2">

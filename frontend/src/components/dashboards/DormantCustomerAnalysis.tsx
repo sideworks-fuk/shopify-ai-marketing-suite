@@ -114,14 +114,19 @@ const DormantCustomerAnalysis = React.memo(function DormantCustomerAnalysis() {
         
         try {
           // 並行して両方のAPIを呼び出し
+          const storeId = getCurrentStoreId()
+          if (!storeId) {
+            console.warn('⚠️ ストアIDが取得できません')
+            return
+          }
           const [customersResponse, summaryResponse] = await Promise.all([
             api.dormantCustomers({
-              storeId: getCurrentStoreId(),
+              storeId,
               pageSize: 100, // パフォーマンス改善のため適切なサイズに調整
               sortBy: 'DaysSinceLastPurchase',
               descending: false // 昇順で表示（休眠期間の短い順）
             }),
-            api.dormantSummary(getCurrentStoreId())
+            api.dormantSummary(storeId)
           ])
         
         console.log('✅ 休眠顧客データ取得成功:', customersResponse)
