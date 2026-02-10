@@ -37,6 +37,19 @@ namespace ShopifyAnalyticsApi.Services
                 _logger.LogInformation("ストアデータ削除開始. Domain: {Domain}", domain);
 
                 var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == domain);
+
+                // フォールバック: 旧バージョンでDomainが "{domain}_uninstalled_..." にリネームされたレコードを検索
+                if (store == null)
+                {
+                    store = await _context.Stores.FirstOrDefaultAsync(s =>
+                        s.Domain != null && s.Domain.StartsWith(domain + "_uninstalled_"));
+                    if (store != null)
+                    {
+                        _logger.LogInformation("Found store with renamed domain. Original: {Domain}, Current: {CurrentDomain}",
+                            domain, store.Domain);
+                    }
+                }
+
                 if (store == null)
                 {
                     _logger.LogWarning("ストアが見つかりません. Domain: {Domain}", domain);
@@ -112,7 +125,9 @@ namespace ShopifyAnalyticsApi.Services
             {
                 _logger.LogInformation("顧客データ削除開始. Domain: {Domain}, CustomerId: {CustomerId}", domain, customerId);
 
-                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == domain);
+                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == domain)
+                    ?? await _context.Stores.FirstOrDefaultAsync(s =>
+                        s.Domain != null && s.Domain.StartsWith(domain + "_uninstalled_"));
                 if (store == null)
                 {
                     _logger.LogWarning("ストアが見つかりません. Domain: {Domain}", domain);
@@ -176,7 +191,9 @@ namespace ShopifyAnalyticsApi.Services
             {
                 _logger.LogInformation("顧客データエクスポート開始. Domain: {Domain}, CustomerId: {CustomerId}", domain, customerId);
 
-                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == domain);
+                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == domain)
+                    ?? await _context.Stores.FirstOrDefaultAsync(s =>
+                        s.Domain != null && s.Domain.StartsWith(domain + "_uninstalled_"));
                 if (store == null)
                 {
                     _logger.LogWarning("ストアが見つかりません. Domain: {Domain}", domain);

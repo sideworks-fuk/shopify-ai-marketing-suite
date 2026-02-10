@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Hangfire;
 using Polly;
 using ShopifySharp.Utilities;
 using Microsoft.Extensions.Primitives;
@@ -505,6 +506,35 @@ namespace ShopifyAnalyticsApi.Controllers
                     .Include(s => s.ShopifyApp)
                     .FirstOrDefaultAsync(s => s.Domain == shopDomain);
 
+                // フォールバック: Domainで見つからない場合、旧リネーム済みレコードをSettingsのOriginalDomainで検索
+                if (store == null)
+                {
+                    var allInactiveStores = await _context.Stores
+                        .Include(s => s.ShopifyApp)
+                        .Where(s => !s.IsActive && !string.IsNullOrEmpty(s.Settings))
+                        .ToListAsync();
+
+                    store = allInactiveStores.FirstOrDefault(s =>
+                    {
+                        try
+                        {
+                            var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(s.Settings!);
+                            return settings != null
+                                && settings.TryGetValue("OriginalDomain", out var od)
+                                && od.GetString() == shopDomain;
+                        }
+                        catch { return false; }
+                    });
+
+                    if (store != null)
+                    {
+                        _logger.LogInformation(
+                            "Found previously uninstalled store by OriginalDomain. Shop: {Shop}, StoreId: {StoreId}, OldDomain: {OldDomain}",
+                            shopDomain, store.Id, store.Domain);
+                        store.Domain = shopDomain;
+                    }
+                }
+
                 if (store == null)
                 {
                     // 新規ストアを作成
@@ -522,12 +552,13 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
                 else
                 {
-                    // 既存レコードを更新（IsActiveがfalseの場合はtrueに戻す）
+                    // 既存レコードを更新（再インストール対応: IsActiveがfalseの場合はtrueに戻す）
                     if (!store.IsActive)
                     {
-                        _logger.LogInformation("Re-activating store. Shop: {Shop}, StoreId: {StoreId}",
+                        _logger.LogInformation("Re-activating store (reinstall detected). Shop: {Shop}, StoreId: {StoreId}",
                             shopDomain, store.Id);
                         store.IsActive = true;
+                        CancelScheduledDeletion(store);
                     }
                     _logger.LogInformation("Updating existing store. Shop: {Shop}, StoreId: {StoreId}",
                         shopDomain, store.Id);
@@ -582,6 +613,34 @@ namespace ShopifyAnalyticsApi.Controllers
             {
                 _logger.LogError(ex, "Error occurred while saving store information. Shop: {Shop}", shopDomain);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// 予約済みデータ削除ジョブをキャンセルする（再インストール時に使用）
+        /// </summary>
+        private void CancelScheduledDeletion(Store store)
+        {
+            if (string.IsNullOrEmpty(store.Settings)) return;
+
+            try
+            {
+                var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(store.Settings);
+                if (settings != null && settings.TryGetValue("DeletionJobId", out var jobIdElement))
+                {
+                    var jobId = jobIdElement.GetString();
+                    if (!string.IsNullOrEmpty(jobId))
+                    {
+                        var deleted = BackgroundJob.Delete(jobId);
+                        _logger.LogInformation(
+                            "Cancelled scheduled data deletion. StoreId: {StoreId}, JobId: {JobId}, Success: {Success}",
+                            store.Id, jobId, deleted);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cancel scheduled deletion job. StoreId: {StoreId}", store.Id);
             }
         }
 

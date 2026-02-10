@@ -660,21 +660,19 @@ namespace ShopifyAnalyticsApi.Controllers
                 settings["UninstalledAt"] = DateTime.UtcNow;
                 settings["ScheduledDeletionDate"] = DateTime.UtcNow.AddDays(daysToDelete);
                 
-                // ストアを非アクティブ化
+                // ストアを非アクティブ化（Domainは維持 — 再インストール時にSaveOrUpdateStoreで検索可能にする）
                 store.IsActive = false;
                 store.UpdatedAt = DateTime.UtcNow;
-                
-                // Domainを無効化（再インストール時に既存レコードが見つからないようにする）
-                // ただし、レコードは残す（削除と同じ扱いにするため）
-                store.Domain = $"{store.Domain}_uninstalled_{DateTime.UtcNow:yyyyMMddHHmmss}";
-                
+
                 // AccessTokenをクリア（セキュリティのため）
                 store.AccessToken = null;
-                
+
                 store.Settings = JsonSerializer.Serialize(settings);
-                
+
                 await _context.SaveChangesAsync();
-                
+
+                _logger.LogInformation("ストアを非アクティブ化. Shop: {Shop}, StoreId: {StoreId}", shopDomain, store.Id);
+
                 // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
                 if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
                 {
@@ -688,7 +686,12 @@ namespace ShopifyAnalyticsApi.Controllers
                     var jobId = BackgroundJob.Schedule<IDataCleanupService>(
                         service => service.DeleteStoreDataAsync(shopDomain),
                         scheduledTime);
-                    
+
+                    // 再インストール時にキャンセルできるようJobIdをSettingsに保存
+                    settings["DeletionJobId"] = jobId;
+                    store.Settings = JsonSerializer.Serialize(settings);
+                    await _context.SaveChangesAsync();
+
                     _logger.LogInformation(
                         "ストアデータ削除をスケジュール. Shop: {Shop}, JobId: {JobId}, 予定: {Hours}時間後",
                         shopDomain, jobId, daysToDelete);

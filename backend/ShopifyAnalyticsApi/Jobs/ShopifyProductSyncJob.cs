@@ -269,6 +269,13 @@ namespace ShopifyAnalyticsApi.Jobs
                 // GraphQL APIで商品カテゴリー（Shopify標準分類）を取得し、Products.Categoryを更新
                 await SyncProductCategoriesFromGraphQL(storeId);
             }
+            catch (ShopifyAuthenticationException ex)
+            {
+                _logger.LogError(ex,
+                    "Shopify authentication failed for store ID: {StoreId}. Access token may have been revoked (app uninstalled). Skipping retry.",
+                    storeId);
+                // re-throwしない → Hangfireリトライを防止
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error syncing products for store ID: {storeId}");

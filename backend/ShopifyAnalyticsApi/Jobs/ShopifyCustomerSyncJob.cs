@@ -191,6 +191,13 @@ namespace ShopifyAnalyticsApi.Jobs
                 store.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+            catch (ShopifyAuthenticationException ex)
+            {
+                _logger.LogError(ex,
+                    "Shopify authentication failed for store ID: {StoreId}. Access token may have been revoked (app uninstalled). Skipping retry.",
+                    storeId);
+                // re-throwしない → Hangfireリトライを防止
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error syncing customers for store ID: {storeId}");

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,22 @@ using ShopifyAnalyticsApi.Models;
 
 namespace ShopifyAnalyticsApi.Services
 {
+    /// <summary>
+    /// Shopify APIの認証エラー（401 Unauthorized）を示す例外。
+    /// アクセストークンが無効（アンインストール等で失効）の場合にスローされる。
+    /// Hangfireのリトライを防止するため、通常のHttpRequestExceptionとは区別する。
+    /// </summary>
+    public class ShopifyAuthenticationException : HttpRequestException
+    {
+        public int StoreId { get; }
+
+        public ShopifyAuthenticationException(int storeId, string message)
+            : base(message)
+        {
+            StoreId = storeId;
+        }
+    }
+
     /// <summary>
     /// Shopify API連携サービス（実装版）
     /// ShopifySharpの代わりにREST APIを直接呼び出す実装
@@ -299,8 +316,15 @@ namespace ShopifyAnalyticsApi.Services
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch customers: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch customers: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}",
                     response.StatusCode, errorContent, storeId);
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    await MarkStoreRequiresReauthAsync(storeId);
+                    throw new ShopifyAuthenticationException(storeId,
+                        $"Shopify API authentication failed (401). StoreId={storeId}. Access token may have been revoked.");
+                }
                 throw new HttpRequestException($"Failed to fetch customers: {response.StatusCode}");
             }
         }
@@ -371,9 +395,14 @@ namespace ShopifyAnalyticsApi.Services
                 {
                     throw new HttpRequestException($"Failed to fetch orders: Protected customer data. {response.StatusCode}");
                 }
+                else if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    await MarkStoreRequiresReauthAsync(storeId);
+                    throw new ShopifyAuthenticationException(storeId,
+                        $"Shopify API authentication failed (401). StoreId={storeId}. Access token may have been revoked.");
+                }
                 else
                 {
-                    // BadRequestの詳細なエラー内容を含める
                     throw new HttpRequestException($"Failed to fetch orders: {response.StatusCode}. ErrorContent: {errorContent}");
                 }
             }
@@ -433,8 +462,15 @@ namespace ShopifyAnalyticsApi.Services
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch products: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}", 
+                _logger.LogError("🛒 [ShopifyApiService] Failed to fetch products: StatusCode={StatusCode}, ErrorContent={ErrorContent}, StoreId={StoreId}",
                     response.StatusCode, errorContent, storeId);
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    await MarkStoreRequiresReauthAsync(storeId);
+                    throw new ShopifyAuthenticationException(storeId,
+                        $"Shopify API authentication failed (401). StoreId={storeId}. Access token may have been revoked.");
+                }
                 throw new HttpRequestException($"Failed to fetch products: {response.StatusCode}");
             }
         }
@@ -689,6 +725,34 @@ namespace ShopifyAnalyticsApi.Services
             _logger.LogInformation("🔵 [ShopifyApiService] HttpClient作成完了");
             
             return client;
+        }
+
+        /// <summary>
+        /// ストアのSettingsにRequiresReauth=trueをセットする（401検知時に呼び出し）
+        /// </summary>
+        private async Task MarkStoreRequiresReauthAsync(int storeId)
+        {
+            try
+            {
+                var store = await _context.Stores.FindAsync(storeId);
+                if (store == null) return;
+
+                var settings = string.IsNullOrEmpty(store.Settings)
+                    ? new Dictionary<string, object>()
+                    : JsonSerializer.Deserialize<Dictionary<string, object>>(store.Settings) ?? new Dictionary<string, object>();
+
+                settings["RequiresReauth"] = true;
+                settings["ReauthRequiredAt"] = DateTime.UtcNow;
+                store.Settings = JsonSerializer.Serialize(settings);
+                store.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                _logger.LogWarning("Store marked as requiring re-authentication. StoreId: {StoreId}", storeId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to mark store as requiring re-auth. StoreId: {StoreId}", storeId);
+            }
         }
 
         /// <summary>
