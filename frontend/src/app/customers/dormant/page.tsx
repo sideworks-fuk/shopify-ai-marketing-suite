@@ -391,33 +391,39 @@ export default function DormantCustomersPage() {
   }, [summaryData])
 
   // Step 2: 顧客リストは選択後に遅延読み込み
-  const loadCustomerList = useCallback(async (segment?: string) => {
+  const loadCustomerList = useCallback(async (segment?: string, retryCount = 0) => {
     loadCustomerListCallCount++
-    console.log(`🚀 [loadCustomerList] 開始 #${loadCustomerListCallCount} - segment: ${segment}, isLoadingList: ${isLoadingList}, isLoadingRef: ${isLoadingRef.current}`)
-    
-    // ローディング中フラグを確認
-    if (isLoadingRef.current) {
+    console.log(`🚀 [loadCustomerList] 開始 #${loadCustomerListCallCount} - segment: ${segment}, isLoadingList: ${isLoadingList}, isLoadingRef: ${isLoadingRef.current}, retryCount: ${retryCount}`)
+
+    // ローディング中フラグを確認（リトライ時はスキップしない）
+    if (isLoadingRef.current && retryCount === 0) {
       console.warn('⚠️ [loadCustomerList] 既にローディング中のためスキップ (refチェック)')
       return
     }
-    
+
     try {
       console.log('🔄 [loadCustomerList] setIsLoadingList(true)呼び出し')
       isLoadingRef.current = true  // refも更新
       setIsLoadingList(true)
       console.log('🔄 [loadCustomerList] setIsLoadingList(true)完了')
       setError(null)
-      
+
       console.log('🔄 休眠顧客リストの取得を開始...', { segment, maxDisplayCount })
-      
+
       // APIリクエストパラメータを構築
       // セグメントが指定されている場合のみパラメータに含める
       // 🆕 resolveStoreId()を使用（APIからストア情報を取得する処理も含む）
       const storeId = await resolveStoreId()
       console.log('🔍 [DormantPage.loadCustomerList] 使用する storeId:', { authCurrentStoreId, finalStoreId: storeId })
-      
-      // 🔧 storeId が null の場合は API 呼び出しをスキップ
+
+      // storeId が null の場合はリトライ（最大2回、1秒間隔）
       if (storeId === null) {
+        if (retryCount < 2) {
+          console.warn(`⚠️ [DormantPage.loadCustomerList] storeId が取得できません。${retryCount + 1}回目のリトライを1秒後に実行...`)
+          isLoadingRef.current = false
+          setTimeout(() => loadCustomerList(segment, retryCount + 1), 1000)
+          return
+        }
         console.warn('⚠️ [DormantPage.loadCustomerList] storeId が取得できませんでした。API呼び出しをスキップします。')
         return
       }
