@@ -108,7 +108,14 @@ function AuthProviderInner({ children }: AuthProviderProps) {
 
   // 🆕 ストアIDを解決する関数（APIからストア情報を取得する処理も含む）
   const resolveStoreId = useCallback(async (): Promise<number | null> => {
-    // まず getCurrentStoreIdFn で取得を試みる（localStorage/sessionStorage から直接取得）
+    // 最優先: 既にstateに保持されているcurrentStoreIdを使用
+    // （iframe内ではlocalStorage/sessionStorageがブロックされるため、stateが唯一の情報源になる場合がある）
+    if (currentStoreId !== null && currentStoreId > 0) {
+      console.log('✅ [AuthProvider.resolveStoreId] state の currentStoreId から取得:', currentStoreId);
+      return currentStoreId;
+    }
+
+    // localStorage/sessionStorage から直接取得
     let storeId = getCurrentStoreIdFn();
     if (storeId !== null && storeId > 0) {
       console.log('✅ [AuthProvider.resolveStoreId] getCurrentStoreIdFn から取得:', storeId);
@@ -215,7 +222,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     }
     
     return null;
-  }, [getCurrentStoreIdFn, isAuthenticated, isApiClientReady, apiClient, searchParams, setCurrentStoreId, authMode]);
+  }, [currentStoreId, getCurrentStoreIdFn, isAuthenticated, isApiClientReady, apiClient, searchParams, setCurrentStoreId, authMode]);
 
   // APIクライアントの初期化
   useEffect(() => {
