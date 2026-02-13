@@ -427,27 +427,27 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
               {analysisData.insights.risk && (
                 <div>
                   <h4 className="font-semibold mb-2">リスク評価</h4>
-                <Card>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm">一回購入顧客率</span>
-                        <span className="text-sm font-medium">
-                          {formatCompositionPercentage(analysisData.insights.risk.oneTimeCustomerRate)}
-                        </span>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">一回購入顧客率</span>
+                          <span className="text-sm font-medium">
+                            {formatCompositionPercentage(analysisData.insights.risk.oneTimeCustomerRate)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">全体リスクレベル</span>
+                          <Badge variant={
+                            analysisData.insights.risk.overallRiskLevel === "高" ? "destructive" :
+                            analysisData.insights.risk.overallRiskLevel === "中" ? "default" : "secondary"
+                          }>
+                            {analysisData.insights.risk.overallRiskLevel}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm">全体リスクレベル</span>
-                        <Badge variant={
-                          analysisData.insights.risk.overallRiskLevel === "高" ? "destructive" :
-                          analysisData.insights.risk.overallRiskLevel === "中" ? "default" : "secondary"
-                        }>
-                          {analysisData.insights.risk.overallRiskLevel}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
             </TabsContent>
