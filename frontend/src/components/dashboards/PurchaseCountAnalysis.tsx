@@ -107,24 +107,43 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
   const exportToCSV = () => {
     if (!analysisData) return
 
-    const csvData = analysisData.details.map((detail: any) => ({
-      購入回数: detail.purchaseCountLabel,
-      顧客数: detail.current.customerCount,
-      注文数: detail.current.orderCount,
-      売上金額: detail.current.totalAmount,
-      顧客構成比: `${detail.percentage.customerPercentage.toFixed(1)}%`,
-      売上構成比: `${detail.percentage.amountPercentage.toFixed(1)}%`,
-      平均顧客単価: detail.current.averageCustomerValue
-    }))
+    // ヘッダー: アプリ画面の列順と一致させる
+    const headers = ['購入回数', '顧客数', '構成比', '売上金額', '売上構成比', '平均顧客単価']
+    if (conditions.compareWithPrevious) {
+      headers.push('前年比')
+    }
 
-    const headers = Object.keys(csvData[0]).join(',')
-    const rows = csvData.map((row: any) => Object.values(row).join(','))
-    const csv = [headers, ...rows].join('\n')
+    const rows = analysisData.details.map((detail: any) => {
+      const row: (string | number)[] = [
+        detail.purchaseCountLabel,
+        detail.current.customerCount,
+        `${detail.percentage.customerPercentage.toFixed(1)}%`,
+        detail.current.totalAmount,
+        `${detail.percentage.amountPercentage.toFixed(1)}%`,
+        Math.round(detail.current.averageCustomerValue)
+      ]
+      if (conditions.compareWithPrevious) {
+        if (detail.growthRate) {
+          if (detail.growthRate.customerCountGrowth >= 999999 || detail.growthRate.customerCountGrowth > 1000) {
+            row.push('新規')
+          } else {
+            row.push(`${detail.growthRate.customerCountGrowth >= 0 ? '+' : ''}${detail.growthRate.customerCountGrowth.toFixed(1)}%`)
+          }
+        } else {
+          row.push(detail.current?.customerCount > 0 ? '新規' : '該当なし')
+        }
+      }
+      return row
+    })
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const csvContent = [headers, ...rows]
+      .map((row: (string | number)[]) => row.map((cell: string | number) => `"${cell}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `purchase_count_analysis_${new Date().toISOString().split('T')[0]}.csv`
+    link.download = `購入回数分析_${new Date().toISOString().split('T')[0]}.csv`
     link.click()
   }
 
@@ -173,7 +192,7 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatPercentage(analysisData.summary.repeatCustomerRate)}
+              {formatCompositionPercentage(analysisData.summary.repeatCustomerRate)}
             </div>
             <p className="text-xs text-muted-foreground">
               2回以上購入顧客
@@ -406,16 +425,15 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
 
               {/* リスク評価 */}
               {analysisData.insights.risk && (
+                <div>
+                  <h4 className="font-semibold mb-2">リスク評価</h4>
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">リスク評価</CardTitle>
-                  </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-sm">一回購入顧客率</span>
                         <span className="text-sm font-medium">
-                          {formatPercentage(analysisData.insights.risk.oneTimeCustomerRate)}
+                          {formatCompositionPercentage(analysisData.insights.risk.oneTimeCustomerRate)}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -430,6 +448,7 @@ const PurchaseCountAnalysis = React.memo(function PurchaseCountAnalysis({
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               )}
             </TabsContent>
           </Tabs>

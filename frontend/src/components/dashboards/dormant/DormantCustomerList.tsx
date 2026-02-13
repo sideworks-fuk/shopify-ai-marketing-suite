@@ -221,13 +221,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     let result = dormantData.filter((customer) => {
       const processedCustomer = processCustomerDisplayData(customer)
       
-      // 検索条件（顧客IDはShopify顧客IDを優先）
-      const customerName = customer.name || ''
+      // 検索条件（顧客IDで検索）
       const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
-      const customerCompany = customer.company || ''
-      const matchesSearch = customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          displayId.includes(searchTerm) ||
-                          customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesSearch = displayId.includes(searchTerm)
 
       // セグメント条件 - APIの dormancySegment を優先使用
       const matchesSegment = !selectedSegment || (() => {
@@ -393,18 +389,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
               // リスクレベルフィルタ
               if (riskFilter !== "all" && processedCustomer.displayRiskLevel !== riskFilter) return false
               
-              // 検索フィルタ（顧客IDはShopify顧客IDを優先）
+              // 検索フィルタ（顧客IDで検索）
               if (searchTerm) {
-                const searchLower = searchTerm.toLowerCase()
-                const customerName = String(customer.name || '').toLowerCase()
-                const customerEmail = String(customer.email || '').toLowerCase()
-                const companyName = String(customer.company || '').toLowerCase()
-                const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString().toLowerCase() || ''
-                
-                if (!customerName.includes(searchLower) && 
-                    !customerEmail.includes(searchLower) && 
-                    !companyName.includes(searchLower) &&
-                    !displayId.includes(searchLower)) {
+                const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
+                if (!displayId.includes(searchTerm)) {
                   return false
                 }
               }
@@ -427,32 +415,27 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     
     // CSV用のデータ作成
     const headers = [
-      '顧客ID', '顧客名', '会社名', 'メールアドレス', '最終購入日', '休眠期間（日）', '休眠セグメント',
-      'リスクレベル', '総購入金額', '購入回数', '平均注文金額'
+      '顧客ID', '最終購入日', '休眠期間（日）', '休眠セグメント',
+      'リスクレベル', '累計購入額', '累計購入数'
     ]
-    
+
     const csvData = dataToExport.map(customer => {
       const customerId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
-      const customerName = customer.name || ''
       const lastPurchaseDate = customer.lastPurchaseDate
       const daysSince = customer.daysSinceLastPurchase || 0
       const riskLevel = toRiskLevel(customer.riskLevel) ?? 'medium'
       const totalSpent = customer.totalSpent || 0
-      
+
       return [
-        customerId,
-        customerName,
-        customer.company || '',
-        customer.email || '',
-        lastPurchaseDate ? (typeof lastPurchaseDate === 'string' 
+        `\t${customerId}`,
+        lastPurchaseDate ? (typeof lastPurchaseDate === 'string'
           ? format(new Date(lastPurchaseDate), 'yyyy-MM-dd')
           : format(lastPurchaseDate, 'yyyy-MM-dd')) : '',
         daysSince,
         customer.dormancySegment || '',
         getRiskBadge(riskLevel).label,
         totalSpent.toLocaleString(),
-        customer.totalOrders || 0,
-        (customer.averageOrderValue || 0).toLocaleString()
+        customer.totalOrders || 0
       ]
     })
 
@@ -463,7 +446,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `dormant_customers_filtered_${format(new Date(), 'yyyyMMdd')}.csv`
+    link.download = `休眠顧客一覧_${format(new Date(), 'yyyyMMdd')}.csv`
     link.click()
   }
 
@@ -606,11 +589,11 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
                 id="customer-search"
-                placeholder="顧客名・会社名・IDで検索..."
+                placeholder="顧客IDで検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
-                aria-label="顧客名・会社名・IDで検索"
+                aria-label="顧客IDで検索"
               />
             </div>
           </div>
@@ -807,13 +790,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
-                      <TableHead className="w-[180px]">
-                        <Button variant="ghost" onClick={() => handleSort("name")} className="h-auto p-0 font-semibold hover:bg-gray-100">
-                          顧客名
-                          {getSortIcon("name")}
-                        </Button>
+                      <TableHead className="w-[120px]">
+                        <span className="font-semibold">顧客ID</span>
                       </TableHead>
-                      <TableHead className="w-[100px]">顧客ID</TableHead>
                       <TableHead className="w-[120px]">
                         <Button variant="ghost" onClick={() => handleSort("lastPurchaseDate")} className="h-auto p-0 font-semibold hover:bg-gray-100">
                           最終購入日
@@ -889,8 +868,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                     {paginatedCustomers.map((customer) => {
                       const processedCustomer = processCustomerDisplayData(customer)
                       const displayId = (customer.shopifyCustomerId ?? customer.customerId)?.toString() || ''
-                      const customerName = customer.name || ''
-                      
+
                       return (
                         <TableRow 
                           key={customer.customerId ?? displayId} 
@@ -898,19 +876,6 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                             processedCustomer.hasNoPurchaseHistory ? 'bg-gray-50/50 text-gray-600' : ''
                           }`}
                         >
-                          <TableCell>
-                            <div>
-                              <div className={`font-medium ${processedCustomer.hasNoPurchaseHistory ? 'text-gray-600' : ''}`}>
-                                {customerName}
-                                {processedCustomer.hasNoPurchaseHistory && (
-                                  <Info className="inline ml-1 h-3 w-3 text-gray-400" />
-                                )}
-                              </div>
-                              {customer.company && (
-                                <div className="text-sm text-gray-500">{customer.company}</div>
-                              )}
-                            </div>
-                          </TableCell>
                           <TableCell className="text-sm">
                             {(() => {
                               const adminUrl = buildShopifyCustomerAdminUrl(shopDomain, customer.shopifyCustomerId)
@@ -928,6 +893,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                                 displayId
                               )
                             })()}
+                            {processedCustomer.hasNoPurchaseHistory && (
+                              <Info className="inline ml-1 h-3 w-3 text-gray-400" />
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">

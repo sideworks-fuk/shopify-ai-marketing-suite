@@ -77,7 +77,8 @@ const ProductTableRow = React.memo(({
             <div className="text-xs text-gray-500">
               前年: {formatValue(monthData.previous, viewMode)}
             </div>
-            <Badge 
+            <Badge
+              variant="outline"
               className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
             >
               {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%
@@ -137,7 +138,8 @@ const ProductTableRowVirtual = React.memo(({
               <div className="text-xs text-gray-500">
                 前年: {formatValue(monthData.previous, viewMode)}
               </div>
-              <Badge 
+              <Badge
+                variant="outline"
                 className={`${getGrowthBadgeColor(monthData.growthRate)} text-xs font-semibold`}
               >
                 {monthData.growthRate > 0 ? "+" : ""}{monthData.growthRate.toFixed(1)}%

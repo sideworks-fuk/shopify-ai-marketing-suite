@@ -195,9 +195,18 @@ namespace ShopifyAnalyticsApi.Services.Dormant
             var dtoItems = new List<DormantCustomerDto>();
             foreach (var item in pagedItems)
             {
-                var daysSinceLastPurchase = item.LastOrderDate.HasValue 
-                    ? (int)(DateTime.UtcNow - item.LastOrderDate.Value).TotalDays 
+                var daysSinceLastPurchase = item.LastOrderDate.HasValue
+                    ? (int)(DateTime.UtcNow - item.LastOrderDate.Value).TotalDays
                     : int.MaxValue;
+
+                // TotalSpentが0だがTotalOrders>0の場合、Ordersから再計算（メンテナンスジョブ未完了時のフォールバック）
+                var totalSpent = item.TotalSpent;
+                if (totalSpent == 0 && item.TotalOrders > 0)
+                {
+                    totalSpent = await _context.Orders
+                        .Where(o => o.CustomerId == item.CustomerId && !o.IsTest)
+                        .SumAsync(o => o.TotalPrice);
+                }
 
                 var dto = new DormantCustomerDto
                 {
@@ -212,13 +221,13 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                     DormancySegment = CalculateDormancySegment(daysSinceLastPurchase),
                     RiskLevel = CalculateRiskLevel(daysSinceLastPurchase, item.TotalOrders),
                     ChurnProbability = CalculateChurnProbability(daysSinceLastPurchase),
-                    TotalSpent = item.TotalSpent,
+                    TotalSpent = totalSpent,
                     TotalOrders = item.TotalOrders,
-                    AverageOrderValue = item.TotalOrders > 0 ? item.TotalSpent / item.TotalOrders : 0,
+                    AverageOrderValue = item.TotalOrders > 0 ? totalSpent / item.TotalOrders : 0,
                     Tags = ParseTags(item.Tags),
                     PreferredCategories = new List<string>(), // TODO: 実装
-                    Insight = GenerateReactivationInsight(daysSinceLastPurchase, item.TotalOrders, 
-                        item.TotalOrders > 0 ? item.TotalSpent / item.TotalOrders : 0)
+                    Insight = GenerateReactivationInsight(daysSinceLastPurchase, item.TotalOrders,
+                        item.TotalOrders > 0 ? totalSpent / item.TotalOrders : 0)
                 };
 
                 dtoItems.Add(dto);
@@ -356,6 +365,15 @@ namespace ShopifyAnalyticsApi.Services.Dormant
         /// </summary>
         private async Task<DormantCustomerDto> ConvertToDto(Customer customer, DateTime? lastOrderDate, int daysSinceLastPurchase)
         {
+            // TotalSpentが0だがTotalOrders>0の場合、Ordersから再計算（メンテナンスジョブ未完了時のフォールバック）
+            var totalSpent = customer.TotalSpent;
+            if (totalSpent == 0 && customer.TotalOrders > 0)
+            {
+                totalSpent = await _context.Orders
+                    .Where(o => o.CustomerId == customer.Id && !o.IsTest)
+                    .SumAsync(o => o.TotalPrice);
+            }
+
             return new DormantCustomerDto
             {
                 CustomerId = customer.Id,
@@ -369,13 +387,13 @@ namespace ShopifyAnalyticsApi.Services.Dormant
                 DormancySegment = CalculateDormancySegment(daysSinceLastPurchase),
                 RiskLevel = CalculateRiskLevel(daysSinceLastPurchase, customer.TotalOrders),
                 ChurnProbability = CalculateChurnProbability(daysSinceLastPurchase),
-                TotalSpent = customer.TotalSpent,
+                TotalSpent = totalSpent,
                 TotalOrders = customer.TotalOrders,
-                AverageOrderValue = customer.TotalOrders > 0 ? customer.TotalSpent / customer.TotalOrders : 0,
+                AverageOrderValue = customer.TotalOrders > 0 ? totalSpent / customer.TotalOrders : 0,
                 Tags = ParseTags(customer.Tags),
                 PreferredCategories = await GetPreferredCategories(customer.Id),
-                Insight = GenerateReactivationInsight(daysSinceLastPurchase, customer.TotalOrders, 
-                    customer.TotalOrders > 0 ? customer.TotalSpent / customer.TotalOrders : 0)
+                Insight = GenerateReactivationInsight(daysSinceLastPurchase, customer.TotalOrders,
+                    customer.TotalOrders > 0 ? totalSpent / customer.TotalOrders : 0)
             };
         }
 
