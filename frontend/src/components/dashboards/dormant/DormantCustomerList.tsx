@@ -271,9 +271,9 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       let bValue: any
 
       switch (sortField) {
-        case "name":
-          aValue = (a.name || '').toLowerCase()
-          bValue = (b.name || '').toLowerCase()
+        case "customerId":
+          aValue = Number(a.shopifyCustomerId ?? a.customerId) || 0
+          bValue = Number(b.shopifyCustomerId ?? b.customerId) || 0
           break
         case "lastPurchaseDate":
           aValue = a.lastPurchaseDate ? new Date(a.lastPurchaseDate).getTime() : 0
@@ -427,7 +427,7 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       const totalSpent = customer.totalSpent || 0
 
       return [
-        `\t${customerId}`,
+        customerId,
         lastPurchaseDate ? (typeof lastPurchaseDate === 'string'
           ? format(new Date(lastPurchaseDate), 'yyyy-MM-dd')
           : format(lastPurchaseDate, 'yyyy-MM-dd')) : '',
@@ -439,9 +439,13 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
       ]
     })
 
-    const csvContent = [headers, ...csvData]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n')
+    const csvContent = [
+      headers.map(h => `"${h}"`).join(','),
+      ...csvData.map(row => {
+        const [id, ...rest] = row
+        return [`="${id}"`, ...rest.map(cell => `"${cell}"`)].join(',')
+      })
+    ].join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -791,7 +795,10 @@ export function DormantCustomerList({ selectedSegment, dormantData = [], maxDisp
                   <TableHeader className="bg-gray-50">
                     <TableRow>
                       <TableHead className="w-[120px]">
-                        <span className="font-semibold">顧客ID</span>
+                        <Button variant="ghost" onClick={() => handleSort("customerId")} className="h-auto p-0 font-semibold hover:bg-gray-100">
+                          顧客ID
+                          {getSortIcon("customerId")}
+                        </Button>
                       </TableHead>
                       <TableHead className="w-[120px]">
                         <Button variant="ghost" onClick={() => handleSort("lastPurchaseDate")} className="h-auto p-0 font-semibold hover:bg-gray-100">
