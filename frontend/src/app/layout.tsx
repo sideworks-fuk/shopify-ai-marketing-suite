@@ -51,6 +51,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
+      <head>
+        <meta name="shopify-api-key" content={process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? ''} />
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+      </head>
       <body className={inter.className}>
         {/* ChunkLoadError 時に自動で再読み込み（キャッシュとチャンクの不整合対策） */}
         <script
