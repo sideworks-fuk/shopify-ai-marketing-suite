@@ -673,6 +673,12 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _logger.LogInformation("ストアを非アクティブ化. Shop: {Shop}, StoreId: {StoreId}", shopDomain, store.Id);
 
+                // 定期同期ジョブをキャンセル（アンインストール済みストアへの無駄なAPI呼び出しを防ぐ）
+                RecurringJob.RemoveIfExists($"sync-products-store-{store.Id}");
+                RecurringJob.RemoveIfExists($"sync-customers-store-{store.Id}");
+                RecurringJob.RemoveIfExists($"sync-orders-store-{store.Id}");
+                _logger.LogInformation("定期同期ジョブを削除. Shop: {Shop}, StoreId: {StoreId}", shopDomain, store.Id);
+
                 // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
                 if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
                 {

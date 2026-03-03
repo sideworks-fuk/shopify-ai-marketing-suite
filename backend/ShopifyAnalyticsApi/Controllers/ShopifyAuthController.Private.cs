@@ -170,7 +170,7 @@ namespace ShopifyAnalyticsApi.Controllers
             _logger.LogInformation("OAuth authentication started. Shop: {Shop}, State: {State}, ApiKey: {ApiKey}", shop, state, finalApiKey);
 
             // Shopify OAuth URLを構築
-            var scopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+            var scopes = GetShopifySetting("Scopes", "read_orders,read_products");
             _logger.LogInformation("OAuth scopes: {Scopes}", scopes);
 
             // マルチアプリ対応: AppUrlを取得（フロントエンドへのリダイレクト用）
@@ -454,7 +454,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     // scopeが空の場合は、OAuth URLでリクエストしたスコープを使用
                     if (string.IsNullOrWhiteSpace(tokenResponse.Scope))
                     {
-                        var requestedScopes = GetShopifySetting("Scopes", "read_orders,read_products,read_customers");
+                        var requestedScopes = GetShopifySetting("Scopes", "read_orders,read_products");
                         _logger.LogWarning("Shopify応答にscopeが含まれていません. リクエストしたスコープを使用します. Shop: {Shop}, RequestedScopes: {Scopes}",
                             shop, requestedScopes);
                         tokenResponse.Scope = requestedScopes;
@@ -535,6 +535,19 @@ namespace ShopifyAnalyticsApi.Controllers
                     }
                 }
 
+                if (store != null && !store.IsActive)
+                {
+                    // 再インストール検知: 旧レコードのDomainをクリアし、削除ジョブもキャンセルする
+                    _logger.LogInformation(
+                        "Reinstall detected: old store (StoreId: {OldStoreId}) is inactive. Clearing Domain and cancelling deletion job to protect new store. Shop: {Shop}",
+                        store.Id, shopDomain);
+                    store.Domain = null; // 同一Domainによる検索競合を防ぐ
+                    store.UpdatedAt = DateTime.UtcNow;
+                    CancelScheduledDeletion(store); // 重要: 旧ジョブが新ストアのデータを誤削除しないようキャンセル
+                    // EF Core が変更をトラッキング済み。後のSaveChangesAsyncで新旧レコードを同時保存する
+                    store = null;
+                }
+
                 if (store == null)
                 {
                     // 新規ストアを作成
@@ -552,14 +565,6 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
                 else
                 {
-                    // 既存レコードを更新（再インストール対応: IsActiveがfalseの場合はtrueに戻す）
-                    if (!store.IsActive)
-                    {
-                        _logger.LogInformation("Re-activating store (reinstall detected). Shop: {Shop}, StoreId: {StoreId}",
-                            shopDomain, store.Id);
-                        store.IsActive = true;
-                        CancelScheduledDeletion(store);
-                    }
                     _logger.LogInformation("Updating existing store. Shop: {Shop}, StoreId: {StoreId}",
                         shopDomain, store.Id);
                 }

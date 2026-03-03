@@ -347,9 +347,25 @@ namespace ShopifyAnalyticsApi.Jobs
                 }
                 else
                 {
-                    _logger.LogWarning(
-                        "Customer not found for order {OrderId}, ShopifyCustomerId: {ShopifyCustomerId}. Order will be saved without CustomerId.",
-                        shopifyOrder.Id, shopifyOrder.Customer.Id);
+                    // read_customers スコープなし: 注文データから最小限の顧客レコードを自動生成
+                    // PII（名前・メール等）は保存せず、ShopifyCustomerIdのみで識別する
+                    var newCustomer = new Customer
+                    {
+                        StoreId = storeId,
+                        ShopifyCustomerId = shopifyOrder.Customer.Id.ToString(),
+                        FirstName = string.Empty,
+                        LastName = string.Empty,
+                        Email = string.Empty,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Customers.Add(newCustomer);
+                    await _context.SaveChangesAsync();
+                    customerId = newCustomer.Id;
+                    _logger.LogInformation(
+                        "Created minimal customer record from order data. ShopifyCustomerId: {ShopifyCustomerId}, LocalId: {LocalId}",
+                        shopifyOrder.Customer.Id, newCustomer.Id);
                 }
             }
 

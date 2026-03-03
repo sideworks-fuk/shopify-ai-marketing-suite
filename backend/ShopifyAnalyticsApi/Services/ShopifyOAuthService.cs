@@ -217,7 +217,7 @@ namespace ShopifyAnalyticsApi.Services
         public string GenerateAuthorizationUrl(string shop, string redirectUri, string state, string[]? scopes = null)
         {
             var apiKey = GetShopifySetting("ApiKey");
-            var scopeList = scopes ?? new[] { "read_products", "read_customers", "read_orders" };
+            var scopeList = scopes ?? new[] { "read_products", "read_orders" };
             
             var authUrl = $"https://{shop}/admin/oauth/authorize?" +
                          $"client_id={apiKey}" +
