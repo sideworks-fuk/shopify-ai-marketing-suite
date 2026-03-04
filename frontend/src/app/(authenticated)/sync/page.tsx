@@ -39,10 +39,14 @@ export default function SyncPage() {
     startPolling: startPollingProducts
   } = useSyncProgress(storeId, 'products');
   
-  // 顧客同期は注文同期に統合されたため、個別のポーリングは不要
+  const {
+    progress: customersProgress,
+    isPolling: isPollingCustomers,
+    startPolling: startPollingCustomers
+  } = useSyncProgress(storeId, 'customers');
 
   const {
-    progress: ordersProgress, 
+    progress: ordersProgress,
     isPolling: isPollingOrders,
     startPolling: startPollingOrders
   } = useSyncProgress(storeId, 'orders');
@@ -70,6 +74,7 @@ export default function SyncPage() {
         const type = statusData.activeSync.type;
         if (type === 'all') startPollingAll();
         else if (type === 'products') startPollingProducts();
+        else if (type === 'customers') startPollingCustomers();
         else if (type === 'orders') startPollingOrders();
       }
     } catch (error) {
@@ -111,6 +116,7 @@ export default function SyncPage() {
         // Start polling for the appropriate type
         if (type === 'all') startPollingAll();
         else if (type === 'products') startPollingProducts();
+        else if (type === 'customers') startPollingCustomers();
         else if (type === 'orders') startPollingOrders();
       }
       
@@ -191,7 +197,7 @@ export default function SyncPage() {
         )}
 
         {/* Active Sync Progress with real-time updates */}
-        {(syncStatus?.activeSync || allProgress || productsProgress || ordersProgress) && (
+        {(syncStatus?.activeSync || allProgress || productsProgress || customersProgress || ordersProgress) && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -236,6 +242,21 @@ export default function SyncPage() {
                   </div>
                 )}
                 
+                {customersProgress && customersProgress.status === 'syncing' && (
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>顧客データ同期</span>
+                      <span>{customersProgress.progressPercentage}%</span>
+                    </div>
+                    <SyncProgress
+                      type="customers"
+                      progress={customersProgress.progressPercentage}
+                      total={customersProgress.totalCount}
+                      current={customersProgress.currentCount}
+                    />
+                  </div>
+                )}
+
                 {ordersProgress && ordersProgress.status === 'syncing' && (
                   <div>
                     <div className="flex justify-between text-sm mb-2">
@@ -250,8 +271,8 @@ export default function SyncPage() {
                     />
                   </div>
                 )}
-                
-                {syncStatus?.activeSync && !allProgress && !productsProgress && !ordersProgress && (
+
+                {syncStatus?.activeSync && !allProgress && !productsProgress && !customersProgress && !ordersProgress && (
                   <SyncProgress
                     type={syncStatus.activeSync.type}
                     progress={syncStatus.activeSync.progress}

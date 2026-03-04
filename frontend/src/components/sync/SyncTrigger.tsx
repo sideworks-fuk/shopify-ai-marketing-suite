@@ -62,7 +62,7 @@ export function SyncTrigger({ onSync }: SyncTriggerProps) {
           すべて同期
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => handleSync('products')}
           disabled={isSyncing}
           className="gap-2"
@@ -73,6 +73,18 @@ export function SyncTrigger({ onSync }: SyncTriggerProps) {
             <Package className="h-4 w-4" />
           )}
           商品データのみ
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleSync('customers')}
+          disabled={isSyncing}
+          className="gap-2"
+        >
+          {syncingType === 'customers' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Users className="h-4 w-4" />
+          )}
+          顧客データのみ
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => handleSync('orders')}

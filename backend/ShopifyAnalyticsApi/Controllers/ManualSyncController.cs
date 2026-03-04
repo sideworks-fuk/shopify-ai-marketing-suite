@@ -271,23 +271,26 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 // 各データタイプの同期をキューに追加
-                // 顧客同期はスキップ（read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
                 var productJobId = _backgroundJobClient.Enqueue<ShopifyProductSyncJob>(
                     job => job.SyncProducts(storeId, options));
+
+                var customerJobId = _backgroundJobClient.Enqueue<ShopifyCustomerSyncJob>(
+                    job => job.SyncCustomers(storeId, options));
 
                 var orderJobId = _backgroundJobClient.Enqueue<ShopifyOrderSyncJob>(
                     job => job.SyncOrders(storeId, options));
 
                 _logger.LogInformation(
-                    "Full sync triggered for store {StoreName} (ID: {StoreId}). Customer sync skipped (derived from orders).",
+                    "Full sync triggered for store {StoreName} (ID: {StoreId}).",
                     store.Name, storeId);
 
                 return Ok(new
                 {
-                    message = "Full sync started (customer data derived from orders)",
+                    message = "Full sync started",
                     jobs = new
                     {
                         products = productJobId,
+                        customers = customerJobId,
                         orders = orderJobId
                     },
                     storeId = storeId,
@@ -406,11 +409,16 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (enabled)
                 {
-                    // 定期同期ジョブを登録（顧客同期はスキップ: read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
+                    // 定期同期ジョブを登録
                     RecurringJob.AddOrUpdate<ShopifyProductSyncJob>(
                         $"sync-products-store-{storeId}",
                         job => job.SyncProducts(storeId, null),
                         "0 */1 * * *"); // 1時間ごと
+
+                    RecurringJob.AddOrUpdate<ShopifyCustomerSyncJob>(
+                        $"sync-customers-store-{storeId}",
+                        job => job.SyncCustomers(storeId, null),
+                        "0 */2 * * *"); // 2時間ごと
 
                     RecurringJob.AddOrUpdate<ShopifyOrderSyncJob>(
                         $"sync-orders-store-{storeId}",

@@ -347,15 +347,14 @@ namespace ShopifyAnalyticsApi.Jobs
                 }
                 else
                 {
-                    // read_customers スコープなし: 注文データから最小限の顧客レコードを自動生成
-                    // PII（名前・メール等）は保存せず、ShopifyCustomerIdのみで識別する
+                    // 注文データから顧客レコードを自動生成（顧客同期で後から詳細が更新される）
                     var newCustomer = new Customer
                     {
                         StoreId = storeId,
                         ShopifyCustomerId = shopifyOrder.Customer.Id.ToString(),
-                        FirstName = string.Empty,
-                        LastName = string.Empty,
-                        Email = string.Empty,
+                        FirstName = shopifyOrder.Customer.FirstName ?? string.Empty,
+                        LastName = shopifyOrder.Customer.LastName ?? string.Empty,
+                        Email = shopifyOrder.Customer.Email ?? string.Empty,
                         IsActive = true,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
@@ -364,7 +363,7 @@ namespace ShopifyAnalyticsApi.Jobs
                     await _context.SaveChangesAsync();
                     customerId = newCustomer.Id;
                     _logger.LogInformation(
-                        "Created minimal customer record from order data. ShopifyCustomerId: {ShopifyCustomerId}, LocalId: {LocalId}",
+                        "Created customer record from order data. ShopifyCustomerId: {ShopifyCustomerId}, LocalId: {LocalId}",
                         shopifyOrder.Customer.Id, newCustomer.Id);
                 }
             }
