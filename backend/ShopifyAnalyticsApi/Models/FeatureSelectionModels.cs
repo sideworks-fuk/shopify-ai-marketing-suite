@@ -263,6 +263,11 @@ namespace ShopifyAnalyticsApi.Models
         public string? RequiredPlan { get; set; }
 
         public string? Message { get; set; }
+
+        /// <summary>
+        /// 顧客数が上限を超過している場合 true（アクセスはブロックしないが、アップグレード促進に使用）
+        /// </summary>
+        public bool IsCustomerOverLimit { get; set; }
     }
 
     /// <summary>

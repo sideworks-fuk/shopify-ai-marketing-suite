@@ -273,7 +273,12 @@ namespace ShopifyAnalyticsApi.Controllers
                     .FirstOrDefaultAsync();
 
                 var productCount = await _context.Products.CountAsync(p => p.StoreId == currentStore.Id && p.IsActive);
-                var customerCount = await _context.Customers.CountAsync(c => c.StoreId == currentStore.Id);
+                // 注文由来のユニーク顧客数（read_customersスコープ削除に伴い、Ordersテーブルから算出）
+                var customerCount = await _context.Orders
+                    .Where(o => o.StoreId == currentStore.Id && o.CustomerId != null)
+                    .Select(o => o.CustomerId)
+                    .Distinct()
+                    .CountAsync();
                 var orderCount = await _context.Orders.CountAsync(o => o.StoreId == currentStore.Id);
 
                 var lastProductSync = await _context.SyncStatuses

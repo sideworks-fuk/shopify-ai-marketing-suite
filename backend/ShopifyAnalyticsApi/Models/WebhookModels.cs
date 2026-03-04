@@ -212,6 +212,12 @@ namespace ShopifyAnalyticsApi.Models
         /// </summary>
         public string? Features { get; set; }
 
+        /// <summary>
+        /// 顧客数上限（NULL = 無制限）
+        /// 注文由来のユニーク顧客数（DISTINCT CustomerId FROM Orders）でカウント
+        /// </summary>
+        public int? MaxCustomers { get; set; }
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

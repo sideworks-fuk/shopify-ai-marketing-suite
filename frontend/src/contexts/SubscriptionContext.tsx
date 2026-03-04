@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
-import type { BillingPlan, Subscription, BillingInfo } from '@/types/billing';
+import type { BillingPlan, Subscription, BillingInfo, CustomerUsage } from '@/types/billing';
 
 // Feature access levels by plan
 const FEATURE_ACCESS = {
@@ -132,6 +132,7 @@ export interface SubscriptionContextType {
   loading: boolean;
   error: string | null;
   selectedFeature?: SelectedFeature | null;
+  customerUsage: CustomerUsage | null;
 
   // Actions
   canAccessFeature: (feature: string) => boolean;
@@ -157,6 +158,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeature | null>(null);
+  const [customerUsage, setCustomerUsage] = useState<CustomerUsage | null>(null);
   
   // インストールページまたはルートページではAPIを呼び出さない（認証が必要なAPIを呼び出すと401エラーが発生するため）
   // ルートページ（/）は認証状態を確認中で、認証が完了していない可能性があるため
@@ -191,12 +193,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       
       // Fetch current subscription
       try {
-        const subData = await apiClient.get<{ subscription: Subscription | null }>('/api/subscription/status');
+        const subData = await apiClient.get<{ subscription: Subscription | null; customerUsage?: CustomerUsage }>('/api/subscription/status');
         setSubscription(subData.subscription || null);
+        setCustomerUsage(subData.customerUsage || null);
       } catch (subErr: any) {
         // 404エラーの場合はサブスクリプションなしとして扱う
         if (subErr?.message?.includes('404') || subErr?.message?.includes('Not Found')) {
           setSubscription(null);
+          setCustomerUsage(null);
         } else {
           throw subErr;
         }
@@ -373,6 +377,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     loading,
     error,
     selectedFeature,
+    customerUsage,
     canAccessFeature,
     upgradePlan,
     cancelSubscription,

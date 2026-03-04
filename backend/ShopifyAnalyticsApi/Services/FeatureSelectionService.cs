@@ -348,16 +348,30 @@ namespace ShopifyAnalyticsApi.Services
             
             var planType = GetPlanType(subscription);
 
-            // 有料プランは全機能アクセス可能
+            // 有料プランは全機能アクセス可能（顧客数超過は警告のみ、ブロックしない）
             if (PlanTypes.IsPaidPlan(planType))
             {
+                var isCustomerOverLimit = false;
+                if (subscription?.Plan?.MaxCustomers != null)
+                {
+                    var customerCount = await _context.Orders
+                        .Where(o => o.StoreId == storeId && o.CustomerId != null)
+                        .Select(o => o.CustomerId)
+                        .Distinct()
+                        .CountAsync();
+                    isCustomerOverLimit = customerCount > subscription.Plan.MaxCustomers.Value;
+                }
+
                 await LogUsageAsync(storeId, featureId, "access", null, null, "success", null, null);
                 return new FeatureAccessResult
                 {
                     IsAllowed = true,
                     DeniedReason = null,
                     RequiredPlan = null,
-                    Message = "アクセスが許可されました"
+                    Message = isCustomerOverLimit
+                        ? "アクセスが許可されました（顧客数がプラン上限を超過しています。アップグレードをご検討ください）"
+                        : "アクセスが許可されました",
+                    IsCustomerOverLimit = isCustomerOverLimit
                 };
             }
 

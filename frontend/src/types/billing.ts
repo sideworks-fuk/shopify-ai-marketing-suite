@@ -8,6 +8,7 @@ export interface BillingPlan {
   isPopular?: boolean;
   maxProducts?: number;
   maxOrders?: number;
+  maxCustomers?: number;
 }
 
 export interface Subscription {
@@ -18,6 +19,13 @@ export interface Subscription {
   currentPeriodEnd: Date;
   trialEnd?: Date;
   cancelledAt?: Date;
+}
+
+export interface CustomerUsage {
+  currentCount: number;
+  maxCustomers: number | null;
+  isOverLimit: boolean;
+  usagePercentage: number | null;
 }
 
 export interface BillingInfo {

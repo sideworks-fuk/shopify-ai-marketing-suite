@@ -32,6 +32,7 @@ import { TrialBanner } from '@/components/billing/TrialBanner';
 // Import hooks
 import { useSubscription } from '@/hooks/useSubscription';
 import { useComprehensiveFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useSubscriptionContext } from '@/contexts/SubscriptionContext';
 
 interface BillingHistoryItem {
   id: string;
@@ -58,6 +59,7 @@ export default function BillingSettingsPage() {
   } = useSubscription({ autoRefresh: true });
 
   const { checkUsageLimit } = useComprehensiveFeatureAccess();
+  const { customerUsage } = useSubscriptionContext();
   
   const [activeTab, setActiveTab] = useState('overview');
   const [billingHistory, setBillingHistory] = useState<BillingHistoryItem[]>([]);
@@ -322,10 +324,66 @@ export default function BillingSettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Customer Usage */}
+            {customerUsage && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>顧客数（注文由来）</span>
+                    {customerUsage.isOverLimit && (
+                      <Badge variant="destructive">
+                        上限超過
+                      </Badge>
+                    )}
+                    {!customerUsage.isOverLimit && customerUsage.usagePercentage != null && customerUsage.usagePercentage >= 80 && (
+                      <Badge variant="secondary" className="bg-orange-100">
+                        制限に近づいています
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-2xl font-bold">
+                      <span>{customerUsage.currentCount.toLocaleString()}</span>
+                      <span className="text-gray-400">
+                        / {customerUsage.maxCustomers ? customerUsage.maxCustomers.toLocaleString() : '無制限'}
+                      </span>
+                    </div>
+                    {customerUsage.maxCustomers && (
+                      <>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              customerUsage.isOverLimit ? 'bg-red-500' :
+                              (customerUsage.usagePercentage ?? 0) >= 80 ? 'bg-orange-500' :
+                              'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, customerUsage.usagePercentage ?? 0)}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          使用率: {(customerUsage.usagePercentage ?? 0).toFixed(1)}%
+                        </p>
+                      </>
+                    )}
+                    {customerUsage.isOverLimit && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          顧客数がプランの上限を超えています。上位プランへのアップグレードをご検討ください。
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Usage Alerts */}
-          {(productUsage.isNearLimit || orderUsage.isNearLimit) && (
+          {(productUsage.isNearLimit || orderUsage.isNearLimit || customerUsage?.isOverLimit) && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>

@@ -81,6 +81,7 @@ docs/05-development/03-データベース/マイグレーション/
 | **2026-01-23-AddIsActiveToProducts.sql** | 2026-01-23 | 福田+AI | **ProductsテーブルにIsActiveカラムを追加（商品の論理削除対応）** | ✅ 適用済 (2026-01-23) | ⏳ 未適用 | ✅ 適用済 (2026-01-23) |
 | **20260128092303_AddIsTestToOrders** (EF) | 2026-01-28 | 福田+AI | **OrdersテーブルにIsTestカラムを追加（テスト注文フラグ。分析では本注文のみ対象のため除外に使用）** | ✅ 適用済 (2026-01-29) | ⏳ 未適用 | ✅ 適用済 (2026-01-29) |
 | **2026-01-28-AddIsTestToOrders.sql** | 2026-01-28 | 福田+AI | **上記EFと同等の手動SQL。EF未使用環境用。** | ✅ 適用済 (2026-01-29) | ⏳ 未適用 | ✅ 適用済 (2026-01-29) |
+| **2026-03-04-AddMaxCustomersToSubscriptionPlans.sql** | 2026-03-04 | 福田+AI | **SubscriptionPlansにMaxCustomersカラム追加 + Basicプラン追加 + 既存プラン価格・上限更新（B案: 注文由来の顧客数でプラン判定）** | ⏳ 未適用 | ⏳ 未適用 | ⏳ 未適用 |
 
 ## 適用済みマイグレーションまとめ（Development環境）
 

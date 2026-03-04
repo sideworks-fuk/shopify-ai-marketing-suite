@@ -55,6 +55,13 @@ namespace ShopifyAnalyticsApi.Controllers
                     .OrderByDescending(s => s.CreatedAt)
                     .FirstOrDefaultAsync();
 
+                // 注文由来のユニーク顧客数を算出
+                var customerCount = await _context.Orders
+                    .Where(o => o.StoreId == StoreId && o.CustomerId != null)
+                    .Select(o => o.CustomerId)
+                    .Distinct()
+                    .CountAsync();
+
                 if (subscription == null)
                 {
                     return Ok(new
@@ -62,7 +69,14 @@ namespace ShopifyAnalyticsApi.Controllers
                         hasActiveSubscription = false,
                         requiresPayment = true,
                         message = "No active subscription found",
-                        subscription = (object?)null
+                        subscription = (object?)null,
+                        customerUsage = new
+                        {
+                            currentCount = customerCount,
+                            maxCustomers = (int?)null,
+                            isOverLimit = false,
+                            usagePercentage = (double?)null
+                        }
                     });
                 }
 
@@ -89,6 +103,12 @@ namespace ShopifyAnalyticsApi.Controllers
                     planIdForFrontend = "starter";
                 }
 
+                var maxCustomers = subscription.Plan?.MaxCustomers;
+                var isOverLimit = maxCustomers.HasValue && customerCount > maxCustomers.Value;
+                var usagePercentage = maxCustomers.HasValue && maxCustomers.Value > 0
+                    ? (double)customerCount / maxCustomers.Value * 100.0
+                    : (double?)null;
+
                 return Ok(new
                 {
                     hasActiveSubscription = true,
@@ -112,6 +132,13 @@ namespace ShopifyAnalyticsApi.Controllers
                         features = subscription.Plan?.Features != null
                             ? JsonSerializer.Deserialize<object>(subscription.Plan.Features)
                             : null
+                    },
+                    customerUsage = new
+                    {
+                        currentCount = customerCount,
+                        maxCustomers = maxCustomers,
+                        isOverLimit = isOverLimit,
+                        usagePercentage = usagePercentage
                     }
                 });
             }
@@ -146,8 +173,9 @@ namespace ShopifyAnalyticsApi.Controllers
                     name = p.Name,
                     price = p.Price,
                     trialDays = p.TrialDays,
-                    features = p.Features != null 
-                        ? JsonSerializer.Deserialize<object>(p.Features) 
+                    maxCustomers = p.MaxCustomers,
+                    features = p.Features != null
+                        ? JsonSerializer.Deserialize<object>(p.Features)
                         : null
                 }).ToList();
 
