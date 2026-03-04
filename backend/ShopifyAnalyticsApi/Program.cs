@@ -214,6 +214,7 @@ builder.Services.AddScoped<ShopifyAnalyticsApi.Services.Sync.ISyncProgressTracke
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyProductSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyCustomerSyncJob>();
 builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.ShopifyOrderSyncJob>();
+builder.Services.AddScoped<ShopifyAnalyticsApi.Jobs.WebhookBackgroundJobs>();
 
 // Register Authentication Services (認証サービス)
 builder.Services.AddScoped<ShopifyAnalyticsApi.Services.IAuthenticationService, ShopifyAnalyticsApi.Services.AuthenticationService>();
