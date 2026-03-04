@@ -508,9 +508,10 @@ try
     using (var scope = app.Services.CreateScope())
     {
         ShopifyProductSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
-        ShopifyCustomerSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
+        // 顧客同期ジョブは登録しない（read_customersスコープ削除により Customers API 利用不可）
+        // 顧客データは注文同期時に ShopifyOrderSyncJob.ConvertToOrderEntity() で自動生成される
         ShopifyOrderSyncJob.RegisterRecurringJobs(scope.ServiceProvider);
-        Log.Information("All recurring sync jobs registered successfully");
+        Log.Information("All recurring sync jobs registered successfully (customer sync skipped - derived from orders)");
     }
 }
 catch (Exception ex)

@@ -271,25 +271,23 @@ namespace ShopifyAnalyticsApi.Controllers
                 }
 
                 // 各データタイプの同期をキューに追加
+                // 顧客同期はスキップ（read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
                 var productJobId = _backgroundJobClient.Enqueue<ShopifyProductSyncJob>(
                     job => job.SyncProducts(storeId, options));
-                
-                var customerJobId = _backgroundJobClient.Enqueue<ShopifyCustomerSyncJob>(
-                    job => job.SyncCustomers(storeId, options));
-                
+
                 var orderJobId = _backgroundJobClient.Enqueue<ShopifyOrderSyncJob>(
                     job => job.SyncOrders(storeId, options));
 
                 _logger.LogInformation(
-                    $"Full sync triggered for store {store.Name} (ID: {storeId})");
+                    "Full sync triggered for store {StoreName} (ID: {StoreId}). Customer sync skipped (derived from orders).",
+                    store.Name, storeId);
 
-                return Ok(new 
-                { 
-                    message = "Full sync started",
-                    jobs = new 
+                return Ok(new
+                {
+                    message = "Full sync started (customer data derived from orders)",
+                    jobs = new
                     {
                         products = productJobId,
-                        customers = customerJobId,
                         orders = orderJobId
                     },
                     storeId = storeId,
@@ -365,9 +363,8 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 var serviceProvider = HttpContext.RequestServices;
                 
-                // 各ジョブタイプの定期実行を再登録
+                // 各ジョブタイプの定期実行を再登録（顧客同期はスキップ: read_customersスコープ削除済み）
                 ShopifyProductSyncJob.RegisterRecurringJobs(serviceProvider);
-                ShopifyCustomerSyncJob.RegisterRecurringJobs(serviceProvider);
                 ShopifyOrderSyncJob.RegisterRecurringJobs(serviceProvider);
 
                 _logger.LogInformation(
@@ -409,16 +406,11 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 if (enabled)
                 {
-                    // 定期同期ジョブを登録
+                    // 定期同期ジョブを登録（顧客同期はスキップ: read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
                     RecurringJob.AddOrUpdate<ShopifyProductSyncJob>(
                         $"sync-products-store-{storeId}",
                         job => job.SyncProducts(storeId, null),
                         "0 */1 * * *"); // 1時間ごと
-
-                    RecurringJob.AddOrUpdate<ShopifyCustomerSyncJob>(
-                        $"sync-customers-store-{storeId}",
-                        job => job.SyncCustomers(storeId, null),
-                        "0 */2 * * *"); // 2時間ごと
 
                     RecurringJob.AddOrUpdate<ShopifyOrderSyncJob>(
                         $"sync-orders-store-{storeId}",

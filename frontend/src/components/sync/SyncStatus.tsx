@@ -28,7 +28,7 @@ export function SyncStatus({ type, status }: SyncStatusProps) {
       case 'products':
         return '商品データ';
       case 'customers':
-        return '顧客データ';
+        return '顧客データ（注文由来）';
       case 'orders':
         return '注文データ';
     }

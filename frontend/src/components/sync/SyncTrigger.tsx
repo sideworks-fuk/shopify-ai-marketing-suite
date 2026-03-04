@@ -74,19 +74,7 @@ export function SyncTrigger({ onSync }: SyncTriggerProps) {
           )}
           商品データのみ
         </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => handleSync('customers')}
-          disabled={isSyncing}
-          className="gap-2"
-        >
-          {syncingType === 'customers' ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Users className="h-4 w-4" />
-          )}
-          顧客データのみ
-        </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => handleSync('orders')}
           disabled={isSyncing}
           className="gap-2"

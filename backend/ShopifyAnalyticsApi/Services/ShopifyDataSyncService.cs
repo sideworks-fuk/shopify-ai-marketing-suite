@@ -130,13 +130,9 @@ namespace ShopifyAnalyticsApi.Services
                             $"sync-products-store-{store.Id}",
                             job => job.SyncProducts(store.Id, null),
                             Hangfire.Cron.Hourly);
-                        
-                        // 顧客同期ジョブ（2時間ごと）
-                        recurringJobManager.AddOrUpdate<ShopifyCustomerSyncJob>(
-                            $"sync-customers-store-{store.Id}",
-                            job => job.SyncCustomers(store.Id, null),
-                            "0 */2 * * *");
-                        
+
+                        // 顧客同期ジョブはスキップ（read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
+
                         // 注文同期ジョブ（3時間ごと）
                         recurringJobManager.AddOrUpdate<ShopifyOrderSyncJob>(
                             $"sync-orders-store-{store.Id}",
@@ -200,61 +196,10 @@ namespace ShopifyAnalyticsApi.Services
                     // 実際のジョブクラスを使用して同期を実行
                     _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 実際の同期モードで実行開始");
                     
-                    // 1. 顧客データ同期（SkipCustomersオプションでスキップ可能）
-                    int customerCount = 0;
-                    if (syncOptions.SkipCustomers)
-                    {
-                        _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ 顧客データ同期をスキップします（SkipCustomers=true）");
-                        _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ Protected Customer Dataへのアクセスが承認されていない可能性があります");
-                        _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ Shopify Partners管理画面でProtected Customer Dataへのアクセスを申請してください");
-                        customerCount = await _context.Customers.CountAsync(c => c.StoreId == store.Id);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("🟡 [ShopifyDataSyncService] 顧客データ同期開始");
-                        syncStatus.CurrentTask = "顧客データ取得中";
-                        await _context.SaveChangesAsync();
-                        
-                        try
-                        {
-                            await _customerSyncJob.SyncCustomers(store.Id, syncOptions);
-                            customerCount = await _context.Customers.CountAsync(c => c.StoreId == store.Id);
-                            syncStatus.CurrentTask = "顧客データ同期完了";
-                            await _context.SaveChangesAsync();
-                            
-                            _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 顧客データ同期完了: Count={CustomerCount}, StoreId={StoreId}", 
-                                customerCount, store.Id);
-                        }
-                        catch (Exception customerEx)
-                        {
-                            // Protected Customer Dataエラーの場合、警告を出して続行
-                            var errorMessage = customerEx.Message + (customerEx.InnerException != null ? " " + customerEx.InnerException.Message : "");
-                            var isProtectedCustomerDataError = 
-                                errorMessage.Contains("Protected customer data", StringComparison.OrdinalIgnoreCase) ||
-                                errorMessage.Contains("not approved to access REST endpoints", StringComparison.OrdinalIgnoreCase) ||
-                                errorMessage.Contains("protected-customer-data", StringComparison.OrdinalIgnoreCase) ||
-                                (customerEx is HttpRequestException && errorMessage.Contains("Forbidden", StringComparison.OrdinalIgnoreCase));
-                            
-                            if (isProtectedCustomerDataError)
-                            {
-                                _logger.LogWarning(customerEx, "🟡 [ShopifyDataSyncService] ⚠️ 顧客データ同期が失敗しました（Protected Customer Data未承認）");
-                                _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ エラー詳細: {ErrorMessage}", errorMessage);
-                                _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ 商品・注文データの同期を続行します");
-                                _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ Shopify Partners管理画面でProtected Customer Dataへのアクセスを申請してください:");
-                                _logger.LogWarning("🟡 [ShopifyDataSyncService] ⚠️ https://partners.shopify.com → Apps → EC Ranger → App setup → Protected customer data");
-                                customerCount = await _context.Customers.CountAsync(c => c.StoreId == store.Id);
-                                syncStatus.CurrentTask = "顧客データ同期スキップ（Protected Customer Data未承認）";
-                                syncStatus.ErrorMessage = $"顧客データ同期がスキップされました: Protected Customer Data未承認。詳細: {errorMessage}";
-                                await _context.SaveChangesAsync();
-                            }
-                            else
-                            {
-                                // その他のエラーは再スロー
-                                _logger.LogError(customerEx, "🟡 [ShopifyDataSyncService] ❌ 顧客データ同期で予期しないエラーが発生しました");
-                                throw;
-                            }
-                        }
-                    }
+                    // 1. 顧客データは注文同期時に自動生成されるため、個別の顧客同期はスキップ
+                    // （read_customersスコープ削除済み。顧客はShopifyOrderSyncJob.ConvertToOrderEntity()で注文データから自動生成）
+                    int customerCount = await _context.Customers.CountAsync(c => c.StoreId == store.Id);
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 顧客データは注文同期時に自動生成されます（現在のDB顧客数: {CustomerCount}）", customerCount);
 
                     // 2. 商品データ同期
                     _logger.LogInformation("🟡 [ShopifyDataSyncService] 商品データ同期開始");

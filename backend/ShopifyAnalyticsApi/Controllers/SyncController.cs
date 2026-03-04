@@ -281,11 +281,7 @@ namespace ShopifyAnalyticsApi.Controllers
                     .OrderByDescending(s => s.EndDate)
                     .FirstOrDefaultAsync();
 
-                var lastCustomerSync = await _context.SyncStatuses
-                    .Where(s => s.StoreId == currentStore.Id && s.EntityType == "Customer")
-                    .OrderByDescending(s => s.EndDate)
-                    .FirstOrDefaultAsync();
-
+                // 顧客同期は注文同期に統合されたため、顧客ステータスは注文同期に連動
                 var lastOrderSync = await _context.SyncStatuses
                     .Where(s => s.StoreId == currentStore.Id && s.EntityType == "Order")
                     .OrderByDescending(s => s.EndDate)
@@ -308,12 +304,13 @@ namespace ShopifyAnalyticsApi.Controllers
                     },
                     customers = new
                     {
-                        status = lastCustomerSync?.Status == "running" ? "syncing" :
-                                lastCustomerSync?.Status == "failed" ? "error" : "synced",
+                        // 顧客データは注文同期時に自動生成されるため、注文同期ステータスに連動
+                        status = lastOrderSync?.Status == "running" ? "syncing" :
+                                lastOrderSync?.Status == "failed" ? "error" : "synced",
                         count = customerCount,
-                        lastSyncAt = lastCustomerSync?.EndDate?.ToString("o"),
-                        nextSyncAt = lastCustomerSync?.EndDate?.AddHours(6).ToString("o"),
-                        error = lastCustomerSync?.Status == "failed" ? lastCustomerSync.ErrorMessage : null
+                        lastSyncAt = lastOrderSync?.EndDate?.ToString("o"),
+                        nextSyncAt = lastOrderSync?.EndDate?.AddHours(6).ToString("o"),
+                        error = (string)null
                     },
                     orders = new
                     {
