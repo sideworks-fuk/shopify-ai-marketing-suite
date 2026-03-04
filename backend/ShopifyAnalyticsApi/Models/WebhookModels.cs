@@ -317,4 +317,24 @@ namespace ShopifyAnalyticsApi.Models
         public string? ConfirmationUrl { get; set; }
         public string? ErrorMessage { get; set; }
     }
+
+    /// <summary>
+    /// Shopify app_subscriptions/update, app_subscriptions/cancel Webhook ペイロード
+    /// </summary>
+    public class AppSubscriptionWebhook
+    {
+        public AppSubscriptionInfo? AppSubscription { get; set; }
+    }
+
+    public class AppSubscriptionInfo
+    {
+        public string? AdminGraphqlApiId { get; set; }
+        public string? Name { get; set; }
+        public string? Status { get; set; }
+        public string? CurrentPeriodEnd { get; set; }
+        public int? TrialDays { get; set; }
+        public bool Test { get; set; }
+        public decimal? Price { get; set; }
+        public string? CurrencyCode { get; set; }
+    }
 }

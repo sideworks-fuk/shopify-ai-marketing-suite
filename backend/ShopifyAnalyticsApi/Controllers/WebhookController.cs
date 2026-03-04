@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using ShopifyAnalyticsApi.Helpers;
+using ShopifyAnalyticsApi.Jobs;
 using Microsoft.Extensions.DependencyInjection;
 using Hangfire;
 
@@ -89,23 +90,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 var requestId = LoggingHelper.GetOrCreateRequestId(HttpContext);
                 _logger.LogInformation("App uninstall notification received Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", shopDomain, topic, webhookId, correlationId, requestId);
 
-                // 非同期で処理を実行（ローカル変数をキャプチャ）
-                var capturedShopDomain = shopDomain;
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        // 1. 課金をキャンセル（Shopify側とローカル両方を冪等に処理）
-                        await CancelStoreSubscription(capturedShopDomain);
-                        
-                        // 2. データ削除をスケジュール（48時間以内）
-                        await ScheduleDataDeletion(capturedShopDomain, 48);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during uninstall processing. Shop: {Shop}", capturedShopDomain);
-                    }
-                });
+                // Hangfireジョブとして実行（新しいDIスコープでDbContextが解決される）
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessAppUninstalled(shopDomain));
 
                 // 即座に200 OKを返す（5秒ルール）
                 started.Stop();
@@ -155,27 +141,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("顧客データ削除要求受信 Shop={Shop} CustomerId={CustomerId} Topic={Topic} WebhookId={WebhookId}", 
                     webhook.ShopDomain, webhook.Customer.Id, topic, webhookId);
 
-                // GDPRサービスでリクエストを作成
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var request = await _gdprService.CreateRequestAsync(
-                            webhook.ShopDomain, 
-                            "customers_redact", 
-                            body);
-                        
-                        // 開発環境では即座に処理
-                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
-                        {
-                            await _gdprService.ProcessCustomerRedactAsync(request.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during customer data deletion processing. Shop: {Shop}", webhook.ShopDomain);
-                    }
-                });
+                // Hangfireジョブとして実行
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessCustomersRedact(webhook.ShopDomain, body));
 
                 started.Stop();
                 _logger.LogInformation("customers/redact accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
@@ -222,27 +189,8 @@ namespace ShopifyAnalyticsApi.Controllers
 
                 _logger.LogInformation("ショップデータ削除要求受信 Shop={Shop} Topic={Topic} WebhookId={WebhookId}", webhook.Domain, topic, webhookId);
 
-                // GDPRサービスでリクエストを作成
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var request = await _gdprService.CreateRequestAsync(
-                            webhook.Domain, 
-                            "shop_redact", 
-                            body);
-                        
-                        // 開発環境では即座に処理
-                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
-                        {
-                            await _gdprService.ProcessShopRedactAsync(request.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during shop data deletion processing. Shop: {Shop}", webhook.Domain);
-                    }
-                });
+                // Hangfireジョブとして実行
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessShopRedact(webhook.Domain, body));
 
                 started.Stop();
                 _logger.LogInformation("shop/redact accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.Domain, webhookId, started.ElapsedMilliseconds);
@@ -290,27 +238,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("顧客データ提供要求受信 Shop={Shop} CustomerId={CustomerId} Topic={Topic} WebhookId={WebhookId}", 
                     webhook.ShopDomain, webhook.Customer.Id, topic, webhookId);
 
-                // GDPRサービスでリクエストを作成
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var request = await _gdprService.CreateRequestAsync(
-                            webhook.ShopDomain, 
-                            "customers_data_request", 
-                            body);
-                        
-                        // 開発環境では即座に処理
-                        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
-                        {
-                            await _gdprService.ProcessCustomerDataRequestAsync(request.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during customer data export processing. Shop: {Shop}", webhook.ShopDomain);
-                    }
-                });
+                // Hangfireジョブとして実行
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessCustomersDataRequest(webhook.ShopDomain, body));
 
                 started.Stop();
                 _logger.LogInformation("customers/data_request accepted Shop={Shop} WebhookId={WebhookId} LatencyMs={Latency}", webhook.ShopDomain, webhookId, started.ElapsedMilliseconds);
@@ -357,18 +286,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("サブスクリプション更新通知受信. ChargeId: {ChargeId}, Status: {Status}", 
                     webhook.AppSubscription.AdminGraphqlApiId, webhook.AppSubscription.Status);
 
-                // 非同期でサブスクリプション更新処理
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await ProcessSubscriptionUpdate(webhook);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during subscription update processing");
-                    }
-                });
+                // Hangfireジョブとして実行
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessSubscriptionUpdate(body));
 
                 started.Stop();
                 _logger.LogInformation("subscriptions-update accepted WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
@@ -415,18 +334,8 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("サブスクリプションキャンセル通知受信. ChargeId: {ChargeId}", 
                     webhook.AppSubscription.AdminGraphqlApiId);
 
-                // 非同期でサブスクリプションキャンセル処理
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await ProcessSubscriptionCancel(webhook);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error occurred during subscription cancellation processing");
-                    }
-                });
+                // Hangfireジョブとして実行
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessSubscriptionCancel(body));
 
                 started.Stop();
                 _logger.LogInformation("subscriptions-cancel accepted WebhookId={WebhookId} LatencyMs={Latency}", webhookId, started.ElapsedMilliseconds);
@@ -588,394 +497,12 @@ namespace ShopifyAnalyticsApi.Controllers
             return body;
         }
 
-        /// <summary>
-        /// ストアのサブスクリプションをキャンセル
-        /// </summary>
-        private async Task CancelStoreSubscription(string shopDomain)
-        {
-            try
-            {
-                _logger.LogInformation("サブスクリプションをキャンセル. Shop: {Shop}", shopDomain);
+        // CancelStoreSubscription → WebhookBackgroundJobs.ProcessAppUninstalled に移動
 
-                // ストアを検索
-                var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
-                if (store == null)
-                {
-                    _logger.LogWarning("ストアが見つかりません. Shop: {Shop}", shopDomain);
-                    return;
-                }
-
-                // まずShopify側/ローカル双方を内包するサービス経由でキャンセル（冪等）
-                using (var scope = _serviceProvider.CreateScope())
-                {
-                    var subscriptionService = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
-                    var result = await subscriptionService.CancelSubscriptionAsync(store.Id);
-                    if (!result.Success)
-                    {
-                        _logger.LogWarning("サービス経由のキャンセルに失敗したためローカル更新を試行. Shop: {Shop}", shopDomain);
-
-                        // フォールバック: ローカルのみキャンセル
-                        var activeSubscription = await _context.StoreSubscriptions
-                            .Where(s => s.StoreId == store.Id && (s.Status == "ACTIVE" || s.Status == "PENDING"))
-                            .FirstOrDefaultAsync();
-                        if (activeSubscription != null)
-                        {
-                            activeSubscription.Status = "CANCELLED";
-                            activeSubscription.CancelledAt = DateTime.UtcNow;
-                            activeSubscription.UpdatedAt = DateTime.UtcNow;
-                            await _context.SaveChangesAsync();
-                            _logger.LogInformation("ローカルのみキャンセル完了. Shop: {Shop}, SubscriptionId: {SubId}", shopDomain, activeSubscription.Id);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "サブスクリプションキャンセル中にエラー. Shop: {Shop}", shopDomain);
-                // エラーを再スローして上位でハンドリング
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// データ削除をスケジュールする
-        /// </summary>
-        private async Task ScheduleDataDeletion(string shopDomain, int daysToDelete)
-        {
-            _logger.LogInformation("データ削除をスケジュール. Shop: {Shop}, Days: {Days}", shopDomain, daysToDelete);
-
-            // Webhook履歴を記録（Domain変更前に実行）
-            await LogWebhookEvent(shopDomain, "app/uninstalled", new { daysToDelete, scheduledDeletionDate = DateTime.UtcNow.AddDays(daysToDelete) });
-
-            // ストアを非アクティブ化
-            var store = await _context.Stores.FirstOrDefaultAsync(s => s.Domain == shopDomain);
-            if (store != null)
-            {
-                // 元のDomainをSettingsに保存（再インストール時の検索用）
-                var settings = string.IsNullOrEmpty(store.Settings) 
-                    ? new Dictionary<string, object>() 
-                    : JsonSerializer.Deserialize<Dictionary<string, object>>(store.Settings) ?? new Dictionary<string, object>();
-                
-                settings["OriginalDomain"] = store.Domain; // 元のDomainを保存
-                settings["UninstalledAt"] = DateTime.UtcNow;
-                settings["ScheduledDeletionDate"] = DateTime.UtcNow.AddDays(daysToDelete);
-                
-                // ストアを非アクティブ化（Domainは維持 — 再インストール時にSaveOrUpdateStoreで検索可能にする）
-                store.IsActive = false;
-                store.UpdatedAt = DateTime.UtcNow;
-
-                // AccessTokenをクリア（セキュリティのため）
-                store.AccessToken = null;
-
-                store.Settings = JsonSerializer.Serialize(settings);
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("ストアを非アクティブ化. Shop: {Shop}, StoreId: {StoreId}", shopDomain, store.Id);
-
-                // 定期同期ジョブをキャンセル（アンインストール済みストアへの無駄なAPI呼び出しを防ぐ）
-                RecurringJob.RemoveIfExists($"sync-products-store-{store.Id}");
-                RecurringJob.RemoveIfExists($"sync-customers-store-{store.Id}");
-                RecurringJob.RemoveIfExists($"sync-orders-store-{store.Id}");
-                _logger.LogInformation("定期同期ジョブを削除. Shop: {Shop}, StoreId: {StoreId}", shopDomain, store.Id);
-
-                // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
-                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
-                {
-                    _logger.LogWarning("開発環境のため、即座にデータを削除します. Shop: {Shop}", shopDomain);
-                    await _dataCleanupService.DeleteStoreDataAsync(shopDomain);
-                }
-                else
-                {
-                    // 本番環境: Hangfireで遅延ジョブをスケジュール
-                    var scheduledTime = TimeSpan.FromHours(daysToDelete);
-                    var jobId = BackgroundJob.Schedule<IDataCleanupService>(
-                        service => service.DeleteStoreDataAsync(shopDomain),
-                        scheduledTime);
-
-                    // 再インストール時にキャンセルできるようJobIdをSettingsに保存
-                    settings["DeletionJobId"] = jobId;
-                    store.Settings = JsonSerializer.Serialize(settings);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation(
-                        "ストアデータ削除をスケジュール. Shop: {Shop}, JobId: {JobId}, 予定: {Hours}時間後",
-                        shopDomain, jobId, daysToDelete);
-                }
-            }
-        }
-
-        /// <summary>
-        /// 顧客データ削除をスケジュールする
-        /// </summary>
-        private async Task ScheduleCustomerDataDeletion(string shopDomain, long customerId, int daysToDelete)
-        {
-            _logger.LogInformation("顧客データ削除をスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, Days: {Days}", 
-                shopDomain, customerId, daysToDelete);
-
-            // Webhook履歴を記録
-            await LogWebhookEvent(shopDomain, "customers/redact", new { customerId, daysToDelete });
-            
-            // 開発環境では即座に削除、本番環境ではHangfireでスケジュール
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" || daysToDelete == 0)
-            {
-                _logger.LogWarning("開発環境のため、即座に顧客データを削除します. Shop: {Shop}, CustomerId: {CustomerId}", shopDomain, customerId);
-                await _dataCleanupService.DeleteCustomerDataAsync(shopDomain, customerId);
-            }
-            else
-            {
-                // 本番環境: Hangfireで遅延ジョブをスケジュール
-                var scheduledTime = TimeSpan.FromDays(daysToDelete);
-                var jobId = BackgroundJob.Schedule<IDataCleanupService>(
-                    service => service.DeleteCustomerDataAsync(shopDomain, customerId),
-                    scheduledTime);
-                
-                _logger.LogInformation(
-                    "顧客データ削除をスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, JobId: {JobId}, 予定: {Days}日後",
-                    shopDomain, customerId, jobId, daysToDelete);
-            }
-        }
-
-        /// <summary>
-        /// ショップデータ削除をスケジュールする
-        /// </summary>
-        private async Task ScheduleShopDataDeletion(string shopDomain, int daysToDelete)
-        {
-            _logger.LogInformation("ショップデータ削除をスケジュール. Shop: {Shop}, Days: {Days}", 
-                shopDomain, daysToDelete);
-
-            // Webhook履歴を記録
-            await LogWebhookEvent(shopDomain, "shop/redact", new { daysToDelete });
-
-            // 本番環境: Hangfireで遅延ジョブをスケジュール
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != "Development")
-            {
-                var scheduledTime = TimeSpan.FromDays(daysToDelete);
-                var jobId = BackgroundJob.Schedule<IDataCleanupService>(
-                    service => service.DeleteStoreDataAsync(shopDomain),
-                    scheduledTime);
-                
-                _logger.LogInformation(
-                    "ショップデータ削除ジョブをスケジュール. Shop: {Shop}, JobId: {JobId}, 予定: {Days}日後",
-                    shopDomain, jobId, daysToDelete);
-            }
-            else
-            {
-                _logger.LogWarning("開発環境のため、即座にショップデータを削除します. Shop: {Shop}", shopDomain);
-                await _dataCleanupService.DeleteStoreDataAsync(shopDomain);
-            }
-        }
-
-        /// <summary>
-        /// 顧客データエクスポートをスケジュールする
-        /// </summary>
-        private async Task ScheduleCustomerDataExport(string shopDomain, long customerId, long requestId)
-        {
-            _logger.LogInformation("顧客データエクスポートをスケジュール. Shop: {Shop}, CustomerId: {CustomerId}, RequestId: {RequestId}", 
-                shopDomain, customerId, requestId);
-
-            // Webhook履歴を記録
-            await LogWebhookEvent(shopDomain, "customers/data_request", new { customerId, requestId });
-
-            // 注: customers/data_request は GDPRService.ProcessCustomerDataRequestAsync() で
-            // 非同期に処理されるため、ここでのスケジューリングは不要
-            // GdprProcessingJob が5分ごとにpendingリクエストを処理する
-        }
-
-        /// <summary>
-        /// サブスクリプション更新を処理する
-        /// </summary>
-        private async Task ProcessSubscriptionUpdate(AppSubscriptionWebhook webhook)
-        {
-            if (webhook?.AppSubscription == null) return;
-
-            try
-            {
-                // ChargeIDからストアを特定
-                var chargeIdString = webhook.AppSubscription.AdminGraphqlApiId?.Replace("gid://shopify/AppSubscription/", "");
-                if (!long.TryParse(chargeIdString, out var chargeId))
-                {
-                    _logger.LogWarning("無効なChargeId: {ChargeId}", webhook.AppSubscription.AdminGraphqlApiId);
-                    return;
-                }
-
-                var subscription = await _context.StoreSubscriptions
-                    .Include(s => s.Store)
-                    .FirstOrDefaultAsync(s => s.ShopifyChargeId == chargeId);
-
-                if (subscription == null)
-                {
-                    _logger.LogWarning("サブスクリプションが見つかりません. ChargeId: {ChargeId}", chargeId);
-                    return;
-                }
-
-                // 以前のステータスを保存
-                var previousStatus = subscription.Status;
-                var previousPlanName = subscription.PlanName;
-
-                // ステータスを更新
-                subscription.Status = webhook.AppSubscription.Status?.ToLower() ?? "unknown";
-                subscription.UpdatedAt = DateTime.UtcNow;
-
-                // プラン名を更新
-                if (!string.IsNullOrEmpty(webhook.AppSubscription.Name))
-                {
-                    subscription.PlanName = webhook.AppSubscription.Name;
-                }
-
-                // トライアル期間の更新
-                if (webhook.AppSubscription.TrialDays.HasValue)
-                {
-                    subscription.TrialEndsAt = subscription.CreatedAt.AddDays(webhook.AppSubscription.TrialDays.Value);
-                }
-
-                // 現在の期間終了日を更新
-                if (!string.IsNullOrEmpty(webhook.AppSubscription.CurrentPeriodEnd))
-                {
-                    if (DateTime.TryParse(webhook.AppSubscription.CurrentPeriodEnd, out var periodEnd))
-                    {
-                        subscription.CurrentPeriodEnd = periodEnd;
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-
-                // プラン変更を検出して機能アクセスを更新
-                using (var scope = _serviceProvider.CreateScope())
-                {
-                    var featureService = scope.ServiceProvider.GetRequiredService<IFeatureSelectionService>();
-                    var memoryCache = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
-                    
-                    var storeId = subscription.StoreId.ToString();
-                    
-                    // 無料プランへのダウングレードを検出
-                    if (IsDowngradeToFree(previousPlanName, webhook.AppSubscription.Name, previousStatus, subscription.Status))
-                    {
-                        _logger.LogInformation("無料プランへのダウングレードを検出. StoreId: {StoreId}", storeId);
-                        
-                        // 最後に選択された機能のみを有効化
-                        var selectedFeatures = await featureService.GetSelectedFeaturesAsync(storeId);
-                        if (selectedFeatures != null && selectedFeatures.Any())
-                        {
-                            // 最新の1機能のみを保持
-                            var latestFeature = selectedFeatures.Last();
-                            await featureService.UpdateSelectedFeaturesAsync(storeId, new[] { latestFeature });
-                            
-                            _logger.LogInformation("無料プランの機能制限を適用. StoreId: {StoreId}, Feature: {Feature}", 
-                                storeId, latestFeature);
-                        }
-                    }
-                    // 有料プランへのアップグレードを検出
-                    else if (IsUpgradeToPaid(previousPlanName, webhook.AppSubscription.Name, previousStatus, subscription.Status))
-                    {
-                        _logger.LogInformation("有料プランへのアップグレードを検出. StoreId: {StoreId}", storeId);
-                        
-                        // 全機能を即座に解放（全機能を選択状態にする）
-                        var allFeatures = FeatureConstants.FreeSelectableFeatures
-                            .Select(f => new AvailableFeature 
-                            { 
-                                FeatureId = f,
-                                DisplayName = FeatureConstants.FeatureDisplayNames[f],
-                                Description = FeatureConstants.FeatureDescriptions[f],
-                                IsAccessible = true
-                            });
-                        await featureService.UpdateSelectedFeaturesAsync(storeId, allFeatures);
-                        
-                        _logger.LogInformation("有料プランの全機能を解放. StoreId: {StoreId}", storeId);
-                    }
-                    
-                    // キャッシュをクリア
-                    memoryCache.Remove($"feature_access_{storeId}");
-                    memoryCache.Remove($"feature_selection_{storeId}");
-                }
-
-                // Webhookイベントを記録
-                await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/update", webhook);
-
-                _logger.LogInformation("Subscription update completed. StoreId: {StoreId}, Status: {Status}, Plan: {Plan}", 
-                    subscription.StoreId, subscription.Status, subscription.PlanName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during subscription update processing");
-            }
-        }
-
-        /// <summary>
-        /// 無料プランへのダウングレードかどうかを判定
-        /// </summary>
-        private bool IsDowngradeToFree(string previousPlan, string newPlan, string previousStatus, string newStatus)
-        {
-            // プラン名で判定
-            var isFreeNow = string.Equals(newPlan, "Free", StringComparison.OrdinalIgnoreCase);
-            var wasPaidBefore = !string.Equals(previousPlan, "Free", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(previousPlan);
-            
-            // ステータスで判定（ACTIVEからキャンセルへ）
-            var wasActive = string.Equals(previousStatus, "active", StringComparison.OrdinalIgnoreCase);
-            var isCancelled = string.Equals(newStatus, "cancelled", StringComparison.OrdinalIgnoreCase);
-            
-            return (isFreeNow && wasPaidBefore) || (wasActive && isCancelled);
-        }
-
-        /// <summary>
-        /// 有料プランへのアップグレードかどうかを判定
-        /// </summary>
-        private bool IsUpgradeToPaid(string previousPlan, string newPlan, string previousStatus, string newStatus)
-        {
-            // プラン名で判定
-            var isPaidNow = !string.Equals(newPlan, "Free", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(newPlan);
-            var wasFreeBefore = string.Equals(previousPlan, "Free", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(previousPlan);
-            
-            // ステータスで判定（非アクティブからACTIVEへ）
-            var isActiveNow = string.Equals(newStatus, "active", StringComparison.OrdinalIgnoreCase);
-            
-            return (isPaidNow && wasFreeBefore) || (isPaidNow && isActiveNow);
-        }
-
-        /// <summary>
-        /// サブスクリプションキャンセルを処理する
-        /// </summary>
-        private async Task ProcessSubscriptionCancel(AppSubscriptionWebhook webhook)
-        {
-            if (webhook?.AppSubscription == null) return;
-
-            try
-            {
-                // ChargeIDからストアを特定
-                var chargeIdString = webhook.AppSubscription.AdminGraphqlApiId?.Replace("gid://shopify/AppSubscription/", "");
-                if (!long.TryParse(chargeIdString, out var chargeId))
-                {
-                    _logger.LogWarning("無効なChargeId: {ChargeId}", webhook.AppSubscription.AdminGraphqlApiId);
-                    return;
-                }
-
-                var subscription = await _context.StoreSubscriptions
-                    .Include(s => s.Store)
-                    .FirstOrDefaultAsync(s => s.ShopifyChargeId == chargeId);
-
-                if (subscription == null)
-                {
-                    _logger.LogWarning("サブスクリプションが見つかりません. ChargeId: {ChargeId}", chargeId);
-                    return;
-                }
-
-                // ステータスをキャンセルに更新
-                subscription.Status = "cancelled";
-                subscription.CancelledAt = DateTime.UtcNow;
-                subscription.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                // Webhookイベントを記録
-                await LogWebhookEvent(subscription.Store?.Domain ?? "", "app_subscriptions/cancel", webhook);
-
-                _logger.LogInformation("Subscription cancellation completed. StoreId: {StoreId}", subscription.StoreId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during subscription cancellation processing");
-            }
-        }
+        // ScheduleDataDeletion, ScheduleCustomerDataDeletion, ScheduleShopDataDeletion,
+        // ScheduleCustomerDataExport, ProcessSubscriptionUpdate, ProcessSubscriptionCancel,
+        // IsDowngradeToFree, IsUpgradeToPaid
+        // → WebhookBackgroundJobs に移動済み
 
         /// <summary>
         /// Webhookイベントをログに記録する
@@ -1150,21 +677,6 @@ namespace ShopifyAnalyticsApi.Controllers
             public long Id { get; set; }
         }
 
-        private class AppSubscriptionWebhook
-        {
-            public AppSubscriptionInfo? AppSubscription { get; set; }
-        }
-
-        private class AppSubscriptionInfo
-        {
-            public string? AdminGraphqlApiId { get; set; }
-            public string? Name { get; set; }
-            public string? Status { get; set; }
-            public string? CurrentPeriodEnd { get; set; }
-            public int? TrialDays { get; set; }
-            public bool Test { get; set; }
-            public decimal? Price { get; set; }
-            public string? CurrencyCode { get; set; }
-        }
+        // AppSubscriptionWebhook, AppSubscriptionInfo → Models/WebhookModels.cs に移動済み
     }
 }
