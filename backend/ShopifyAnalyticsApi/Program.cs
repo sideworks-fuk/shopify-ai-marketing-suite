@@ -194,6 +194,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 // Register Data Cleanup Service (データクリーンアップサービス)
 builder.Services.AddScoped<IDataCleanupService, DataCleanupService>();
 
+// Register Data Retention Service (データ保持期間管理サービス)
+builder.Services.AddScoped<IDataRetentionService, DataRetentionService>();
+
 // Register GDPR Service (GDPR準拠サービス)
 builder.Services.AddScoped<IGDPRService, GDPRService>();
 
@@ -502,6 +505,12 @@ RecurringJob.AddOrUpdate<GdprProcessingJob>(
     "gdpr-process-pending",
     job => job.ProcessPendingRequests(),
     "*/5 * * * *");
+
+// データ保持期間: 定期削除ジョブ（毎週日曜3時）
+RecurringJob.AddOrUpdate<DataRetentionJob>(
+    "data-retention-cleanup",
+    job => job.ExecuteRetentionCleanup(),
+    "0 3 * * 0");
 
 // データ同期の定期ジョブを自動登録
 try

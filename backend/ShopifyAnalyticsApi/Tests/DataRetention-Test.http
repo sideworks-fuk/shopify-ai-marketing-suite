@@ -1,0 +1,62 @@
+### データ保持期間管理テスト用HTTPファイル
+### VS Code REST Client拡張機能を使用して実行できます
+###
+### セキュリティ要件8: データ保持期間の定義・適用
+### - シナリオA: アンインストール済みストアのデータ削除
+### - シナリオB: アクティブストアの保持期間超過データ削除
+
+@baseUrl = http://localhost:5168
+@storeId = 18
+@token = YOUR_TOKEN_HERE
+
+### ========================================
+### 0. 開発者認証でトークンを取得
+### ========================================
+POST {{baseUrl}}/api/developer/login
+Content-Type: application/json
+
+{
+  "password": "dev2026"
+}
+
+### ========================================
+### 1. プレビュー（ドライラン）- 全ストア
+### ========================================
+### 削除対象の件数を確認（実際の削除は行わない）
+GET {{baseUrl}}/api/admin/data-retention/preview
+Authorization: Bearer {{token}}
+
+### ========================================
+### 2. プレビュー（ドライラン）- 特定ストア
+### ========================================
+GET {{baseUrl}}/api/admin/data-retention/preview?storeId={{storeId}}
+Authorization: Bearer {{token}}
+
+### ========================================
+### 3. 即時実行 - 全ストア
+### ========================================
+### ⚠️ 注意: 実際にデータを削除します
+POST {{baseUrl}}/api/admin/data-retention/execute
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{}
+
+### ========================================
+### 4. 即時実行 - 特定ストア
+### ========================================
+### ⚠️ 注意: 実際にデータを削除します
+POST {{baseUrl}}/api/admin/data-retention/execute
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "storeId": {{storeId}}
+}
+
+### ========================================
+### 5. Hangfireジョブとしてキュー追加
+### ========================================
+### バックグラウンドで実行。結果はHangfireダッシュボードで確認
+POST {{baseUrl}}/api/admin/data-retention/enqueue
+Authorization: Bearer {{token}}
