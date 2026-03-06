@@ -91,7 +91,7 @@ namespace ShopifyAnalyticsApi.Controllers
                 _logger.LogInformation("App uninstall notification received Shop={Shop} Topic={Topic} WebhookId={WebhookId} CorrelationId={CorrelationId} RequestId={RequestId}", shopDomain, topic, webhookId, correlationId, requestId);
 
                 // Hangfireジョブとして実行（新しいDIスコープでDbContextが解決される）
-                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessAppUninstalled(shopDomain));
+                BackgroundJob.Enqueue<WebhookBackgroundJobs>(job => job.ProcessAppUninstalled(shopDomain, DateTime.UtcNow));
 
                 // 即座に200 OKを返す（5秒ルール）
                 started.Stop();

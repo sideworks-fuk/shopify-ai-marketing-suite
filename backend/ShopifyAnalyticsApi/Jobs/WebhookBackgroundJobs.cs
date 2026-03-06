@@ -39,34 +39,41 @@ namespace ShopifyAnalyticsApi.Jobs
         /// app/uninstalled: サブスクリプションキャンセル + データ削除スケジュール
         /// </summary>
         [AutomaticRetry(Attempts = 3)]
-        public async Task ProcessAppUninstalled(string shopDomain)
+        public async Task ProcessAppUninstalled(string shopDomain, DateTime webhookReceivedAt)
         {
             _logger.LogInformation("[WebhookJob] app/uninstalled 処理開始. Shop: {Shop}", shopDomain);
 
             // ✅ 再インストール後の遅延Webhook検知
-            // SaveOrUpdateStore は再インストール時に旧ストアの Domain=null かつ Settings.OriginalDomain=shopDomain を設定する。
-            // 遅延Webhookが届いた時点で非アクティブな旧ストア（OriginalDomain一致）が存在する場合、
-            // 現在アクティブなストアは再インストール済みの新ストアであるため、処理をスキップする。
-            var inactiveStores = await _context.Stores
-                .Where(s => !s.IsActive && !string.IsNullOrEmpty(s.Settings))
-                .ToListAsync();
+            // Webhookが届いた時点でのアクティブストアのInstalledAtが
+            // Webhook受信時刻(webhookReceivedAt)より新しい場合、
+            // アンインストール後に再インストールが行われた = 遅延Webhook → スキップ。
+            //
+            // 旧実装（OriginalDomain一致のみ）では、過去テストサイクルの孤立ストアが
+            // 誤って引っかかる偽陽性が発生していたため、タイムスタンプ比較方式に変更。
+            var activeStore = await _context.Stores
+                .Where(s => s.IsActive && s.Domain == shopDomain && !string.IsNullOrEmpty(s.Settings))
+                .FirstOrDefaultAsync();
 
-            var isDelayedWebhookAfterReinstall = inactiveStores.Any(s =>
+            if (activeStore != null)
             {
                 try
                 {
-                    var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(s.Settings!);
-                    return settings != null
-                        && settings.TryGetValue("OriginalDomain", out var od)
-                        && od.GetString() == shopDomain;
+                    var activeSettings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(activeStore.Settings!);
+                    if (activeSettings != null
+                        && activeSettings.TryGetValue("InstalledAt", out var ia)
+                        && DateTime.TryParse(ia.GetString(), out var installedAt)
+                        && installedAt > webhookReceivedAt)
+                    {
+                        _logger.LogWarning(
+                            "[WebhookJob] 再インストール後の遅延Webhookを検知。処理をスキップ. Shop: {Shop}, InstalledAt: {InstalledAt}, WebhookReceivedAt: {ReceivedAt}",
+                            shopDomain, installedAt, webhookReceivedAt);
+                        return;
+                    }
                 }
-                catch { return false; }
-            });
-
-            if (isDelayedWebhookAfterReinstall)
-            {
-                _logger.LogWarning("[WebhookJob] 再インストール後の遅延Webhookを検知。処理をスキップ. Shop: {Shop}", shopDomain);
-                return;
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[WebhookJob] InstalledAt パース失敗。通常処理を継続. Shop: {Shop}", shopDomain);
+                }
             }
 
             // 1. 課金をキャンセル
