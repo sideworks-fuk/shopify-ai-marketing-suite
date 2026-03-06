@@ -769,10 +769,12 @@ export default function DormantCustomersPage() {
                     return (
                     <div
                       key={segment.label}
-                      className={`p-6 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                          isSelected
-                          ? 'bg-blue-50 border-blue-300 shadow-md'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      className={`p-6 rounded-lg border transition-all ${
+                          isLoadingList
+                          ? 'cursor-not-allowed opacity-60 pointer-events-none'
+                          : isSelected
+                            ? 'cursor-pointer bg-blue-50 border-blue-300 shadow-md hover:shadow-md'
+                            : 'cursor-pointer bg-white border-gray-200 hover:bg-gray-50 hover:shadow-md'
                       }`}
                       onClick={() => {
                           console.log('🖱️ [セグメントクリック]', {
@@ -781,7 +783,7 @@ export default function DormantCustomersPage() {
                             isLoadingList,
                             timestamp: new Date().toISOString()
                           })
-                          
+
                           // ローディング中はクリックを無効化
                           if (isLoadingList) {
                             console.log('⚠️ 現在データを読み込み中です')
@@ -830,7 +832,7 @@ export default function DormantCustomersPage() {
                           名の顧客
                         </div>
                         <div className="mt-3 text-xs text-gray-400">
-                          クリックして詳細表示
+                          {isLoadingList && isSelected ? '読み込み中...' : 'クリックして詳細表示'}
                         </div>
                       </div>
                     </div>

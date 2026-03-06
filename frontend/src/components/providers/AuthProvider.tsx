@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { AppBridgeProvider, useAppBridge } from '@/lib/shopify/app-bridge-provider'
 import { ApiClient } from '@/lib/api-client'
 import { migrateLocalStorageVariables } from '@/lib/localstorage-migration'
+import { toast } from '@/components/ui/use-toast'
 
 /**
  * 認証プロバイダー（App Bridge統合版）
@@ -859,6 +860,21 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     window.addEventListener('auth:error', handler)
     return () => window.removeEventListener('auth:error', handler)
   }, [authMode, isEmbedded]) // 🆕 isEmbedded を依存配列に追加
+
+  // Shopify APIレート制限エラーのUI通知
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ endpoint?: string; retryAfter?: number }>
+      const retryAfter = customEvent.detail?.retryAfter ?? 60
+      toast({
+        variant: 'destructive',
+        title: 'APIリクエスト制限',
+        description: `Shopify APIのレート制限に達しました。約${retryAfter}秒後に自動で回復します。`,
+      })
+    }
+    window.addEventListener('rate-limit-error', handler)
+    return () => window.removeEventListener('rate-limit-error', handler)
+  }, [])
 
   // 🆕 ページ遷移時に currentStoreId を再取得（開発者モード・デモモード対応）
   // 重要: ページ遷移時に localStorage/sessionStorage から currentStoreId を再取得し、

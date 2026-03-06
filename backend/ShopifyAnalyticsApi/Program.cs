@@ -15,8 +15,6 @@ using Serilog.Events;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -384,101 +382,6 @@ builder.Services.AddCors(options =>
     }
 });
 
-// Rate Limiting設定
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests; // 標準的な429ステータスコード
-    
-    // レート制限をスキップするパス（ヘルスチェックなど）
-    var skipRateLimitPaths = new[]
-    {
-        "/health",
-        "/health/ready",
-        "/api/health",
-        "/swagger",
-        "/hangfire"
-    };
-    
-    var environment = builder.Environment.EnvironmentName;
-    var isDevelopment = environment == "Development";
-    
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
-        httpContext => 
-        {
-            // レート制限をスキップするパスをチェック
-            var path = httpContext.Request.Path.Value?.ToLower() ?? "";
-            if (skipRateLimitPaths.Any(skipPath => path.StartsWith(skipPath)))
-            {
-                // レート制限なし（無制限）
-                return RateLimitPartition.GetNoLimiter("no-limit");
-            }
-            
-            // 認証済みユーザー: 複合キー（ユーザーID + ストアドメイン）でパーティション分け（200回/分）
-            if (httpContext.User?.Identity?.IsAuthenticated == true)
-            {
-                // ユーザーIDを取得（NameIdentifierまたはsub）
-                var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                             ?? httpContext.User.FindFirst("sub")?.Value;
-                
-                // ストアドメインを取得（destまたはiss）
-                var storeDomain = httpContext.User.FindFirst("dest")?.Value
-                                 ?? httpContext.User.FindFirst("iss")?.Value;
-                
-                // 複合キーを作成（ユーザーIDとストアドメインの組み合わせ）
-                string partitionKey;
-                if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(storeDomain))
-                {
-                    // ドメインを正規化（https://プレフィックスやパスを除去）
-                    var normalizedDomain = storeDomain;
-                    try
-                    {
-                        var uri = new Uri(storeDomain);
-                        normalizedDomain = uri.Host;
-                    }
-                    catch
-                    {
-                        normalizedDomain = storeDomain.Replace("https://", "").Replace("http://", "").Split('/')[0];
-                    }
-                    
-                    partitionKey = $"user-{userId}-{normalizedDomain}";
-                }
-                else
-                {
-                    // フォールバック: IPアドレスを使用
-                    var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                    partitionKey = $"authenticated-ip-{clientIp}";
-                }
-                
-                return RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: partitionKey,
-                    factory: partition => new FixedWindowRateLimiterOptions
-                    {
-                        AutoReplenishment = true,
-                        PermitLimit = 200, // 認証済みユーザーはより高い制限
-                        Window = TimeSpan.FromMinutes(1)
-                    });
-            }
-            
-            // 匿名ユーザーはIPアドレスでパーティション分け（DoS攻撃対策）
-            var anonymousIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            
-            // 開発環境ではレート制限を無効化（デバッグのため）
-            if (isDevelopment)
-            {
-                return RateLimitPartition.GetNoLimiter($"dev-{anonymousIp}");
-            }
-            
-            // 本番環境: 50回/分
-            return RateLimitPartition.GetFixedWindowLimiter(
-                partitionKey: $"anonymous-{anonymousIp}",
-                factory: partition => new FixedWindowRateLimiterOptions
-                {
-                    AutoReplenishment = true,
-                    PermitLimit = 50,
-                    Window = TimeSpan.FromMinutes(1)
-                });
-        });
-});
 
 var app = builder.Build();
 
@@ -574,9 +477,6 @@ app.UseAuthModeMiddleware();
 
 // 認証を有効化
 app.UseAuthentication();
-
-// Rate Limitingを有効化（認証後に配置してユーザー別にパーティション分け）
-app.UseRateLimiter();
 
 // ストアコンテキストミドルウェア（認証後、承認前）
 app.UseStoreContext();

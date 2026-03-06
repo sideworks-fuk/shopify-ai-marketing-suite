@@ -43,6 +43,32 @@ namespace ShopifyAnalyticsApi.Jobs
         {
             _logger.LogInformation("[WebhookJob] app/uninstalled 処理開始. Shop: {Shop}", shopDomain);
 
+            // ✅ 再インストール後の遅延Webhook検知
+            // SaveOrUpdateStore は再インストール時に旧ストアの Domain=null かつ Settings.OriginalDomain=shopDomain を設定する。
+            // 遅延Webhookが届いた時点で非アクティブな旧ストア（OriginalDomain一致）が存在する場合、
+            // 現在アクティブなストアは再インストール済みの新ストアであるため、処理をスキップする。
+            var inactiveStores = await _context.Stores
+                .Where(s => !s.IsActive && !string.IsNullOrEmpty(s.Settings))
+                .ToListAsync();
+
+            var isDelayedWebhookAfterReinstall = inactiveStores.Any(s =>
+            {
+                try
+                {
+                    var settings = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(s.Settings!);
+                    return settings != null
+                        && settings.TryGetValue("OriginalDomain", out var od)
+                        && od.GetString() == shopDomain;
+                }
+                catch { return false; }
+            });
+
+            if (isDelayedWebhookAfterReinstall)
+            {
+                _logger.LogWarning("[WebhookJob] 再インストール後の遅延Webhookを検知。処理をスキップ. Shop: {Shop}", shopDomain);
+                return;
+            }
+
             // 1. 課金をキャンセル
             await CancelStoreSubscription(shopDomain);
 

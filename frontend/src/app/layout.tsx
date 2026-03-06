@@ -8,6 +8,7 @@ import { FilterProvider } from "@/contexts/FilterContext"
 import { StoreProvider } from "@/contexts/StoreContext"
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext"
 import ConditionalLayout from "@/components/layout/ConditionalLayout"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import "@shopify/polaris/build/esm/styles.css"
 import { AuthGuard } from "@/components/auth/AuthGuard"
@@ -89,6 +90,7 @@ export default function RootLayout({
             </StoreProvider>
           </AuthProvider>
         </Suspense>
+        <Toaster />
       </body>
     </html>
   )

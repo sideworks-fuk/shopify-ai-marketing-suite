@@ -51,7 +51,7 @@ namespace ShopifyAnalyticsApi.Jobs
         /// <summary>
         /// 指定されたストアの注文データを同期する（範囲指定とチェックポイント対応）
         /// </summary>
-        [AutomaticRetry(Attempts = 3)]
+        [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 1800 })]
         public async Task SyncOrders(int storeId, InitialSyncOptions? options = null)
         {
             try

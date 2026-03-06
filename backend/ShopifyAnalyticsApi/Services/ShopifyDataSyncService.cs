@@ -131,7 +131,11 @@ namespace ShopifyAnalyticsApi.Services
                             job => job.SyncProducts(store.Id, null),
                             Hangfire.Cron.Hourly);
 
-                        // 顧客同期ジョブはスキップ（read_customersスコープ削除済み、顧客データは注文同期時に自動生成）
+                        // 顧客同期ジョブ（2時間ごと。read_customersスコープ復元済みのため全顧客を定期同期）
+                        recurringJobManager.AddOrUpdate<ShopifyCustomerSyncJob>(
+                            $"sync-customers-store-{store.Id}",
+                            job => job.SyncCustomers(store.Id, null),
+                            "0 */2 * * *");
 
                         // 注文同期ジョブ（3時間ごと）
                         recurringJobManager.AddOrUpdate<ShopifyOrderSyncJob>(
@@ -196,10 +200,20 @@ namespace ShopifyAnalyticsApi.Services
                     // 実際のジョブクラスを使用して同期を実行
                     _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 実際の同期モードで実行開始");
                     
-                    // 1. 顧客データは注文同期時に自動生成されるため、個別の顧客同期はスキップ
-                    // （read_customersスコープ削除済み。顧客はShopifyOrderSyncJob.ConvertToOrderEntity()で注文データから自動生成）
+                    // 1. 顧客データ同期（read_customersスコープ復元済み。全顧客を取得して初期同期・手動同期で一致させる）
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 顧客データ同期開始");
+                    syncStatus.CurrentTask = "顧客データ取得中";
+                    await _context.SaveChangesAsync();
+
+                    await _customerSyncJob.SyncCustomers(store.Id, syncOptions);
+
                     int customerCount = await _context.Customers.CountAsync(c => c.StoreId == store.Id);
-                    _logger.LogInformation("🟡 [ShopifyDataSyncService] 顧客データは注文同期時に自動生成されます（現在のDB顧客数: {CustomerCount}）", customerCount);
+                    syncStatus.ProcessedRecords = customerCount;
+                    syncStatus.CurrentTask = "顧客データ同期完了";
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("🟡 [ShopifyDataSyncService] ✅ 顧客データ同期完了: Count={CustomerCount}, StoreId={StoreId}",
+                        customerCount, store.Id);
 
                     // 2. 商品データ同期
                     _logger.LogInformation("🟡 [ShopifyDataSyncService] 商品データ同期開始");
