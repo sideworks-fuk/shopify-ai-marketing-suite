@@ -175,18 +175,18 @@ namespace ShopifyAnalyticsApi.Services
                     };
                 }
 
-                // データベースからストア情報を取得
+                // データベースからストア情報を取得（IsActive=trueのみ認証対象）
                 var store = await _dbContext.Stores
-                    .FirstOrDefaultAsync(s => s.Domain == normalizedDomain);
+                    .FirstOrDefaultAsync(s => s.Domain == normalizedDomain && s.IsActive);
 
                 if (store == null)
                 {
-                    _logger.LogWarning("Store not found for domain: {Domain} (normalized from: {Original})", 
+                    _logger.LogWarning("Active store not found for domain: {Domain} (normalized from: {Original}). Store may be uninstalled.",
                         normalizedDomain, shopDomainClaim);
                     return new AuthenticationResult
                     {
                         IsValid = false,
-                        ErrorMessage = "Store not found"
+                        ErrorMessage = "Store not found or uninstalled"
                     };
                 }
 

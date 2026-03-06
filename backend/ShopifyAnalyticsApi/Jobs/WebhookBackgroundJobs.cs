@@ -343,6 +343,7 @@ namespace ShopifyAnalyticsApi.Jobs
                 settings["ScheduledDeletionDate"] = DateTime.UtcNow.AddDays(daysToDelete);
 
                 store.IsActive = false;
+                store.Domain = null; // アンインストール後は Domain をクリアし、認証バイパスを防ぐ
                 store.UpdatedAt = DateTime.UtcNow;
                 store.AccessToken = null;
                 store.Settings = JsonSerializer.Serialize(settings);
